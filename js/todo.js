@@ -61,7 +61,7 @@ let app = new Vue({
         task: [],
       });
     },
-    addNote(item) {
+    addNote(item, gIndex, tIndex) {
       if (!item.note) return;
       const pattern = /^https?:\/\/[\w/:%#\$&\?\(\)~\.=\+\-]+$/;
       const isLink = pattern.test(item.note);
@@ -69,6 +69,12 @@ let app = new Vue({
         isLink: isLink,
         val: item.note,
       });
+      document
+        .getElementById(`collapse-${gIndex}-${tIndex}`)
+        .classList.add("show");
+      document
+        .querySelector(`h2[id=heading-${gIndex}-${tIndex}]>button`)
+        .classList.remove("collapsed");
       delete item.note;
     },
     delTask(item, index) {

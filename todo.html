@@ -49,8 +49,8 @@
         >
           <div
             class="col-3 items py-4 m-2 bg-info"
-            v-for="(item,index) in tasks"
-            :key="'task-' + index"
+            v-for="(gItem,gIndex) in tasks"
+            :key="'task-' + gIndex"
             v-on:mouseenter="addClass($event)"
             v-on:mouseleave="removeClass($event)"
           >
@@ -58,14 +58,14 @@
               <input
                 type="text"
                 class="form-control fw-bold"
-                v-model="item.name"
+                v-model="gItem.name"
                 placeholder="グループ名を入力"
               />
 
               <div class="text-end mt-2">
                 <button
                   class="btn btn-sm btn-outline-danger"
-                  v-on:click="delGroup(index)"
+                  v-on:click="delGroup(gIndex)"
                 >
                   このタスクグループを削除
                 </button>
@@ -75,32 +75,32 @@
               <div class="p-3">
                 <button
                   class="btn w-100 btn-secondary"
-                  v-on:click="addTask(item)"
+                  v-on:click="addTask(gItem)"
                 >
                   タスクの追加
                   <span class="badge rounded-pill bg-danger"
-                    >{{ item.task.length }}件</span
+                    >{{ gItem.task.length }}件</span
                   >
                 </button>
               </div>
               <draggable
                 class="items"
                 ghost-class="ghost"
-                :list="item.task"
+                :list="gItem.task"
                 group="tasks"
                 @end="saveCurrent"
               >
                 <div
                   class="item p-3 bg-white rounded mb-2"
-                  v-for="(item2,index2) in item.task"
-                  :key="'item-' + index2"
+                  v-for="(tItem,tIndex) in gItem.task"
+                  :key="'item-' + tIndex"
                   v-on:mouseenter="addClass($event)"
                   v-on:mouseleave="removeClass($event)"
                 >
                   <textarea
                     class="form-control"
                     style="height: 100px"
-                    v-model="item2.name"
+                    v-model="tItem.name"
                     placeholder="タスクを入力"
                   ></textarea>
                   <div class="row mt-2">
@@ -108,70 +108,70 @@
                       <input
                         type="text"
                         class="form-control"
-                        v-model="item2.note"
+                        v-model="tItem.note"
                         placeholder="メモを入力"
                       />
                     </div>
                     <div class="col-sm-auto" style="padding-left: 0">
                       <button
                         class="btn btn-outline-danger"
-                        v-on:click="addNote(item2)"
+                        v-on:click="addNote(tItem, gIndex, tIndex)"
                       >
                         確定
                       </button>
                     </div>
                   </div>
                   <div
-                    v-if="item2.notes.length > 0"
                     class="accordion mt-2"
-                    v-bind:id="'accordion-' + index + '-' + index2"
+                    v-bind:class="tItem.notes.length > 0 ? 'disp' : 'none'"
+                    v-bind:id="'accordion-' + gIndex + '-' + tIndex"
                   >
                     <div class="accordion-item">
                       <h2
                         class="accordion-header"
-                        v-bind:id="'heading-' + index + '-' + index2"
+                        v-bind:id="'heading-' + gIndex + '-' + tIndex"
                       >
                         <button
                           type="button"
-                          class="accordion-button"
+                          class="accordion-button collapsed"
                           data-bs-toggle="collapse"
-                          v-bind:data-bs-target="'#collapse-' + index + '-' + index2"
+                          v-bind:data-bs-target="'#collapse-' + gIndex + '-' + tIndex"
                           aria-expanded="true"
-                          v-bind:aria-controls="'collapse-' + index + '-' + index2"
+                          v-bind:aria-controls="'collapse-' + gIndex + '-' + tIndex"
                         >
                           メモ
                         </button>
                       </h2>
                       <div
-                        v-bind:id="'collapse-' + index + '-' + index2"
+                        v-bind:id="'collapse-' + gIndex + '-' + tIndex"
                         class="accordion-collapse collapse"
-                        v-bind:aria-labelledby="'heading-' + index + '-' + index2"
-                        v-bind:data-bs-parent="'#accordion-' + index + '-' + index2"
+                        v-bind:aria-labelledby="'heading-' + gIndex + '-' + tIndex"
+                        v-bind:data-bs-parent="'#accordion-' + gIndex + '-' + tIndex"
                       >
                         <div class="accordion-body pt-1 pb-1">
                           <ul
                             class="row mt-1 list-group"
-                            v-for="(item3,index3) in item2.notes"
-                            :key="'note-' + index3"
+                            v-for="(nItem,nIndex) in tItem.notes"
+                            :key="'note-' + nIndex"
                           >
                             <li class="list-group-item">
                               <button
                                 type="button"
                                 class="btn btn-primary rounded-circle p-0 me-1"
                                 style="width: 2rem; height: 2rem"
-                                v-on:click="delNote(item2.notes, index3)"
+                                v-on:click="delNote(tItem.notes, nIndex)"
                               >
                                 −
                               </button>
                               <a
-                                v-if="item3.isLink"
-                                v-bind:href="item3.val"
+                                v-if="nItem.isLink"
+                                v-bind:href="nItem.val"
                                 target="_blank"
                                 style="overflow-wrap: break-word"
-                                >{{item3.val}}</a
+                                >{{nItem.val}}</a
                               >
                               <p v-else style="display: inline-block">
-                                {{item3.val}}
+                                {{nItem.val}}
                               </p>
                             </li>
                           </ul>
@@ -183,13 +183,13 @@
                   <input
                     type="date"
                     class="form-control mt-2 limit-date"
-                    v-model="item2.date"
+                    v-model="tItem.date"
                     v-on:change="changeClassDate($event)"
                   />
                   <div class="text-end mt-2">
                     <button
                       class="btn btn-sm btn-outline-danger"
-                      v-on:click="delTask(item.task,index2)"
+                      v-on:click="delTask(gItem.task,tIndex)"
                     >
                       このタスクを削除
                     </button>
