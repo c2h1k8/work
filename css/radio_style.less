@@ -1,0 +1,51 @@
+.parent-grid {
+  display: grid;
+  group {
+    margin-right: 10px;
+    &:last-child {
+      margin-right: 0px;
+    }
+  }
+}
+// group + group {
+//   margin-top: 20px;
+// }
+.inline-radio {
+  display: flex;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid #b6b6b6;
+  margin-bottom: 10px;
+  div {
+    position: relative;
+    flex: 1;
+  }
+  input {
+    width: 100%;
+    height: 30px;
+    opacity: 0;
+  }
+  label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: #b6b6b6;
+    width: 100%;
+    height: 100%;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    border-right: 1px solid #b6b6b6;
+    box-sizing: border-box;
+  }
+  div:last-child label {
+    border-right: 0;
+  }
+  input:checked + label {
+    background: #d81b60;
+    font-weight: 500;
+    color: white;
+  }
+}

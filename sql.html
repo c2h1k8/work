@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SQL</title>
+    <link rel="stylesheet" href="./css/common.css" />
+    <link rel="stylesheet" href="./css/radio_style.css" />
+    <link rel="stylesheet" href="./css/sql.css" />
+    <script defer src="./js/common.js"></script>
+    <script defer src="./js/sql.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="=box">
+        <h3>チューニング対象</h3>
+        <ul>
+          <li>TABLE ACCESS FULL　（テーブル全検索）</li>
+          <li>Index FULL SCAN　（インデックス全検索）</li>
+          <li>MERGE JOIN CARTESIAN　（直積結合）</li>
+          <li>PARTITION RANGE ALL　（パーティション全検索）</li>
+        </ul>
+      </div>
+      <div class="=box">
+        <h3>SQL*Plus起動</h3>
+        <group id="env" class="inline-radio"></group>
+        <a
+          id="conn"
+          href="javascript: void(0);"
+          data-copy="sqlplus username/password@connect_identifier"
+          class="button copy"
+          >接続</a
+        >
+      </div>
+      <div class="box">
+        <h3>設定</h3>
+        <a
+          href="javascript: void(0);"
+          data-copy="SET LINES 200&#13;&#10;COL plan_plus_exp FORMAT a200&#13;&#10;SET FEED ON&#13;&#10;SET TIMI ON&#13;&#10;SET PAGE 0&#13;&#10;SET AUTOTRACE XX"
+          data-params='{"XX": "TRACEONLY"}'
+          class="button copy"
+          >実行計画</a
+        >
+        <a
+          href="javascript: void(0);"
+          data-copy="SET LINES 200&#13;&#10;COL plan_plus_exp FORMAT a200&#13;&#10;SET FEED ON&#13;&#10;SET TIMI ON&#13;&#10;SET PAGE 0&#13;&#10;SET AUTOTRACE XX"
+          data-params='{"XX": "OFF"}'
+          class="button copy"
+          >実行結果</a
+        >
+      </div>
+      <div class="box">
+        <h3>パラメータ</h3>
+        <a href="javascript: void(0);" id="param-copy" class="button copy"
+          >コピー</a
+        >
+        <div id="param-wrapper"></div>
+      </div>
+    </div>
+  </body>
+</html>
