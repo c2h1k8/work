@@ -47,29 +47,41 @@ let app = new Vue({
       const tasks = JSON.stringify(vm.tasks);
       localStorage.setItem("tasks", tasks);
     },
-    addTask(item, index) {
+    addTask(item) {
       const vm = this;
       item.task.push({
         name: "",
+        notes: [],
       });
-      vm.tasks[index].cnt = item.task.length;
     },
     addGroup() {
       const vm = this;
       vm.tasks.push({
         name: "",
-        cnt: 0,
         task: [],
       });
     },
-    delTask(item, index, cIndex) {
+    addNote(item) {
+      if (!item.note) return;
+      const pattern = /^https?:\/\/[\w/:%#\$&\?\(\)~\.=\+\-]+$/;
+      const isLink = pattern.test(item.note);
+      item.notes.unshift({
+        isLink: isLink,
+        val: item.note,
+      });
+      delete item.note;
+    },
+    delTask(item, index) {
       const vm = this;
-      item.splice(cIndex, 1);
-      vm.tasks[index].cnt = item.length;
+      item.splice(index, 1);
     },
     delGroup(index) {
       const vm = this;
       vm.tasks.splice(index, 1);
+    },
+    delNote(item, index) {
+      const vm = this;
+      item.splice(index, 1);
     },
   },
 });

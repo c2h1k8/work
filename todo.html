@@ -22,6 +22,12 @@
       src="https://cdnjs.cloudflare.com/ajax/libs/Vue.Draggable/2.20.0/vuedraggable.umd.min.js"
     ></script>
     <script defer src="./js/todo.js"></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+      crossorigin="anonymous"
+    ></script>
   </head>
   <body>
     <div id="app">
@@ -69,11 +75,11 @@
               <div class="p-3">
                 <button
                   class="btn w-100 btn-secondary"
-                  v-on:click="addTask(item, index)"
+                  v-on:click="addTask(item)"
                 >
                   タスクの追加
                   <span class="badge rounded-pill bg-danger"
-                    >{{ item.cnt }}件</span
+                    >{{ item.task.length }}件</span
                   >
                 </button>
               </div>
@@ -97,6 +103,83 @@
                     v-model="item2.name"
                     placeholder="タスクを入力"
                   ></textarea>
+                  <div class="row mt-2">
+                    <div class="col">
+                      <input
+                        type="text"
+                        class="form-control"
+                        v-model="item2.note"
+                        placeholder="メモを入力"
+                      />
+                    </div>
+                    <div class="col-sm-auto" style="padding-left: 0">
+                      <button
+                        class="btn btn-outline-danger"
+                        v-on:click="addNote(item2)"
+                      >
+                        確定
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    v-if="item2.notes.length > 0"
+                    class="accordion mt-2"
+                    v-bind:id="'accordion-' + index + '-' + index2"
+                  >
+                    <div class="accordion-item">
+                      <h2
+                        class="accordion-header"
+                        v-bind:id="'heading-' + index + '-' + index2"
+                      >
+                        <button
+                          type="button"
+                          class="accordion-button"
+                          data-bs-toggle="collapse"
+                          v-bind:data-bs-target="'#collapse-' + index + '-' + index2"
+                          aria-expanded="true"
+                          v-bind:aria-controls="'collapse-' + index + '-' + index2"
+                        >
+                          メモ
+                        </button>
+                      </h2>
+                      <div
+                        v-bind:id="'collapse-' + index + '-' + index2"
+                        class="accordion-collapse collapse"
+                        v-bind:aria-labelledby="'heading-' + index + '-' + index2"
+                        v-bind:data-bs-parent="'#accordion-' + index + '-' + index2"
+                      >
+                        <div class="accordion-body pt-1 pb-1">
+                          <ul
+                            class="row mt-1 list-group"
+                            v-for="(item3,index3) in item2.notes"
+                            :key="'note-' + index3"
+                          >
+                            <li class="list-group-item">
+                              <button
+                                type="button"
+                                class="btn btn-primary rounded-circle p-0 me-1"
+                                style="width: 2rem; height: 2rem"
+                                v-on:click="delNote(item2.notes, index3)"
+                              >
+                                −
+                              </button>
+                              <a
+                                v-if="item3.isLink"
+                                v-bind:href="item3.val"
+                                target="_blank"
+                                style="overflow-wrap: break-word"
+                                >{{item3.val}}</a
+                              >
+                              <p v-else style="display: inline-block">
+                                {{item3.val}}
+                              </p>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <input
                     type="date"
                     class="form-control mt-2 limit-date"
@@ -106,7 +189,7 @@
                   <div class="text-end mt-2">
                     <button
                       class="btn btn-sm btn-outline-danger"
-                      v-on:click="delTask(item.task,index,index2)"
+                      v-on:click="delTask(item.task,index2)"
                     >
                       このタスクを削除
                     </button>
