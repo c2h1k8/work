@@ -63,11 +63,23 @@ let app = new Vue({
     },
     addNote(item, gIndex, tIndex) {
       if (!item.note) return;
-      const pattern = /^https?:\/\/[\w/:%#\$&\?\(\)~\.=\+\-]+$/;
-      const isLink = pattern.test(item.note);
+      const ptnUrl =
+        /^(.*?)[（\[]?(https?:\/\/[\w/:%#\$&\?\(\)~\.=\+\-]+)[）\]]?$/;
+      let val = item.note;
+      let url = "";
+      const isLink = ptnUrl.test(val);
+      if (isLink) {
+        const m = ptnUrl.exec(val);
+        val = m[1];
+        url = m[2];
+        if (!val) {
+          val = url;
+        }
+      }
       item.notes.unshift({
         isLink: isLink,
-        val: item.note,
+        val: val,
+        url: url,
       });
       document
         .getElementById(`collapse-${gIndex}-${tIndex}`)
