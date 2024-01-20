@@ -5,26 +5,11 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Index</title>
-    <link rel="stylesheet" href="./css/tab_style.css" />
+    <link rel="stylesheet" href="./css/base/tab_style.css" />
+    <script defer src="./js/base/local_storage.js"></script>
     <script defer src="./js/index.js"></script>
   </head>
   <body>
-    <div class="tab-wrap">
-      <input
-        id="TAB-TODO"
-        type="radio"
-        name="TAB"
-        class="tab-switch"
-        checked="true"
-      />
-      <label class="tab-label" for="TAB-TODO">TODO</label>
-      <iframe class="tab-content" src="todo.html"></iframe>
-      <input id="TAB-HOME" type="radio" name="TAB" class="tab-switch" />
-      <label class="tab-label" for="TAB-HOME">HOME</label>
-      <iframe class="tab-content" src="home.html"></iframe
-      ><input id="TAB-SQL" type="radio" name="TAB" class="tab-switch" />
-      <label class="tab-label" for="TAB-SQL">SQL</label>
-      <iframe class="tab-content" src="sql.html"></iframe>
-    </div>
+    <div class="tab-wrap"></div>
   </body>
 </html>

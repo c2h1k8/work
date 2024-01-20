@@ -31,3 +31,34 @@ const getString = (origin, params) => {
   });
   return origin;
 };
+
+const createSelect = (storageKey, parentId, inputId) => {
+  const parentDiv = document.getElementById(parentId);
+  // 子要素削除
+  while (parentDiv.firstChild) {
+    parentDiv.removeChild(parentDiv.firstChild);
+  }
+  const storages = getStorages(storageKey);
+  if (!storages) {
+    return;
+  }
+  const div = document.createElement("div");
+  div.classList.add("select");
+  const select = document.createElement("select");
+  select.name = "item";
+  select.addEventListener("change", (e) => {
+    const val = e.target.value;
+    if (!val) return;
+    document.getElementById(inputId).value = val;
+  });
+  // 空要素追加
+  select.appendChild(document.createElement("option"));
+  storages.forEach((elem) => {
+    const option = document.createElement("option");
+    option.value = elem;
+    option.textContent = elem;
+    select.appendChild(option);
+  });
+  div.appendChild(select);
+  parentDiv.appendChild(div);
+};

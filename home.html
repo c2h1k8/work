@@ -5,8 +5,11 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HOME</title>
-    <link rel="stylesheet" href="./css/common.css" />
-    <script defer src="./js/common.js"></script>
+    <link rel="stylesheet" href="./css/base/common.css" />
+    <link rel="stylesheet" href="./css/base/select_style.css" />
+    <script defer src="./js/base/common.js"></script>
+    <script defer src="./js/base/local_storage.js"></script>
+    <script defer src="./js/home.js"></script>
   </head>
   <body>
     <div class="container">
@@ -22,17 +25,26 @@
           >パスワード</a
         >
       </div>
-    </div>
-    <div class="box">
-      <h3>スプレッドシート</h3>
-      <a
+      <div class="box">
+        <h3>スプレッドシート</h3>
+        <a
         href="javascript:void(0);"
         data-copy="xxx@gmail.com"
         class="button open-spreadsheets"
         >XXXX</a
       >
-
+      </div>
+      <div class="box">
+        <input id="url" type="text" class="text" />
+        <a
+          id="open-chrome"
+          href="javascript:void(0);"
+          data-copy='open -n -a "Google Chrome" --args -incognito URL'
+          class="button copy"
+          >開く</a
+        >
+        <div id="url-wrap"></div>
+      </div>
     </div>
-  </div>
   </body>
 </html>
