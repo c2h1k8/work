@@ -32,8 +32,8 @@
   <body>
     <div id="app">
       <div class="container-fluid">
-        <div class="row my-4"></div>
-        <div class="row mb-4">
+        <div class="row my-2"></div>
+        <div class="row mb-2">
           <div class="col-auto">
             <button class="btn btn-primary" v-on:click="addGroup">
               タスクグループの追加
@@ -55,15 +55,26 @@
             v-on:mouseenter="addClass($event)"
             v-on:mouseleave="removeClass($event)"
           >
-            <div class="mb-3">
+            <div class="mb-2">
               <input
                 type="text"
                 class="form-control fw-bold"
                 v-model="gItem.name"
                 placeholder="グループ名を入力"
               />
-
-              <div class="text-end mt-2">
+              <div class="mt-2 d-flex justify-content-between">
+                <div class="form-check form-switch mt-1">
+                  <input
+                    :id="'use-limit-' + gIndex"
+                    class="form-check-input"
+                    type="checkbox"
+                    role="switch"
+                    v-model="gItem.useLimit"
+                  />
+                  <label class="form-check-label" :for="'use-limit-' + gIndex"
+                    >期限有効</label
+                  >
+                </div>
                 <button
                   class="btn btn-sm btn-outline-danger"
                   v-on:click="delGroup(gIndex)"
@@ -124,30 +135,30 @@
                   </div>
                   <div
                     class="accordion mt-2"
-                    v-bind:class="tItem.notes.length > 0 ? 'disp' : 'none'"
-                    v-bind:id="'accordion-' + gIndex + '-' + tIndex"
+                    :class="tItem.notes.length > 0 ? 'disp' : 'none'"
+                    :id="'accordion-' + gIndex + '-' + tIndex"
                   >
                     <div class="accordion-item">
                       <h2
                         class="accordion-header"
-                        v-bind:id="'heading-' + gIndex + '-' + tIndex"
+                        :id="'heading-' + gIndex + '-' + tIndex"
                       >
                         <button
                           type="button"
                           class="accordion-button collapsed"
                           data-bs-toggle="collapse"
-                          v-bind:data-bs-target="'#collapse-' + gIndex + '-' + tIndex"
+                          :data-bs-target="'#collapse-' + gIndex + '-' + tIndex"
                           aria-expanded="true"
-                          v-bind:aria-controls="'collapse-' + gIndex + '-' + tIndex"
+                          :aria-controls="'collapse-' + gIndex + '-' + tIndex"
                         >
                           メモ
                         </button>
                       </h2>
                       <div
-                        v-bind:id="'collapse-' + gIndex + '-' + tIndex"
+                        :id="'collapse-' + gIndex + '-' + tIndex"
                         class="accordion-collapse collapse"
-                        v-bind:aria-labelledby="'heading-' + gIndex + '-' + tIndex"
-                        v-bind:data-bs-parent="'#accordion-' + gIndex + '-' + tIndex"
+                        :aria-labelledby="'heading-' + gIndex + '-' + tIndex"
+                        :data-bs-parent="'#accordion-' + gIndex + '-' + tIndex"
                       >
                         <div class="accordion-body pt-1 pb-1">
                           <ul
@@ -166,7 +177,7 @@
                               </button>
                               <a
                                 v-if="nItem.isLink"
-                                v-bind:href="nItem.url"
+                                :href="nItem.url"
                                 target="_blank"
                                 style="overflow-wrap: break-word"
                                 >{{nItem.val}}</a
@@ -182,10 +193,11 @@
                   </div>
 
                   <input
+                    :id="'limit-date-' + gIndex + '-' + tIndex"
                     type="date"
-                    class="form-control mt-2 limit-date"
+                    class="form-control mt-2"
                     v-model="tItem.date"
-                    v-on:change="changeClassDate($event)"
+                    :disabled="!gItem.useLimit"
                   />
                   <div class="text-end mt-2">
                     <button

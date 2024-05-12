@@ -23,6 +23,7 @@ let app = new Vue({
       saveTasks = [
         {
           name: "",
+          useLimit: true,
           task: [],
         },
       ];
@@ -30,6 +31,9 @@ let app = new Vue({
     vm.$set(vm, "tasks", saveTasks);
   },
   methods: {
+    window: (onload = () => {
+      setClassLimitDateForAll();
+    }),
     addClass($event) {
       $event.target.classList.remove("bg-info");
       $event.target.classList.add("hover");
@@ -38,19 +42,17 @@ let app = new Vue({
       $event.target.classList.remove("hover");
       $event.target.classList.add("bg-info");
     },
-    changeClassDate($event) {
-      setClassLimitDate($event.srcElement);
-    },
     saveCurrent() {
       const vm = this;
       console.log(vm.tasks);
-      const tasks = JSON.stringify(vm.tasks);
-      localStorage.setItem("tasks", tasks);
+      localStorage.setItem("tasks", JSON.stringify(vm.tasks));
+      setClassLimitDateForAll();
     },
     addTask(item) {
       const vm = this;
       item.task.push({
         name: "",
+        useLimit: true,
         notes: [],
       });
     },
@@ -58,6 +60,7 @@ let app = new Vue({
       const vm = this;
       vm.tasks.push({
         name: "",
+        useLimit: true,
         task: [],
       });
     },
@@ -104,26 +107,35 @@ let app = new Vue({
   },
 });
 
-window.addEventListener("load", () => {
-  const inputDateArray = document.getElementsByClassName("limit-date");
-  Array.prototype.forEach.call(inputDateArray, (element) => {
-    setClassLimitDate(element);
-  });
-});
+const setClassLimitDateForAll = () => {
+  const checkLimitArray = document.querySelectorAll('[id^="use-limit-"]');
+  for (const checkLimit of checkLimitArray) {
+    const gIndex = checkLimit.id.match(/\d+$/)[0];
+    const inputDateArray = document.querySelectorAll(
+      `[id^="limit-date-${gIndex}-"]`
+    );
+    for (const inputDate of inputDateArray) {
+      setClassLimitDate(inputDate, checkLimit.checked);
+    }
+  }
+};
 
-const setClassLimitDate = (element) => {
-  const today = new Date();
-  const targetDate = new Date(element.value);
+const setClassLimitDate = (element, useLimit) => {
   element.classList.remove("bg-danger");
   element.classList.remove("fw-bold");
   element.classList.remove("text-danger");
   element.classList.remove("text-white");
   element.classList.remove("text-primary");
-  if (!targetDate) {
+  element.classList.remove("text-disabled");
+  const targetDate = new Date(element.value);
+  if (Number.isNaN(targetDate.getTime())) {
+    element.classList.add(useLimit ? "text-white" : "text-disabled");
+    element.blur();
     return;
   }
+  if (!useLimit) return;
   const diffDay = Math.floor(
-    (targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24) + 1
+    (targetDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24) + 1
   );
   if (diffDay === 0) {
     element.classList.add("text-danger");
@@ -135,4 +147,5 @@ const setClassLimitDate = (element) => {
   } else if (diffDay <= 7) {
     element.classList.add("text-primary");
   }
+  element.blur();
 };
