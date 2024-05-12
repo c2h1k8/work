@@ -31,9 +31,6 @@ let app = new Vue({
     vm.$set(vm, "tasks", saveTasks);
   },
   methods: {
-    window: (onload = () => {
-      setClassLimitDateForAll();
-    }),
     addClass($event) {
       $event.target.classList.remove("bg-info");
       $event.target.classList.add("hover");
@@ -46,7 +43,9 @@ let app = new Vue({
       const vm = this;
       console.log(vm.tasks);
       localStorage.setItem("tasks", JSON.stringify(vm.tasks));
-      setClassLimitDateForAll();
+      vm.$nextTick(() => {
+        setClassLimitDateForAll();
+      });
     },
     addTask(item) {
       const vm = this;
