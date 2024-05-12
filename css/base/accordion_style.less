@@ -1,5 +1,11 @@
-.accordion {
+.accordion-full {
+  padding: 20px;
+}
+.accordion-500 {
   max-width: 500px;
+}
+.accordion-full,
+.accordion-500 {
   margin-bottom: 7px;
   background-color: #fff;
   border-radius: 25px;
@@ -32,25 +38,31 @@
     &::after {
       transition: rotate 0.3s;
     }
-    &[open] {
-      p,
-      ul {
-        transform: none;
-        opacity: 1;
-      }
-      summary {
-        &::after {
-          rotate: 90deg;
-        }
+  }
+  &[open] {
+    p,
+    ul {
+      transform: none;
+      opacity: 1;
+    }
+    summary {
+      &::after {
+        rotate: 90deg;
       }
     }
-    p {
-      transform: translateY(-10px);
-      opacity: 0;
-      margin: 0;
-      padding: 0.3em 2em 1.5em;
-      color: #333;
-      transition: transform 0.5s, opacity 0.5s;
+  }
+  ul.none {
+    padding-left: 0px;
+    & > li {
+      list-style: none;
     }
+  }
+  p {
+    transform: translateY(-10px);
+    opacity: 0;
+    margin: 0;
+    padding: 0.3em 2em 1.5em;
+    color: #333;
+    transition: transform 0.5s, opacity 0.5s;
   }
 }

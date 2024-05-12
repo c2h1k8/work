@@ -1,5 +1,12 @@
 .box {
   margin: 10px;
+
+  .horizontal {
+    display: flex;
+    > :nth-child(n + 2) {
+      margin-left: 20px;
+    }
+  }
 }
 
 .button {
@@ -33,4 +40,50 @@
   width: 160px;
   height: 25px;
   margin: 2px;
+}
+.before-blank {
+  margin-top: 20px;
+}
+
+.tooltip {
+  /* 補足説明するテキストのスタイル */
+  position: absolute;
+  cursor: pointer;
+  &:hover > span {
+    /* マウスオーバー時のスタイル */
+    top: 100%; /* Y軸の位置 */
+    visibility: visible; /* ツールチップを表示 */
+    opacity: 1; /* 不透明度100% */
+  }
+  & > span {
+    /* ツールチップのスタイル */
+    width: 150px; /* 横幅 */
+    position: absolute;
+    top: 80%; /** Y軸の位置 */
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 15px; /** テキストとの距離 */
+    padding: 8px;
+    border-radius: 10px; /** 角の丸み */
+    background-color: #666; /** ツールチップの背景色 */
+    font-size: 0.9em;
+    color: #fff;
+    text-align: center;
+    visibility: hidden; /** ツールチップ非表示 */
+    opacity: 0; /** 不透明度0% */
+    z-index: calc(infinity);
+    transition: 0.5s all; /** マウスオーバー時のアニメーション速度 */
+    &::before {
+      /** 吹き出しの「しっぽ」のスタイル */
+      content: "";
+      width: 0;
+      height: 0;
+      border: 10px solid transparent;
+      border-bottom: 12px solid #666; /** 最後の値は「ツールチップの背景色」と合わせる */
+      position: absolute;
+      bottom: 99%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+  }
 }

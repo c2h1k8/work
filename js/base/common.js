@@ -16,8 +16,11 @@ const openSpreadSheetButtonArray =
   document.getElementsByClassName("open-spreadsheets");
 Array.prototype.forEach.call(openSpreadSheetButtonArray, (element) => {
   element.addEventListener("click", () => {
+    const id = getString(element.dataset.id, element.dataset.params);
     window.open(
-      `https://docs.google.com/spreadsheets/d/${element.dataset.id}`,
+      `https://docs.google.com/spreadsheets/d/${id}#${
+        element.dataset.gid ? element.dataset.gid : ""
+      }`,
       "_blank"
     );
   });
@@ -61,4 +64,12 @@ const createSelect = (storageKey, parentId, inputId) => {
   });
   div.appendChild(select);
   parentDiv.appendChild(div);
+};
+
+const validIpAddress = (ipAddress) => {
+  return ipAddress.match(/^\d{1,3}(\.\d{1,3}){3}$/);
+};
+
+const jsonDeepCopy = (json) => {
+  return JSON.parse(JSON.stringify(json));
 };
