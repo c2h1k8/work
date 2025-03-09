@@ -1,57 +1,80 @@
-const TAB_CONTENTS = [
+// タブの内容設定
+const TAB_ITEMS = [
   {
-    name: "TODO",
-    src: "todo.html",
-    checked: true,
+    label: "TODO",
+    pageSrc: "todo.html",
+    isSelected: true,
   },
   {
-    name: "HOME",
-    src: "home.html",
-    checked: false,
+    label: "HOME",
+    pageSrc: "home.html",
+    isSelected: false,
   },
   {
-    name: "SQL",
-    src: "sql.html",
-    checked: false,
+    label: "SQL",
+    pageSrc: "sql.html",
+    isSelected: false,
   },
 ];
+
+// ストレージキー: 現在選択されているタブのID
 const STORAGE_KEY_ACTIVE_TAB_ID = "ACTIVE_TAB_ID";
+
+// ページが読み込まれた時に実行
 document.addEventListener("DOMContentLoaded", () => {
-  // タブ要素生成
-  const parentContainer = document.getElementsByClassName("tab-wrap")[0];
-  TAB_CONTENTS.forEach((x) => {
-    createTabContent(parentContainer, x);
+  // タブのコンテンツを生成
+  const tabContainer = document.querySelector(".tab-wrap");
+  TAB_ITEMS.forEach((tabItem) => {
+    createTabContent(tabContainer, tabItem);
   });
+
   // 初期表示タブ設定
-  const currentTab = document.getElementById(
-    getStorage(STORAGE_KEY_ACTIVE_TAB_ID)
+  const activeTabId = loadFromStorage(STORAGE_KEY_ACTIVE_TAB_ID);
+  const activeTab = document.getElementById(activeTabId);
+  if (activeTab) {
+    activeTab.checked = true;
+  }
+
+  // タブ切り替えイベントの設定
+  const tabRadios = document.querySelectorAll(
+    "input[type='radio'][name='TAB']"
   );
-  if (currentTab) {
-    currentTab.checked = true;
-  }
-  // タブ切り替え時イベント登録
-  const radioes = document.querySelectorAll("input[type='radio'][name='TAB']");
-  for (const radio of radioes) {
-    radio.addEventListener("change", (e) => {
-      saveStorage(STORAGE_KEY_ACTIVE_TAB_ID, e.target.id);
+  tabRadios.forEach((radio) => {
+    radio.addEventListener("change", (event) => {
+      saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, event.target.id);
     });
-  }
+  });
 });
-const createTabContent = (parentContainer, tabContent) => {
-  const input = document.createElement("input");
-  input.id = `TAB-${tabContent.name}`;
-  input.type = "radio";
-  input.name = "TAB";
-  input.checked = tabContent.checked;
-  input.classList.add("tab-switch");
-  const label = document.createElement("label");
-  label.htmlFor = `TAB-${tabContent.name}`;
-  label.classList.add("tab-label");
-  label.textContent = tabContent.name;
-  const iframe = document.createElement("iframe");
-  iframe.src = tabContent.src;
-  iframe.classList.add("tab-content");
-  parentContainer.appendChild(input);
-  parentContainer.appendChild(label);
-  parentContainer.appendChild(iframe);
+
+/**
+ * タブの内容を生成して指定された親コンテナに追加します。
+ *
+ * @param {HTMLElement} parentContainer - タブを追加する親要素
+ * @param {Object} tabData - タブのデータ
+ * @param {string} tabData.label - タブのラベル
+ * @param {string} tabData.pageSrc - タブに対応するページのURL
+ * @param {boolean} tabData.isSelected - 初期状態でタブが選択されているかどうか
+ */
+const createTabContent = (parentContainer, { label, pageSrc, isSelected }) => {
+  // タブのラジオボタン
+  const tabInput = document.createElement("input");
+  tabInput.id = `TAB-${label}`;
+  tabInput.type = "radio";
+  tabInput.name = "TAB";
+  tabInput.checked = isSelected;
+  tabInput.classList.add("tab-switch");
+
+  // タブのラベル
+  const tabLabel = document.createElement("label");
+  tabLabel.htmlFor = `TAB-${label}`;
+  tabLabel.classList.add("tab-label");
+  tabLabel.textContent = label;
+
+  // タブのコンテンツ (iframe)
+  const tabIframe = document.createElement("iframe");
+  tabIframe.src = pageSrc;
+  tabIframe.classList.add("tab-content");
+
+  // タブの要素を親コンテナに追加
+  parentContainer.append(tabInput, tabLabel, tabIframe);
 };
