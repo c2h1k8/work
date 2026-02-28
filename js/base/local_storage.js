@@ -32,7 +32,7 @@ const saveToStorageWithLimit = (key, value, maxSize, validateFn = null) => {
   } else if (storageValues.length >= maxSize) {
     storageValues.pop(); // 最大サイズを超えている場合は最古のデータを削除
   }
-  storageValues.unshift(val); // 新しいデータを先頭に追加
+  storageValues.unshift(value); // 新しいデータを先頭に追加
   localStorage.setItem(key, JSON.stringify(storageValues)); // 更新したデータをlocalStorageに保存
 };
 

@@ -17,10 +17,21 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ### JavaScript
 
-- Vanilla JS（インデックス・ホーム・SQL）と Vue.js 2（TODO）を使い分ける
-- `js/base/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を localStorage 操作に使う
+- **全ページ Vanilla JS**（Vue.js 2 は削除済み）
+- `todo.html` は IndexedDB（`KanbanDB` クラス）でデータ永続化。`localStorage` は使わない
+- その他ページの localStorage 操作は `js/base/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
 - `js/base/common.js` の共通ユーティリティを活用する
 - コメントは日本語で記載する
+- `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Migration` / `Backup` / `DatePicker` / `Renderer` / `DragDrop` / `EventHandlers` / `Toast` / `App` の単一ファイル構成
+- `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()`
+- `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
+- `State.columns: []` は `{ id, key, name, position }` の配列。`getColumnKeys()` で key 一覧を取得
+- `State.sort: { field, dir }` でソート状態を保持。localStorage `kanban_sort` に永続化
+- `State.taskLabels: Map<taskId, Set<labelId>>` はフィルター用キャッシュ。`renderBoard()` でリビルド、ラベル追加／削除時にインクリメンタル更新
+- `State.filter: { text, labelIds }` でフィルター状態を保持。`applyFilter()` でカードの表示／非表示を制御
+- IndexedDB は version 2（`columns` ストアを v2 で追加。`key` / `position` インデックス付き）
+- 期限日フィールドはカスタムカレンダー（`DatePicker` モジュール）で選択。`#modal-due` は hidden input
+- カラムは動的追加・削除可能。削除時にタスクが残っていればブロック
 
 ### CSS / LESS
 
@@ -31,7 +42,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 ### HTML
 
 - `lang="ja"` を指定する
-- 外部ライブラリは CDN で読み込む（todo.html のみ Bootstrap / Vue / Draggable を使用）
+- 外部ライブラリは CDN で読み込む（todo.html のみ SortableJS を使用。Bootstrap・Vue は削除済み）
 - `defer` 属性を script タグに付ける
 
 ## ファイル配置ルール
@@ -54,6 +65,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ## 注意事項
 
-- localStorage を使用するため、ローカルファイルアクセスでは制限が生じる場合がある
+- `todo.html` は IndexedDB を使用するため `file://` でも動作する（localStorage 依存なし）
+- その他ページは localStorage を使用するため、ローカルファイルアクセスでは制限が生じる場合がある
 - LESS ファイルを編集した場合は必ず対応する CSS にコンパイルして反映する
 - `home.html` にはアカウント情報やスプレッドシートIDが含まれる。Git にコミットする際は注意する

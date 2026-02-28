@@ -5,214 +5,226 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TODO</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
-      crossorigin="anonymous"
-    />
     <link rel="stylesheet" href="./css/todo.css" />
-    <script defer src="https://unpkg.com/vue@2.6.12"></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/sortablejs@1.8.4/Sortable.min.js"
-    ></script>
-    <script
-      defer
-      src="https://cdnjs.cloudflare.com/ajax/libs/Vue.Draggable/2.20.0/vuedraggable.umd.min.js"
-    ></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script defer src="./js/todo.js"></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-      integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-      crossorigin="anonymous"
-    ></script>
   </head>
   <body>
-    <div id="app">
-      <div class="container-fluid">
-        <div class="row my-2"></div>
-        <div class="row mb-2">
-          <div class="col-auto">
-            <button class="btn btn-primary" v-on:click="addGroup">
-              タスクグループの追加
+    <!-- マイグレーションバナー（旧データ検出時のみ表示） -->
+    <div id="migration-banner" hidden>
+      <div class="migration-banner__inner">
+        <span class="migration-banner__icon">ℹ️</span>
+        <span class="migration-banner__text">
+          旧形式のデータ（localStorage）が検出されました。IndexedDB へ移行します。
+          <small>※ file:// では SQLite を直接扱えないため、ブラウザ内蔵の IndexedDB を使用しています。</small>
+        </span>
+        <button class="migration-banner__btn" data-action="run-migration">今すぐ移行</button>
+        <button class="migration-banner__btn migration-banner__btn--dismiss" data-action="dismiss-migration">後で</button>
+      </div>
+    </div>
+
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="app-header__inner">
+        <h1 class="app-header__title">
+          <svg class="app-header__icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25Z"/>
+            <path d="M7 3.75a.75.75 0 0 1 .75-.75h4a.75.75 0 0 1 0 1.5h-4A.75.75 0 0 1 7 3.75Zm0 4a.75.75 0 0 1 .75-.75h4a.75.75 0 0 1 0 1.5h-4A.75.75 0 0 1 7 7.75Zm0 4a.75.75 0 0 1 .75-.75h4a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1-.75-.75Zm-4-8a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 3 3.75Zm0 4a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 3 7.75Zm0 4a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 3 11.75Z"/>
+          </svg>
+          Kanban Board
+        </h1>
+        <div class="app-header__filter">
+          <input type="text" id="filter-text" class="filter-text" placeholder="タスクを検索...">
+          <div id="filter-label-bar" class="filter-label-bar"></div>
+          <button id="filter-clear" class="btn btn--sm btn--secondary" hidden>クリア</button>
+        </div>
+        <div class="app-header__sort">
+          <select id="sort-select" class="sort-select">
+            <option value="">並び順: 手動</option>
+            <option value="due_date:asc">期限日 ↑</option>
+            <option value="due_date:desc">期限日 ↓</option>
+            <option value="title:asc">タイトル ↑</option>
+            <option value="created_at:asc">作成日 ↑</option>
+            <option value="created_at:desc">作成日 ↓</option>
+          </select>
+        </div>
+        <div class="app-header__actions">
+          <button class="btn btn--secondary btn--sm" data-action="export-backup">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>
+            エクスポート
+          </button>
+          <button class="btn btn--secondary btn--sm" data-action="import-backup">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M11.78 4.22a.749.749 0 1 1-1.06 1.06L8.75 3.311V9a.75.75 0 0 1-1.5 0V3.311L5.28 5.28a.749.749 0 1 1-1.06-1.06l3.25-3.25a.749.749 0 0 1 1.06 0l3.25 3.25Z"/></svg>
+            インポート
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- カンバンボード（カラムは JS で動的生成） -->
+    <main id="board" class="board"></main>
+
+    <!-- カードテンプレート（XSS対策：textContentで挿入） -->
+    <template id="tpl-card">
+      <article class="card" draggable="false">
+        <div class="card__labels"></div>
+        <p class="card__title"></p>
+        <div class="card__footer">
+          <span class="card__due"></span>
+          <div class="card__actions">
+            <button class="card__btn card__btn--delete" data-action="delete-task" aria-label="削除">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>
             </button>
           </div>
         </div>
+      </article>
+    </template>
 
-        <draggable
-          class="row flex-nowrap w-100"
-          ghost-class="ghost"
-          style="overflow: auto"
-          :list="tasks"
-          @end="saveCurrent"
-        >
-          <div
-            class="col-3 items py-4 m-2 bg-info"
-            v-for="(gItem,gIndex) in tasks"
-            :key="'task-' + gIndex"
-            v-on:mouseenter="addClass($event)"
-            v-on:mouseleave="removeClass($event)"
-          >
-            <div class="mb-2">
-              <input
-                type="text"
-                class="form-control fw-bold"
-                v-model="gItem.name"
-                placeholder="グループ名を入力"
-              />
-              <div class="mt-2 d-flex justify-content-between">
-                <div class="form-check form-switch mt-1">
-                  <input
-                    :id="'use-limit-' + gIndex"
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    v-model="gItem.useLimit"
-                  />
-                  <label class="form-check-label" :for="'use-limit-' + gIndex"
-                    >期限有効</label
-                  >
-                </div>
-                <button
-                  class="btn btn-sm btn-outline-danger"
-                  v-on:click="delGroup(gIndex)"
-                >
-                  このタスクグループを削除
-                </button>
-              </div>
-            </div>
-            <div class="rounded">
-              <div class="p-3">
-                <button
-                  class="btn w-100 btn-secondary"
-                  v-on:click="addTask(gItem)"
-                >
-                  タスクの追加
-                  <span class="badge rounded-pill bg-danger"
-                    >{{ gItem.task.length }}件</span
-                  >
-                </button>
-              </div>
-              <draggable
-                class="items"
-                ghost-class="ghost"
-                :list="gItem.task"
-                group="tasks"
-                @end="saveCurrent"
-              >
-                <div
-                  class="item p-3 bg-white rounded mb-2"
-                  v-for="(tItem,tIndex) in gItem.task"
-                  :key="'item-' + tIndex"
-                  v-on:mouseenter="addClass($event)"
-                  v-on:mouseleave="removeClass($event)"
-                >
-                  <textarea
-                    class="form-control"
-                    style="height: 100px"
-                    v-model="tItem.name"
-                    placeholder="タスクを入力"
-                  ></textarea>
-                  <div class="row mt-2">
-                    <div class="col">
-                      <input
-                        type="text"
-                        class="form-control"
-                        v-model="tItem.note"
-                        placeholder="メモを入力"
-                      />
-                    </div>
-                    <div class="col-sm-auto" style="padding-left: 0">
-                      <button
-                        class="btn btn-outline-danger"
-                        v-on:click="addNote(tItem, gIndex, tIndex)"
-                      >
-                        確定
-                      </button>
-                    </div>
-                  </div>
-                  <div
-                    class="accordion mt-2"
-                    :class="tItem.notes.length > 0 ? 'disp' : 'none'"
-                    :id="'accordion-' + gIndex + '-' + tIndex"
-                  >
-                    <div class="accordion-item">
-                      <h2
-                        class="accordion-header"
-                        :id="'heading-' + gIndex + '-' + tIndex"
-                      >
-                        <button
-                          type="button"
-                          class="accordion-button collapsed"
-                          data-bs-toggle="collapse"
-                          :data-bs-target="'#collapse-' + gIndex + '-' + tIndex"
-                          aria-expanded="true"
-                          :aria-controls="'collapse-' + gIndex + '-' + tIndex"
-                        >
-                          メモ
-                        </button>
-                      </h2>
-                      <div
-                        :id="'collapse-' + gIndex + '-' + tIndex"
-                        class="accordion-collapse collapse"
-                        :aria-labelledby="'heading-' + gIndex + '-' + tIndex"
-                        :data-bs-parent="'#accordion-' + gIndex + '-' + tIndex"
-                      >
-                        <div class="accordion-body pt-1 pb-1">
-                          <ul
-                            class="row mt-1 list-group"
-                            v-for="(nItem,nIndex) in tItem.notes"
-                            :key="'note-' + nIndex"
-                          >
-                            <li class="list-group-item">
-                              <button
-                                type="button"
-                                class="btn btn-primary rounded-circle p-0 me-1"
-                                style="width: 2rem; height: 2rem"
-                                v-on:click="delNote(tItem.notes, nIndex)"
-                              >
-                                −
-                              </button>
-                              <a
-                                v-if="nItem.isLink"
-                                :href="nItem.url"
-                                target="_blank"
-                                style="overflow-wrap: break-word"
-                                >{{nItem.val}}</a
-                              >
-                              <p v-else style="display: inline-block">
-                                {{nItem.val}}
-                              </p>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <input
-                    :id="'limit-date-' + gIndex + '-' + tIndex"
-                    type="date"
-                    class="form-control mt-2"
-                    v-model="tItem.date"
-                    :disabled="!gItem.useLimit"
-                  />
-                  <div class="text-end mt-2">
-                    <button
-                      class="btn btn-sm btn-outline-danger"
-                      v-on:click="delTask(gItem.task,tIndex)"
-                    >
-                      このタスクを削除
-                    </button>
-                  </div>
-                </div>
-              </draggable>
-            </div>
+    <!-- タスク詳細モーダル -->
+    <div id="task-modal" class="modal" hidden aria-modal="true" role="dialog">
+      <div class="modal__backdrop" data-action="close-modal"></div>
+      <div class="modal__dialog">
+        <div class="modal__header">
+          <div class="modal__title-row">
+            <span class="modal__title-text" id="modal-title-text"></span>
+            <input
+              id="modal-title"
+              class="modal__title-input"
+              type="text"
+              placeholder="タスクタイトルを入力..."
+              hidden
+            />
+            <button class="modal__field-edit-btn" data-action="edit-title" aria-label="タイトルを編集">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354l-1.086-1.086ZM11.189 6.25 9.75 4.81l-6.286 6.287a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.25.25 0 0 0 .108-.064l6.286-6.286Z"/></svg>
+            </button>
           </div>
-        </draggable>
+          <button class="modal__close" data-action="close-modal" aria-label="閉じる">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+          </button>
+        </div>
+
+        <div class="modal__body">
+          <!-- 左メインエリア -->
+          <div class="modal__main">
+            <!-- 説明 -->
+            <section class="modal__section">
+              <h3 class="modal__section-title">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M0 3.75A.75.75 0 0 1 .75 3h14.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 3.75Zm0 4A.75.75 0 0 1 .75 7h14.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 7.75Zm0 4a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1-.75-.75Z"/></svg>
+                説明
+                <button class="modal__field-edit-btn" data-action="edit-description" aria-label="説明を編集">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354l-1.086-1.086ZM11.189 6.25 9.75 4.81l-6.286 6.287a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.25.25 0 0 0 .108-.064l6.286-6.286Z"/></svg>
+                </button>
+              </h3>
+              <div class="modal__description-view" id="modal-description-view"></div>
+              <textarea
+                id="modal-description"
+                class="modal__description"
+                placeholder="タスクの説明を入力... (Ctrl+Enter で保存)"
+                rows="4"
+                hidden
+              ></textarea>
+            </section>
+
+            <!-- コメントタイムライン -->
+            <section class="modal__section">
+              <h3 class="modal__section-title">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+                コメント
+              </h3>
+              <div id="modal-comments" class="modal__comments">
+                <!-- コメントがここに描画される -->
+              </div>
+              <div class="modal__comment-form">
+                <textarea
+                  id="modal-comment-input"
+                  class="modal__comment-input"
+                  placeholder="コメントを追加... (Ctrl+Enter で投稿)"
+                  rows="3"
+                ></textarea>
+                <div class="modal__comment-actions">
+                  <button class="btn btn--primary" data-action="add-comment">コメントを追加</button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- 右サイドバー -->
+          <aside class="modal__sidebar">
+            <!-- カラム変更 -->
+            <div class="modal__sidebar-item">
+              <label class="modal__sidebar-label" for="modal-column">カラム</label>
+              <!-- 選択肢は JS で動的生成 -->
+              <select id="modal-column" class="modal__select" data-action="save-column"></select>
+            </div>
+
+            <!-- 期限（カスタムカレンダー） -->
+            <div class="modal__sidebar-item">
+              <span class="modal__sidebar-label">期限</span>
+              <div class="modal__date-display" id="modal-due-display" data-action="open-datepicker">
+                <span id="modal-due-text">日付を選択...</span>
+                <svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14" fill="currentColor">
+                  <path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0Zm0 3.5h6.5V2h-6.5v1.5ZM2.5 5v9.25c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V5Z"/>
+                </svg>
+              </div>
+              <!-- 実際の値保持用（hidden） -->
+              <input type="hidden" id="modal-due" />
+            </div>
+
+            <!-- ラベル -->
+            <div class="modal__sidebar-item">
+              <span class="modal__sidebar-label">ラベル</span>
+              <div id="modal-labels" class="modal__label-list">
+                <!-- 適用済みラベル（× 付き）-->
+              </div>
+              <div id="modal-existing-labels" class="modal__existing-labels">
+                <!-- 未適用の既存ラベル（クリックで追加）-->
+              </div>
+              <div class="modal__label-form">
+                <input
+                  id="modal-label-name"
+                  class="modal__label-input"
+                  type="text"
+                  placeholder="ラベル名"
+                  maxlength="20"
+                />
+                <input
+                  id="modal-label-color"
+                  class="modal__label-color"
+                  type="color"
+                  value="#0969da"
+                />
+                <button class="btn btn--sm btn--secondary" data-action="add-label">追加</button>
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
+
+    <!-- カスタムカレンダーピッカー -->
+    <div id="date-picker" class="datepicker" hidden>
+      <div class="datepicker__backdrop" data-dp-action="cancel"></div>
+      <div class="datepicker__dialog">
+        <div class="datepicker__quickbtns">
+          <button data-dp-action="today">今日</button>
+          <button data-dp-action="tomorrow">明日</button>
+          <button data-dp-action="month-end">月末</button>
+          <button data-dp-action="clear" class="datepicker__btn--danger">クリア</button>
+        </div>
+        <div class="datepicker__nav">
+          <button data-dp-action="prev-month">‹</button>
+          <span id="dp-month-label"></span>
+          <button data-dp-action="next-month">›</button>
+        </div>
+        <div id="dp-grid" class="datepicker__grid"></div>
+        <div class="datepicker__footer">
+          <button data-dp-action="goto-today" class="btn btn--sm btn--secondary">今日へ</button>
+          <button data-dp-action="confirm" class="btn btn--sm btn--primary">決定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="toast" class="toast" hidden></div>
   </body>
 </html>

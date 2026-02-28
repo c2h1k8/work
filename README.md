@@ -7,16 +7,19 @@
 | ページ | 説明 |
 |--------|------|
 | `index.html` | タブナビゲーションのエントリポイント |
-| `todo.html` | Kanban形式のTODO管理ボード |
+| `todo.html` | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・エクスポート／インポート付き） |
 | `home.html` | アカウント情報・スプレッドシートリンク・URLユーティリティ |
 | `sql.html` | Oracle SQL*Plusコマンド・チューニングリファレンス |
 
 ## 技術スタック
 
-- **フロントエンド**: Vanilla JS / Vue.js 2（todo.html のみ）
+- **フロントエンド**: Vanilla JS（全ページ統一。Vue.js 2 は削除済み）
 - **スタイル**: LESS → CSS（手動コンパイル）
-- **外部ライブラリ**: Bootstrap 5、SortableJS、Vue.Draggable（todo.html のみ）
-- **データ永続化**: localStorage
+- **外部ライブラリ**: SortableJS（todo.html のみ、CDN）
+- **データ永続化**: IndexedDB（todo.html）/ localStorage（その他ページ）
+  - IndexedDB はブラウザネイティブの構造化 DB。`file://` でも動作しインストール不要。
+  - todo.html はヘッダーのエクスポート／インポートボタンで JSON バックアップを手動管理できる。
+  - IndexedDB スキーマは v2（tasks / comments / labels / task_labels / **columns** ストア）。
 
 ## ディレクトリ構成
 
@@ -32,7 +35,7 @@ work/
 │   │   └── common.js         # 共通ユーティリティ
 │   ├── index.js        # タブ生成・切り替えロジック
 │   ├── home.js         # ホーム機能
-│   ├── todo.js         # Vue.js TODO ロジック
+│   ├── todo.js         # Vanilla JS Kanban ロジック（IndexedDB）
 │   └── sql.js          # SQL コマンド生成
 └── css/
     ├── base/
