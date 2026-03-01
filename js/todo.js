@@ -13,7 +13,7 @@ class KanbanDB {
   /** DBをオープン（スキーマ初期化含む） */
   open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('kanban_db', 2);
+      const req = indexedDB.open('kanban_db', 4);
 
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -47,6 +47,12 @@ class KanbanDB {
           const cols = db.createObjectStore('columns', { keyPath: 'id', autoIncrement: true });
           cols.createIndex('key', 'key', { unique: true });
           cols.createIndex('position', 'position', { unique: false });
+        }
+
+        // activities ストア（v3 で追加）
+        if (!db.objectStoreNames.contains('activities')) {
+          const acts = db.createObjectStore('activities', { keyPath: 'id', autoIncrement: true });
+          acts.createIndex('task_id', 'task_id', { unique: false });
         }
       };
 
@@ -129,18 +135,22 @@ class KanbanDB {
   }
 
   async deleteTask(id) {
-    // コメントとラベル関連をカスケード削除
-    const comments   = await this._getAllByIndex('comments',   'task_id', id);
-    const taskLabels = await this._getAllByIndex('task_labels', 'task_id', id);
+    // コメント・ラベル関連・アクティビティをカスケード削除
+    const [comments, taskLabels, activities] = await Promise.all([
+      this._getAllByIndex('comments',   'task_id', id),
+      this._getAllByIndex('task_labels', 'task_id', id),
+      this._getAllByIndex('activities', 'task_id', id),
+    ]);
 
     return new Promise((resolve, reject) => {
-      const tx = this.db.transaction(['tasks', 'comments', 'task_labels'], 'readwrite');
+      const tx = this.db.transaction(['tasks', 'comments', 'task_labels', 'activities'], 'readwrite');
       tx.oncomplete = resolve;
       tx.onerror    = (e) => reject(e.target.error);
 
       tx.objectStore('tasks').delete(id);
-      for (const c of comments)   tx.objectStore('comments').delete(c.id);
+      for (const c  of comments)   tx.objectStore('comments').delete(c.id);
       for (const tl of taskLabels) tx.objectStore('task_labels').delete([tl.task_id, tl.label_id]);
+      for (const a  of activities) tx.objectStore('activities').delete(a.id);
     });
   }
 
@@ -259,19 +269,37 @@ class KanbanDB {
     });
   }
 
+  // ---- Activities ----
+  /** 作業履歴を追加 */
+  async addActivity(taskId, type, content) {
+    return new Promise((resolve, reject) => {
+      const act = { task_id: taskId, type, content, created_at: new Date().toISOString() };
+      const tx  = this.db.transaction('activities', 'readwrite');
+      const req = tx.objectStore('activities').add(act);
+      req.onsuccess = () => { act.id = req.result; resolve(act); };
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  /** タスクの作業履歴を時系列で取得 */
+  async getActivitiesByTask(taskId) {
+    const acts = await this._getAllByIndex('activities', 'task_id', taskId);
+    return acts.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  }
+
   /** 全ストアのデータを一括エクスポート */
   async exportAll() {
-    const [tasks, comments, labels, task_labels, columns] = await Promise.all([
+    const [tasks, comments, labels, task_labels, columns, activities] = await Promise.all([
       this._getAll('tasks'), this._getAll('comments'),
       this._getAll('labels'), this._getAll('task_labels'),
-      this._getAll('columns'),
+      this._getAll('columns'), this._getAll('activities'),
     ]);
-    return { version: 2, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns };
+    return { version: 3, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns, activities };
   }
 
   /** 全ストアをクリアして data で上書き（put で ID 保持） */
   async importAll(data) {
-    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns'];
+    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities'];
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(stores, 'readwrite');
       tx.oncomplete = resolve;
@@ -282,6 +310,7 @@ class KanbanDB {
       for (const l   of (data.labels      ?? [])) tx.objectStore('labels').put(l);
       for (const tl  of (data.task_labels ?? [])) tx.objectStore('task_labels').put(tl);
       for (const col of (data.columns     ?? [])) tx.objectStore('columns').put(col);
+      for (const a   of (data.activities  ?? [])) tx.objectStore('activities').put(a);
     });
   }
 
@@ -315,8 +344,10 @@ const State = {
   isDirty:   false,      // 前回エクスポート後に変更があるか
   taskLabels: new Map(), // taskId → Set<labelId>（フィルター用キャッシュ）
   comments:  new Map(), // taskId → string[]（コメント本文、テキスト検索用キャッシュ）
-  filter:    { text: '', labelIds: new Set(), due: '' }, // フィルター状態
-  sort:      { field: '', dir: 'asc' },         // ソート状態
+  filter:         { text: '', labelIds: new Set(), due: '' }, // フィルター状態
+  sort:           { field: '', dir: 'asc' },                  // ソート状態
+  timelineFilter: 'comments',                                 // 'comments' | 'all'
+  timeAbsolute:   false,                                      // 時刻表示形式（false=相対, true=絶対）
 };
 
 // ==================================================
@@ -946,8 +977,12 @@ const Renderer = {
     // コメント
     await this.renderComments(taskId, db);
 
-    // モーダルを表示
-    document.getElementById('task-modal').removeAttribute('hidden');
+    // パネルをスライドイン表示（offsetWidth でリフローを強制してアニメーションを確実に開始）
+    const modal = document.getElementById('task-modal');
+    modal.removeAttribute('hidden');
+    // eslint-disable-next-line no-unused-expressions
+    modal.offsetWidth;
+    modal.classList.add('is-open');
   },
 
   /** モーダルのラベルリストを描画（適用済み + 既存ラベルピッカー） */
@@ -1022,59 +1057,191 @@ const Renderer = {
     }
   },
 
-  /** コメントタイムラインを描画 */
+  /** コメント／アクティビティのタイムラインを描画 */
   async renderComments(taskId, db) {
-    const comments  = await db.getCommentsByTask(taskId);
-    const container = document.getElementById('modal-comments');
+    const container  = document.getElementById('modal-comments');
     container.innerHTML = '';
 
-    if (comments.length === 0) {
+    const comments   = await db.getCommentsByTask(taskId);
+    const activities = State.timelineFilter === 'all'
+      ? await db.getActivitiesByTask(taskId).catch(() => [])
+      : [];
+
+    // 時系列にマージ
+    const items = [
+      ...comments.map(c  => ({ ...c, _kind: 'comment'  })),
+      ...activities.map(a => ({ ...a, _kind: 'activity' })),
+    ].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+    if (items.length === 0) {
       const empty = document.createElement('p');
       empty.style.cssText = 'color:var(--color-text-muted);font-size:12px;margin:0;';
-      empty.textContent = 'コメントはまだありません';
+      empty.textContent = State.timelineFilter === 'all'
+        ? 'アクティビティはまだありません'
+        : 'コメントはまだありません';
       container.appendChild(empty);
       return;
     }
 
-    for (const c of comments) {
-      const item = document.createElement('div');
-      item.className = 'comment-item';
-      item.dataset.commentId = c.id;
-
-      const header = document.createElement('div');
-      header.className = 'comment-item__header';
-
-      const date = document.createElement('span');
-      date.className = 'comment-item__date';
-      date.textContent = new Date(c.created_at).toLocaleString('ja-JP');
-
-      const del = document.createElement('button');
-      del.className = 'comment-item__delete';
-      del.dataset.action    = 'delete-comment';
-      del.dataset.commentId = c.id;
-      del.setAttribute('aria-label', 'コメントを削除');
-      del.innerHTML = '<svg viewBox="0 0 16 16"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>';
-
-      header.appendChild(date);
-      header.appendChild(del);
-
-      const body = document.createElement('div');
-      body.className = 'comment-item__body md-body';
-      let commentText = c.body || '';
-      const renderCommentBody = () => {
-        renderMarkdown(body, commentText, async (index, checked) => {
-          commentText = toggleCheckboxInMarkdown(commentText, index, checked);
-          await db.updateComment(c.id, { body: commentText });
-          markDirty();
-          renderCommentBody();
-        });
-      };
-      renderCommentBody();
-
-      item.appendChild(header);
-      item.appendChild(body);
-      container.appendChild(item);
+    for (const item of items) {
+      if (item._kind === 'comment') {
+        container.appendChild(this._createCommentEl(item, db));
+      } else {
+        container.appendChild(this._createActivityEl(item));
+      }
     }
+
+    // レイアウト確定後に scrollHeight を取得し、縦線の高さを設定する
+    // （overflow-y:auto コンテナの ::before は clientHeight にしか伸びないため）
+    requestAnimationFrame(() => {
+      container.style.setProperty('--timeline-h', container.scrollHeight + 'px');
+    });
+  },
+
+  /** コメントアイテム DOM を生成 */
+  _createCommentEl(c, db) {
+    const item = document.createElement('div');
+    item.className = 'comment-item';
+    item.dataset.commentId = c.id;
+
+    const header = document.createElement('div');
+    header.className = 'comment-item__header';
+
+    const date = document.createElement('span');
+    date.className = 'comment-item__date';
+    date.dataset.time = c.created_at; // トグル更新用
+    date.title = State.timeAbsolute ? this._relativeTime(c.created_at) : new Date(c.created_at).toLocaleString('ja-JP');
+    date.textContent = this._formatTime(c.created_at);
+
+    const del = document.createElement('button');
+    del.className = 'comment-item__delete';
+    del.dataset.action    = 'delete-comment';
+    del.dataset.commentId = c.id;
+    del.setAttribute('aria-label', 'コメントを削除');
+    del.innerHTML = '<svg viewBox="0 0 16 16"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>';
+
+    header.appendChild(date);
+    header.appendChild(del);
+
+    const body = document.createElement('div');
+    body.className = 'comment-item__body md-body';
+    let commentText = c.body || '';
+    const renderCommentBody = () => {
+      renderMarkdown(body, commentText, async (index, checked) => {
+        commentText = toggleCheckboxInMarkdown(commentText, index, checked);
+        await db.updateComment(c.id, { body: commentText });
+        markDirty();
+        renderCommentBody();
+      });
+    };
+    renderCommentBody();
+
+    item.appendChild(header);
+    item.appendChild(body);
+    return item;
+  },
+
+  /** アクティビティアイテム DOM を生成 */
+  _createActivityEl(act) {
+    const item = document.createElement('div');
+    item.className = 'activity-item';
+
+    const icon = document.createElement('span');
+    icon.className = 'activity-item__icon';
+    icon.innerHTML = this._activityIcon(act.type);
+
+    const text = document.createElement('span');
+    text.className = 'activity-item__text';
+    text.innerHTML = this._activityText(act);
+
+    const date = document.createElement('span');
+    date.className = 'activity-item__date';
+    date.dataset.time = act.created_at; // トグル更新用
+    date.title = State.timeAbsolute ? this._relativeTime(act.created_at) : new Date(act.created_at).toLocaleString('ja-JP');
+    date.textContent = this._formatTime(act.created_at);
+
+    item.appendChild(icon);
+    item.appendChild(text);
+    item.appendChild(date);
+    return item;
+  },
+
+  /** アクティビティ種別ごとの SVG アイコン */
+  _activityIcon(type) {
+    const icons = {
+      column_change:      '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm3.78 4.75H4.22l2.97 2.97L6 8.91l3.47-3.48 3.47 3.48-1.19 1.19L8.81 7.72 8 8.53l-.81-.81-2.94 2.94L3.06 9.47 8 4.53l4.94 4.94-1.19 1.19Z" opacity=".5"/></svg>',
+      label_add:          '<svg viewBox="0 0 16 16"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>',
+      label_remove:       '<svg viewBox="0 0 16 16"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>',
+      title_change:       '<svg viewBox="0 0 16 16"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354l-1.086-1.086ZM11.189 6.25 9.75 4.81l-6.286 6.287a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.25.25 0 0 0 .108-.064l6.286-6.286Z"/></svg>',
+      description_change: '<svg viewBox="0 0 16 16"><path d="M0 3.75A.75.75 0 0 1 .75 3h14.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 3.75Zm0 4A.75.75 0 0 1 .75 7h14.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 7.75Zm0 4a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1-.75-.75Z"/></svg>',
+      due_add:            '<svg viewBox="0 0 16 16"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0Zm0 3.5h6.5V2h-6.5v1.5ZM2.5 5v9.25c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V5Z"/></svg>',
+      due_remove:         '<svg viewBox="0 0 16 16"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0Zm0 3.5h6.5V2h-6.5v1.5ZM2.5 5v9.25c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V5Z"/></svg>',
+      due_change:         '<svg viewBox="0 0 16 16"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0Zm0 3.5h6.5V2h-6.5v1.5ZM2.5 5v9.25c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V5Z"/></svg>',
+    };
+    return icons[type] ?? '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="4"/></svg>';
+  },
+
+  /** アクティビティ種別ごとの説明文 HTML */
+  _activityText(act) {
+    const c = act.content ?? {};
+    const labelChip = (name, color) => {
+      const bg = color + '28';
+      const border = color + '60';
+      return `<span class="label-chip" style="background:${bg};color:${color};border:1px solid ${border};font-size:11px;">${name}</span>`;
+    };
+    const fmtDate = (iso) => {
+      if (!iso) return '（なし）';
+      const [y, m, d] = iso.split('-');
+      return `${y}/${m}/${d}`;
+    };
+    switch (act.type) {
+      case 'column_change':
+        return `カラムを「${c.from}」→「${c.to}」に変更`;
+      case 'label_add':
+        return `ラベル ${labelChip(c.name, c.color)} を追加`;
+      case 'label_remove':
+        return `ラベル ${labelChip(c.name, c.color)} を削除`;
+      case 'title_change':
+        return `タイトルを「${c.to}」に変更`;
+      case 'description_change':
+        return '説明を更新';
+      case 'due_add':
+        return `期限を「${fmtDate(c.to)}」に設定`;
+      case 'due_remove':
+        return '期限を解除';
+      case 'due_change':
+        return `期限を「${fmtDate(c.from)}」→「${fmtDate(c.to)}」に変更`;
+      default:
+        return '変更';
+    }
+  },
+
+  /** ISO 日時を相対時刻テキストに変換（例: 3分前 / 昨日） */
+  _relativeTime(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const sec  = Math.floor(diff / 1000);
+    if (sec < 60)  return 'たった今';
+    const min = Math.floor(sec / 60);
+    if (min < 60)  return `${min}分前`;
+    const h   = Math.floor(min / 60);
+    if (h < 24)    return `${h}時間前`;
+    const d   = Math.floor(h / 24);
+    if (d === 1)   return '昨日';
+    if (d < 30)    return `${d}日前`;
+    const m   = Math.floor(d / 30);
+    if (m < 12)    return `${m}ヶ月前`;
+    return `${Math.floor(m / 12)}年前`;
+  },
+
+  /** State.timeAbsolute に応じて相対/絶対時刻を返す */
+  _formatTime(iso) {
+    if (State.timeAbsolute) {
+      return new Date(iso).toLocaleString('ja-JP', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+      });
+    }
+    return this._relativeTime(iso);
   },
 
   /** カードを1枚だけ更新（全体再描画を避ける） */
@@ -1144,6 +1311,12 @@ const DragDrop = {
           State.tasks[toCol].push(task);
         }
         Renderer.updateCount(fromCol);
+        // 作業履歴（非同期、失敗しても無視）
+        try {
+          const fromName = State.columns.find(c => c.key === fromCol)?.name ?? fromCol;
+          const toName   = State.columns.find(c => c.key === toCol)?.name ?? toCol;
+          await db.addActivity(taskId, 'column_change', { from: fromName, to: toName });
+        } catch (_) { /* アクティビティ記録失敗は無視 */ }
       }
       Renderer.renderColumn(toCol, State.tasks[toCol] || [], db);
       Renderer.updateCount(toCol);
@@ -1199,6 +1372,12 @@ const DragDrop = {
 
     if (fromCol !== toCol) {
       Renderer.updateCount(fromCol);
+      // 作業履歴（非同期、失敗しても無視）
+      try {
+        const fromName = State.columns.find(c => c.key === fromCol)?.name ?? fromCol;
+        const toName   = State.columns.find(c => c.key === toCol)?.name ?? toCol;
+        await db.addActivity(taskId, 'column_change', { from: fromName, to: toName });
+      } catch (_) { /* アクティビティ記録失敗は無視 */ }
     }
     Renderer.updateCount(toCol);
 
@@ -1258,6 +1437,10 @@ const EventHandlers = {
     });
     document.getElementById('modal-title').addEventListener('blur', (e) => {
       this._onTitleBlur(e, db);
+    });
+    // Enter キーでタイトルを確定（blur 経由で保存）
+    document.getElementById('modal-title').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
     });
     document.getElementById('modal-description').addEventListener('blur', (e) => {
       this._onDescriptionBlur(e, db);
@@ -1358,7 +1541,9 @@ const EventHandlers = {
       case 'dismiss-migration': document.getElementById('migration-banner').setAttribute('hidden', ''); break;
       case 'add-column':        this._onAddColumn(db);           break;
       case 'delete-column':     this._onDeleteColumn(btn, db);   break;
-      case 'open-datepicker':   this._onOpenDatepicker(db);      break;
+      case 'open-datepicker':   this._onOpenDatepicker(db);           break;
+      case 'timeline-filter':    this._onTimelineFilter(btn, db);  break;
+      case 'toggle-time-format': this._onToggleTimeFormat();        break;
     }
   },
 
@@ -1410,8 +1595,8 @@ const EventHandlers = {
     if (column) State.tasks[column] = (State.tasks[column] || []).filter(t => t.id !== taskId);
     markDirty();
 
-    // モーダルが開いていれば閉じる
-    if (!document.getElementById('task-modal').hasAttribute('hidden')) this._closeModal();
+    // パネルが開いていれば閉じる
+    if (document.getElementById('task-modal').classList.contains('is-open')) this._closeModal();
 
     // カードを DOM から削除
     const cardEl = document.querySelector(`.card[data-id="${taskId}"]`);
@@ -1420,11 +1605,54 @@ const EventHandlers = {
     applyFilter();
   },
 
-  /** モーダルを閉じる */
+  /** パネルをスライドアウトして閉じる */
   _closeModal() {
-    document.getElementById('task-modal').setAttribute('hidden', '');
+    const modal = document.getElementById('task-modal');
+    modal.classList.remove('is-open');
+    // トランジション完了後に hidden を設定
+    modal.querySelector('.modal__dialog').addEventListener('transitionend', () => {
+      if (!modal.classList.contains('is-open')) {
+        modal.setAttribute('hidden', '');
+      }
+    }, { once: true });
     State.currentTaskId = null;
     document.getElementById('modal-comment-input').value = '';
+  },
+
+  /** タイムラインフィルタータブ切替 */
+  async _onTimelineFilter(btn, db) {
+    const filter = btn.dataset.filter;
+    if (State.timelineFilter === filter) return;
+    State.timelineFilter = filter;
+
+    // タブのアクティブ状態を更新
+    document.querySelectorAll('.timeline-tab').forEach(t => {
+      t.classList.toggle('is-active', t.dataset.filter === filter);
+    });
+
+    if (State.currentTaskId) {
+      await Renderer.renderComments(State.currentTaskId, db);
+    }
+  },
+
+  /** タイムライン時刻形式トグル（相対 ↔ 絶対） */
+  _onToggleTimeFormat() {
+    State.timeAbsolute = !State.timeAbsolute;
+
+    // トグルボタンのアクティブ状態と tooltip を更新
+    document.querySelectorAll('[data-action="toggle-time-format"]').forEach(btn => {
+      btn.classList.toggle('is-active', State.timeAbsolute);
+      btn.title = State.timeAbsolute ? '相対時刻で表示' : '絶対時刻で表示';
+    });
+
+    // [data-time] 要素をインプレース更新（再レンダリング不要）
+    document.querySelectorAll('#modal-comments [data-time]').forEach(el => {
+      const iso = el.dataset.time;
+      el.textContent = State.timeAbsolute
+        ? new Date(iso).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : Renderer._relativeTime(iso);
+      el.title = State.timeAbsolute ? Renderer._relativeTime(iso) : new Date(iso).toLocaleString('ja-JP');
+    });
   },
 
   /** コメント追加 */
@@ -1465,6 +1693,7 @@ const EventHandlers = {
     const name  = nameInput.value.trim();
     const color = colorInput.value;
     if (!name || !State.currentTaskId) return;
+    const taskId = State.currentTaskId; // レースコンディション防止
 
     // 同名ラベルが存在するか確認
     let label = State.labels.find(l => l.name === name && l.color === color);
@@ -1474,40 +1703,65 @@ const EventHandlers = {
       renderFilterLabels();
     }
 
-    await db.addTaskLabel(State.currentTaskId, label.id);
+    await db.addTaskLabel(taskId, label.id);
     // taskLabels キャッシュ更新
-    if (!State.taskLabels.has(State.currentTaskId)) State.taskLabels.set(State.currentTaskId, new Set());
-    State.taskLabels.get(State.currentTaskId).add(label.id);
+    if (!State.taskLabels.has(taskId)) State.taskLabels.set(taskId, new Set());
+    State.taskLabels.get(taskId).add(label.id);
     markDirty();
     nameInput.value = '';
-    await Renderer.renderModalLabels(State.currentTaskId, db);
-    await Renderer.refreshCard(State.currentTaskId, db);
+    await Renderer.renderModalLabels(taskId, db);
+    await Renderer.refreshCard(taskId, db);
+    // 作業履歴（非同期、失敗してもUIに影響しない）
+    try {
+      await db.addActivity(taskId, 'label_add', { name: label.name, color: label.color });
+      if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
+    } catch (e) { console.error('活動履歴の記録に失敗:', e); }
   },
 
   /** ラベル削除（タスクから切り離すのみ） */
   async _onRemoveLabel(btn, db) {
     const labelId = parseInt(btn.dataset.labelId, 10);
     if (!labelId || !State.currentTaskId) return;
-    await db.removeTaskLabel(State.currentTaskId, labelId);
+    const taskId = State.currentTaskId; // レースコンディション防止
+    const label = State.labels.find(l => l.id === labelId);
+
+    await db.removeTaskLabel(taskId, labelId);
     // taskLabels キャッシュ更新
-    const labelsForTask = State.taskLabels.get(State.currentTaskId);
+    const labelsForTask = State.taskLabels.get(taskId);
     if (labelsForTask) labelsForTask.delete(labelId);
     markDirty();
-    await Renderer.renderModalLabels(State.currentTaskId, db);
-    await Renderer.refreshCard(State.currentTaskId, db);
+    await Renderer.renderModalLabels(taskId, db);
+    await Renderer.refreshCard(taskId, db);
+    // 作業履歴（非同期、失敗してもUIに影響しない）
+    if (label) {
+      try {
+        await db.addActivity(taskId, 'label_remove', { name: label.name, color: label.color });
+        if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
+      } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    }
   },
 
   /** 既存ラベルをピッカーからタスクに追加 */
   async _onPickLabel(btn, db) {
     const labelId = parseInt(btn.dataset.labelId, 10);
     if (!labelId || !State.currentTaskId) return;
-    await db.addTaskLabel(State.currentTaskId, labelId);
+    const taskId = State.currentTaskId; // レースコンディション防止
+    const label = State.labels.find(l => l.id === labelId);
+
+    await db.addTaskLabel(taskId, labelId);
     // taskLabels キャッシュ更新
-    if (!State.taskLabels.has(State.currentTaskId)) State.taskLabels.set(State.currentTaskId, new Set());
-    State.taskLabels.get(State.currentTaskId).add(labelId);
+    if (!State.taskLabels.has(taskId)) State.taskLabels.set(taskId, new Set());
+    State.taskLabels.get(taskId).add(labelId);
     markDirty();
-    await Renderer.renderModalLabels(State.currentTaskId, db);
-    await Renderer.refreshCard(State.currentTaskId, db);
+    await Renderer.renderModalLabels(taskId, db);
+    await Renderer.refreshCard(taskId, db);
+    // 作業履歴（非同期、失敗してもUIに影響しない）
+    if (label) {
+      try {
+        await db.addActivity(taskId, 'label_add', { name: label.name, color: label.color });
+        if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
+      } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    }
   },
 
   /** ラベルをシステムから完全削除 */
@@ -1540,9 +1794,10 @@ const EventHandlers = {
   /** カラム変更 */
   async _onColumnChange(e, db) {
     if (!State.currentTaskId) return;
+    const taskId = State.currentTaskId; // レースコンディション防止
     const newCol   = e.target.value;
     const allTasks = await db.getAllTasks();
-    const task     = allTasks.find(t => t.id === State.currentTaskId);
+    const task     = allTasks.find(t => t.id === taskId);
     if (!task) return;
     const oldCol = task.column;
     if (oldCol === newCol) return;
@@ -1550,16 +1805,16 @@ const EventHandlers = {
     // 新カラムの末尾 position
     const newColTasks = State.tasks[newCol] || [];
     const lastPos     = newColTasks.length > 0 ? newColTasks[newColTasks.length - 1].position + 1000 : 1000;
-    const updated     = await db.updateTask(State.currentTaskId, { column: newCol, position: lastPos });
+    const updated     = await db.updateTask(taskId, { column: newCol, position: lastPos });
 
     // State キャッシュ更新
-    State.tasks[oldCol] = (State.tasks[oldCol] || []).filter(t => t.id !== State.currentTaskId);
+    State.tasks[oldCol] = (State.tasks[oldCol] || []).filter(t => t.id !== taskId);
     if (!State.tasks[newCol]) State.tasks[newCol] = [];
     State.tasks[newCol].push(updated);
 
     // DOM 更新
     const newBody = document.querySelector(`[data-column-body="${newCol}"]`);
-    const card    = document.querySelector(`.card[data-id="${State.currentTaskId}"]`);
+    const card    = document.querySelector(`.card[data-id="${taskId}"]`);
     if (card && newBody) {
       newBody.appendChild(card);
     }
@@ -1567,6 +1822,13 @@ const EventHandlers = {
     Renderer.updateCount(oldCol);
     Renderer.updateCount(newCol);
     applyFilter();
+    // 作業履歴（非同期、失敗してもUIに影響しない）
+    try {
+      const oldColName = State.columns.find(c => c.key === oldCol)?.name ?? oldCol;
+      const newColName = State.columns.find(c => c.key === newCol)?.name ?? newCol;
+      await db.addActivity(taskId, 'column_change', { from: oldColName, to: newColName });
+      if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
+    } catch (e) { console.error('活動履歴の記録に失敗:', e); }
   },
 
   /** カレンダーを開いて期限日を選択 */
@@ -1582,10 +1844,12 @@ const EventHandlers = {
   /** 期限日を DB に保存して表示を更新 */
   async _saveDueDate(dateStr, db) {
     if (!State.currentTaskId) return;
+    const taskId = State.currentTaskId; // レースコンディション防止
     const dueHidden  = document.getElementById('modal-due');
     const dueText    = document.getElementById('modal-due-text');
     const dueDisplay = document.getElementById('modal-due-display');
 
+    const oldDue = dueHidden.value;
     dueHidden.value = dateStr;
     if (dateStr) {
       const [y, m, d] = dateStr.split('-');
@@ -1599,22 +1863,34 @@ const EventHandlers = {
       dueDisplay.className = 'modal__date-display';
     }
 
-    await db.updateTask(State.currentTaskId, { due_date: dateStr });
+    await db.updateTask(taskId, { due_date: dateStr });
     markDirty();
 
     // タスクキャッシュ更新
     for (const col of getColumnKeys()) {
-      const idx = (State.tasks[col] || []).findIndex(t => t.id === State.currentTaskId);
+      const idx = (State.tasks[col] || []).findIndex(t => t.id === taskId);
       if (idx !== -1) { State.tasks[col][idx].due_date = dateStr; break; }
     }
-    await Renderer.refreshCard(State.currentTaskId, db);
+    await Renderer.refreshCard(taskId, db);
+    // 作業履歴（非同期、失敗してもUIに影響しない）
+    if (oldDue !== dateStr) {
+      try {
+        let actType = 'due_change';
+        if (!oldDue && dateStr)  actType = 'due_add';
+        if (oldDue  && !dateStr) actType = 'due_remove';
+        await db.addActivity(taskId, actType, { from: oldDue, to: dateStr });
+        if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
+      } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    }
   },
 
   /** タイトル blur 時に保存して表示モードに戻す */
   async _onTitleBlur(e, db) {
     if (!State.currentTaskId) return;
-    const title = e.target.value.trim() || '(無題)';
-    await db.updateTask(State.currentTaskId, { title });
+    const taskId = State.currentTaskId; // レースコンディション防止
+    const title    = e.target.value.trim() || '(無題)';
+    const oldTitle = document.getElementById('modal-title-text').textContent;
+    await db.updateTask(taskId, { title });
 
     // 表示モードに切り替え
     const titleText = document.getElementById('modal-title-text');
@@ -1627,21 +1903,29 @@ const EventHandlers = {
     markDirty();
     // キャッシュ・カード更新
     for (const col of getColumnKeys()) {
-      const idx = (State.tasks[col] || []).findIndex(t => t.id === State.currentTaskId);
+      const idx = (State.tasks[col] || []).findIndex(t => t.id === taskId);
       if (idx !== -1) { State.tasks[col][idx].title = title; break; }
     }
-    await Renderer.refreshCard(State.currentTaskId, db);
+    await Renderer.refreshCard(taskId, db);
+    // 作業履歴（非同期、失敗してもUIに影響しない）
+    if (oldTitle !== title) {
+      try {
+        await db.addActivity(taskId, 'title_change', { to: title });
+        if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
+      } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    }
   },
 
   /** 説明 blur 時に保存して表示モードに戻す */
   async _onDescriptionBlur(e, db) {
     if (!State.currentTaskId) return;
+    const taskId = State.currentTaskId; // レースコンディション防止
     const description = e.target.value;
-    await db.updateTask(State.currentTaskId, { description });
+    await db.updateTask(taskId, { description });
+
     markDirty();
 
     // 表示モードに切り替え（マークダウンレンダリング＋チェックボックス有効化）
-    const taskId   = State.currentTaskId;
     const descView = document.getElementById('modal-description-view');
     const descBtn  = document.querySelector('[data-action="edit-description"]');
     let descText   = description;
@@ -1658,6 +1942,11 @@ const EventHandlers = {
     e.target.setAttribute('hidden', '');
     descView.removeAttribute('hidden');
     if (descBtn) descBtn.removeAttribute('hidden');
+    // 作業履歴（非同期、失敗してもUIに影響しない）
+    try {
+      await db.addActivity(taskId, 'description_change', {});
+      if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
+    } catch (e) { console.error('活動履歴の記録に失敗:', e); }
   },
 
   /** タイトル編集モードに切り替え */
@@ -1687,7 +1976,7 @@ const EventHandlers = {
   /** キーボード操作 */
   _onKeydown(e, db) {
     const modal = document.getElementById('task-modal');
-    if (!modal.hasAttribute('hidden')) {
+    if (modal.classList.contains('is-open')) {
       // Esc でモーダルを閉じる（カレンダーが開いていれば先に閉じる）
       if (e.key === 'Escape') {
         const dp = document.getElementById('date-picker');

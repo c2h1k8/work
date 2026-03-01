@@ -485,16 +485,12 @@ body {
 }
 
 // ==================================================
-// モーダル
+// 右スライドパネル（詳細画面）
 // ==================================================
 .modal {
   position: fixed;
   inset: 0;
   z-index: 200;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 40px 16px;
 
   &[hidden] { display: none; }
 
@@ -503,21 +499,32 @@ body {
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
     cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.3s;
   }
 
+  // パネルが開いているときにバックドロップをフェードイン
+  &.is-open &__backdrop { opacity: 1; }
+
   &__dialog {
-    position: relative;
-    width: 100%;
-    max-width: 860px;
-    max-height: calc(100vh - 80px);
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: min(1200px, 100%);
+    height: 100%;
     background: var(--color-card);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    border-left: 1px solid var(--color-border);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.2);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    // 初期状態は右側に隠れている
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
+
+  // パネルをスライドイン
+  &.is-open &__dialog { transform: translateX(0); }
 
   &__header {
     display: flex;
@@ -617,7 +624,7 @@ body {
 
   &__body {
     display: grid;
-    grid-template-columns: 1fr 220px;
+    grid-template-columns: 1fr 260px;
     gap: 0;
     flex: 1;
     min-height: 0;
@@ -632,6 +639,25 @@ body {
   &__main {
     padding: 20px;
     border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+
+    // 説明セクション（先頭）は高さ固定
+    .modal__section:first-child {
+      flex-shrink: 0;
+    }
+
+    // アクティビティセクション（末尾）が残り全体を占有
+    .modal__section:last-child {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      margin-bottom: 0;
+    }
 
     @media (max-width: 600px) {
       border-right: none;
@@ -830,17 +856,42 @@ body {
     background: transparent;
   }
 
-  // コメント（スクロールはこのエリアのみ）
+  // コメント / アクティビティタイムライン（このリストのみスクロール）
   &__comments {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-bottom: 16px;
-    max-height: 260px;
+    gap: 6px;
+    flex: 1;
     overflow-y: auto;
+    min-height: 0;
+    margin-bottom: 12px;
+    padding-right: 4px;
+    // タイムライン縦線用の左パディング（アイコン 18px + 余白 10px）
+    padding-left: 28px;
+    position: relative;
+
+    // タイムライン縦線（コンテナ全体で1本の連続した線）
+    // overflow-y:auto のコンテナでは top:0/bottom:0 が clientHeight にしか伸びないため、
+    // JS で scrollHeight を --timeline-h に設定して height で指定する
+    // top: 20px = 最初の comment-item アイコン中央（top:11px + 半径9px）に合わせて、
+    // 縦線が先頭アイコンより上に突き抜けないようにする
+    &::before {
+      content: '';
+      position: absolute;
+      // padding-left(28px) - アイテム::before の left(-20px) = 8px → 縦線中央が9px
+      left: 8px;
+      top: 20px;
+      height: calc(var(--timeline-h, 0) - 20px);
+      width: 2px;
+      background: var(--color-border);
+      pointer-events: none;
+      z-index: 0;
+    }
   }
 
+  // コメント入力フォーム（アクティビティリストの下に固定）
   &__comment-form {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -877,6 +928,7 @@ body {
 // コメントアイテム
 // ==================================================
 .comment-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -884,6 +936,19 @@ body {
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+
+  // 縦線上のコメントアイコン（塗りつぶし丸）
+  &::after {
+    content: '';
+    position: absolute;
+    left: -28px;
+    top: 11px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    z-index: 2;
+  }
 
   &__header {
     display: flex;
@@ -930,6 +995,145 @@ body {
     word-break: break-word;
     margin: 0;
   }
+}
+
+// ==================================================
+// タイムラインヘッダー / タブ
+// ==================================================
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+
+  .modal__section-title { margin-bottom: 0; }
+
+  // 右側ブロック（時計ボタン + タブ）
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+// 時刻形式トグルボタン
+.timeline-time-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  svg {
+    width: 13px;
+    height: 13px;
+    fill: currentColor;
+  }
+
+  &:hover {
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  // 絶対時刻モード時
+  &.is-active {
+    background: #ddf4ff;
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+}
+
+.timeline-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.timeline-tab {
+  padding: 3px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &.is-active {
+    background: var(--color-card);
+    color: var(--color-text);
+    font-weight: 600;
+    box-shadow: 0 1px 3px var(--color-shadow);
+  }
+
+  &:hover:not(.is-active) { color: var(--color-text); }
+}
+
+// ==================================================
+// アクティビティアイテム
+// ==================================================
+.activity-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+
+  // アイコン（縦線に重なる丸バッジ）
+  &__icon {
+    position: absolute;
+    left: -28px;        // modal__comments の左パディング内（縦線の位置）
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-card);
+    border: 2px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;         // 縦線 (z:0) より前面に
+
+    svg {
+      width: 10px;
+      height: 10px;
+      fill: var(--color-text-muted);
+    }
+  }
+
+  &__text {
+    flex: 1;
+    color: var(--color-text);
+    line-height: 1.4;
+  }
+
+  &__date {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+}
+
+// アイテムが1件のみ、または空のときはコンテナ縦線を非表示
+.modal__comments {
+  &:not(:has(> .comment-item, > .activity-item))::before,
+  &:has(> .comment-item:only-child)::before,
+  &:has(> .activity-item:only-child)::before { display: none; }
 }
 
 // モーダルラベルチップ（削除ボタン付き）
