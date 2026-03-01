@@ -32,7 +32,8 @@ work/
 ├── js/
 │   ├── base/
 │   │   ├── local_storage.js  # localStorage ユーティリティ
-│   │   └── common.js         # 共通ユーティリティ
+│   │   ├── common.js         # 共通ユーティリティ
+│   │   └── date_picker.js    # カスタムカレンダー部品（再利用可能）
 │   ├── index.js        # タブ生成・切り替えロジック
 │   ├── home.js         # ホーム機能
 │   ├── todo.js         # Vanilla JS Kanban ロジック（IndexedDB）
@@ -44,7 +45,8 @@ work/
     │   ├── accordion_style.{less,css} # アコーディオン（標準）
     │   ├── accordion_style2.{less,css}# アコーディオン（バリエーション）
     │   ├── radio_style.{less,css}     # ラジオボタン
-    │   └── select_style.{less,css}    # セレクトボックス
+    │   ├── select_style.{less,css}    # セレクトボックス
+    │   └── date_picker.{less,css}     # カスタムカレンダー部品
     ├── todo.{less,css}
     └── sql.{less,css}
 ```

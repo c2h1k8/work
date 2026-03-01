@@ -1,0 +1,154 @@
+// ==================================================
+// DatePicker: カスタムカレンダーピッカー
+// js/base/date_picker.js とセットで使用する
+// ==================================================
+
+// 土日祝カラー（ページ側で CSS 変数が定義されていれば上書き可）
+@dp-sunday-color:   #d73a49;  // 日曜・祝日（赤）
+@dp-saturday-color: #0969da;  // 土曜（青）
+
+.datepicker {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &[hidden] { display: none; }
+
+  &__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+  }
+
+  &__dialog {
+    position: relative;
+    width: 320px;
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 1;
+  }
+
+  // クイックボタン行
+  &__quickbtns {
+    display: flex;
+    gap: 6px;
+
+    button {
+      flex: 1;
+      padding: 4px 6px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+
+      &:hover { background: #e9ebee; }
+    }
+  }
+
+  // クリアボタン（赤）
+  &__btn--danger {
+    border-color: var(--color-danger) !important;
+    color: var(--color-danger) !important;
+
+    &:hover {
+      background: var(--color-danger) !important;
+      color: #fff !important;
+    }
+  }
+
+  // 年月ラベル
+  &__nav {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  // カレンダーグリッド（7列）
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+
+  // フッター
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}
+
+// 曜日ヘッダー
+.dp-weekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+
+  // 日曜列（1番目）を赤
+  &:nth-child(7n+1) { color: @dp-sunday-color; }
+  // 土曜列（7番目）を青
+  &:nth-child(7n)   { color: @dp-saturday-color; }
+}
+
+// 日付ボタン
+.dp-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover:not(.dp-day--other) { background: var(--color-bg); }
+
+  // 日曜・祝日（赤）—— 選択中は白文字が優先
+  &--sunday:not(.dp-day--selected)  { color: @dp-sunday-color; }
+
+  // 土曜（青）—— 選択中は白文字が優先
+  &--saturday:not(.dp-day--selected) { color: @dp-saturday-color; }
+
+  // 選択中（青塗り）
+  &--selected {
+    background: var(--color-accent) !important;
+    color: #fff !important;
+    font-weight: 600;
+  }
+
+  // 今日（青枠）
+  &--today:not(.dp-day--selected) {
+    border: 2px solid var(--color-accent);
+    font-weight: 600;
+  }
+
+  // 前月の空セル
+  &--other {
+    cursor: default;
+    pointer-events: none;
+  }
+}
