@@ -298,7 +298,8 @@ const State = {
   sortables: [],         // SortableJS インスタンス
   isDirty:   false,      // 前回エクスポート後に変更があるか
   taskLabels: new Map(), // taskId → Set<labelId>（フィルター用キャッシュ）
-  filter:    { text: '', labelIds: new Set() }, // フィルター状態
+  comments:  new Map(), // taskId → string[]（コメント本文、テキスト検索用キャッシュ）
+  filter:    { text: '', labelIds: new Set(), due: '' }, // フィルター状態
   sort:      { field: '', dir: 'asc' },         // ソート状態
 };
 
@@ -363,12 +364,26 @@ function markDirty() {
 }
 
 // ==================================================
+// Helper: フィルター状態を localStorage に保存
+// ==================================================
+function saveFilterState() {
+  localStorage.setItem('kanban_filter', JSON.stringify({
+    text:     State.filter.text,
+    labelIds: [...State.filter.labelIds],
+    due:      State.filter.due,
+  }));
+}
+
+// ==================================================
 // Helper: フィルターをボード全体に適用
 // ==================================================
 function applyFilter() {
   const text   = State.filter.text.toLowerCase();
   const ids    = State.filter.labelIds;
-  const active = text !== '' || ids.size > 0;
+  const due    = State.filter.due;
+  const active = text !== '' || ids.size > 0 || due !== '';
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
 
   for (const col of getColumnKeys()) {
     const body = document.querySelector(`[data-column-body="${col}"]`);
@@ -376,15 +391,49 @@ function applyFilter() {
     let visible = 0;
 
     for (const card of body.querySelectorAll('.card[data-id]')) {
-      const taskId  = parseInt(card.dataset.id, 10);
-      const title   = (card.querySelector('.card__title')?.textContent || '').toLowerCase();
-      const textOk  = !text || title.includes(text);
-      let   labelOk = true;
+      const taskId = parseInt(card.dataset.id, 10);
+      const task   = (State.tasks[col] || []).find(t => t.id === taskId);
+
+      // テキスト検索（タイトル・説明・コメント）
+      let textOk = true;
+      if (text) {
+        const title    = (task?.title       || '').toLowerCase();
+        const desc     = (task?.description || '').toLowerCase();
+        const comments = (State.comments.get(taskId) || []).join(' ').toLowerCase();
+        textOk = title.includes(text) || desc.includes(text) || comments.includes(text);
+      }
+
+      // ラベルフィルター
+      let labelOk = true;
       if (ids.size > 0) {
         const cardIds = State.taskLabels.get(taskId) || new Set();
         labelOk = [...ids].some(id => cardIds.has(id));
       }
-      const show = textOk && labelOk;
+
+      // 期限フィルター
+      let dueOk = true;
+      if (due) {
+        const taskDue = task?.due_date ? new Date(task.due_date + 'T00:00:00') : null;
+        switch (due) {
+          case 'has_due':  dueOk = !!taskDue; break;
+          case 'no_due':   dueOk = !taskDue;  break;
+          case 'overdue':  dueOk = !!taskDue && taskDue < today; break;
+          case 'today':    dueOk = !!taskDue && taskDue.getTime() === today.getTime(); break;
+          case 'week': {
+            const endOfWeek = new Date(today);
+            endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
+            dueOk = !!taskDue && taskDue >= today && taskDue <= endOfWeek;
+            break;
+          }
+          case 'month': {
+            const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            dueOk = !!taskDue && taskDue >= today && taskDue <= endOfMonth;
+            break;
+          }
+        }
+      }
+
+      const show = textOk && labelOk && dueOk;
       card.style.display = show ? '' : 'none';
       if (show) visible++;
     }
@@ -398,23 +447,56 @@ function applyFilter() {
 }
 
 // ==================================================
-// Helper: フィルターバーのラベルボタンを再描画
+// Helper: ラベルフィルタードロップダウンを再描画
 // ==================================================
 function renderFilterLabels() {
-  const bar = document.getElementById('filter-label-bar');
-  if (!bar) return;
-  bar.innerHTML = '';
-  for (const label of State.labels) {
-    const btn = document.createElement('button');
-    btn.className = 'filter-label-btn';
-    btn.dataset.labelId = label.id;
-    btn.textContent = label.name;
-    const active = State.filter.labelIds.has(label.id);
-    btn.style.background   = active ? label.color + '55' : label.color + '22';
-    btn.style.color        = label.color;
-    btn.style.borderColor  = label.color + '99';
-    if (active) btn.classList.add('filter-label-btn--active');
-    bar.appendChild(btn);
+  const menu    = document.getElementById('filter-label-menu');
+  const trigger = document.getElementById('filter-label-trigger');
+  const countBadge = document.getElementById('filter-label-count');
+  if (!menu) return;
+
+  // メニュー内を再描画
+  menu.innerHTML = '';
+  if (State.labels.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'filter-label-menu__empty';
+    empty.textContent = 'ラベルがありません';
+    menu.appendChild(empty);
+  } else {
+    for (const label of State.labels) {
+      const active = State.filter.labelIds.has(label.id);
+      const item = document.createElement('button');
+      item.className = 'filter-label-item' + (active ? ' filter-label-item--active' : '');
+      item.dataset.labelId = label.id;
+      item.type = 'button';
+
+      const dot = document.createElement('span');
+      dot.className = 'filter-label-item__dot';
+      dot.style.background = label.color;
+
+      const check = document.createElement('span');
+      check.className = 'filter-label-item__check';
+      check.textContent = '✓';
+
+      const name = document.createElement('span');
+      name.className = 'filter-label-item__name';
+      name.textContent = label.name;
+
+      item.appendChild(check);
+      item.appendChild(dot);
+      item.appendChild(name);
+      menu.appendChild(item);
+    }
+  }
+
+  // トリガーボタンのバッジ更新
+  const count = State.filter.labelIds.size;
+  if (countBadge) {
+    countBadge.hidden = count === 0;
+    countBadge.textContent = count;
+  }
+  if (trigger) {
+    trigger.classList.toggle('filter-label-trigger--active', count > 0);
   }
 }
 
@@ -656,6 +738,14 @@ const Renderer = {
       State.taskLabels.get(tl.task_id).add(tl.label_id);
     }
 
+    // コメントキャッシュを再構築（テキスト検索用）
+    const allComments = await db._getAll('comments');
+    State.comments = new Map();
+    for (const c of allComments) {
+      if (!State.comments.has(c.task_id)) State.comments.set(c.task_id, []);
+      State.comments.get(c.task_id).push(c.body);
+    }
+
     for (const col of State.columns) {
       const tasks = await db.getTasksByColumn(col.key);
       State.tasks[col.key] = tasks;
@@ -842,21 +932,41 @@ const Renderer = {
       container.appendChild(chip);
     }
 
-    // 未適用の既存ラベル（クリックで追加）
+    // 未適用の既存ラベル（クリックで追加、🗑 でシステムから削除）
     const existing = document.getElementById('modal-existing-labels');
     if (existing) {
       existing.innerHTML = '';
-      const available = labels.filter(l => !appliedIds.has(l.id));
-      for (const label of available) {
+      // 適用済み・未適用の全ラベルを表示（適用済みは「追加」ボタンなし）
+      for (const label of labels) {
+        const row = document.createElement('div');
+        row.className = 'modal-existing-label-row';
+
         const chip = document.createElement('span');
         chip.className = 'modal-existing-label';
-        chip.dataset.action  = 'pick-label';
-        chip.dataset.labelId = label.id;
-        chip.textContent     = label.name;
-        chip.style.background   = label.color + '22';
-        chip.style.color        = label.color;
-        chip.style.borderColor  = label.color + '99';
-        existing.appendChild(chip);
+        chip.textContent = label.name;
+        chip.style.background  = label.color + '22';
+        chip.style.color       = label.color;
+        chip.style.borderColor = label.color + '99';
+        // 未適用のみクリックでタスクに追加
+        if (!appliedIds.has(label.id)) {
+          chip.dataset.action  = 'pick-label';
+          chip.dataset.labelId = label.id;
+          chip.title = 'クリックして追加';
+        } else {
+          chip.classList.add('modal-existing-label--applied');
+        }
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'modal-label-delete-btn';
+        delBtn.dataset.action  = 'delete-label';
+        delBtn.dataset.labelId = label.id;
+        delBtn.setAttribute('aria-label', `${label.name} を削除`);
+        delBtn.title = 'ラベルを削除';
+        delBtn.innerHTML = '<svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>';
+
+        row.appendChild(chip);
+        row.appendChild(delBtn);
+        existing.appendChild(row);
       }
     }
   },
@@ -1117,21 +1227,46 @@ const EventHandlers = {
     // フィルターテキスト入力
     document.getElementById('filter-text').addEventListener('input', (e) => {
       State.filter.text = e.target.value;
+      saveFilterState();
       applyFilter();
     });
 
-    // フィルターラベルバー（クリック委譲）
-    document.getElementById('filter-label-bar').addEventListener('click', (e) => {
-      const btn = e.target.closest('.filter-label-btn');
-      if (!btn) return;
-      const labelId = parseInt(btn.dataset.labelId, 10);
+    // ラベルフィルタードロップダウン
+    const labelTrigger = document.getElementById('filter-label-trigger');
+    const labelMenu    = document.getElementById('filter-label-menu');
+    labelTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      labelMenu.hidden = !labelMenu.hidden;
+    });
+    labelMenu.addEventListener('click', (e) => {
+      const item = e.target.closest('.filter-label-item');
+      if (!item) return;
+      const labelId = parseInt(item.dataset.labelId, 10);
       if (!labelId) return;
       if (State.filter.labelIds.has(labelId)) {
         State.filter.labelIds.delete(labelId);
       } else {
         State.filter.labelIds.add(labelId);
       }
+      saveFilterState();
       renderFilterLabels();
+      applyFilter();
+      // Ctrl キーなしの場合は選択後にメニューを閉じる
+      if (!e.ctrlKey && !e.metaKey) {
+        labelMenu.hidden = true;
+      }
+    });
+    // メニュー外クリックで閉じる
+    document.addEventListener('click', (e) => {
+      if (!document.getElementById('filter-label-dropdown').contains(e.target)) {
+        labelMenu.hidden = true;
+      }
+    });
+
+    // 期限フィルター
+    document.getElementById('filter-due').addEventListener('change', (e) => {
+      State.filter.due = e.target.value;
+      saveFilterState();
       applyFilter();
     });
 
@@ -1139,7 +1274,10 @@ const EventHandlers = {
     document.getElementById('filter-clear').addEventListener('click', () => {
       State.filter.text = '';
       State.filter.labelIds = new Set();
+      State.filter.due = '';
       document.getElementById('filter-text').value = '';
+      document.getElementById('filter-due').value = '';
+      saveFilterState();
       renderFilterLabels();
       applyFilter();
     });
@@ -1158,6 +1296,7 @@ const EventHandlers = {
       case 'edit-title':        this._onEditTitle();             break;
       case 'edit-description':  this._onEditDescription();       break;
       case 'pick-label':        this._onPickLabel(btn, db);      break;
+      case 'delete-label':      this._onDeleteLabel(btn, db);    break;
       case 'run-migration':     this._onRunMigration(db);        break;
       case 'dismiss-migration': document.getElementById('migration-banner').setAttribute('hidden', ''); break;
       case 'add-column':        this._onAddColumn(db);           break;
@@ -1195,24 +1334,32 @@ const EventHandlers = {
     await Renderer.renderModal(taskId, db);
   },
 
-  /** タスク削除 */
+  /** タスク削除（カードのボタンからもモーダルの削除ボタンからも呼ばれる） */
   async _onDeleteTask(btn, db) {
     const card   = btn.closest('.card');
-    const taskId = parseInt(card?.dataset.id, 10);
+    const taskId = card ? parseInt(card.dataset.id, 10) : State.currentTaskId;
     if (!taskId) return;
     if (!confirm('このタスクを削除しますか？')) return;
 
-    const column = card.closest('[data-column-body]')?.dataset.columnBody;
-    await db.deleteTask(taskId);
-
-    // State キャッシュから削除
-    if (column) State.tasks[column] = (State.tasks[column] || []).filter(t => t.id !== taskId);
-
-    markDirty();
-    card.remove();
-    if (column) {
-      Renderer.updateCount(column);
+    // column を特定（カードから or State.tasks から検索）
+    let column = card?.closest('[data-column-body]')?.dataset.columnBody;
+    if (!column) {
+      for (const [col, tasks] of Object.entries(State.tasks)) {
+        if (tasks.some(t => t.id === taskId)) { column = col; break; }
+      }
     }
+
+    await db.deleteTask(taskId);
+    if (column) State.tasks[column] = (State.tasks[column] || []).filter(t => t.id !== taskId);
+    markDirty();
+
+    // モーダルが開いていれば閉じる
+    if (!document.getElementById('task-modal').hasAttribute('hidden')) this._closeModal();
+
+    // カードを DOM から削除
+    const cardEl = document.querySelector(`.card[data-id="${taskId}"]`);
+    if (cardEl) cardEl.remove();
+    if (column) Renderer.updateCount(column);
     applyFilter();
   },
 
@@ -1230,6 +1377,8 @@ const EventHandlers = {
     if (!body || !State.currentTaskId) return;
 
     await db.addComment(State.currentTaskId, body);
+    // コメントキャッシュを更新
+    await this._refreshCommentCache(State.currentTaskId, db);
     markDirty();
     input.value = '';
     await Renderer.renderComments(State.currentTaskId, db);
@@ -1240,8 +1389,16 @@ const EventHandlers = {
     const commentId = parseInt(btn.dataset.commentId, 10);
     if (!commentId) return;
     await db.deleteComment(commentId);
+    // コメントキャッシュを更新
+    await this._refreshCommentCache(State.currentTaskId, db);
     markDirty();
     await Renderer.renderComments(State.currentTaskId, db);
+  },
+
+  /** 指定タスクのコメントキャッシュを再取得 */
+  async _refreshCommentCache(taskId, db) {
+    const cs = await db.getCommentsByTask(taskId);
+    State.comments.set(taskId, cs.map(c => c.body));
   },
 
   /** ラベル追加 */
@@ -1294,6 +1451,33 @@ const EventHandlers = {
     markDirty();
     await Renderer.renderModalLabels(State.currentTaskId, db);
     await Renderer.refreshCard(State.currentTaskId, db);
+  },
+
+  /** ラベルをシステムから完全削除 */
+  async _onDeleteLabel(btn, db) {
+    const labelId = parseInt(btn.dataset.labelId, 10);
+    if (!labelId) return;
+    const label = State.labels.find(l => l.id === labelId);
+    if (!confirm(`ラベル「${label?.name ?? ''}」を削除しますか？\n（このラベルはすべてのタスクから外れます）`)) return;
+
+    await db.deleteLabel(labelId);
+
+    // State.labels から削除
+    State.labels = State.labels.filter(l => l.id !== labelId);
+
+    // taskLabels キャッシュから削除
+    for (const [, ids] of State.taskLabels) ids.delete(labelId);
+
+    // フィルターに含まれていれば解除
+    State.filter.labelIds.delete(labelId);
+
+    markDirty();
+    renderFilterLabels();
+    applyFilter();
+    if (State.currentTaskId) {
+      await Renderer.renderModalLabels(State.currentTaskId, db);
+      await Renderer.refreshCard(State.currentTaskId, db);
+    }
   },
 
   /** カラム変更 */
@@ -1549,15 +1733,23 @@ const App = {
       try { State.sort = JSON.parse(savedSort); } catch { /* 無視 */ }
     }
 
+    // フィルター状態を localStorage から復元
+    const savedFilter = localStorage.getItem('kanban_filter');
+    if (savedFilter) {
+      try {
+        const f = JSON.parse(savedFilter);
+        State.filter.text     = f.text || '';
+        State.filter.labelIds = new Set(f.labelIds || []);
+        State.filter.due      = f.due  || '';
+      } catch { /* 無視 */ }
+    }
+
     // ラベルキャッシュをロード
     State.labels = await db.getAllLabels();
 
     // ボードカラムを生成してからボードを描画
     Renderer.renderBoardColumns(db);
     await Renderer.renderBoard(db);
-
-    // フィルターラベルバーを初期化
-    renderFilterLabels();
 
     // ドラッグ&ドロップを初期化
     DragDrop.init(db);
@@ -1569,6 +1761,14 @@ const App = {
     const sortSelect = document.getElementById('sort-select');
     if (sortSelect && State.sort.field) {
       sortSelect.value = `${State.sort.field}:${State.sort.dir}`;
+    }
+
+    // フィルターの初期値を DOM に反映（復元後に applyFilter を呼ぶ）
+    document.getElementById('filter-text').value = State.filter.text;
+    document.getElementById('filter-due').value  = State.filter.due;
+    renderFilterLabels();
+    if (State.filter.text || State.filter.labelIds.size > 0 || State.filter.due) {
+      applyFilter();
     }
 
     // 旧データのマイグレーション確認

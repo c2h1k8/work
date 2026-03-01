@@ -17,7 +17,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ### JavaScript
 
-- **全ページ Vanilla JS**（Vue.js 2 は削除済み）
+- **全ページ Vanilla JS**
 - `todo.html` は IndexedDB（`KanbanDB` クラス）でデータ永続化。`localStorage` は使わない
 - その他ページの localStorage 操作は `js/base/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
 - `js/base/common.js` の共通ユーティリティを活用する
@@ -45,18 +45,18 @@ Claude Code がこのプロジェクトで作業する際の指針。
 ### HTML
 
 - `lang="ja"` を指定する
-- 外部ライブラリは CDN で読み込む（todo.html のみ SortableJS を使用。Bootstrap・Vue は削除済み）
+- 外部ライブラリは CDN で読み込む（todo.html のみ SortableJS を使用。）
 - `defer` 属性を script タグに付ける
 
 ## ファイル配置ルール
 
-| 種別 | 配置先 |
-|------|--------|
-| 新ページ | ルートに `<name>.html` |
-| ページ固有 JS | `js/<name>.js` |
-| ページ固有 CSS | `css/<name>.{less,css}` |
-| 共通 JS | `js/base/<name>.js` |
-| 共通 CSS | `css/base/<name>.{less,css}` |
+| 種別           | 配置先                       |
+| -------------- | ---------------------------- |
+| 新ページ       | ルートに `<name>.html`       |
+| ページ固有 JS  | `js/<name>.js`               |
+| ページ固有 CSS | `css/<name>.{less,css}`      |
+| 共通 JS        | `js/base/<name>.js`          |
+| 共通 CSS       | `css/base/<name>.{less,css}` |
 
 ## タブの追加方法
 

@@ -37,7 +37,26 @@
         </h1>
         <div class="app-header__filter">
           <input type="text" id="filter-text" class="filter-text" placeholder="タスクを検索...">
-          <div id="filter-label-bar" class="filter-label-bar"></div>
+          <select id="filter-due" class="filter-due">
+            <option value="">期限: すべて</option>
+            <option value="has_due">期限あり</option>
+            <option value="no_due">期限なし</option>
+            <option value="overdue">期限切れ</option>
+            <option value="today">今日</option>
+            <option value="week">今週</option>
+            <option value="month">今月</option>
+          </select>
+          <!-- ラベルフィルター（ドロップダウン） -->
+          <div class="filter-label-dropdown" id="filter-label-dropdown">
+            <button class="filter-label-trigger" id="filter-label-trigger" type="button">
+              <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h11A1.5 1.5 0 0 1 15 2.5v1.586a1.5 1.5 0 0 1-.44 1.06L10.5 9.207V13.5a.75.75 0 0 1-.375.65l-3 1.75A.75.75 0 0 1 6 15.25V9.207L1.44 5.146A1.5 1.5 0 0 1 1 4.086Zm1.5 0v1.586l4.56 4.061a.75.75 0 0 1 .24.544v5.338l1.5-.875V8.69a.75.75 0 0 1 .24-.544L13.5 4.086V2.5Z"/></svg>
+              ラベル
+              <span class="filter-label-count" id="filter-label-count" hidden></span>
+            </button>
+            <div class="filter-label-menu" id="filter-label-menu" hidden>
+              <!-- ラベルボタンは JS で動的生成 -->
+            </div>
+          </div>
           <button id="filter-clear" class="btn btn--sm btn--secondary" hidden>クリア</button>
         </div>
         <div class="app-header__sort">
@@ -179,7 +198,7 @@
                 <!-- 適用済みラベル（× 付き）-->
               </div>
               <div id="modal-existing-labels" class="modal__existing-labels">
-                <!-- 未適用の既存ラベル（クリックで追加）-->
+                <!-- 未適用の既存ラベル（クリックで追加）＋削除 🗑 -->
               </div>
               <div class="modal__label-form">
                 <input
@@ -197,6 +216,14 @@
                 />
                 <button class="btn btn--sm btn--secondary" data-action="add-label">追加</button>
               </div>
+            </div>
+
+            <!-- タスク削除 -->
+            <div class="modal__sidebar-item modal__sidebar-item--footer">
+              <button class="btn btn--sm btn--danger modal__delete-task-btn" data-action="delete-task">
+                <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>
+                タスクを削除
+              </button>
             </div>
           </aside>
         </div>

@@ -4,16 +4,16 @@
 
 ## 概要
 
-| ページ | 説明 |
-|--------|------|
-| `index.html` | タブナビゲーションのエントリポイント |
-| `todo.html` | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・エクスポート／インポート付き） |
-| `home.html` | アカウント情報・スプレッドシートリンク・URLユーティリティ |
-| `sql.html` | Oracle SQL*Plusコマンド・チューニングリファレンス |
+| ページ       | 説明                                                                                                                         |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `index.html` | タブナビゲーションのエントリポイント                                                                                         |
+| `todo.html`  | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・エクスポート／インポート付き） |
+| `home.html`  | アカウント情報・スプレッドシートリンク・URLユーティリティ                                                                    |
+| `sql.html`   | Oracle SQL\*Plusコマンド・チューニングリファレンス                                                                           |
 
 ## 技術スタック
 
-- **フロントエンド**: Vanilla JS（全ページ統一。Vue.js 2 は削除済み）
+- **フロントエンド**: Vanilla JS（全ページ統一。）
 - **スタイル**: LESS → CSS（手動コンパイル）
 - **外部ライブラリ**: SortableJS（todo.html のみ、CDN）
 - **データ永続化**: IndexedDB（todo.html）/ localStorage（その他ページ）
@@ -63,7 +63,7 @@ work/
 const TAB_ITEMS = [
   { label: "TODO", pageSrc: "todo.html", isSelected: true },
   { label: "HOME", pageSrc: "home.html", isSelected: false },
-  { label: "SQL",  pageSrc: "sql.html",  isSelected: false },
+  { label: "SQL", pageSrc: "sql.html", isSelected: false },
 ];
 ```
 
