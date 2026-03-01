@@ -160,6 +160,22 @@ class KanbanDB {
     });
   }
 
+  async updateComment(id, changes) {
+    return new Promise((resolve, reject) => {
+      const tx    = this.db.transaction('comments', 'readwrite');
+      const store = tx.objectStore('comments');
+      const req   = store.get(id);
+      req.onsuccess = () => {
+        const updated = { ...req.result, ...changes };
+        const put = store.put(updated);
+        put.onsuccess = () => resolve(updated);
+        put.onerror   = () => reject(put.error);
+      };
+      req.onerror  = () => reject(req.error);
+      tx.onerror   = () => reject(tx.error);
+    });
+  }
+
   async deleteComment(id) {
     return new Promise((resolve, reject) => {
       const tx  = this.db.transaction('comments', 'readwrite');
@@ -355,6 +371,33 @@ function renderTextWithLinks(el, text) {
 }
 
 // ==================================================
+// Helper: マークダウン内の n 番目のチェックボックスを書き換える
+// ==================================================
+function toggleCheckboxInMarkdown(text, index, checked) {
+  let count = 0;
+  return text.replace(/- \[(x| )\]/gi, (match) => {
+    if (count++ === index) return checked ? '- [x]' : '- [ ]';
+    return match;
+  });
+}
+
+// ==================================================
+// Helper: マークダウンを HTML に変換して要素に挿入
+// onCheckboxChange が渡された場合はチェックボックスをインタラクティブにする
+// ==================================================
+function renderMarkdown(el, text, onCheckboxChange = null) {
+  el.innerHTML = '';
+  if (!text) return;
+  el.innerHTML = marked.parse(text, { breaks: true });
+  if (onCheckboxChange) {
+    el.querySelectorAll('input[type="checkbox"]').forEach((cb, index) => {
+      cb.removeAttribute('disabled');
+      cb.addEventListener('change', () => onCheckboxChange(index, cb.checked));
+    });
+  }
+}
+
+// ==================================================
 // Helper: エクスポート後の変更フラグを立てる
 // ==================================================
 function markDirty() {
@@ -482,9 +525,7 @@ function renderFilterLabels() {
       name.className = 'filter-label-item__name';
       name.textContent = label.name;
 
-      item.appendChild(check);
-      item.appendChild(dot);
-      item.appendChild(name);
+      item.append(check, dot, name);
       menu.appendChild(item);
     }
   }
@@ -862,7 +903,17 @@ const Renderer = {
     const descTextarea = document.getElementById('modal-description');
     const descBtn      = document.querySelector('[data-action="edit-description"]');
     descTextarea.value = t.description || '';
-    renderTextWithLinks(descView, t.description || '');
+    let descText = t.description || '';
+    const renderDescView = () => {
+      renderMarkdown(descView, descText, async (index, checked) => {
+        descText = toggleCheckboxInMarkdown(descText, index, checked);
+        await db.updateTask(t.id, { description: descText });
+        descTextarea.value = descText;
+        markDirty();
+        renderDescView();
+      });
+    };
+    renderDescView();
     descView.removeAttribute('hidden');
     descTextarea.setAttribute('hidden', '');
     if (descBtn) descBtn.removeAttribute('hidden');
@@ -1007,9 +1058,18 @@ const Renderer = {
       header.appendChild(date);
       header.appendChild(del);
 
-      const body = document.createElement('pre');
-      body.className = 'comment-item__body';
-      body.textContent = c.body;
+      const body = document.createElement('div');
+      body.className = 'comment-item__body md-body';
+      let commentText = c.body || '';
+      const renderCommentBody = () => {
+        renderMarkdown(body, commentText, async (index, checked) => {
+          commentText = toggleCheckboxInMarkdown(commentText, index, checked);
+          await db.updateComment(c.id, { body: commentText });
+          markDirty();
+          renderCommentBody();
+        });
+      };
+      renderCommentBody();
 
       item.appendChild(header);
       item.appendChild(body);
@@ -1241,6 +1301,7 @@ const EventHandlers = {
     labelMenu.addEventListener('click', (e) => {
       const item = e.target.closest('.filter-label-item');
       if (!item) return;
+      e.stopPropagation(); // ドキュメントへのバブルを止めてメニューを閉じない
       const labelId = parseInt(item.dataset.labelId, 10);
       if (!labelId) return;
       if (State.filter.labelIds.has(labelId)) {
@@ -1251,10 +1312,6 @@ const EventHandlers = {
       saveFilterState();
       renderFilterLabels();
       applyFilter();
-      // Ctrl キーなしの場合は選択後にメニューを閉じる
-      if (!e.ctrlKey && !e.metaKey) {
-        labelMenu.hidden = true;
-      }
     });
     // メニュー外クリックで閉じる
     document.addEventListener('click', (e) => {
@@ -1583,10 +1640,21 @@ const EventHandlers = {
     await db.updateTask(State.currentTaskId, { description });
     markDirty();
 
-    // 表示モードに切り替え（URL をリンクにレンダリング）
+    // 表示モードに切り替え（マークダウンレンダリング＋チェックボックス有効化）
+    const taskId   = State.currentTaskId;
     const descView = document.getElementById('modal-description-view');
     const descBtn  = document.querySelector('[data-action="edit-description"]');
-    renderTextWithLinks(descView, description);
+    let descText   = description;
+    const renderDescView = () => {
+      renderMarkdown(descView, descText, async (index, checked) => {
+        descText = toggleCheckboxInMarkdown(descText, index, checked);
+        await db.updateTask(taskId, { description: descText });
+        e.target.value = descText;
+        markDirty();
+        renderDescView();
+      });
+    };
+    renderDescView();
     e.target.setAttribute('hidden', '');
     descView.removeAttribute('hidden');
     if (descBtn) descBtn.removeAttribute('hidden');
