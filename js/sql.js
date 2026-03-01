@@ -306,7 +306,7 @@ function exportEnvJson() {
   a.href     = url;
   const now  = new Date();
   const pad  = n => String(n).padStart(2, "0");
-  const ts   = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const ts   = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
   a.download = `sql_envs_${ts}.json`;
   document.body.appendChild(a);
   a.click();
