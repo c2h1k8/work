@@ -36,9 +36,10 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ### CSS / LESS
 
-- スタイルは `.less` で記述し、`npx lessc` でコンパイルして `.css` を生成する
-  - 例: `npx lessc css/base/date_picker.less css/base/date_picker.css`
-  - `.less` を編集したら必ず同コマンドで対応 `.css` を再生成すること
+- **スタイルは必ず `.less` を編集すること。`.css` を直接編集してはいけない**
+- `.less` を編集したら `npx lessc <src>.less <dst>.css` で対応 `.css` を必ず再生成する
+  - 例: `npx lessc css/base/tab_style.less css/base/tab_style.css`
+  - 例: `npx lessc css/todo.less css/todo.css`
 - 共通スタイルは `css/base/` 配下に配置する
 - ページ固有スタイルは `css/<page>.{less,css}` に配置する
 

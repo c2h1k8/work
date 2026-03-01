@@ -1,59 +1,168 @@
-.tab-wrap {
+// ==================================================
+// カラー変数
+// ==================================================
+@nav-height:     48px;
+@nav-bg:         #ffffff;
+@nav-border:     #d0d7de;
+@nav-text:       #24292f;
+@nav-text-muted: #656d76;
+@nav-accent:     #0969da;
+@nav-hover-bg:   #f6f8fa;
+@font-stack:     -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+                 Helvetica, Arial, sans-serif;
+
+// ==================================================
+// グローバルリセット・ベース
+// ==================================================
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: @font-stack;
+  font-size: 14px;
+  line-height: 1.5;
+  color: @nav-text;
+  background: @nav-hover-bg;
+  overflow: hidden;
+}
+
+// ==================================================
+// アプリシェル（ヘッダー + コンテンツの縦積み）
+// ==================================================
+.app-shell {
   display: flex;
-  flex-wrap: wrap;
-  margin: 20px 0 0 0;
-  &::after {
-    content: "";
-    width: 100%;
-    height: 3px;
-    background: deepskyblue;
-    display: block;
-    order: -1;
+  flex-direction: column;
+  height: 100vh;
+}
+
+// ==================================================
+// トップナビゲーションバー
+// ==================================================
+.top-nav {
+  height: @nav-height;
+  background: @nav-bg;
+  border-bottom: 1px solid @nav-border;
+  flex-shrink: 0;
+  z-index: 100;
+
+  &__inner {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    padding: 0 20px;
   }
-}
 
-.tab-label {
-  color: white;
-  background: lightgray;
-  font-weight: bold;
-  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
-  white-space: nowrap;
-  text-align: center;
-  padding: 10px 0.5em;
-  order: -1;
-  position: relative;
-  z-index: 1;
-  cursor: pointer;
-  border-radius: 5px 5px 0 0;
-  flex: 1;
-  &:not(:last-of-type) {
-    margin-right: 5px;
-  }
-}
+  // ブランド（アイコン + タイトル）
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: @nav-text;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    padding-right: 20px;
+    margin-right: 8px;
+    border-right: 1px solid @nav-border;
+    flex-shrink: 0;
 
-.tab-content {
-  width: 100%;
-  // height: 0;
-  // overflow: hidden;
-  // opacity: 0;
-  display: none;
-}
-
-.tab-switch {
-  /* ラジオボタン非表示 */
-  display: none;
-  &:checked + .tab-label {
-    /* アクティブなタブ */
-    background: deepskyblue;
-    & + .tab-content {
-      display: block;
-      height: 1210px;
-      // overflow: auto;
-      padding: 5px;
-      // opacity: 1;
-      transition: 0.5s opacity;
-      box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
-      display: block;
+    svg {
+      width: 20px;
+      height: 20px;
+      fill: @nav-accent;
+      flex-shrink: 0;
     }
+  }
+
+  // タブ群コンテナ
+  &__tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    flex: 1;
+  }
+}
+
+// ==================================================
+// ラジオボタン（非表示）
+// ==================================================
+.tab-switch {
+  display: none;
+}
+
+// ==================================================
+// タブボタン（label 要素）
+// ==================================================
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px; // nav の border-bottom にアクティブ下線を重ねる
+  background: transparent;
+  color: @nav-text-muted;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: @font-stack;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 6px 6px 0 0;
+  transition: color 0.15s, background 0.12s, border-color 0.15s;
+  user-select: none;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    color: @nav-text;
+    background: @nav-hover-bg;
+  }
+
+  // アクティブタブ
+  &--active {
+    color: @nav-text;
+    font-weight: 600;
+    border-bottom-color: @nav-accent;
+
+    &:hover {
+      background: transparent;
+    }
+  }
+}
+
+// ==================================================
+// コンテンツエリア（iframe ラッパー）
+// ==================================================
+.tab-viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: @nav-hover-bg;
+}
+
+// 全 iframe を重ねて配置し、アクティブなものだけ表示
+.tab-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+
+  &--active {
+    opacity: 1;
+    pointer-events: auto;
   }
 }
