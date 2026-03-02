@@ -7,7 +7,7 @@
 | ページ       | 説明                                                                                                                         |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | `index.html` | タブナビゲーションのエントリポイント                                                                                         |
-| `todo.html`  | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・エクスポート／インポート付き） |
+| `todo.html`  | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・タスク紐づけ・エクスポート／インポート付き） |
 | `home.html`  | アカウント情報・スプレッドシートリンク・URLユーティリティ                                                                    |
 | `sql.html`   | Oracle SQL\*Plusコマンド・チューニングリファレンス                                                                           |
 
@@ -19,7 +19,7 @@
 - **データ永続化**: IndexedDB（todo.html）/ localStorage（その他ページ）
   - IndexedDB はブラウザネイティブの構造化 DB。`file://` でも動作しインストール不要。
   - todo.html はヘッダーのエクスポート／インポートボタンで JSON バックアップを手動管理できる。
-  - IndexedDB スキーマは v4（tasks / comments / labels / task_labels / columns / **activities** ストア）。
+  - IndexedDB スキーマは v5（tasks / comments / labels / task_labels / columns / activities / **task_relations** ストア）。
   - コメントはソフトデリート（`deleted_at` フラグ）で管理。「コメント」タブでは非表示、「すべて」タブでは削除済み表示。
 
 ## ディレクトリ構成

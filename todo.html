@@ -245,6 +245,28 @@
               </div>
             </div>
 
+            <!-- 関係タスク -->
+            <div class="modal__sidebar-item" id="modal-relations-section">
+              <!-- 親タスク -->
+              <div class="modal__relation-group" id="modal-parent-section">
+                <span class="modal__sidebar-label">親タスク</span>
+                <div id="modal-parent-task"></div>
+                <button class="modal__relation-add-btn" data-action="pick-parent">＋ 設定</button>
+              </div>
+              <!-- 子タスク -->
+              <div class="modal__relation-group" id="modal-children-section">
+                <span class="modal__sidebar-label">子タスク</span>
+                <div id="modal-child-tasks"></div>
+                <button class="modal__relation-add-btn" data-action="pick-child">＋ 追加</button>
+              </div>
+              <!-- 関連タスク -->
+              <div class="modal__relation-group" id="modal-related-section">
+                <span class="modal__sidebar-label">関連タスク</span>
+                <div id="modal-related-tasks"></div>
+                <button class="modal__relation-add-btn" data-action="pick-related">＋ 追加</button>
+              </div>
+            </div>
+
             <!-- タスク削除 -->
             <div class="modal__sidebar-item modal__sidebar-item--footer">
               <button class="btn btn--sm btn--danger modal__delete-task-btn" data-action="delete-task">
@@ -275,6 +297,12 @@
           <button data-dp-action="confirm" class="btn btn--sm btn--primary">決定</button>
         </div>
       </div>
+    </div>
+
+    <!-- タスクピッカー（関係タスク選択用） -->
+    <div id="task-picker" class="task-picker" hidden>
+      <input id="task-picker-input" type="text" placeholder="タスクを検索..." class="task-picker__input" />
+      <ul id="task-picker-list" class="task-picker__list"></ul>
     </div>
 
     <!-- トースト通知 -->

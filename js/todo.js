@@ -13,7 +13,7 @@ class KanbanDB {
   /** DBをオープン（スキーマ初期化含む） */
   open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('kanban_db', 4);
+      const req = indexedDB.open('kanban_db', 5);
 
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -53,6 +53,13 @@ class KanbanDB {
         if (!db.objectStoreNames.contains('activities')) {
           const acts = db.createObjectStore('activities', { keyPath: 'id', autoIncrement: true });
           acts.createIndex('task_id', 'task_id', { unique: false });
+        }
+
+        // task_relations ストア（v5 で追加）
+        if (!db.objectStoreNames.contains('task_relations')) {
+          const rels = db.createObjectStore('task_relations', { keyPath: 'id', autoIncrement: true });
+          rels.createIndex('task_id', 'task_id', { unique: false });
+          rels.createIndex('related_id', 'related_id', { unique: false });
         }
       };
 
@@ -141,6 +148,8 @@ class KanbanDB {
       this._getAllByIndex('task_labels', 'task_id', id),
       this._getAllByIndex('activities', 'task_id', id),
     ]);
+    // task_relations は双方向インデックスから取得して削除
+    await this.deleteRelationsByTask(id).catch(() => {});
 
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(['tasks', 'comments', 'task_labels', 'activities'], 'readwrite');
@@ -269,6 +278,84 @@ class KanbanDB {
     });
   }
 
+  // ---- Task Relations ----
+  /** タスク関係を追加（child: task_id=親/related_id=子, related: min/max 正規化） */
+  async addRelation(taskId, relatedId, type) {
+    return new Promise((resolve, reject) => {
+      const record = type === 'child'
+        ? { task_id: taskId, related_id: relatedId, relation_type: 'child' }
+        : { task_id: Math.min(taskId, relatedId), related_id: Math.max(taskId, relatedId), relation_type: 'related' };
+      const tx  = this.db.transaction('task_relations', 'readwrite');
+      const req = tx.objectStore('task_relations').add(record);
+      req.onsuccess = () => { record.id = req.result; resolve(record); };
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  /** タスク関係を削除 */
+  async deleteRelation(id) {
+    return new Promise((resolve, reject) => {
+      const tx  = this.db.transaction('task_relations', 'readwrite');
+      const req = tx.objectStore('task_relations').delete(id);
+      req.onsuccess = resolve;
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  /** タスクの全関係を取得（parent / children / related に分類） */
+  async getRelationsByTask(taskId) {
+    const [byTaskId, byRelatedId] = await Promise.all([
+      this._getAllByIndex('task_relations', 'task_id',   taskId).catch(() => []),
+      this._getAllByIndex('task_relations', 'related_id', taskId).catch(() => []),
+    ]);
+    const allTasks = await this.getAllTasks();
+    const taskMap  = new Map(allTasks.map(t => [t.id, t]));
+
+    let parent = null;
+    const children = [];
+    const related  = [];
+
+    for (const rel of byTaskId) {
+      if (rel.relation_type === 'child') {
+        // 自分が親 → related_id が子
+        const t = taskMap.get(rel.related_id);
+        if (t) children.push({ task: t, relationId: rel.id });
+      } else {
+        // related: task_id = min(自分, 相手) → 相手は related_id
+        const t = taskMap.get(rel.related_id);
+        if (t) related.push({ task: t, relationId: rel.id });
+      }
+    }
+    for (const rel of byRelatedId) {
+      if (rel.relation_type === 'child') {
+        // 自分が子 → task_id が親
+        const t = taskMap.get(rel.task_id);
+        if (t) parent = { task: t, relationId: rel.id };
+      } else {
+        // related: related_id = max → task_id は相手
+        const t = taskMap.get(rel.task_id);
+        if (t) related.push({ task: t, relationId: rel.id });
+      }
+    }
+    return { parent, children, related };
+  }
+
+  /** タスク削除時に関連するリレーションをカスケード削除 */
+  async deleteRelationsByTask(taskId) {
+    const [byTaskId, byRelatedId] = await Promise.all([
+      this._getAllByIndex('task_relations', 'task_id',   taskId).catch(() => []),
+      this._getAllByIndex('task_relations', 'related_id', taskId).catch(() => []),
+    ]);
+    const all = [...byTaskId, ...byRelatedId];
+    if (all.length === 0) return;
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction('task_relations', 'readwrite');
+      tx.oncomplete = resolve;
+      tx.onerror    = (e) => reject(e.target.error);
+      for (const r of all) tx.objectStore('task_relations').delete(r.id);
+    });
+  }
+
   // ---- Activities ----
   /** 作業履歴を追加 */
   async addActivity(taskId, type, content) {
@@ -289,28 +376,30 @@ class KanbanDB {
 
   /** 全ストアのデータを一括エクスポート */
   async exportAll() {
-    const [tasks, comments, labels, task_labels, columns, activities] = await Promise.all([
+    const [tasks, comments, labels, task_labels, columns, activities, task_relations] = await Promise.all([
       this._getAll('tasks'), this._getAll('comments'),
       this._getAll('labels'), this._getAll('task_labels'),
       this._getAll('columns'), this._getAll('activities'),
+      this._getAll('task_relations').catch(() => []),
     ]);
-    return { version: 3, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns, activities };
+    return { version: 4, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns, activities, task_relations };
   }
 
   /** 全ストアをクリアして data で上書き（put で ID 保持） */
   async importAll(data) {
-    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities'];
+    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities', 'task_relations'];
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(stores, 'readwrite');
       tx.oncomplete = resolve;
       tx.onerror    = (e) => reject(e.target.error);
       for (const s of stores) tx.objectStore(s).clear();
-      for (const t   of (data.tasks       ?? [])) tx.objectStore('tasks').put(t);
-      for (const c   of (data.comments    ?? [])) tx.objectStore('comments').put(c);
-      for (const l   of (data.labels      ?? [])) tx.objectStore('labels').put(l);
-      for (const tl  of (data.task_labels ?? [])) tx.objectStore('task_labels').put(tl);
-      for (const col of (data.columns     ?? [])) tx.objectStore('columns').put(col);
-      for (const a   of (data.activities  ?? [])) tx.objectStore('activities').put(a);
+      for (const t   of (data.tasks           ?? [])) tx.objectStore('tasks').put(t);
+      for (const c   of (data.comments        ?? [])) tx.objectStore('comments').put(c);
+      for (const l   of (data.labels          ?? [])) tx.objectStore('labels').put(l);
+      for (const tl  of (data.task_labels     ?? [])) tx.objectStore('task_labels').put(tl);
+      for (const col of (data.columns         ?? [])) tx.objectStore('columns').put(col);
+      for (const a   of (data.activities      ?? [])) tx.objectStore('activities').put(a);
+      for (const r   of (data.task_relations  ?? [])) tx.objectStore('task_relations').put(r);
     });
   }
 
@@ -678,17 +767,6 @@ const Backup = {
 
         // カラムキャッシュ再構築
         State.columns = (await db.getAllColumns()).sort((a, b) => a.position - b.position);
-        if (State.columns.length === 0) {
-          // バックアップにカラムがなければデフォルトを投入
-          const defaults = [
-            { name: 'バックログ', key: 'backlog',     position: 0 },
-            { name: '進行中',     key: 'in_progress', position: 1 },
-            { name: 'レビュー中', key: 'in_review',   position: 2 },
-            { name: '完了',       key: 'done',        position: 3 },
-          ];
-          for (const d of defaults) await db.addColumn(d.name, d.key, d.position);
-          State.columns = (await db.getAllColumns()).sort((a, b) => a.position - b.position);
-        }
         State.tasks = {};
         for (const col of State.columns) State.tasks[col.key] = [];
 
@@ -992,6 +1070,9 @@ const Renderer = {
     // ラベル
     await this.renderModalLabels(taskId, db);
 
+    // 関係タスク
+    await this.renderRelations(taskId, db);
+
     // コメント
     await this.renderComments(taskId, db);
 
@@ -1235,6 +1316,8 @@ const Renderer = {
       due_change:         '<svg viewBox="0 0 16 16"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0Zm0 3.5h6.5V2h-6.5v1.5ZM2.5 5v9.25c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V5Z"/></svg>',
       comment_delete:     '<svg viewBox="0 0 16 16"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>',
       comment_edit:       '<svg viewBox="0 0 16 16"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354l-1.086-1.086ZM11.189 6.25 9.75 4.81l-6.286 6.287a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.249.249 0 0 0 .108-.064l6.286-6.286Z"/></svg>',
+      relation_add:       '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm.75 4.75a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z"/></svg>',
+      relation_remove:    '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm-3.25 7.25a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z"/></svg>',
     };
     return icons[type] ?? '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="4"/></svg>';
   },
@@ -1275,6 +1358,14 @@ const Renderer = {
         return 'コメントを削除';
       case 'comment_edit':
         return 'コメントを編集';
+      case 'relation_add': {
+        const roleLabel = { parent: '親タスク', child: '子タスク', related: '関連タスク' }[c.role] ?? '関係タスク';
+        return `${roleLabel}「${c.with_title ?? ''}」を紐づけ`;
+      }
+      case 'relation_remove': {
+        const roleLabel = { parent: '親タスク', child: '子タスク', related: '関連タスク' }[c.role] ?? '関係タスク';
+        return `${roleLabel}の紐づけを解除`;
+      }
       default:
         return '変更';
     }
@@ -1319,6 +1410,76 @@ const Renderer = {
 
     const newCard = this.createCard(task, db);
     oldCard.parentNode.replaceChild(newCard, oldCard);
+  },
+
+  /** サイドバーの関係タスクセクションを描画 */
+  async renderRelations(taskId, db) {
+    const { parent, children, related } = await db.getRelationsByTask(taskId).catch(() => ({ parent: null, children: [], related: [] }));
+
+    // 親タスク
+    const parentEl  = document.getElementById('modal-parent-task');
+    const pickParentBtn = document.querySelector('[data-action="pick-parent"]');
+    if (parentEl) {
+      parentEl.innerHTML = '';
+      if (parent) {
+        parentEl.appendChild(this._createRelationChip(parent.task, parent.relationId, 'parent', db));
+        if (pickParentBtn) pickParentBtn.hidden = true;
+      } else {
+        if (pickParentBtn) pickParentBtn.hidden = false;
+      }
+    }
+
+    // 子タスク
+    const childrenEl = document.getElementById('modal-child-tasks');
+    if (childrenEl) {
+      childrenEl.innerHTML = '';
+      for (const c of children) {
+        childrenEl.appendChild(this._createRelationChip(c.task, c.relationId, 'child', db));
+      }
+    }
+
+    // 関連タスク
+    const relatedEl = document.getElementById('modal-related-tasks');
+    if (relatedEl) {
+      relatedEl.innerHTML = '';
+      for (const r of related) {
+        relatedEl.appendChild(this._createRelationChip(r.task, r.relationId, 'related', db));
+      }
+    }
+  },
+
+  /** 関係チップ要素を生成 */
+  _createRelationChip(task, relationId, role, db) {
+    const col = State.columns.find(c => c.key === task.column);
+
+    const chip = document.createElement('div');
+    chip.className = 'relation-chip';
+    chip.dataset.action = 'open-related-task';
+    chip.dataset.taskId = task.id;
+
+    const title = document.createElement('span');
+    title.className = 'relation-chip__title';
+    title.textContent = task.title;
+    title.title = task.title;
+
+    const colBadge = document.createElement('span');
+    colBadge.className = 'relation-chip__column';
+    colBadge.textContent = col?.name ?? task.column;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'relation-chip__remove';
+    removeBtn.dataset.action = 'remove-relation';
+    removeBtn.dataset.relationId = relationId;
+    removeBtn.dataset.role = role;
+    removeBtn.dataset.relatedTaskId = task.id;
+    removeBtn.textContent = '×';
+    removeBtn.setAttribute('aria-label', '紐づきを解除');
+    removeBtn.title = '紐づきを解除';
+
+    chip.appendChild(title);
+    chip.appendChild(colBadge);
+    chip.appendChild(removeBtn);
+    return chip;
   },
 
   /** カウントバッジを更新 */
@@ -1565,6 +1726,23 @@ const EventHandlers = {
       if (!document.getElementById('filter-label-dropdown').contains(e.target)) {
         labelMenu.hidden = true;
       }
+      // タスクピッカー外クリックで閉じる
+      const picker = document.getElementById('task-picker');
+      if (picker && !picker.hidden && !picker.contains(e.target)) {
+        this._closeTaskPicker();
+      }
+    });
+
+    // タスクピッカー検索入力
+    document.getElementById('task-picker-input').addEventListener('input', (e) => {
+      this._filterTaskPickerList(e.target.value);
+    });
+
+    // タスクピッカーのリストクリック委譲
+    document.getElementById('task-picker-list').addEventListener('click', (e) => {
+      const item = e.target.closest('[data-action="select-relation-task"]');
+      if (!item) return;
+      this._onSelectRelationTask(item, db);
     });
 
     // 期限フィルター
@@ -1612,6 +1790,12 @@ const EventHandlers = {
       case 'timeline-filter':    this._onTimelineFilter(btn, db);  break;
       case 'toggle-time-format': this._onToggleTimeFormat();        break;
       case 'md-tab':             this._onMdTab(btn);                break;
+      case 'pick-parent':        this._onPickRelation('parent', btn, db); break;
+      case 'pick-child':         this._onPickRelation('child',  btn, db); break;
+      case 'pick-related':       this._onPickRelation('related', btn, db); break;
+      case 'remove-relation':    this._onRemoveRelation(btn, db);   break;
+      case 'open-related-task':  this._onOpenRelatedTask(btn, db);  break;
+      case 'select-relation-task': this._onSelectRelationTask(btn, db); break;
     }
   },
 
@@ -1655,6 +1839,9 @@ const EventHandlers = {
     if (!taskId) return;
     if (!confirm('このタスクを削除しますか？')) return;
 
+    // 削除前に関係タスクを取得（アクティビティ記録用）
+    const { parent, children, related } = await db.getRelationsByTask(taskId).catch(() => ({ parent: null, children: [], related: [] }));
+
     // column を特定（カードから or State.tasks から検索）
     let column = card?.closest('[data-column-body]')?.dataset.columnBody;
     if (!column) {
@@ -1666,6 +1853,21 @@ const EventHandlers = {
     await db.deleteTask(taskId);
     if (column) State.tasks[column] = (State.tasks[column] || []).filter(t => t.id !== taskId);
     markDirty();
+
+    // 関連付けられていたタスクへ紐づけ解除アクティビティを記録
+    const activityPromises = [];
+    if (parent) {
+      // 削除タスクは親の子だったので、親タスク側は「子タスクの紐づけを解除」
+      activityPromises.push(db.addActivity(parent.task.id, 'relation_remove', { role: 'child' }).catch(() => {}));
+    }
+    for (const c of children) {
+      // 削除タスクは子の親だったので、子タスク側は「親タスクの紐づけを解除」
+      activityPromises.push(db.addActivity(c.task.id, 'relation_remove', { role: 'parent' }).catch(() => {}));
+    }
+    for (const r of related) {
+      activityPromises.push(db.addActivity(r.task.id, 'relation_remove', { role: 'related' }).catch(() => {}));
+    }
+    await Promise.all(activityPromises);
 
     // パネルが開いていれば閉じる
     if (document.getElementById('task-modal').classList.contains('is-open')) this._closeModal();
@@ -1691,6 +1893,8 @@ const EventHandlers = {
     document.getElementById('modal-comment-input').value = '';
     // コメントエディタを write タブにリセット
     _resetMdEditor(document.getElementById('comment-editor'));
+    // タスクピッカーを閉じる
+    this._closeTaskPicker();
   },
 
   /** タイムラインフィルタータブ切替 */
@@ -2303,6 +2507,169 @@ const EventHandlers = {
     markDirty();
   },
 
+  // ---- タスク関係操作 ----
+
+  /** タスクピッカーを開く（role: 'parent' | 'child' | 'related'） */
+  async _onPickRelation(role, btn, db) {
+    if (!State.currentTaskId) return;
+    const taskId = State.currentTaskId;
+
+    // 既紐づきタスクのIDセットを取得（除外用）
+    const { parent, children, related } = await db.getRelationsByTask(taskId).catch(() => ({ parent: null, children: [], related: [] }));
+    const excludeIds = new Set([taskId]);
+    if (parent)   excludeIds.add(parent.task.id);
+    for (const c of children) excludeIds.add(c.task.id);
+    for (const r of related)  excludeIds.add(r.task.id);
+
+    // 選択可能なタスク一覧
+    const allTasks = await db.getAllTasks();
+    State._pickerRole      = role;
+    State._pickerCandidates = allTasks.filter(t => !excludeIds.has(t.id));
+
+    // ピッカーを表示
+    const picker = document.getElementById('task-picker');
+    const input  = document.getElementById('task-picker-input');
+    input.value  = '';
+    this._renderTaskPickerList(State._pickerCandidates);
+
+    // ボタンのすぐ下に配置（position:fixed なのでビューポート座標をそのまま使う）
+    const rect   = btn.getBoundingClientRect();
+    const pickerW = 260;
+    const left    = Math.min(rect.left, window.innerWidth - pickerW - 8);
+    picker.style.top  = (rect.bottom + 4) + 'px';
+    picker.style.left = Math.max(8, left) + 'px';
+    picker.removeAttribute('hidden');
+    input.focus();
+  },
+
+  /** タスクピッカーのリスト描画 */
+  _renderTaskPickerList(tasks) {
+    const list = document.getElementById('task-picker-list');
+    list.innerHTML = '';
+    if (tasks.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'task-picker__empty';
+      empty.textContent = '選択可能なタスクがありません';
+      list.appendChild(empty);
+      return;
+    }
+    for (const t of tasks) {
+      const col  = State.columns.find(c => c.key === t.column);
+      const item = document.createElement('li');
+      item.className = 'task-picker__item';
+      item.dataset.action = 'select-relation-task';
+      item.dataset.taskId = t.id;
+
+      const titleEl = document.createElement('span');
+      titleEl.className = 'task-picker__item-title';
+      titleEl.textContent = t.title;
+
+      const colEl = document.createElement('span');
+      colEl.className = 'task-picker__item-column';
+      colEl.textContent = col?.name ?? t.column;
+
+      item.appendChild(titleEl);
+      item.appendChild(colEl);
+      list.appendChild(item);
+    }
+  },
+
+  /** 検索テキストでピッカーリストを絞り込む */
+  _filterTaskPickerList(text) {
+    const q = text.toLowerCase();
+    const candidates = (State._pickerCandidates || []).filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      (State.columns.find(c => c.key === t.column)?.name ?? t.column).toLowerCase().includes(q)
+    );
+    this._renderTaskPickerList(candidates);
+  },
+
+  /** タスク選択確定 */
+  async _onSelectRelationTask(btn, db) {
+    const relatedId = parseInt(btn.dataset.taskId, 10);
+    const taskId    = State.currentTaskId;
+    const role      = State._pickerRole;
+    if (!relatedId || !taskId || !role) return;
+
+    const relatedTask = (State._pickerCandidates || []).find(t => t.id === relatedId);
+
+    try {
+      if (role === 'parent') {
+        // 既存の親関係があれば先に削除
+        const { parent } = await db.getRelationsByTask(taskId).catch(() => ({ parent: null }));
+        if (parent) await db.deleteRelation(parent.relationId).catch(() => {});
+        await db.addRelation(relatedId, taskId, 'child'); // relatedId=親, taskId=子
+      } else if (role === 'child') {
+        await db.addRelation(taskId, relatedId, 'child'); // taskId=親, relatedId=子
+      } else {
+        await db.addRelation(taskId, relatedId, 'related');
+      }
+
+      // アクティビティ記録（操作した側・関連付けられた側の両方に記録）
+      if (relatedTask) {
+        const actRole = role === 'parent' ? 'parent' : role === 'child' ? 'child' : 'related';
+        await db.addActivity(taskId, 'relation_add', { role: actRole, with_title: relatedTask.title }).catch(() => {});
+        const oppositeRole = { parent: 'child', child: 'parent', related: 'related' }[actRole];
+        const currentTask = Object.values(State.tasks).flat().find(t => t.id === taskId);
+        await db.addActivity(relatedId, 'relation_add', { role: oppositeRole, with_title: currentTask?.title ?? '' }).catch(() => {});
+      }
+
+      markDirty();
+    } catch (e) {
+      console.error('関係追加に失敗:', e);
+    }
+
+    this._closeTaskPicker();
+    await Renderer.renderRelations(taskId, db);
+
+    if (State.timelineFilter === 'all') {
+      await Renderer.renderComments(taskId, db);
+    }
+  },
+
+  /** 関係を削除 */
+  async _onRemoveRelation(btn, db) {
+    const relationId    = parseInt(btn.dataset.relationId, 10);
+    const role          = btn.dataset.role;
+    const taskId        = State.currentTaskId;
+    const relatedTaskId = parseInt(btn.dataset.relatedTaskId, 10);
+    if (!relationId || !taskId) return;
+
+    try {
+      await db.deleteRelation(relationId);
+      await db.addActivity(taskId, 'relation_remove', { role: role || 'related' }).catch(() => {});
+      // 関連付けられた側にもアクティビティを記録
+      if (relatedTaskId) {
+        const oppositeRole = { parent: 'child', child: 'parent', related: 'related' }[role] ?? 'related';
+        await db.addActivity(relatedTaskId, 'relation_remove', { role: oppositeRole }).catch(() => {});
+      }
+      markDirty();
+    } catch (e) {
+      console.error('関係削除に失敗:', e);
+    }
+
+    await Renderer.renderRelations(taskId, db);
+    if (State.timelineFilter === 'all') {
+      await Renderer.renderComments(taskId, db);
+    }
+  },
+
+  /** 関連タスクのモーダルを開く */
+  async _onOpenRelatedTask(btn, db) {
+    const taskId = parseInt(btn.dataset.taskId, 10);
+    if (!taskId) return;
+    this._closeTaskPicker();
+    await Renderer.renderModal(taskId, db);
+  },
+
+  /** タスクピッカーを閉じる */
+  _closeTaskPicker() {
+    const picker = document.getElementById('task-picker');
+    if (picker) picker.setAttribute('hidden', '');
+    State._pickerRole       = null;
+    State._pickerCandidates = null;
+  },
+
   /** マイグレーション実行 */
   async _onRunMigration(db) {
     document.getElementById('migration-banner').setAttribute('hidden', '');
@@ -2334,18 +2701,8 @@ const App = {
     const db = new KanbanDB();
     await db.open();
 
-    // カラムをロード（なければデフォルト4カラムを投入）
+    // カラムをロード
     State.columns = (await db.getAllColumns()).sort((a, b) => a.position - b.position);
-    if (State.columns.length === 0) {
-      const defaults = [
-        { name: 'バックログ', key: 'backlog',     position: 0 },
-        { name: '進行中',     key: 'in_progress', position: 1 },
-        { name: 'レビュー中', key: 'in_review',   position: 2 },
-        { name: '完了',       key: 'done',        position: 3 },
-      ];
-      for (const d of defaults) await db.addColumn(d.name, d.key, d.position);
-      State.columns = (await db.getAllColumns()).sort((a, b) => a.position - b.position);
-    }
 
     // tasks キャッシュを動的に初期化
     for (const col of State.columns) State.tasks[col.key] = [];
