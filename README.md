@@ -19,7 +19,8 @@
 - **データ永続化**: IndexedDB（todo.html）/ localStorage（その他ページ）
   - IndexedDB はブラウザネイティブの構造化 DB。`file://` でも動作しインストール不要。
   - todo.html はヘッダーのエクスポート／インポートボタンで JSON バックアップを手動管理できる。
-  - IndexedDB スキーマは v2（tasks / comments / labels / task_labels / **columns** ストア）。
+  - IndexedDB スキーマは v4（tasks / comments / labels / task_labels / columns / **activities** ストア）。
+  - コメントはソフトデリート（`deleted_at` フラグ）で管理。「コメント」タブでは非表示、「すべて」タブでは削除済み表示。
 
 ## ディレクトリ構成
 

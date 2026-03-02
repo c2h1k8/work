@@ -348,6 +348,8 @@ const State = {
   sort:           { field: '', dir: 'asc' },                  // ソート状態
   timelineFilter: 'comments',                                 // 'comments' | 'all'
   timeAbsolute:   false,                                      // 時刻表示形式（false=相対, true=絶対）
+  newlyCreatedTaskId: null,                                   // 新規作成直後のタスクID（初回編集をアクティビティに記録しない）
+  _descriptionBeforeEdit: null,                              // 説明編集開始時の元テキスト（変更なし判定用）
 };
 
 // ==================================================
@@ -426,6 +428,20 @@ function renderMarkdown(el, text, onCheckboxChange = null) {
       cb.addEventListener('change', () => onCheckboxChange(index, cb.checked));
     });
   }
+}
+
+// ==================================================
+// Helper: md-editor を write タブ表示にリセットする
+// ==================================================
+function _resetMdEditor(editor) {
+  if (!editor) return;
+  const textarea = editor.querySelector('textarea');
+  const preview  = editor.querySelector('.md-editor__preview');
+  editor.querySelectorAll('.md-editor__tab').forEach(t => {
+    t.classList.toggle('is-active', t.dataset.tab === 'write');
+  });
+  if (textarea) textarea.removeAttribute('hidden');
+  if (preview)  preview.setAttribute('hidden', '');
 }
 
 // ==================================================
@@ -913,6 +929,8 @@ const Renderer = {
 
   /** モーダルを特定タスクで開く */
   async renderModal(taskId, db) {
+    // 別タスクを開いたら新規作成フラグをクリア
+    if (State.newlyCreatedTaskId !== taskId) State.newlyCreatedTaskId = null;
     State.currentTaskId = taskId;
 
     const allTasks = await db.getAllTasks();
@@ -1061,8 +1079,15 @@ const Renderer = {
   async renderComments(taskId, db) {
     const container  = document.getElementById('modal-comments');
     container.innerHTML = '';
+    // タブ切替時に古い --timeline-h と scrollTop をリセット
+    container.style.setProperty('--timeline-h', '0px');
+    container.scrollTop = 0;
 
-    const comments   = await db.getCommentsByTask(taskId);
+    const allComments = await db.getCommentsByTask(taskId);
+    // 「コメント」タブでは削除済みを非表示、「すべて」タブでは削除済みも含める
+    const comments = State.timelineFilter === 'all'
+      ? allComments
+      : allComments.filter(c => !c.deleted_at);
     const activities = State.timelineFilter === 'all'
       ? await db.getActivitiesByTask(taskId).catch(() => [])
       : [];
@@ -1100,9 +1125,12 @@ const Renderer = {
 
   /** コメントアイテム DOM を生成 */
   _createCommentEl(c, db) {
+    const isDeleted = !!c.deleted_at;
+
     const item = document.createElement('div');
-    item.className = 'comment-item';
+    item.className = isDeleted ? 'comment-item comment-item--deleted' : 'comment-item';
     item.dataset.commentId = c.id;
+    item.dataset.commentBody = c.body || ''; // 編集用に本文を保持
 
     const header = document.createElement('div');
     header.className = 'comment-item__header';
@@ -1113,28 +1141,55 @@ const Renderer = {
     date.title = State.timeAbsolute ? this._relativeTime(c.created_at) : new Date(c.created_at).toLocaleString('ja-JP');
     date.textContent = this._formatTime(c.created_at);
 
-    const del = document.createElement('button');
-    del.className = 'comment-item__delete';
-    del.dataset.action    = 'delete-comment';
-    del.dataset.commentId = c.id;
-    del.setAttribute('aria-label', 'コメントを削除');
-    del.innerHTML = '<svg viewBox="0 0 16 16"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>';
-
     header.appendChild(date);
-    header.appendChild(del);
+
+    // 削除済みの場合はバッジを表示、未削除の場合は編集・削除ボタンを表示
+    if (isDeleted) {
+      const badge = document.createElement('span');
+      badge.className = 'comment-item__deleted-badge';
+      badge.textContent = '削除済み';
+      header.appendChild(badge);
+    } else {
+      const actions = document.createElement('div');
+      actions.className = 'comment-item__header-actions';
+
+      const edit = document.createElement('button');
+      edit.className = 'comment-item__edit';
+      edit.dataset.action    = 'edit-comment';
+      edit.dataset.commentId = c.id;
+      edit.setAttribute('aria-label', 'コメントを編集');
+      edit.innerHTML = '<svg viewBox="0 0 16 16"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354l-1.086-1.086ZM11.189 6.25 9.75 4.81l-6.286 6.287a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.249.249 0 0 0 .108-.064l6.286-6.286Z"/></svg>';
+      actions.appendChild(edit);
+
+      const del = document.createElement('button');
+      del.className = 'comment-item__delete';
+      del.dataset.action    = 'delete-comment';
+      del.dataset.commentId = c.id;
+      del.setAttribute('aria-label', 'コメントを削除');
+      del.innerHTML = '<svg viewBox="0 0 16 16"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>';
+      actions.appendChild(del);
+
+      header.appendChild(actions);
+    }
 
     const body = document.createElement('div');
     body.className = 'comment-item__body md-body';
-    let commentText = c.body || '';
-    const renderCommentBody = () => {
-      renderMarkdown(body, commentText, async (index, checked) => {
-        commentText = toggleCheckboxInMarkdown(commentText, index, checked);
-        await db.updateComment(c.id, { body: commentText });
-        markDirty();
-        renderCommentBody();
-      });
-    };
-    renderCommentBody();
+
+    if (isDeleted) {
+      // 削除済みコメントはテキストのみ表示（チェックボックスは無効のまま）
+      renderMarkdown(body, c.body || '');
+    } else {
+      let commentText = c.body || '';
+      const renderCommentBody = () => {
+        renderMarkdown(body, commentText, async (index, checked) => {
+          commentText = toggleCheckboxInMarkdown(commentText, index, checked);
+          await db.updateComment(c.id, { body: commentText });
+          markDirty();
+          renderCommentBody();
+        });
+      };
+      renderCommentBody();
+    }
 
     item.appendChild(header);
     item.appendChild(body);
@@ -1169,6 +1224,7 @@ const Renderer = {
   /** アクティビティ種別ごとの SVG アイコン */
   _activityIcon(type) {
     const icons = {
+      task_create:        '<svg viewBox="0 0 16 16"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688ZM8.75 7a.75.75 0 0 1 .75.75v1.5h1.5a.75.75 0 0 1 0 1.5h-1.5v1.5a.75.75 0 0 1-1.5 0v-1.5h-1.5a.75.75 0 0 1 0-1.5h1.5v-1.5A.75.75 0 0 1 8.75 7Z"/></svg>',
       column_change:      '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm3.78 4.75H4.22l2.97 2.97L6 8.91l3.47-3.48 3.47 3.48-1.19 1.19L8.81 7.72 8 8.53l-.81-.81-2.94 2.94L3.06 9.47 8 4.53l4.94 4.94-1.19 1.19Z" opacity=".5"/></svg>',
       label_add:          '<svg viewBox="0 0 16 16"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>',
       label_remove:       '<svg viewBox="0 0 16 16"><path d="M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/></svg>',
@@ -1177,6 +1233,8 @@ const Renderer = {
       due_add:            '<svg viewBox="0 0 16 16"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0Zm0 3.5h6.5V2h-6.5v1.5ZM2.5 5v9.25c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V5Z"/></svg>',
       due_remove:         '<svg viewBox="0 0 16 16"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0Zm0 3.5h6.5V2h-6.5v1.5ZM2.5 5v9.25c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V5Z"/></svg>',
       due_change:         '<svg viewBox="0 0 16 16"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0Zm0 3.5h6.5V2h-6.5v1.5ZM2.5 5v9.25c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V5Z"/></svg>',
+      comment_delete:     '<svg viewBox="0 0 16 16"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>',
+      comment_edit:       '<svg viewBox="0 0 16 16"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354l-1.086-1.086ZM11.189 6.25 9.75 4.81l-6.286 6.287a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.249.249 0 0 0 .108-.064l6.286-6.286Z"/></svg>',
     };
     return icons[type] ?? '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="4"/></svg>';
   },
@@ -1195,6 +1253,8 @@ const Renderer = {
       return `${y}/${m}/${d}`;
     };
     switch (act.type) {
+      case 'task_create':
+        return 'タスクを作成';
       case 'column_change':
         return `カラムを「${c.from}」→「${c.to}」に変更`;
       case 'label_add':
@@ -1211,6 +1271,10 @@ const Renderer = {
         return '期限を解除';
       case 'due_change':
         return `期限を「${fmtDate(c.from)}」→「${fmtDate(c.to)}」に変更`;
+      case 'comment_delete':
+        return 'コメントを削除';
+      case 'comment_edit':
+        return 'コメントを編集';
       default:
         return '変更';
     }
@@ -1438,9 +1502,9 @@ const EventHandlers = {
     document.getElementById('modal-title').addEventListener('blur', (e) => {
       this._onTitleBlur(e, db);
     });
-    // Enter キーでタイトルを確定（blur 経由で保存）
+    // Ctrl+Enter でタイトルを確定（blur 経由で保存）
     document.getElementById('modal-title').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.target.blur(); }
     });
     document.getElementById('modal-description').addEventListener('blur', (e) => {
       this._onDescriptionBlur(e, db);
@@ -1529,8 +1593,11 @@ const EventHandlers = {
       case 'open-task':         this._onOpenTask(btn, db);       break;
       case 'delete-task':       this._onDeleteTask(btn, db);     break;
       case 'close-modal':       this._closeModal();               break;
-      case 'add-comment':       this._onAddComment(db);          break;
-      case 'delete-comment':    this._onDeleteComment(btn, db);  break;
+      case 'add-comment':          this._onAddComment(db);              break;
+      case 'delete-comment':       this._onDeleteComment(btn, db);      break;
+      case 'edit-comment':         this._onEditComment(btn, db);        break;
+      case 'save-comment-edit':    this._onSaveCommentEdit(btn, db);    break;
+      case 'cancel-comment-edit':  this._onCancelCommentEdit(db);       break;
       case 'add-label':         this._onAddLabel(db);            break;
       case 'remove-label':      this._onRemoveLabel(btn, db);    break;
       case 'edit-title':        this._onEditTitle();             break;
@@ -1544,6 +1611,7 @@ const EventHandlers = {
       case 'open-datepicker':   this._onOpenDatepicker(db);           break;
       case 'timeline-filter':    this._onTimelineFilter(btn, db);  break;
       case 'toggle-time-format': this._onToggleTimeFormat();        break;
+      case 'md-tab':             this._onMdTab(btn);                break;
     }
   },
 
@@ -1564,6 +1632,10 @@ const EventHandlers = {
 
     markDirty();
     applyFilter();
+    // 新規作成アクティビティを記録（作成日時の記録）
+    try { await db.addActivity(task.id, 'task_create', {}); } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    // 新規作成フラグをセット（モーダルで最初に入力するタイトル・説明はアクティビティに記録しない）
+    State.newlyCreatedTaskId = task.id;
     // すぐモーダルを開く
     await Renderer.renderModal(task.id, db);
   },
@@ -1617,6 +1689,8 @@ const EventHandlers = {
     }, { once: true });
     State.currentTaskId = null;
     document.getElementById('modal-comment-input').value = '';
+    // コメントエディタを write タブにリセット
+    _resetMdEditor(document.getElementById('comment-editor'));
   },
 
   /** タイムラインフィルタータブ切替 */
@@ -1666,24 +1740,140 @@ const EventHandlers = {
     await this._refreshCommentCache(State.currentTaskId, db);
     markDirty();
     input.value = '';
+    // コメントエディタを write タブにリセット
+    _resetMdEditor(document.getElementById('comment-editor'));
     await Renderer.renderComments(State.currentTaskId, db);
   },
 
-  /** コメント削除 */
+  /** コメント削除（ソフトデリート） */
   async _onDeleteComment(btn, db) {
     const commentId = parseInt(btn.dataset.commentId, 10);
     if (!commentId) return;
-    await db.deleteComment(commentId);
+    if (!confirm('このコメントを削除しますか？')) return;
+
+    const deletedAt = new Date().toISOString();
+    await db.updateComment(commentId, { deleted_at: deletedAt });
+
+    // 削除履歴を記録
+    try {
+      await db.addActivity(State.currentTaskId, 'comment_delete', {});
+      // 「すべて」タブ表示中はすでに renderComments で再描画するので追加呼び出し不要
+    } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+
     // コメントキャッシュを更新
     await this._refreshCommentCache(State.currentTaskId, db);
     markDirty();
     await Renderer.renderComments(State.currentTaskId, db);
   },
 
-  /** 指定タスクのコメントキャッシュを再取得 */
+  /** コメントをインライン編集モードに切り替え */
+  _onEditComment(btn, db) {
+    const commentId = parseInt(btn.dataset.commentId, 10);
+    if (!commentId) return;
+    const item = btn.closest('.comment-item');
+    if (!item) return;
+    const originalBody = item.dataset.commentBody || '';
+
+    const body = item.querySelector('.comment-item__body');
+    body.innerHTML = '';
+
+    // md-editor ラッパー（記述/プレビュータブ付き）
+    const editorId = 'comment-edit-editor';
+    const editorEl = document.createElement('div');
+    editorEl.className = 'md-editor';
+    editorEl.id = editorId;
+
+    const tabs = document.createElement('div');
+    tabs.className = 'md-editor__tabs';
+
+    const writeTab = document.createElement('button');
+    writeTab.type = 'button';
+    writeTab.className = 'md-editor__tab is-active';
+    writeTab.dataset.action = 'md-tab';
+    writeTab.dataset.target = editorId;
+    writeTab.dataset.tab = 'write';
+    writeTab.textContent = '記述';
+
+    const previewTab = document.createElement('button');
+    previewTab.type = 'button';
+    previewTab.className = 'md-editor__tab';
+    previewTab.dataset.action = 'md-tab';
+    previewTab.dataset.target = editorId;
+    previewTab.dataset.tab = 'preview';
+    previewTab.textContent = 'プレビュー';
+
+    tabs.appendChild(writeTab);
+    tabs.appendChild(previewTab);
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'comment-item__edit-textarea';
+    textarea.value = originalBody;
+
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'md-editor__preview md-body';
+    previewDiv.hidden = true;
+
+    editorEl.appendChild(tabs);
+    editorEl.appendChild(textarea);
+    editorEl.appendChild(previewDiv);
+
+    const editActions = document.createElement('div');
+    editActions.className = 'comment-item__edit-actions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'comment-item__edit-cancel';
+    cancelBtn.dataset.action = 'cancel-comment-edit';
+    cancelBtn.textContent = 'キャンセル';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'comment-item__edit-save';
+    saveBtn.dataset.action    = 'save-comment-edit';
+    saveBtn.dataset.commentId = commentId;
+    saveBtn.textContent = '保存';
+
+    editActions.appendChild(cancelBtn);
+    editActions.appendChild(saveBtn);
+    body.appendChild(editorEl);
+    body.appendChild(editActions);
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  },
+
+  /** コメント編集を保存 */
+  async _onSaveCommentEdit(btn, db) {
+    const commentId = parseInt(btn.dataset.commentId, 10);
+    if (!commentId) return;
+    const body = btn.closest('.comment-item__body');
+    const textarea = body ? body.querySelector('textarea') : null;
+    if (!textarea) return;
+    const newBody = textarea.value.trim();
+    if (!newBody) return;
+    // 変更がなければ何もしない
+    const item = btn.closest('.comment-item');
+    const originalBody = (item?.dataset.commentBody || '').trim();
+    if (newBody === originalBody) {
+      await Renderer.renderComments(State.currentTaskId, db);
+      return;
+    }
+    await db.updateComment(commentId, { body: newBody });
+    // コメント編集を活動履歴に記録
+    try {
+      await db.addActivity(State.currentTaskId, 'comment_edit', {});
+    } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    await this._refreshCommentCache(State.currentTaskId, db);
+    markDirty();
+    await Renderer.renderComments(State.currentTaskId, db);
+  },
+
+  /** コメント編集をキャンセル */
+  async _onCancelCommentEdit(db) {
+    await Renderer.renderComments(State.currentTaskId, db);
+  },
+
+  /** 指定タスクのコメントキャッシュを再取得（削除済みは除外） */
   async _refreshCommentCache(taskId, db) {
     const cs = await db.getCommentsByTask(taskId);
-    State.comments.set(taskId, cs.map(c => c.body));
+    State.comments.set(taskId, cs.filter(c => !c.deleted_at).map(c => c.body));
   },
 
   /** ラベル追加 */
@@ -1771,7 +1961,20 @@ const EventHandlers = {
     const label = State.labels.find(l => l.id === labelId);
     if (!confirm(`ラベル「${label?.name ?? ''}」を削除しますか？\n（このラベルはすべてのタスクから外れます）`)) return;
 
+    // 削除前に影響を受けるタスク ID を収集
+    const affectedTaskIds = [];
+    for (const [taskId, labelIds] of State.taskLabels) {
+      if (labelIds.has(labelId)) affectedTaskIds.push(taskId);
+    }
+
     await db.deleteLabel(labelId);
+
+    // 影響を受けた全タスクにアクティビティを記録
+    for (const taskId of affectedTaskIds) {
+      try {
+        await db.addActivity(taskId, 'label_remove', { name: label.name, color: label.color });
+      } catch (e) { /* ignore */ }
+    }
 
     // State.labels から削除
     State.labels = State.labels.filter(l => l.id !== labelId);
@@ -1908,7 +2111,8 @@ const EventHandlers = {
     }
     await Renderer.refreshCard(taskId, db);
     // 作業履歴（非同期、失敗してもUIに影響しない）
-    if (oldTitle !== title) {
+    // 新規作成直後の初回編集はアクティビティに記録しない
+    if (oldTitle !== title && taskId !== State.newlyCreatedTaskId) {
       try {
         await db.addActivity(taskId, 'title_change', { to: title });
         if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
@@ -1919,6 +2123,9 @@ const EventHandlers = {
   /** 説明 blur 時に保存して表示モードに戻す */
   async _onDescriptionBlur(e, db) {
     if (!State.currentTaskId) return;
+    // desc-editor 内（タブボタン等）へのフォーカス移動は無視する
+    const descEditor = document.getElementById('desc-editor');
+    if (descEditor && e.relatedTarget && descEditor.contains(e.relatedTarget)) return;
     const taskId = State.currentTaskId; // レースコンディション防止
     const description = e.target.value;
     await db.updateTask(taskId, { description });
@@ -1928,7 +2135,7 @@ const EventHandlers = {
     // 表示モードに切り替え（マークダウンレンダリング＋チェックボックス有効化）
     const descView = document.getElementById('modal-description-view');
     const descBtn  = document.querySelector('[data-action="edit-description"]');
-    let descText   = description;
+    let descText     = description;
     const renderDescView = () => {
       renderMarkdown(descView, descText, async (index, checked) => {
         descText = toggleCheckboxInMarkdown(descText, index, checked);
@@ -1939,14 +2146,20 @@ const EventHandlers = {
       });
     };
     renderDescView();
-    e.target.setAttribute('hidden', '');
+    // 編集エリアを隠してwrite タブをリセット
+    _resetMdEditor(descEditor);
+    descEditor.setAttribute('hidden', '');
     descView.removeAttribute('hidden');
     if (descBtn) descBtn.removeAttribute('hidden');
     // 作業履歴（非同期、失敗してもUIに影響しない）
-    try {
-      await db.addActivity(taskId, 'description_change', {});
-      if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
-    } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    // 新規作成直後の初回編集・変更なしはアクティビティに記録しない
+    if (taskId !== State.newlyCreatedTaskId && description !== State._descriptionBeforeEdit) {
+      try {
+        await db.addActivity(taskId, 'description_change', {});
+        if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
+      } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    }
+    State._descriptionBeforeEdit = null;
   },
 
   /** タイトル編集モードに切り替え */
@@ -1964,13 +2177,43 @@ const EventHandlers = {
 
   /** 説明編集モードに切り替え */
   _onEditDescription() {
-    const descView     = document.getElementById('modal-description-view');
-    const descTextarea = document.getElementById('modal-description');
-    const descBtn      = document.querySelector('[data-action="edit-description"]');
+    const descView   = document.getElementById('modal-description-view');
+    const descEditor = document.getElementById('desc-editor');
+    const descBtn    = document.querySelector('[data-action="edit-description"]');
+    // 編集開始時の元テキストを保存（変更なし判定用）
+    State._descriptionBeforeEdit = document.getElementById('modal-description').value;
     descView.setAttribute('hidden', '');
-    descTextarea.removeAttribute('hidden');
+    descEditor.removeAttribute('hidden');
     if (descBtn) descBtn.setAttribute('hidden', '');
-    descTextarea.focus();
+    // write タブをアクティブにしてからフォーカス
+    _resetMdEditor(descEditor);
+    document.getElementById('modal-description').focus();
+  },
+
+  /** md-editor の write/preview タブ切替 */
+  _onMdTab(btn) {
+    const editorId = btn.dataset.target;
+    const editor   = document.getElementById(editorId);
+    if (!editor) return;
+    const tab      = btn.dataset.tab;
+    const textarea = editor.querySelector('textarea');
+    const preview  = editor.querySelector('.md-editor__preview');
+
+    editor.querySelectorAll('.md-editor__tab').forEach(t => t.classList.remove('is-active'));
+    btn.classList.add('is-active');
+
+    if (tab === 'preview') {
+      renderMarkdown(preview, textarea.value || '');
+      preview.removeAttribute('hidden');
+      preview.tabIndex = 0;
+      preview.focus();  // blur の relatedTarget が preview になるよう先にフォーカス移動
+      textarea.setAttribute('hidden', '');
+    } else {
+      preview.setAttribute('hidden', '');
+      preview.tabIndex = -1;
+      textarea.removeAttribute('hidden');
+      textarea.focus();
+    }
   },
 
   /** キーボード操作 */
@@ -1987,7 +2230,26 @@ const EventHandlers = {
         this._closeModal();
         return;
       }
-      // Ctrl+Enter: コメント投稿または説明保存
+      // Tab: md-editor の write/preview タブを切り替え
+      if (e.key === 'Tab') {
+        const active = document.activeElement;
+        let editorId = null;
+        if (active === document.getElementById('modal-description')) {
+          editorId = 'desc-editor';
+        } else if (active === document.getElementById('modal-comment-input')) {
+          editorId = 'comment-editor';
+        } else if (active.classList.contains('md-editor__preview') || active.classList.contains('comment-item__edit-textarea')) {
+          editorId = active.closest('.md-editor')?.id;
+        }
+        if (editorId) {
+          e.preventDefault();
+          const editor  = document.getElementById(editorId);
+          const nextTab = [...editor.querySelectorAll('.md-editor__tab')].find(t => !t.classList.contains('is-active'));
+          if (nextTab) this._onMdTab(nextTab);
+          return;
+        }
+      }
+      // Ctrl+Enter: コメント投稿または説明保存またはコメント編集保存
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         const active = document.activeElement;
         if (active === document.getElementById('modal-comment-input')) {
@@ -1996,6 +2258,10 @@ const EventHandlers = {
         } else if (active === document.getElementById('modal-description')) {
           e.preventDefault();
           active.blur(); // blur イベント → _onDescriptionBlur で保存+表示切替
+        } else if (active.classList.contains('comment-item__edit-textarea')) {
+          e.preventDefault();
+          const saveBtn = active.closest('.comment-item__body')?.querySelector('[data-action="save-comment-edit"]');
+          if (saveBtn) this._onSaveCommentEdit(saveBtn, db);
         }
       }
     }

@@ -24,7 +24,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - コメントは日本語で記載する
 - `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Migration` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `Toast` / `App` の単一ファイル構成
 - `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`
-- `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()`
+- `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
 - `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
 - `State.columns: []` は `{ id, key, name, position }` の配列。`getColumnKeys()` で key 一覧を取得
 - `State.sort: { field, dir }` でソート状態を保持。localStorage `kanban_sort` に永続化
