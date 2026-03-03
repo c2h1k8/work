@@ -13,7 +13,7 @@ class KanbanDB {
   /** DBをオープン（スキーマ初期化含む） */
   open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('kanban_db', 5);
+      const req = indexedDB.open('kanban_db', 1);
 
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -42,20 +42,20 @@ class KanbanDB {
           tl.createIndex('task_id', 'task_id', { unique: false });
         }
 
-        // columns ストア（v2 で追加）
+        // columns ストア
         if (!db.objectStoreNames.contains('columns')) {
           const cols = db.createObjectStore('columns', { keyPath: 'id', autoIncrement: true });
           cols.createIndex('key', 'key', { unique: true });
           cols.createIndex('position', 'position', { unique: false });
         }
 
-        // activities ストア（v3 で追加）
+        // activities ストア
         if (!db.objectStoreNames.contains('activities')) {
           const acts = db.createObjectStore('activities', { keyPath: 'id', autoIncrement: true });
           acts.createIndex('task_id', 'task_id', { unique: false });
         }
 
-        // task_relations ストア（v5 で追加）
+        // task_relations ストア
         if (!db.objectStoreNames.contains('task_relations')) {
           const rels = db.createObjectStore('task_relations', { keyPath: 'id', autoIncrement: true });
           rels.createIndex('task_id', 'task_id', { unique: false });
