@@ -15,6 +15,21 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ## コーディング規約
 
+### ストレージ使い分け方針
+
+| 種別 | 保存先 | 理由 |
+| --- | --- | --- |
+| データ本体（タスク・環境設定・ラベルなど） | **IndexedDB** | 他ブラウザへのエクスポート・インポートで共有可能にするため |
+| UI 選択状態（最後に選択した環境、開閉状態など） | **localStorage** | ブラウザ固有の操作状態。他ブラウザで共有不要 |
+| タブ設定（TAB_CONFIG） | **IndexedDB** (`app_db`) | 他ブラウザとも共有したい設定データのため |
+
+具体例:
+- `index.js`: タブ設定（TAB_CONFIG）→ IndexedDB (`app_db`)
+- `index.js`: アクティブタブ ID → `localStorage("ACTIVE_TAB_ID")`（ブラウザ固有）
+- `sql.js`: 接続環境データ → IndexedDB (`sql_db`)
+- `sql.js`: 選択中の接続環境キー → `localStorage("sql_selected_env")`（ブラウザ固有）
+- `sql.js`: チューニング詳細の開閉状態 → `localStorage("sql_tune_open")`（ブラウザ固有）
+
 ### JavaScript
 
 - **全ページ Vanilla JS**
@@ -61,11 +76,36 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ## タブの追加方法
 
-`js/index.js` の `TAB_ITEMS` 配列に追記する。
+### 組み込みタブの追加（コード変更）
+
+`js/index.js` の `TAB_ITEMS` 配列に追記する。`isBuiltIn: true` で設定 UI から削除不可になる。
 
 ```js
 { label: "ラベル名", pageSrc: "page.html", isSelected: false }
 ```
+
+### カスタムタブの追加（UI操作）
+
+ナビバーのギアアイコン → 「タブを追加」フォームからラベルと URL を指定して追加。
+
+## タブ設定機能
+
+- **IndexedDB** DB名: `app_db` version 1、ストア: `settings`（keyPath: name）
+- TAB_CONFIG は `settings` ストアの `{ name: "tab_config", value: [...] }` として保存
+- スキーマ: `{ label, pageSrc, icon, visible, position, isBuiltIn }`
+- `AppDB.get(name)` / `AppDB.set(name, value)` → settings ストアの読み書き（index.js 内の静的オブジェクト）
+- `loadTabConfig()` / `saveTabConfig(config)` → **async 関数** で読み書き
+- `rebuildNav(config)` → visible=true のタブを **position 昇順でソート** してナビを再構築
+- `syncViewport(config)` → 新規タブの iframe を追加（既存は再読み込みしない）
+- 表示中タブが 1 件のみの場合は非表示にできない
+- `getDefaultConfig()` → TAB_ITEMS から初期設定を生成（IndexedDB に未保存の初回用）
+- 旧 localStorage（キー `TAB_CONFIG`）からの自動移行: `loadTabConfig()` が初回に検出し IndexedDB へ移行、localStorage を削除
+- **アイコン変更**: 設定画面の各タブ行の左端アイコンボタンをクリック → SVG アイコンパレット（30種）が展開 → 選択すると即時反映
+  - 選択した SVG は生の `<svg>` 文字列として `icon` フィールドに保存（TAB_ITEMS と同形式）
+  - `ICON_PALETTE` 配列（`{ id, label, svg }`）で選択肢を管理（`js/index.js`）
+  - `_toggleIconPicker(label)` / `_onSelectIcon(btn)` で制御（`_onSelectIcon` は async）
+  - 組み込みタブも SVG に変更可能
+  - CSS: `.icon-picker__item svg { width: 16px; height: 16px; fill: currentColor; }` で SVG サイズ統一
 
 ## 注意事項
 

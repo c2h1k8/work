@@ -123,6 +123,13 @@ html, body {
     flex-shrink: 0;
   }
 
+  // 絵文字アイコン（アイコンピッカーで選択した場合）
+  .tab-icon-emoji {
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
   &:hover {
     color: @nav-text;
     background: @nav-hover-bg;
@@ -164,5 +171,318 @@ html, body {
   &--active {
     opacity: 1;
     pointer-events: auto;
+  }
+}
+
+// ==================================================
+// ギアアイコンボタン（ナビ右端）
+// ==================================================
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: auto 0 auto 8px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: @nav-text-muted;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.12s, border-color 0.12s;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  &:hover {
+    color: @nav-text;
+    background: @nav-hover-bg;
+    border-color: @nav-border;
+  }
+}
+
+// ==================================================
+// 設定モーダル
+// ==================================================
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.settings-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .4);
+}
+
+.settings-dialog {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  border-radius: 8px;
+  width: min(480px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .2);
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid @nav-border;
+  flex-shrink: 0;
+
+  h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: @nav-text;
+  }
+}
+
+.settings-close-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: @nav-text-muted;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+
+  &:hover {
+    background: @nav-hover-bg;
+    color: @nav-text;
+  }
+}
+
+.settings-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 16px 20px;
+}
+
+.settings-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.settings-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  border-bottom: 1px solid @nav-border;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.settings-item__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// アイコンプレビューボタン
+.settings-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid @nav-border;
+  border-radius: 4px;
+  background: @nav-hover-bg;
+  cursor: pointer;
+  flex-shrink: 0;
+  overflow: hidden;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    fill: @nav-text;
+  }
+
+  .tab-icon-emoji {
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  &:hover {
+    border-color: @nav-accent;
+    background: lighten(@nav-accent, 46%);
+  }
+}
+
+// アイコンピッカー（各設定アイテム内）
+.settings-item__picker {
+  padding: 8px 4px 4px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.icon-picker__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.icon-picker__item {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid @nav-border;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  color: @nav-text;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  &:hover {
+    background: @nav-hover-bg;
+    border-color: @nav-accent;
+  }
+}
+
+.settings-item__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  cursor: pointer;
+  font-size: 13px;
+  color: @nav-text;
+
+  input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.settings-item__custom-badge {
+  font-size: 11px;
+  color: @nav-text-muted;
+  background: @nav-hover-bg;
+  border: 1px solid @nav-border;
+  border-radius: 10px;
+  padding: 1px 6px;
+}
+
+.settings-move-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid @nav-border;
+  border-radius: 4px;
+  background: transparent;
+  color: @nav-text;
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: @nav-hover-bg;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+.settings-delete-btn {
+  padding: 4px 10px;
+  border: 1px solid #cf222e;
+  border-radius: 4px;
+  background: transparent;
+  color: #cf222e;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  &:hover {
+    background: #fff1f0;
+  }
+}
+
+.settings-add-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid @nav-border;
+
+  h3 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: @nav-text;
+  }
+
+  input[type="text"] {
+    display: block;
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border: 1px solid @nav-border;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: @font-stack;
+    color: @nav-text;
+    background: #fff;
+    outline: none;
+    box-sizing: border-box;
+
+    &:focus {
+      border-color: @nav-accent;
+      box-shadow: 0 0 0 3px rgba(9, 105, 218, .12);
+    }
+  }
+
+  .settings-add-btn {
+    padding: 6px 14px;
+    border: 1px solid @nav-border;
+    border-radius: 6px;
+    background: @nav-accent;
+    color: #fff;
+    font-size: 13px;
+    font-family: @font-stack;
+    cursor: pointer;
+
+    &:hover {
+      background: darken(@nav-accent, 8%);
+    }
   }
 }

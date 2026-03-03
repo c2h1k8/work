@@ -58,15 +58,12 @@ work/
 
 ### タブ構成
 
-`js/index.js` の `TAB_ITEMS` 配列でタブの追加・順序変更が可能。
+ナビバー右端のギアアイコンから設定パネルを開き、タブの表示/非表示・順序変更・カスタムタブの追加削除ができる。設定は `localStorage` の `TAB_CONFIG` キーに保存され、リロード後も維持される。
 
-```js
-const TAB_ITEMS = [
-  { label: "TODO", pageSrc: "todo.html", isSelected: true },
-  { label: "HOME", pageSrc: "home.html", isSelected: false },
-  { label: "SQL", pageSrc: "sql.html", isSelected: false },
-];
-```
+- **組み込みタブ**（TODO / HOME / SQL）: 非表示のみ可能、削除不可
+- **カスタムタブ**: ラベル名と URL を指定して追加。表示/非表示切り替え・削除が可能
+
+コードで組み込みタブを追加する場合は `js/index.js` の `TAB_ITEMS` 配列に追記する。
 
 ### LESS のコンパイル
 

@@ -1,45 +1,86 @@
 // ==================================================
-// 接続先環境（動的管理）
+// IndexedDB ラッパー (SqlDB)
 // ==================================================
-const ENV_STORAGE_KEY   = "sql_envs";
-const ENV_SEL_KEY       = "sql_env_selected";
-const PARAM_STORAGE_KEY = "sql_params";
+class SqlDB {
+  static DB_NAME    = 'sql_db';
+  static DB_VERSION = 1;
 
-// 行ごとに一意な ID を払い出すカウンター
-let _nextParamId = 1;
+  constructor() { this._db = null; }
+
+  open() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(SqlDB.DB_NAME, SqlDB.DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        // 接続環境ストア: id(auto) / key / username / password / connect_identifier / position
+        if (!db.objectStoreNames.contains('envs')) {
+          db.createObjectStore('envs', { keyPath: 'id', autoIncrement: true });
+        }
+      };
+      req.onsuccess = (e) => { this._db = e.target.result; resolve(this); };
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  _store(name, mode = 'readonly') {
+    return this._db.transaction(name, mode).objectStore(name);
+  }
+
+  // position 昇順でソートした全環境を返す
+  getAllEnvs() {
+    return new Promise((resolve, reject) => {
+      const req = this._store('envs').getAll();
+      req.onsuccess = () => resolve(req.result.sort((a, b) => a.position - b.position));
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  // 末尾 position に追加
+  async addEnv(env) {
+    const envs = await this.getAllEnvs();
+    const pos  = envs.length > 0 ? Math.max(...envs.map(e => e.position)) + 1 : 0;
+    return new Promise((resolve, reject) => {
+      const req = this._store('envs', 'readwrite').add({ ...env, position: pos });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  // 指定フィールドを上書き更新
+  updateEnv(id, data) {
+    return new Promise((resolve, reject) => {
+      const store  = this._store('envs', 'readwrite');
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const putReq = store.put({ ...getReq.result, ...data });
+        putReq.onsuccess = () => resolve();
+        putReq.onerror   = (e) => reject(e.target.error);
+      };
+      getReq.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  deleteEnv(id) {
+    return new Promise((resolve, reject) => {
+      const req = this._store('envs', 'readwrite').delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+}
+
+// ==================================================
+// グローバル状態
+// ==================================================
+let _db            = null;
+let selectedEnvKey = "";
+let _nextParamId   = 1;
 
 const DEFAULT_ENVS = [
   { key: "UT",  username: "xxxx", password: "xxxx", connect_identifier: "127.0.0.1:1521/xxxx" },
   { key: "XXX", username: "xxxx", password: "xxxx", connect_identifier: "127.0.0.1:1521/xxxx" },
 ];
-
-let envList        = [];   // { key, username, password, connect_identifier }[]
-let selectedEnvKey = "";   // 現在選択中の環境キー
-
-// ストレージから環境リストを読み込む（なければデフォルト）
-function loadEnvs() {
-  try {
-    const stored = localStorage.getItem(ENV_STORAGE_KEY);
-    envList = stored ? JSON.parse(stored) : structuredClone(DEFAULT_ENVS);
-  } catch {
-    envList = structuredClone(DEFAULT_ENVS);
-  }
-  const selStored = localStorage.getItem(ENV_SEL_KEY);
-  selectedEnvKey  = (selStored && envList.some(e => e.key === selStored))
-    ? selStored
-    : (envList[0]?.key ?? "");
-}
-
-// 環境リストをストレージに保存
-function saveEnvs() {
-  localStorage.setItem(ENV_STORAGE_KEY, JSON.stringify(envList));
-  localStorage.setItem(ENV_SEL_KEY,     selectedEnvKey);
-}
-
-// 現在選択中の環境オブジェクトを返す
-function getSelectedEnv() {
-  return envList.find(e => e.key === selectedEnvKey) ?? envList[0] ?? DEFAULT_ENVS[0];
-}
 
 // ==================================================
 // SQL*Plus 起動オプション定義
@@ -61,7 +102,6 @@ const TYPE_DEFS = {
   DATE:      { label: "DATE",      lenMode: "none",     isStrings: false, nPrefix: false, isDate: true,  defaultLen: ""   },
 };
 
-
 // ==================================================
 // チューニング対象定義
 // ==================================================
@@ -81,11 +121,87 @@ const TUNE_ITEMS = [
 ];
 
 // ==================================================
+// SVG アイコン定数
+// ==================================================
+const PENCIL_SVG = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.249.249 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z"/></svg>`;
+const TRASH_SVG  = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>`;
+
+// ==================================================
+// localStorage からのマイグレーション（初回のみ）
+// ==================================================
+async function migrateFromLocalStorage(db) {
+  const stored = localStorage.getItem("sql_envs");
+  if (!stored) return;
+  try {
+    const data = JSON.parse(stored);
+    if (Array.isArray(data) && data.length > 0) {
+      for (const env of data) {
+        if (env.key && env.username && env.connect_identifier) {
+          await db.addEnv({
+            key:                env.key,
+            username:           env.username,
+            password:           env.password ?? "",
+            connect_identifier: env.connect_identifier,
+          });
+        }
+      }
+      localStorage.removeItem("sql_envs");
+      localStorage.removeItem("sql_env_selected");
+    }
+  } catch { /* 無視 */ }
+}
+
+// DB が空の場合にデフォルト環境を投入
+async function ensureDefaultEnvs(db) {
+  const envs = await db.getAllEnvs();
+  if (envs.length === 0) {
+    for (const e of DEFAULT_ENVS) await db.addEnv({ ...e });
+  }
+}
+
+// ==================================================
+// connect_identifier のパース（"host:port/service" → オブジェクト）
+// ==================================================
+function parseConnIdentifier(ci) {
+  const m = (ci ?? "").match(/^([^:/]+)(?::(\d+))?\/(.+)$/);
+  if (!m) return { host: ci ?? "", port: "", service: "" };
+  return { host: m[1], port: m[2] ?? "", service: m[3] };
+}
+
+// ==================================================
+// 環境フォームバリデーション（追加・編集共通）
+// ==================================================
+function validateEnvInputs({ key, user, host, portRaw, service }) {
+  if (!key)  return "環境名を入力してください";
+  if (!user) return "ユーザー名を入力してください";
+  if (!/^[A-Za-z][A-Za-z0-9_$#]*$/.test(user))
+    return "ユーザー名: 英字始まり、英数字・_・$・# のみ使用できます";
+  if (!host) return "ホスト名またはIPアドレスを入力してください";
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(host))
+    return "ホスト名: 英数字・.・- のみ使用できます（IPv4アドレスも可）";
+  if (portRaw !== "" && (!/^\d+$/.test(portRaw) || +portRaw < 1 || +portRaw > 65535))
+    return "ポート: 1〜65535 の数値を入力してください";
+  if (!service) return "サービス名を入力してください";
+  if (!/^[A-Za-z0-9][A-Za-z0-9._]*$/.test(service))
+    return "サービス名: 英数字・.・_ のみ使用できます";
+  return null;
+}
+
+// ==================================================
 // 初期化
 // ==================================================
-window.addEventListener("load", () => {
-  loadEnvs();
+window.addEventListener("load", async () => {
+  _db = new SqlDB();
+  await _db.open();
+  await migrateFromLocalStorage(_db);
+  await ensureDefaultEnvs(_db);
 
+  // 選択済み環境キーを復元（ブラウザ固有の選択状態のため localStorage を使用）
+  const saved = localStorage.getItem("sql_selected_env");
+  const envs  = await _db.getAllEnvs();
+  selectedEnvKey = (saved && envs.some(e => e.key === saved)) ? saved : (envs[0]?.key ?? "");
+
+  // チューニング対象グリッドの描画
   renderTuneGrid();
 
   // チューニング対象の開閉状態を復元
@@ -96,20 +212,27 @@ window.addEventListener("load", () => {
     localStorage.setItem("sql_tune_open", tuneDetails.open);
   });
 
-  renderEnvSegCtrl();
-  renderEnvList();
+  renderEnvSegCtrl(envs);
+  renderEnvList(envs);
   renderSqlplusOptions();
-  loadParamState(); // 行の生成 + 保存済み状態の復元（初回は空1行）
+  loadParamState();
+  updateConnPreview(envs);
 
-  // 接続コマンドプレビュー
-  updateConnPreview();
-  document.getElementById("env").addEventListener("change", updateConnPreview);
-  document.getElementById("sqlplus-options").addEventListener("change", updateConnPreview);
-  document.getElementById("sqlplus-extra").addEventListener("input", updateConnPreview);
+  // 接続先変更 → プレビュー更新
+  document.getElementById("env").addEventListener("change", async () => {
+    updateConnPreview(await _db.getAllEnvs());
+  });
+  document.getElementById("sqlplus-options").addEventListener("change", async () => {
+    updateConnPreview(await _db.getAllEnvs());
+  });
+  document.getElementById("sqlplus-extra").addEventListener("input", async () => {
+    updateConnPreview(await _db.getAllEnvs());
+  });
 
   // 接続コマンドをコピー
-  document.getElementById("conn").addEventListener("click", () => {
-    navigator.clipboard.writeText(buildConnCommand()).then(() => showToast("コピーしました"));
+  document.getElementById("conn").addEventListener("click", async () => {
+    const cmd = buildConnCommand(await _db.getAllEnvs());
+    navigator.clipboard.writeText(cmd).then(() => showToast("コピーしました"));
   });
 
   // バインド変数: 行追加ボタン
@@ -125,7 +248,7 @@ window.addEventListener("load", () => {
     navigator.clipboard.writeText(text).then(() => showToast("コピーしました"));
   });
 
-  // セッション設定コピーボタン
+  // セッション設定コピーボタン（トーストのみ追加）
   document.querySelectorAll(".btn.copy").forEach(btn => {
     btn.addEventListener("click", () => {
       const text = getString(btn.dataset.copy, btn.dataset.params ?? null);
@@ -140,7 +263,7 @@ window.addEventListener("load", () => {
   });
 
   // 環境追加フォーム
-  document.getElementById("env-form").addEventListener("submit", (e) => {
+  document.getElementById("env-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const key     = document.getElementById("env-key").value.trim();
     const user    = document.getElementById("env-user").value.trim();
@@ -149,61 +272,56 @@ window.addEventListener("load", () => {
     const portRaw = document.getElementById("env-port").value.trim();
     const service = document.getElementById("env-service").value.trim();
 
-    // ── 入力チェック（Oracle SQL*Plus 接続規則に準拠）──
-    if (!key) { showToast("環境名を入力してください", true); return; }
+    const err = validateEnvInputs({ key, user, host, portRaw, service });
+    if (err) { showToast(err, true); return; }
 
-    // ユーザー名: 英字始まり、英数字・_・$・# のみ（Oracle ユーザー名規則）
-    if (!user) { showToast("ユーザー名を入力してください", true); return; }
-    if (!/^[A-Za-z][A-Za-z0-9_$#]*$/.test(user)) {
-      showToast("ユーザー名: 英字始まり、英数字・_ ・$・# のみ使用できます", true); return;
-    }
-
-    // ホスト名: 英数字・.(ドット)・-(ハイフン) のみ（RFC 952準拠、IPv4アドレスも可）
-    if (!host) { showToast("ホスト名またはIPアドレスを入力してください", true); return; }
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(host)) {
-      showToast("ホスト名: 英数字・.・- のみ使用できます（IPv4アドレスも可）", true); return;
-    }
-
-    // ポート: 数字のみ、1〜65535（省略時は 1521）
-    if (portRaw !== "") {
-      if (!/^\d+$/.test(portRaw) || +portRaw < 1 || +portRaw > 65535) {
-        showToast("ポート: 1〜65535 の数値を入力してください", true); return;
-      }
-    }
-
-    // サービス名: 英数字・.(ドット)・_(アンダースコア) のみ（Oracle サービス名規則）
-    if (!service) { showToast("サービス名を入力してください", true); return; }
-    if (!/^[A-Za-z0-9][A-Za-z0-9._]*$/.test(service)) {
-      showToast("サービス名: 英数字・.・_ のみ使用できます", true); return;
+    const currentEnvs = await _db.getAllEnvs();
+    if (currentEnvs.some(e => e.key === key)) {
+      showToast(`環境名「${key}」はすでに存在します`, true);
+      return;
     }
 
     const port = portRaw || "1521";
-    const conn = `${host}:${port}/${service}`;
-    if (addEnv({ key, username: user, password: pass, connect_identifier: conn })) {
-      e.target.reset();
-    }
+    await _db.addEnv({ key, username: user, password: pass, connect_identifier: `${host}:${port}/${service}` });
+    e.target.reset();
+    showToast(`「${key}」を追加しました`);
+    await refreshEnvs();
   });
 
   // JSON エクスポート
-  document.getElementById("env-export").addEventListener("click", exportEnvJson);
+  document.getElementById("env-export").addEventListener("click", async () => {
+    exportEnvJson(await _db.getAllEnvs());
+  });
 
   // JSON インポート
-  document.getElementById("env-import-file").addEventListener("change", (e) => {
+  document.getElementById("env-import-file").addEventListener("change", async (e) => {
     const file = e.target.files[0];
-    if (file) importEnvJson(file);
-    e.target.value = ""; // 同じファイルを再選択できるようリセット
+    if (file) await importEnvJson(file);
+    e.target.value = "";
   });
 });
 
 // ==================================================
-// 環境管理
+// 環境管理 — 共通リフレッシュ
 // ==================================================
+async function refreshEnvs() {
+  const envs = await _db.getAllEnvs();
+  if (selectedEnvKey && !envs.some(e => e.key === selectedEnvKey)) {
+    selectedEnvKey = envs[0]?.key ?? "";
+    localStorage.setItem("sql_selected_env", selectedEnvKey);
+  }
+  renderEnvSegCtrl(envs);
+  renderEnvList(envs);
+  updateConnPreview(envs);
+}
 
-// セグメントコントロール（接続先選択）を再描画
-function renderEnvSegCtrl() {
+// ==================================================
+// セグメントコントロール（接続先選択）の描画
+// ==================================================
+function renderEnvSegCtrl(envs) {
   const group = document.getElementById("env");
   group.innerHTML = "";
-  envList.forEach(env => {
+  envs.forEach(env => {
     const wrap  = document.createElement("div");
     const input = document.createElement("input");
     input.type    = "radio";
@@ -213,8 +331,8 @@ function renderEnvSegCtrl() {
     input.checked = env.key === selectedEnvKey;
     input.addEventListener("change", () => {
       selectedEnvKey = env.key;
-      saveEnvs();
-      updateConnPreview();
+      localStorage.setItem("sql_selected_env", selectedEnvKey);
+      updateConnPreview(envs);
     });
     const label = document.createElement("label");
     label.htmlFor     = `env-${env.key}`;
@@ -224,12 +342,14 @@ function renderEnvSegCtrl() {
   });
 }
 
-// 管理パネルの環境一覧を再描画
-function renderEnvList() {
+// ==================================================
+// 接続環境一覧の描画
+// ==================================================
+function renderEnvList(envs) {
   const list = document.getElementById("env-list");
   list.innerHTML = "";
 
-  if (envList.length === 0) {
+  if (envs.length === 0) {
     const empty = document.createElement("p");
     empty.className   = "env-list__empty";
     empty.textContent = "登録された接続環境がありません";
@@ -237,69 +357,215 @@ function renderEnvList() {
     return;
   }
 
-  envList.forEach(env => {
-    const row = document.createElement("div");
-    row.className = "env-list__row";
-
-    const info = document.createElement("div");
-    info.className = "env-list__info";
-
-    const keyEl = document.createElement("span");
-    keyEl.className   = "env-list__key";
-    keyEl.textContent = env.key;
-
-    const connEl = document.createElement("span");
-    connEl.className   = "env-list__conn";
-    connEl.textContent = `${env.username}@${env.connect_identifier}`;
-
-    info.append(keyEl, connEl);
-
-    const delBtn = document.createElement("button");
-    delBtn.className = "btn btn--ghost-danger btn--sm";
-    delBtn.type      = "button";
-    delBtn.title     = `${env.key} を削除`;
-    delBtn.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>`;
-    delBtn.addEventListener("click", () => deleteEnv(env.key));
-
-    row.append(info, delBtn);
-    list.appendChild(row);
+  envs.forEach((env, idx) => {
+    list.appendChild(createEnvRow(env, idx, envs.length));
   });
 }
 
-// 環境を追加
-function addEnv({ key, username, password, connect_identifier }) {
-  if (!key || !username || !connect_identifier) return false;
-  if (envList.some(e => e.key === key)) {
-    showToast(`環境名「${key}」はすでに存在します`, true);
-    return false;
-  }
-  envList.push({ key, username, password, connect_identifier });
-  saveEnvs();
-  renderEnvSegCtrl();
-  renderEnvList();
-  updateConnPreview();
-  showToast(`「${key}」を追加しました`);
-  return true;
+// 環境一覧の1行を生成
+function createEnvRow(env, idx, total) {
+  const row = document.createElement("div");
+  row.className     = "env-list__row";
+  row.dataset.envId = env.id;
+
+  // ─── 通常表示部 ───
+  const view = document.createElement("div");
+  view.className = "env-list__view";
+
+  // 上/下ボタン
+  const orderBtns = document.createElement("div");
+  orderBtns.className = "env-list__order-btns";
+  const upBtn = makeIconBtn("▲", "上へ移動", "env-list__order-btn");
+  const dnBtn = makeIconBtn("▼", "下へ移動", "env-list__order-btn");
+  upBtn.disabled = idx === 0;
+  dnBtn.disabled = idx === total - 1;
+  upBtn.addEventListener("click", () => moveEnv(env.id, -1));
+  dnBtn.addEventListener("click", () => moveEnv(env.id, +1));
+  orderBtns.append(upBtn, dnBtn);
+
+  // 情報
+  const info = document.createElement("div");
+  info.className = "env-list__info";
+  const keyEl = document.createElement("span");
+  keyEl.className   = "env-list__key";
+  keyEl.textContent = env.key;
+  const connEl = document.createElement("span");
+  connEl.className   = "env-list__conn";
+  connEl.textContent = `${env.username}@${env.connect_identifier}`;
+  info.append(keyEl, connEl);
+
+  // ボタン群（編集・削除）
+  const btnGroup = document.createElement("div");
+  btnGroup.className = "env-list__btn-group";
+
+  const editBtn = makeIconBtn(PENCIL_SVG, `${env.key} を編集`, "btn btn--ghost btn--sm");
+  editBtn.addEventListener("click", () => {
+    row.dataset.editing = row.dataset.editing === "true" ? "" : "true";
+  });
+
+  const delBtn = makeIconBtn(TRASH_SVG, `${env.key} を削除`, "btn btn--ghost-danger btn--sm");
+  delBtn.addEventListener("click", () => deleteEnvRow(env.id, env.key));
+
+  btnGroup.append(editBtn, delBtn);
+  view.append(orderBtns, info, btnGroup);
+
+  // ─── インライン編集フォーム（初期非表示） ───
+  const editForm = buildEnvEditForm(env, row);
+
+  row.append(view, editForm);
+  return row;
 }
 
+// 汎用アイコンボタン生成
+function makeIconBtn(contentOrSvg, title, className) {
+  const btn = document.createElement("button");
+  btn.type      = "button";
+  btn.title     = title;
+  btn.className = className;
+  if (typeof contentOrSvg === "string" && contentOrSvg.trim().startsWith("<")) {
+    btn.innerHTML = contentOrSvg;
+  } else {
+    btn.textContent = contentOrSvg;
+  }
+  return btn;
+}
+
+// インライン編集フォームを生成
+function buildEnvEditForm(env, row) {
+  const { host, port, service } = parseConnIdentifier(env.connect_identifier);
+
+  const form = document.createElement("div");
+  form.className = "env-list__edit-form";
+
+  const grid = document.createElement("div");
+  grid.className = "env-form__grid";
+
+  // インライン入力フィールドを生成するヘルパー
+  const mkInput = (suffix, placeholder, value, type = "text") => {
+    const inp = document.createElement("input");
+    inp.type           = type;
+    inp.id             = `edit-${suffix}-${env.id}`;
+    inp.className      = "form-input form-input--sm";
+    inp.placeholder    = placeholder;
+    inp.value          = value;
+    inp.autocomplete   = type === "password" ? "new-password" : "off";
+    inp.autocorrect    = "off";
+    inp.autocapitalize = "none";
+    inp.spellcheck     = false;
+    return inp;
+  };
+
+  const keyInp  = mkInput("key",     "環境名 (例: PROD)",         env.key);
+  const userInp = mkInput("user",    "ユーザー名 (例: SCOTT)",     env.username);
+  const passInp = mkInput("pass",    "パスワード",                 env.password, "password");
+  const hostInp = mkInput("host",    "ホスト名または IP",           host);
+  const portInp = mkInput("port",    "ポート (省略時: 1521)",       port);
+  const svcInp  = mkInput("service", "サービス名 (例: ORCL)",      service);
+  grid.append(keyInp, userInp, passInp, hostInp, portInp, svcInp);
+
+  // 保存・キャンセルボタン
+  const actions = document.createElement("div");
+  actions.className = "env-list__edit-actions";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type      = "button";
+  saveBtn.className = "btn btn--primary btn--sm";
+  saveBtn.textContent = "保存";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type      = "button";
+  cancelBtn.className = "btn btn--secondary btn--sm";
+  cancelBtn.textContent = "キャンセル";
+
+  saveBtn.addEventListener("click", async () => {
+    const key     = keyInp.value.trim();
+    const user    = userInp.value.trim();
+    const pass    = passInp.value;
+    const host    = hostInp.value.trim();
+    const portRaw = portInp.value.trim();
+    const service = svcInp.value.trim();
+
+    const err = validateEnvInputs({ key, user, host, portRaw, service });
+    if (err) { showToast(err, true); return; }
+
+    // キー変更時の重複チェック
+    const allEnvs = await _db.getAllEnvs();
+    if (key !== env.key && allEnvs.some(e => e.key === key)) {
+      showToast(`環境名「${key}」はすでに存在します`, true);
+      return;
+    }
+
+    const port    = portRaw || "1521";
+    const oldKey  = env.key;
+    await _db.updateEnv(env.id, {
+      key,
+      username:           user,
+      password:           pass,
+      connect_identifier: `${host}:${port}/${service}`,
+    });
+
+    // 選択中の環境キーが変わった場合は更新
+    if (selectedEnvKey === oldKey && key !== oldKey) {
+      selectedEnvKey = key;
+      localStorage.setItem("sql_selected_env", selectedEnvKey);
+    }
+
+    showToast(`「${key}」を更新しました`);
+    await refreshEnvs();
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    row.dataset.editing = "";
+  });
+
+  actions.append(saveBtn, cancelBtn);
+  form.append(grid, actions);
+  return form;
+}
+
+// ==================================================
+// 環境の順序移動（dir: -1=上, +1=下）
+// ==================================================
+async function moveEnv(id, dir) {
+  const envs  = await _db.getAllEnvs();
+  const idx   = envs.findIndex(e => e.id === id);
+  const swapI = idx + dir;
+  if (swapI < 0 || swapI >= envs.length) return;
+
+  // position を入れ替え
+  const p1 = envs[idx].position;
+  const p2 = envs[swapI].position;
+  await _db.updateEnv(envs[idx].id,   { position: p2 });
+  await _db.updateEnv(envs[swapI].id, { position: p1 });
+  await refreshEnvs();
+}
+
+// ==================================================
 // 環境を削除
-function deleteEnv(key) {
-  if (envList.length <= 1) {
-    showToast("最後の接続環境は削除できません", true);
-    return;
-  }
+// ==================================================
+async function deleteEnvRow(id, key) {
+  const envs = await _db.getAllEnvs();
+  if (envs.length <= 1) { showToast("最後の接続環境は削除できません", true); return; }
   if (!confirm(`接続環境「${key}」を削除しますか？`)) return;
-  envList = envList.filter(e => e.key !== key);
-  if (selectedEnvKey === key) selectedEnvKey = envList[0]?.key ?? "";
-  saveEnvs();
-  renderEnvSegCtrl();
-  renderEnvList();
-  updateConnPreview();
+
+  await _db.deleteEnv(id);
+  if (selectedEnvKey === key) {
+    const rest = envs.filter(e => e.id !== id);
+    selectedEnvKey = rest[0]?.key ?? "";
+    localStorage.setItem("sql_selected_env", selectedEnvKey);
+  }
+  await refreshEnvs();
 }
 
+// ==================================================
 // JSON エクスポート（ファイルダウンロード）
-function exportEnvJson() {
-  const json = JSON.stringify(envList, null, 2);
+// ==================================================
+function exportEnvJson(envs) {
+  // 内部管理フィールド（id/position）は除外してエクスポート
+  const data = envs.map(({ key, username, password, connect_identifier }) =>
+    ({ key, username, password, connect_identifier })
+  );
+  const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -314,32 +580,46 @@ function exportEnvJson() {
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
+// ==================================================
 // JSON インポート（ファイル読み込み）
-function importEnvJson(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (
-        !Array.isArray(data) ||
-        data.length === 0 ||
-        data.some(e => !e.key || !e.username || !e.connect_identifier)
-      ) {
-        showToast("無効なJSON形式です", true);
-        return;
+// ==================================================
+async function importEnvJson(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (
+          !Array.isArray(data) ||
+          data.length === 0 ||
+          data.some(e => !e.key || !e.username || !e.connect_identifier)
+        ) {
+          showToast("無効なJSON形式です", true);
+          resolve();
+          return;
+        }
+        // 既存データを全件削除してからインポート
+        const existing = await _db.getAllEnvs();
+        for (const env of existing) await _db.deleteEnv(env.id);
+        for (const env of data) {
+          await _db.addEnv({
+            key:                env.key,
+            username:           env.username,
+            password:           env.password ?? "",
+            connect_identifier: env.connect_identifier,
+          });
+        }
+        selectedEnvKey = data[0].key;
+        localStorage.setItem("sql_selected_env", selectedEnvKey);
+        showToast(`${data.length} 件の環境をインポートしました`);
+        await refreshEnvs();
+      } catch {
+        showToast("JSONの読み込みに失敗しました", true);
       }
-      envList        = data;
-      selectedEnvKey = envList[0].key;
-      saveEnvs();
-      renderEnvSegCtrl();
-      renderEnvList();
-      updateConnPreview();
-      showToast(`${data.length} 件の環境をインポートしました`);
-    } catch {
-      showToast("JSONの読み込みに失敗しました", true);
-    }
-  };
-  reader.readAsText(file);
+      resolve();
+    };
+    reader.readAsText(file);
+  });
 }
 
 // ==================================================
@@ -415,8 +695,13 @@ function renderSqlplusOptions() {
 // ==================================================
 // 接続コマンドを構築
 // ==================================================
-function buildConnCommand() {
-  const env      = getSelectedEnv();
+function getSelectedEnv(envs) {
+  return envs.find(e => e.key === selectedEnvKey) ?? envs[0];
+}
+
+function buildConnCommand(envs) {
+  const env = getSelectedEnv(envs);
+  if (!env) return "sqlplus";
   const preParts = [];
   document.querySelectorAll("#sqlplus-options input:checked").forEach(cb => {
     preParts.push(cb.value);
@@ -427,22 +712,21 @@ function buildConnCommand() {
   return ["sqlplus", ...preParts, connStr, ...postParts].join(" ");
 }
 
-// 接続コマンドプレビューを更新
-function updateConnPreview() {
-  document.getElementById("conn-preview").textContent = buildConnCommand();
+function updateConnPreview(envs) {
+  document.getElementById("conn-preview").textContent = buildConnCommand(envs);
 }
 
 // ==================================================
 // バインド変数テーブル: 行の追加・描画
 // ==================================================
 
-/** 行を末尾に追加し、保存済みの初期値 s を適用する */
+// 行を末尾に追加し、保存済みの初期値 s を適用する
 function appendParamRow(s = {}) {
   const no  = _nextParamId++;
   document.getElementById("param-wrapper").appendChild(createParamRow(no, s));
 }
 
-/** param-row 要素を生成して返す。s に初期値を渡せる */
+// param-row 要素を生成して返す。s に初期値を渡せる
 function createParamRow(no, s = {}) {
   const row = document.createElement("div");
   row.className       = "param-row";
@@ -534,12 +818,7 @@ function createParamRow(no, s = {}) {
   valCell.append(valInput, valText, valDateBtn);
 
   // ── 削除ボタン ──
-  const TRASH_SVG = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>`;
-  const deleteBtn = document.createElement("button");
-  deleteBtn.type      = "button";
-  deleteBtn.className = "btn btn--ghost-danger btn--sm param-row__delete";
-  deleteBtn.setAttribute("aria-label", `変数${no} を削除`);
-  deleteBtn.innerHTML = TRASH_SVG;
+  const deleteBtn = makeIconBtn(TRASH_SVG, `変数${no} を削除`, "btn btn--ghost-danger btn--sm param-row__delete");
   deleteBtn.addEventListener("click", () => { row.remove(); saveParamState(); });
 
   // ── 型変更時: フィールド更新（ユーザー操作では値をリセット、初期化時は後から値を上書き） ──
@@ -606,6 +885,7 @@ function createParamRow(no, s = {}) {
 // ==================================================
 // バインド変数 入力状態の localStorage 永続化
 // ==================================================
+const PARAM_STORAGE_KEY = "sql_params";
 
 function saveParamState() {
   const rows  = document.querySelectorAll("#param-wrapper .param-row");

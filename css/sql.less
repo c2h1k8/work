@@ -514,6 +514,22 @@ body {
     svg { width: 12px; height: 12px; }
   }
 
+  // ゴーストスタイル（通常操作）
+  &--ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-text-muted);
+    padding: 4px 6px;
+
+    &:hover {
+      background: var(--color-bg);
+      border-color: var(--color-border);
+      color: var(--color-text);
+    }
+
+    svg { width: 14px; height: 14px; }
+  }
+
   // ゴーストスタイル（危険操作用）
   &--ghost-danger {
     background: transparent;
@@ -623,23 +639,68 @@ body {
     padding: 6px 0;
   }
 
+  // 行: 列方向に積んで編集フォームを下に展開する
   &__row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 8px;
+    flex-direction: column;
+    align-items: stretch;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-bg);
+    overflow: hidden;
+
+    // 編集モード時に編集フォームを表示
+    &[data-editing="true"] .env-list__edit-form {
+      display: flex;
+    }
+  }
+
+  // 通常表示行
+  &__view {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
 
     &:hover { background: #eaecef; }
+  }
+
+  // 上/下ボタンの縦積みコンテナ
+  &__order-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  // 上/下ボタン
+  &__order-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 17px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: 9px;
+    line-height: 1;
+
+    &:hover:not(:disabled) {
+      background: var(--color-card);
+      color: var(--color-text);
+    }
+    &:disabled { opacity: 0.25; cursor: not-allowed; }
   }
 
   &__info {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: 1;
     min-width: 0;
   }
 
@@ -661,6 +722,29 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  // 編集・削除ボタン群
+  &__btn-group {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  // インライン編集フォーム（初期非表示）
+  &__edit-form {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 10px 10px;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-card);
+  }
+
+  // 保存・キャンセルボタン行
+  &__edit-actions {
+    display: flex;
+    gap: 6px;
   }
 }
 
