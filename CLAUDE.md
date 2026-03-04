@@ -29,13 +29,15 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `sql.js`: 接続環境データ → IndexedDB (`sql_db`)
 - `sql.js`: 選択中の接続環境キー → `localStorage("sql_selected_env")`（ブラウザ固有）
 - `sql.js`: チューニング詳細の開閉状態 → `localStorage("sql_tune_open")`（ブラウザ固有）
+- `home.js`: セクション・アイテムデータ → IndexedDB (`home_db`)
+- `home.js`: URL コマンド履歴 → `localStorage("home_url_history_<sectionId>")`（ブラウザ固有）
 
 ### JavaScript
 
 - **全ページ Vanilla JS**
 - `todo.html` は IndexedDB（`KanbanDB` クラス）でデータ永続化。`localStorage` は使わない
 - その他ページの localStorage 操作は `js/base/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
-- `js/base/common.js` の共通ユーティリティを活用する
+- `js/base/common.js` の共通ユーティリティを活用する（home.html は不使用）
 - コメントは日本語で記載する
 - `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Migration` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `Toast` / `App` の単一ファイル構成
 - `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`
@@ -106,6 +108,26 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - `_toggleIconPicker(label)` / `_onSelectIcon(btn)` で制御（`_onSelectIcon` は async）
   - 組み込みタブも SVG に変更可能
   - CSS: `.icon-picker__item svg { width: 16px; height: 16px; fill: currentColor; }` で SVG サイズ統一
+
+## home.js アーキテクチャ（2026-03現在）
+
+- IndexedDB DB名: `home_db` version **1**
+- ストア: `sections`（id/title/icon/position/type/command_template/columns/**width**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data）
+- セクションタイプ: `list` | `grid` | `url_command` | `table`
+- アイテムタイプ: `copy` | `link`（list）/ `card`（grid）/ `row`（table）
+- 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉
+- 設定ビュー: `'sections'`（一覧）/ `'edit-section'`（セクション編集）→ `State.settings.view` で管理
+- テーブルセクションの列定義は `section.columns: [{id, label, type: 'text'|'copy'|'link'}]` で保持
+- テーブル行の値は `item.row_data: {[col_id]: string}` で保持
+- url_command セクションは `command_template` に `{URL}` プレースホルダーを使う
+- URL コマンド履歴: `localStorage("home_url_history_<sectionId>")` に保存（ブラウザ固有）
+- 旧 `STORAGE_KEY_URLS`（localStorage）は初回起動時に url_command セクションの履歴へ移行
+- 初回起動時にサンプルデータ（SAMPLE_DATA）を挿入（既存アカウント・スプレッドシート・Chrome セクション）
+- モジュール構成: `HomeDB` / `State` / `Renderer` / `EventHandlers` / `App` の単一ファイル構成
+- レイアウト: `max-width: 1440px` + CSS Grid（`auto-fill, minmax(380px, 1fr)`）でセクションカードを複数列配置
+- セクションの表示幅: `section.width = 'auto' | 'wide' | 'full'`。カードに `data-width` 属性を付与し CSS でスパン制御（wide=span 2 / full=1/-1 / ≤840px は全幅）。セクション編集画面の「表示幅」セレクターで設定・保存
+- `.settings-col-row`: `flex-wrap: nowrap` で通常表示。`:has(input)` セレクターで列編集展開時のみ `flex-wrap: wrap`
+- `.data-table`: `width: auto; min-width: 100%` で列が多い時は `.data-table-wrap`（`overflow-x: auto`）で横スクロール
 
 ## 注意事項
 
