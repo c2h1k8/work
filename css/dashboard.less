@@ -1,0 +1,891 @@
+// ── 変数 ────────────────────────────────────────────────────
+@bg:           #eef1f8;
+@card-bg:      #ffffff;
+@text:         #1e2130;
+@text-sub:     #5c6680;
+@text-muted:   #9aa3bf;
+@accent:       #5048e5;
+@accent-d:     #4338ca;
+@accent-l:     #eef2ff;
+@green:        #059669;
+@green-l:      #ecfdf5;
+@border:       #e3e7f1;
+@border-l:     #edf0f8;
+@radius-lg:    14px;
+@radius-md:    10px;
+@radius-sm:    6px;
+// レイヤードシャドウ：浮遊感を自然に
+@shadow:       0 1px 2px rgba(0,0,0,.05), 0 4px 12px rgba(20,28,60,.07);
+@shadow-hover: 0 2px 4px rgba(0,0,0,.06), 0 8px 24px rgba(20,28,60,.1);
+@t:            0.15s ease;
+
+// ── リセット ─────────────────────────────────────────────────
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  // 対角グラデーションで奥行きを演出
+  background: linear-gradient(150deg, #e9ecf7 0%, #eef1f8 50%, #f0f3fa 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  color: @text;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+// ── レイアウト ────────────────────────────────────────────────
+.home {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+// セクションカードの幅指定（data-width 属性で制御）
+.home > .card[data-width="wide"] { grid-column: span 2; }
+.home > .card[data-width="full"] { grid-column: 1 / -1; }
+
+// 狭い画面では span を解除して 1 列に収める
+@media (max-width: 840px) {
+  .home > .card[data-width="wide"],
+  .home > .card[data-width="full"] {
+    grid-column: 1 / -1;
+  }
+}
+
+// ── カード ────────────────────────────────────────────────────
+.card {
+  background: @card-bg;
+  border-radius: @radius-lg;
+  border: 1px solid @border;
+  box-shadow: @shadow;
+  overflow: hidden;
+  transition: box-shadow @t, border-color @t;
+
+  &:hover {
+    box-shadow: @shadow-hover;
+    border-color: darken(@border, 5%);
+  }
+}
+
+.card__hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px 13px;
+  // ヘッダー背景に極わずかな差をつけて視認性向上
+  background: #fafbff;
+  border-bottom: 1px solid @border-l;
+}
+
+.card__hd-icon {
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1;
+  svg { width: 16px; height: 16px; color: @accent; }
+}
+
+.card__hd-title {
+  margin: 0;
+  // uppercase をやめて普通の読めるサイズに
+  font-size: 13px;
+  font-weight: 600;
+  color: @text;
+  letter-spacing: 0;
+}
+
+// セクション空状態メッセージ
+.section-empty {
+  margin: 0;
+  padding: 20px 18px;
+  font-size: 13px;
+  color: @text-muted;
+}
+
+.card__bd {
+  padding: 4px 0;
+}
+
+// ── リスト行 ────────────────────────────────────────────────
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 18px;
+  text-decoration: none;
+  color: @text;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background @t;
+
+  & + & {
+    // セパレーターを控えめに
+    border-top: 1px solid @border-l;
+  }
+
+  &:hover {
+    background: @accent-l;
+    .row__cta { opacity: 1; }
+  }
+
+  &:active { background: darken(@accent-l, 3%); }
+}
+
+.row__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: @radius-sm;
+  background: @accent-l;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    color: @accent;
+  }
+}
+
+.row__label {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.row__hint {
+  font-size: 12px;
+  color: @text-muted;
+}
+
+.row__cta {
+  opacity: 0;
+  transition: opacity @t;
+
+  svg {
+    width: 15px;
+    height: 15px;
+    color: @text-muted;
+    display: block;
+  }
+}
+
+// ── スプレッドシートグリッド ──────────────────────────────────
+.sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+
+.sheet-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  border-radius: @radius-md;
+  background: @bg;
+  border: 1.5px solid @border;
+  text-decoration: none;
+  color: @text;
+  cursor: pointer;
+  transition: background @t, border-color @t, box-shadow @t;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    box-shadow: 0 0 0 3px fade(@accent, 10%);
+
+    .sheet-card__arrow {
+      opacity: 1;
+      transform: translate(2px, -2px);
+    }
+  }
+}
+
+.sheet-card__emoji {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sheet-card__name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-card__arrow {
+  width: 14px;
+  height: 14px;
+  color: @accent;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity @t, transform @t;
+}
+
+// ── URL フォーム ─────────────────────────────────────────────
+.url-form {
+  display: flex;
+  gap: 8px;
+  padding: 14px 16px 10px;
+}
+
+.url-form__input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  border: 1.5px solid @border;
+  border-radius: @radius-sm;
+  padding: 0 12px;
+  font-size: 13px;
+  color: @text;
+  background: @bg;
+  outline: none;
+  font-family: inherit;
+  transition: border-color @t, background @t, box-shadow @t;
+
+  &:focus {
+    border-color: @accent;
+    background: #fff;
+    box-shadow: 0 0 0 3px fade(@accent, 10%);
+  }
+
+  &::placeholder { color: @text-muted; }
+}
+
+.url-form__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: @radius-sm;
+  background: @accent;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  border: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background @t, box-shadow @t;
+
+  svg { width: 13px; height: 13px; }
+
+  &:hover {
+    background: @accent-d;
+    box-shadow: 0 2px 8px fade(@accent, 35%);
+  }
+  &:active { opacity: .85; }
+}
+
+// ── URL 履歴リスト ────────────────────────────────────────────
+.url-history {
+  padding: 0 16px 12px;
+}
+
+.url-history__hd {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: @text-muted;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin: 4px 2px 6px;
+
+  svg {
+    width: 11px;
+    height: 11px;
+    color: @text-muted;
+  }
+}
+
+.url-history__list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  overflow: hidden;
+  background: @card-bg;
+}
+
+.url-history__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid @border-l;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  color: @text-sub;
+  font-size: 12.5px;
+  font-family: inherit;
+  transition: background @t, color @t;
+
+  &:first-child { border-top: none; }
+
+  &:hover {
+    background: @accent-l;
+    color: @accent;
+
+    .url-history__item-icon { color: @accent; }
+    .url-history__item-num { background: @accent; color: #fff; }
+  }
+}
+
+.url-history__item-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: @border;
+  color: @text-muted;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background @t, color @t;
+}
+
+.url-history__item-icon {
+  width: 13px;
+  height: 13px;
+  color: @text-muted;
+  flex-shrink: 0;
+  transition: color @t;
+}
+
+.url-history__item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.url-history__item-enter {
+  font-size: 11px;
+  color: @text-muted;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity @t;
+}
+
+.url-history__item:hover .url-history__item-enter {
+  opacity: 1;
+}
+
+// ── テーブルウィジェット ───────────────────────────────────
+.data-table-wrap {
+  overflow-x: auto;
+  padding: 12px 16px 16px;
+}
+
+.data-table {
+  width: auto;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    text-align: left;
+    padding: 6px 12px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: @text-sub;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    border-bottom: 2px solid @border;
+    white-space: nowrap;
+    background: #fafbff;
+  }
+
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid @border-l;
+    color: @text;
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  tbody tr:hover td { background: @accent-l; }
+}
+
+.data-table__td--copy {
+  cursor: pointer;
+  position: relative;
+  transition: background @t;
+
+  &:hover { background: @accent-l !important; }
+}
+
+.data-table__td--link a {
+  color: @accent;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+.td-copy-icon {
+  opacity: 0;
+  margin-left: 6px;
+  vertical-align: middle;
+  transition: opacity @t;
+  svg { color: @text-muted; }
+}
+
+.data-table__td--copy:hover .td-copy-icon { opacity: 1; }
+
+// ── ギアボタン（右下固定） ─────────────────────────────────
+.home-gear-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: @card-bg;
+  border: 1.5px solid @border;
+  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: @text-sub;
+  transition: background @t, color @t, box-shadow @t, border-color @t;
+  z-index: 100;
+
+  svg { width: 18px; height: 18px; }
+
+  &:hover {
+    background: @accent;
+    color: #fff;
+    border-color: @accent;
+    box-shadow: 0 4px 20px fade(@accent, 35%);
+  }
+}
+
+// ── 設定パネル ─────────────────────────────────────────────
+.home-settings {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+
+  &__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(17,24,39,.35);
+    opacity: 0;
+    transition: opacity .25s ease;
+    cursor: pointer;
+  }
+
+  &__panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: min(480px, 100%);
+    background: @card-bg;
+    box-shadow: -4px 0 24px rgba(0,0,0,.12);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+  }
+
+  &.is-open {
+    .home-settings__backdrop { opacity: 1; }
+    .home-settings__panel { transform: translateX(0); }
+  }
+
+  &__hd {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 20px;
+    border-bottom: 1px solid @border;
+    flex-shrink: 0;
+  }
+
+  &__back,
+  &__close {
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    border-radius: @radius-sm;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: @text-sub;
+    flex-shrink: 0;
+    transition: background @t, color @t;
+
+    svg { width: 16px; height: 16px; }
+    &:hover { background: @bg; color: @text; }
+  }
+
+  &__close { margin-left: auto; }
+
+  &__title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: @text;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+// ── 設定パネル内コンポーネント ─────────────────────────────
+
+.settings-add-bar {
+  margin-bottom: 10px;
+}
+
+.settings-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: @radius-sm;
+  background: @accent-l;
+  border: 1.5px dashed @accent;
+  color: @accent;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background @t;
+
+  &:hover { background: darken(@accent-l, 4%); }
+
+  &--sm {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: transparent;
+    border-color: @border;
+    color: @text-sub;
+    border-style: solid;
+
+    &:hover { background: @bg; color: @accent; border-color: @accent; }
+  }
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  background: @bg;
+  margin-bottom: 6px;
+
+  &--item {
+    background: #fff;
+    padding: 8px 10px;
+  }
+
+  &__icon { font-size: 18px; flex-shrink: 0; line-height: 1; }
+
+  &__title {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &--sm { font-size: 12px; font-weight: 400; color: @text-sub; }
+  }
+
+  &__badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: @accent;
+    background: @accent-l;
+    border-radius: 100px;
+    padding: 2px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+}
+
+.settings-btn {
+  padding: 4px 8px;
+  border-radius: @radius-sm;
+  border: 1px solid @border;
+  background: @card-bg;
+  font-size: 11px;
+  font-family: inherit;
+  color: @text-sub;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background @t, color @t, border-color @t;
+
+  &:hover:not(:disabled) { background: @bg; }
+  &:disabled { opacity: .4; cursor: default; }
+
+  &--primary {
+    background: @accent;
+    border-color: @accent;
+    color: #fff;
+    &:hover:not(:disabled) { background: @accent-d; border-color: @accent-d; }
+  }
+
+  &--danger {
+    border-color: #fca5a5;
+    color: #dc2626;
+    &:hover:not(:disabled) { background: #fef2f2; }
+  }
+
+  &--full { width: 100%; padding: 8px; font-size: 13px; }
+}
+
+.settings-form-panel {
+  background: #fff;
+  border: 1px solid @border;
+  border-radius: @radius-md;
+  padding: 14px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.settings-form-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: @text;
+}
+
+.settings-form-row {
+  margin-bottom: 10px;
+
+  &:last-child { margin-bottom: 0; }
+
+  &--inline {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+}
+
+.settings-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: @text-sub;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.settings-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: @text-muted;
+}
+
+.settings-input {
+  width: 100%;
+  height: 34px;
+  border: 1.5px solid @border;
+  border-radius: @radius-sm;
+  padding: 0 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: @text;
+  background: @bg;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color @t, background @t, box-shadow @t;
+
+  &:focus {
+    border-color: @accent;
+    background: #fff;
+    box-shadow: 0 0 0 3px fade(@accent, 10%);
+  }
+  &::placeholder { color: @text-muted; }
+
+  &--sm { width: 160px; flex-shrink: 0; }
+  &--xs { width: 56px; flex-shrink: 0; text-align: center; }
+}
+
+.settings-select {
+  height: 34px;
+  border: 1.5px solid @border;
+  border-radius: @radius-sm;
+  padding: 0 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: @text;
+  background: @bg;
+  outline: none;
+  cursor: pointer;
+  transition: border-color @t;
+
+  &:focus { border-color: @accent; }
+  &--sm { width: auto; }
+}
+
+.settings-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.settings-subsection {
+  border: 1px solid @border;
+  border-radius: @radius-md;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: @bg;
+
+  &-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  &-title {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: @text-sub;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+
+    .settings-subsection-hd & { margin-bottom: 0; }
+  }
+}
+
+.settings-edit-section {}
+
+// アイテムインライン編集フォーム（flex 解除）
+.settings-item-edit-form {
+  background: @card-bg;
+  border: 1.5px solid @accent;
+  border-radius: @radius-sm;
+  padding: 12px;
+  margin-bottom: 6px;
+}
+
+.settings-col-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  margin-bottom: 5px;
+  flex-wrap: nowrap;
+
+  // 編集時（input が展開された場合）は折り返しを許可
+  &:has(input) { flex-wrap: wrap; }
+
+  input, select { flex: 1; min-width: 80px; }
+}
+
+.settings-col-label {
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-col-type {
+  font-size: 10px;
+  font-weight: 600;
+  color: @text-muted;
+  background: @border;
+  border-radius: 100px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.settings-delete-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid @border;
+}
+
+// ── トースト通知 ─────────────────────────────────────────────
+.toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(17, 24, 39, .88);
+  color: #fff;
+  padding: 9px 22px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    color: #6ee7b7;
+    flex-shrink: 0;
+  }
+
+  &.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}

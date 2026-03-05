@@ -11,7 +11,7 @@ const TYPE_LABELS = {
 };
 
 /** URLコマンド履歴の localStorage キープレフィックス（ブラウザ固有の UI 状態） */
-const URL_HISTORY_PREFIX = 'home_url_history_';
+const URL_HISTORY_PREFIX = 'dashboard_url_history_';
 
 /** 旧 localStorage URL 履歴キー（移行用） */
 // ==============================
@@ -60,6 +60,9 @@ const showToast = (msg = 'コピーしました') => {
   _toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2000);
 };
 
+// URLパラメータから instance ID を取得（複数ホームタブ対応）
+const _instanceId = new URLSearchParams(location.search).get('instance') || '';
+
 // ==============================
 // HomeDB - IndexedDB 管理
 // ==============================
@@ -67,7 +70,7 @@ const showToast = (msg = 'コピーしました') => {
 class HomeDB {
   constructor() {
     this.db = null;
-    this.DB_NAME = 'home_db';
+    this.DB_NAME = _instanceId ? `dashboard_db_${_instanceId}` : 'dashboard_db';
     this.DB_VERSION = 1;
   }
 
@@ -674,6 +677,10 @@ const EventHandlers = {
       if (!panel.classList.contains('is-open')) panel.setAttribute('hidden', '');
     }, { once: true });
     State.settings.open = false;
+    // 親フレームに設定パネルが閉じたことを通知（タブ設定の「ページを設定」ボタン用）
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'dashboard:settings-closed' }, '*');
+    }
   },
 
   backToSections() {
@@ -1043,6 +1050,13 @@ const App = {
     // ギアボタン
     document.getElementById('home-gear-btn').addEventListener('click', () => {
       EventHandlers.openSettings();
+    });
+
+    // 親フレームからの設定パネル開封要求を受信（タブ設定の「ページを設定」ボタン用）
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'dashboard:open-settings') {
+        EventHandlers.openSettings();
+      }
     });
 
     // 全クリック（イベント委譲）

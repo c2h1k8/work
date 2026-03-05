@@ -9,12 +9,6 @@ const TAB_ITEMS = [
     isSelected: true,
   },
   {
-    label: "HOME",
-    icon: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.657-1.366l5.25-4.2Zm1.25 1.171a.25.25 0 0 0-.312 0l-5.25 4.2a.25.25 0 0 0-.094.196v7.019c0 .138.112.25.25.25H5.5V8.25a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v5.25h2.75a.25.25 0 0 0 .25-.25V6.23a.25.25 0 0 0-.094-.195Z"/></svg>`,
-    pageSrc: "home.html",
-    isSelected: false,
-  },
-  {
     label: "SQL",
     icon: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3.5c0-.626.292-1.165.7-1.59.406-.422.956-.767 1.579-1.041C4.525.32 6.195 0 8 0c1.805 0 3.475.32 4.722.869.622.274 1.172.62 1.578 1.04.408.426.7.965.7 1.591v9c0 .626-.292 1.165-.7 1.59-.406.422-.956.767-1.579 1.041C11.476 15.68 9.806 16 8 16c-1.805 0-3.475-.32-4.721-.869-.623-.274-1.173-.62-1.579-1.04-.408-.426-.7-.965-.7-1.591Zm1.5 0c0 .133.065.318.258.52.192.202.52.41.98.602C4.7 5.07 6.231 5.5 8 5.5c1.769 0 3.3-.43 4.26-.878.463-.192.79-.4.982-.602.193-.202.258-.387.258-.52 0-.133-.065-.318-.258-.52-.192-.202-.52-.41-.98-.602C11.3 1.93 9.769 1.5 8 1.5c-1.769 0-3.3.43-4.26.878-.463.192-.79.4-.982.602-.193.202-.258.387-.258.52Zm0 4.5c0 .133.065.318.26.52.19.202.52.41.979.602C4.7 9.57 6.231 10 8 10c1.769 0 3.3-.43 4.26-.878.463-.192.79-.4.982-.602.194-.202.258-.387.258-.52V5.724c-.17.1-.353.193-.55.28C11.475 6.68 9.805 7 8 7c-1.805 0-3.475-.32-4.721-.869a6.15 6.15 0 0 1-.55-.281Zm0 2.225V12.5c0 .133.065.318.26.52.19.202.52.41.979.602C4.7 14.07 6.231 14.5 8 14.5c1.769 0 3.3-.43 4.26-.878.463-.192.79-.4.982-.602.194-.202.258-.387.258-.52v-2.275c-.17.1-.353.193-.55.28C11.475 11.18 9.805 11.5 8 11.5c-1.805 0-3.475-.32-4.721-.869a6.15 6.15 0 0 1-.55-.281Z"/></svg>`,
     pageSrc: "sql.html",
@@ -358,6 +352,10 @@ function buildSettingsPanel() {
         <div class="settings-add-form">
           <h3>タブを追加</h3>
           <input id="new-tab-label" type="text" placeholder="ラベル名">
+          <select id="new-tab-type">
+            <option value="url">カスタムURL</option>
+            <option value="dashboard">ダッシュボード</option>
+          </select>
           <input id="new-tab-url" type="text" placeholder="URL（例: mypage.html）">
           <button class="settings-add-btn">追加</button>
         </div>
@@ -371,6 +369,11 @@ function buildSettingsPanel() {
   overlay.querySelector(".settings-close-btn").addEventListener("click", closeSettings);
   // 追加ボタン
   overlay.querySelector(".settings-add-btn").addEventListener("click", addTabFromForm);
+  // タイプ選択変更：url 以外は URL 入力欄を非表示
+  overlay.querySelector("#new-tab-type").addEventListener("change", (e) => {
+    const urlInput = document.getElementById("new-tab-url");
+    if (urlInput) urlInput.hidden = e.target.value !== "url";
+  });
   // リスト内のボタンはイベント委譲
   overlay.querySelector("#settings-list").addEventListener("click", _onSettingsListClick);
 
@@ -389,8 +392,9 @@ function _onSettingsListClick(e) {
     case "settings-move-up":      moveTab(label, "up").catch(console.error); break;
     case "settings-move-down":    moveTab(label, "down").catch(console.error); break;
     case "settings-delete":       deleteTab(label).catch(console.error); break;
-    case "settings-pick-icon":    _toggleIconPicker(label); break;
-    case "settings-select-icon":  _onSelectIcon(btn).catch(console.error); break;
+    case "settings-pick-icon":       _toggleIconPicker(label); break;
+    case "settings-select-icon":     _onSelectIcon(btn).catch(console.error); break;
+    case "settings-configure-page":  configureHomePage(label).catch(console.error); break;
   }
 }
 
@@ -410,6 +414,9 @@ function renderSettingsList(config) {
     li.className = "settings-item";
     li.dataset.label = tab.label;
 
+    // ダッシュボードタブか判定（設定ボタン表示用）
+    const isHomePage = tab.pageSrc === "dashboard.html" || tab.pageSrc?.startsWith("dashboard.html?");
+
     // メインの行
     const row = document.createElement("div");
     row.className = "settings-item__row";
@@ -422,6 +429,7 @@ function renderSettingsList(config) {
         <span>${tab.label}</span>
         ${tab.isBuiltIn ? "" : '<span class="settings-item__custom-badge">カスタム</span>'}
       </label>
+      ${isHomePage ? `<button class="settings-configure-btn" data-action="settings-configure-page" data-label="${tab.label}" title="ページを設定">設定</button>` : ""}
       ${tab.isBuiltIn ? "" : `<button class="settings-delete-btn" data-action="settings-delete" data-label="${tab.label}" aria-label="${tab.label}を削除">削除</button>`}
     `;
     // アイコンプレビューを設定（innerHTML でそのまま挿入）
@@ -567,11 +575,20 @@ async function deleteTab(label) {
 async function addTabFromForm() {
   const labelInput = document.getElementById("new-tab-label");
   const urlInput   = document.getElementById("new-tab-url");
-  const label   = labelInput?.value.trim();
-  const pageSrc = urlInput?.value.trim();
+  const tabType    = document.getElementById("new-tab-type")?.value || "url";
+  const label      = labelInput?.value.trim();
 
-  if (!label || !pageSrc) {
-    alert("ラベル名と URL を入力してください");
+  // ダッシュボードタイプは instance パラメータ付きの dashboard.html を生成
+  const pageSrc = tabType === "dashboard"
+    ? `dashboard.html?instance=${Date.now().toString(36)}`
+    : urlInput?.value.trim();
+
+  if (!label) {
+    alert("ラベル名を入力してください");
+    return;
+  }
+  if (tabType === "url" && !pageSrc) {
+    alert("URL を入力してください");
     return;
   }
 
@@ -598,5 +615,27 @@ async function addTabFromForm() {
 
   // フォームをクリア
   if (labelInput) labelInput.value = "";
-  if (urlInput)   urlInput.value   = "";
+  if (urlInput) { urlInput.value = ""; urlInput.hidden = false; }
+  const typeSelect = document.getElementById("new-tab-type");
+  if (typeSelect) typeSelect.value = "url";
+}
+
+/** ホームタブのページ設定パネルを開く */
+async function configureHomePage(label) {
+  // タブ設定パネルを閉じてからタブを切り替え
+  closeSettings();
+  const tabId = `TAB-${label}`;
+  activateTab(tabId);
+  saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, tabId);
+
+  const iframe = document.getElementById(`frame-${label}`);
+  if (!iframe) return;
+
+  // iframe が読み込み済みなら即送信、そうでなければ load 後に送信
+  const sendMsg = () => iframe.contentWindow?.postMessage({ type: 'dashboard:open-settings' }, '*');
+  if (iframe.contentDocument?.readyState === 'complete') {
+    sendMsg();
+  } else {
+    iframe.addEventListener('load', sendMsg, { once: true });
+  }
 }

@@ -29,15 +29,15 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `sql.js`: 接続環境データ → IndexedDB (`sql_db`)
 - `sql.js`: 選択中の接続環境キー → `localStorage("sql_selected_env")`（ブラウザ固有）
 - `sql.js`: チューニング詳細の開閉状態 → `localStorage("sql_tune_open")`（ブラウザ固有）
-- `home.js`: セクション・アイテムデータ → IndexedDB (`home_db`)
-- `home.js`: URL コマンド履歴 → `localStorage("home_url_history_<sectionId>")`（ブラウザ固有）
+- `dashboard.js`: セクション・アイテムデータ → IndexedDB (`dashboard_db`)
+- `dashboard.js`: URL コマンド履歴 → `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
 
 ### JavaScript
 
 - **全ページ Vanilla JS**
 - `todo.html` は IndexedDB（`KanbanDB` クラス）でデータ永続化。`localStorage` は使わない
 - その他ページの localStorage 操作は `js/base/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
-- `js/base/common.js` の共通ユーティリティを活用する（home.html は不使用）
+- `js/base/common.js` の共通ユーティリティを活用する（dashboard.html は不使用）
 - コメントは日本語で記載する
 - `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Migration` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `Toast` / `App` の単一ファイル構成
 - `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`
@@ -88,7 +88,17 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ### カスタムタブの追加（UI操作）
 
-ナビバーのギアアイコン → 「タブを追加」フォームからラベルと URL を指定して追加。
+ナビバーのギアアイコン → 「タブを追加」フォームでタイプとラベルを指定して追加。
+
+- **タイプ「カスタムURL」**: URL 入力欄が表示される。URL を指定してページを追加。
+- **タイプ「ダッシュボード」**: `dashboard.html?instance=<id>` を自動生成。独立した IndexedDB（`dashboard_db_<id>`）を使用。
+
+### ダッシュボードタブの「ページを設定」ボタン
+
+設定リストの各ダッシュボードタブ行に「設定」ボタンが表示される。クリックすると：
+1. タブ設定パネルが閉じる
+2. 対象ダッシュボードタブに切り替わる
+3. `postMessage({ type: 'dashboard:open-settings' })` でダッシュボード設定パネルが開く
 
 ## タブ設定機能
 
@@ -109,9 +119,13 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - 組み込みタブも SVG に変更可能
   - CSS: `.icon-picker__item svg { width: 16px; height: 16px; fill: currentColor; }` で SVG サイズ統一
 
-## home.js アーキテクチャ（2026-03現在）
+## dashboard.js アーキテクチャ（2026-03現在）
 
-- IndexedDB DB名: `home_db` version **1**
+- IndexedDB DB名: `dashboard_db` version **1**（インスタンス付きの場合は `dashboard_db_<instanceId>`）
+- URLパラメータ `?instance=<id>` で独立した IndexedDB を使用（複数ダッシュボードタブ対応）
+- `_instanceId = new URLSearchParams(location.search).get('instance') || ''` でファイル冒頭に定義
+- `window.addEventListener('message', ...)` で親フレームからの `dashboard:open-settings` を受信して設定パネルを開く
+- `EventHandlers.closeSettings()` は設定パネルを閉じた後、親フレームに `dashboard:settings-closed` を postMessage
 - ストア: `sections`（id/title/icon/position/type/command_template/columns/**width**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data）
 - セクションタイプ: `list` | `grid` | `url_command` | `table`
 - アイテムタイプ: `copy` | `link`（list）/ `card`（grid）/ `row`（table）
@@ -120,7 +134,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - テーブルセクションの列定義は `section.columns: [{id, label, type: 'text'|'copy'|'link'}]` で保持
 - テーブル行の値は `item.row_data: {[col_id]: string}` で保持
 - url_command セクションは `command_template` に `{URL}` プレースホルダーを使う
-- URL コマンド履歴: `localStorage("home_url_history_<sectionId>")` に保存（ブラウザ固有）
+- URL コマンド履歴: `localStorage("dashboard_url_history_<sectionId>")` に保存（ブラウザ固有）
 - 旧 `STORAGE_KEY_URLS`（localStorage）は初回起動時に url_command セクションの履歴へ移行
 - 初回起動時にサンプルデータ（SAMPLE_DATA）を挿入（既存アカウント・スプレッドシート・Chrome セクション）
 - モジュール構成: `HomeDB` / `State` / `Renderer` / `EventHandlers` / `App` の単一ファイル構成
@@ -134,4 +148,4 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `todo.html` は IndexedDB を使用するため `file://` でも動作する（localStorage 依存なし）
 - その他ページは localStorage を使用するため、ローカルファイルアクセスでは制限が生じる場合がある
 - LESS ファイルを編集した場合は `npx lessc <src>.less <dst>.css` で必ず CSS を再生成する
-- `home.html` にはアカウント情報やスプレッドシートIDが含まれる。Git にコミットする際は注意する
+- `dashboard.html` にはアカウント情報やスプレッドシートIDが含まれる場合がある。Git にコミットする際は注意する

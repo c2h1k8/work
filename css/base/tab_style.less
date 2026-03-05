@@ -439,6 +439,22 @@ html, body {
   }
 }
 
+.settings-configure-btn {
+  padding: 4px 10px;
+  border: 1px solid @nav-accent;
+  border-radius: 4px;
+  background: transparent;
+  color: @nav-accent;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  &:hover {
+    background: rgba(9, 105, 218, .08);
+  }
+}
+
 .settings-add-form {
   margin-top: 16px;
   padding-top: 16px;
@@ -469,6 +485,22 @@ html, body {
       border-color: @nav-accent;
       box-shadow: 0 0 0 3px rgba(9, 105, 218, .12);
     }
+  }
+
+  select {
+    display: block;
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border: 1px solid @nav-border;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: @font-stack;
+    color: @nav-text;
+    background: #fff;
+    outline: none;
+    box-sizing: border-box;
+    cursor: pointer;
   }
 
   .settings-add-btn {
