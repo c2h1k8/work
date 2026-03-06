@@ -126,14 +126,14 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `_instanceId = new URLSearchParams(location.search).get('instance') || ''` でファイル冒頭に定義
 - `window.addEventListener('message', ...)` で親フレームからの `dashboard:open-settings` を受信して設定パネルを開く
 - `EventHandlers.closeSettings()` は設定パネルを閉じた後、親フレームに `dashboard:settings-closed` を postMessage
-- ストア: `sections`（id/title/icon/position/type/command_template/columns/**width**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data）
+- ストア: `sections`（id/title/icon/position/type/command_template/**action_mode**/columns/**width**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data）
 - セクションタイプ: `list` | `grid` | `url_command` | `table`
 - アイテムタイプ: `copy` | `link`（list）/ `card`（grid）/ `row`（table）
 - 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉
 - 設定ビュー: `'sections'`（一覧）/ `'edit-section'`（セクション編集）→ `State.settings.view` で管理
 - テーブルセクションの列定義は `section.columns: [{id, label, type: 'text'|'copy'|'link'}]` で保持
 - テーブル行の値は `item.row_data: {[col_id]: string}` で保持
-- url_command セクションは `command_template` に `{URL}` プレースホルダーを使う
+- url_command セクションは `command_template` に `{INPUT}` プレースホルダーを使う。`action_mode: 'copy'`（デフォルト）はクリップボードにコピー、`action_mode: 'open'` はブラウザで URL を開く
 - URL コマンド履歴: `localStorage("dashboard_url_history_<sectionId>")` に保存（ブラウザ固有）
 - 旧 `STORAGE_KEY_URLS`（localStorage）は初回起動時に url_command セクションの履歴へ移行
 - 初回起動時にサンプルデータ（SAMPLE_DATA）を挿入（既存アカウント・スプレッドシート・Chrome セクション）

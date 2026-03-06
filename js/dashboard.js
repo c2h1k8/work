@@ -6,7 +6,7 @@
 const TYPE_LABELS = {
   list: 'リスト',
   grid: 'グリッド',
-  url_command: 'URLコマンド',
+  url_command: 'コマンドビルダー',
   table: 'テーブル',
 };
 
@@ -248,10 +248,8 @@ const Renderer = {
       row.className = `row ${item.item_type === 'copy' ? 'js-copy' : 'js-link'}`;
       row.href = 'javascript:void(0);';
       row.dataset.value = item.value || '';
-      const icon = item.item_type === 'copy' ? ICONS.copy : ICONS.link;
       const cta = item.item_type === 'copy' ? ICONS.clipboard : ICONS.external;
       row.innerHTML = `
-        <span class="row__icon">${icon}</span>
         <span class="row__label">${escapeHtml(item.label || '')}</span>
         ${item.hint ? `<span class="row__hint">${escapeHtml(item.hint)}</span>` : ''}
         <span class="row__cta">${cta}</span>
@@ -285,13 +283,14 @@ const Renderer = {
   buildUrlCommandSection(section, bd) {
     const sectionId = section.id;
     const template = section.command_template || '';
+    const isOpen = section.action_mode === 'open';
     const form = document.createElement('div');
     form.className = 'url-form';
     form.innerHTML = `
-      <input id="url-input-${sectionId}" type="text" class="url-form__input" placeholder="https://..." />
-      <button class="url-form__btn js-copy-cmd" data-section-id="${sectionId}" data-template="${escapeAttr(template)}">
-        ${ICONS.clipboard}
-        コマンドをコピー
+      <input id="url-input-${sectionId}" type="text" class="url-form__input" placeholder="入力値を入力..." />
+      <button class="url-form__btn js-copy-cmd" data-section-id="${sectionId}" data-template="${escapeAttr(template)}" data-action-mode="${isOpen ? 'open' : 'copy'}">
+        ${isOpen ? ICONS.link : ICONS.clipboard}
+        ${isOpen ? 'URLを開く' : 'コマンドをコピー'}
       </button>
     `;
     bd.appendChild(form);
@@ -300,11 +299,12 @@ const Renderer = {
     historyWrap.className = 'url-history';
     historyWrap.id = `url-history-${sectionId}`;
     bd.appendChild(historyWrap);
-    Renderer.renderUrlHistory(sectionId);
+    // DOM に追加済みの要素を直接渡すことで getElementById を不要にする
+    Renderer.renderUrlHistory(sectionId, historyWrap);
   },
 
-  renderUrlHistory(sectionId) {
-    const wrap = document.getElementById(`url-history-${sectionId}`);
+  renderUrlHistory(sectionId, wrap) {
+    wrap = wrap || document.getElementById(`url-history-${sectionId}`);
     if (!wrap) return;
     wrap.innerHTML = '';
     const urls = loadJsonFromStorage(URL_HISTORY_PREFIX + sectionId);
@@ -312,7 +312,7 @@ const Renderer = {
 
     const hd = document.createElement('p');
     hd.className = 'url-history__hd';
-    hd.innerHTML = `${ICONS.clock} 最近使ったURL`;
+    hd.innerHTML = `${ICONS.clock} 最近使ったテキスト`;
     wrap.appendChild(hd);
 
     const list = document.createElement('div');
@@ -451,13 +451,28 @@ const Renderer = {
         <select class="settings-select" id="new-section-type">
           <option value="list">リスト（コピー・リンク行）</option>
           <option value="grid">グリッド（カード型リンク）</option>
-          <option value="url_command">URLコマンドビルダー</option>
+          <option value="url_command">コマンドビルダー</option>
           <option value="table">テーブル（自由列）</option>
         </select>
       </div>
+      <div class="settings-form-row" id="new-section-action-row" hidden>
+        <label class="settings-label">アクション</label>
+        <select class="settings-select" id="new-section-action-mode">
+          <option value="copy">コマンドをコピー（ターミナル用）</option>
+          <option value="open">URLを開く（ブラウザ）</option>
+        </select>
+      </div>
       <div class="settings-form-row" id="new-section-cmd-row" hidden>
-        <label class="settings-label">コマンドテンプレート（{URL} が URL に置換されます）</label>
-        <input class="settings-input" id="new-section-cmd" type="text" placeholder='open -n -a "Google Chrome" --args -incognito {URL}' />
+        <label class="settings-label">テンプレート（{INPUT} が入力値に置換されます）</label>
+        <input class="settings-input" id="new-section-cmd" type="text" placeholder='open "https://www.google.com/search?q={INPUT}"' />
+      </div>
+      <div class="settings-form-row">
+        <label class="settings-label">表示幅</label>
+        <select class="settings-select" id="new-section-width">
+          <option value="auto">自動（グリッド列幅）</option>
+          <option value="wide">ワイド（2列分）</option>
+          <option value="full">全幅</option>
+        </select>
       </div>
       <div class="settings-form-actions">
         <button class="settings-btn settings-btn--primary" data-action="save-add-section">追加</button>
@@ -495,11 +510,25 @@ const Renderer = {
         </div>`;
 
     if (isUrlCmd) {
+      const curMode = section.action_mode || 'copy';
       html += `
         <div class="settings-form-row">
-          <label class="settings-label">コマンドテンプレート（{URL} が URL に置換されます）</label>
-          <input class="settings-input" id="edit-section-cmd" type="text" value="${escapeAttr(section.command_template || '')}" placeholder='open -n -a "Google Chrome" --args -incognito {URL}' />
-          <button class="settings-btn settings-btn--primary" style="margin-top:8px" data-action="save-section-cmd" data-section-id="${section.id}">保存</button>
+          <label class="settings-label">アクション</label>
+          <select class="settings-select" id="edit-section-action-mode">
+            <option value="copy" ${curMode === 'copy' ? 'selected' : ''}>コマンドをコピー（ターミナル用）</option>
+            <option value="open" ${curMode === 'open' ? 'selected' : ''}>URLを開く（ブラウザ）</option>
+          </select>
+        </div>
+        <div class="settings-form-row">
+          <label class="settings-label">テンプレート（{INPUT} が入力値に置換されます）</label>
+          <input class="settings-input" id="edit-section-cmd" type="text" value="${escapeAttr(section.command_template || '')}" placeholder='open "https://www.google.com/search?q={INPUT}"' />
+        </div>
+        <div class="settings-form-row">
+          <label class="settings-label">履歴の上限件数（0 で無効）</label>
+          <input class="settings-input settings-input--xs" id="edit-section-history-limit" type="number" min="0" max="100" value="${section.history_limit ?? 10}" />
+        </div>
+        <div class="settings-form-row">
+          <button class="settings-btn settings-btn--primary" data-action="save-section-cmd" data-section-id="${section.id}">保存</button>
         </div>`;
     }
     html += `</div>`;
@@ -708,7 +737,10 @@ const EventHandlers = {
   onNewSectionTypeChange() {
     const type = document.getElementById('new-section-type')?.value;
     const cmdRow = document.getElementById('new-section-cmd-row');
-    if (cmdRow) cmdRow.hidden = type !== 'url_command';
+    const actionRow = document.getElementById('new-section-action-row');
+    const isUrlCmd = type === 'url_command';
+    if (cmdRow) cmdRow.hidden = !isUrlCmd;
+    if (actionRow) actionRow.hidden = !isUrlCmd;
   },
 
   async saveAddSection() {
@@ -716,6 +748,8 @@ const EventHandlers = {
     const title = document.getElementById('new-section-title')?.value.trim();
     const type = document.getElementById('new-section-type')?.value || 'list';
     const cmd = document.getElementById('new-section-cmd')?.value.trim() || '';
+    const actionMode = document.getElementById('new-section-action-mode')?.value || 'copy';
+    const width = document.getElementById('new-section-width')?.value || 'auto';
 
     if (!title) { alert('タイトルを入力してください'); return; }
 
@@ -723,8 +757,9 @@ const EventHandlers = {
       ? Math.max(...State.sections.map(s => s.position)) + 1 : 0;
 
     const data = {
-      title, icon, position: maxPos, type,
+      title, icon, position: maxPos, type, width,
       command_template: type === 'url_command' ? cmd : null,
+      action_mode: type === 'url_command' ? actionMode : null,
       columns: type === 'table' ? [] : null,
     };
     const newId = await State.db.addSection(data);
@@ -802,7 +837,22 @@ const EventHandlers = {
     const section = State.sections.find(s => s.id === sectionId);
     if (!section) return;
     section.command_template = document.getElementById('edit-section-cmd')?.value.trim() || '';
+    section.action_mode = document.getElementById('edit-section-action-mode')?.value || 'copy';
+    const limitVal = parseInt(document.getElementById('edit-section-history-limit')?.value, 10);
+    section.history_limit = (!isNaN(limitVal) && limitVal >= 0) ? limitVal : 10;
     await State.db.updateSection(section);
+
+    // 上限が変わった場合に既存履歴をトリム
+    const historyKey = URL_HISTORY_PREFIX + sectionId;
+    if (section.history_limit === 0) {
+      localStorage.removeItem(historyKey);
+    } else {
+      const urls = loadJsonFromStorage(historyKey) || [];
+      if (urls.length > section.history_limit) {
+        localStorage.setItem(historyKey, JSON.stringify(urls.slice(0, section.history_limit)));
+      }
+    }
+
     Renderer.renderDashboard();
     showToast('保存しました');
   },
@@ -1015,14 +1065,26 @@ const EventHandlers = {
   onCopyCmd(btn) {
     const sectionId = Number(btn.dataset.sectionId);
     const template = btn.dataset.template || '';
+    const actionMode = btn.dataset.actionMode || 'copy';
     const input = document.getElementById(`url-input-${sectionId}`);
-    const url = input?.value.trim() || '';
-    navigator.clipboard.writeText(template.replace('{URL}', url));
-    if (url && isValidUrl(url)) {
-      saveToStorageWithLimit(URL_HISTORY_PREFIX + sectionId, url, 10, isValidUrl);
+    const inputVal = input?.value.trim() || '';
+    const result = template.replace('{INPUT}', inputVal);
+
+    if (actionMode === 'open') {
+      if (result) window.open(result, '_blank', 'noopener,noreferrer');
+    } else {
+      navigator.clipboard.writeText(result);
+      showToast('コピーしました');
+    }
+
+    if (inputVal) {
+      const section = State.sections.find(s => s.id === sectionId);
+      const limit = section?.history_limit ?? 10;
+      if (limit > 0) {
+        saveToStorageWithLimit(URL_HISTORY_PREFIX + sectionId, inputVal, limit);
+      }
       Renderer.renderUrlHistory(sectionId);
     }
-    showToast('コピーしました');
   },
 };
 
