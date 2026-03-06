@@ -16,6 +16,9 @@ const CMD_HISTORY_PREFIX = 'dashboard_url_history_';
 /** テーブル列の非表示状態保存用 localStorage キープレフィックス（ブラウザ固有の UI 状態） */
 const TABLE_COL_HIDDEN_PREFIX = 'dashboard_table_hidden_cols_';
 
+/** 選択中の環境ID の localStorage キー（ブラウザ固有の UI 状態） */
+const ACTIVE_ENV_KEY_PREFIX = 'dashboard_active_env_';
+
 // ==============================
 // SVG アイコン
 // ==============================
@@ -66,6 +69,9 @@ const showToast = (msg = 'コピーしました') => {
 // URLパラメータから instance ID を取得（複数ホームタブ対応）
 const _instanceId = new URLSearchParams(location.search).get('instance') || '';
 
+/** 選択中の環境ID を保存する localStorage キー */
+const ACTIVE_ENV_KEY = ACTIVE_ENV_KEY_PREFIX + _instanceId;
+
 // ==============================
 // HomeDB - IndexedDB 管理
 // ==============================
@@ -74,7 +80,7 @@ class HomeDB {
   constructor() {
     this.db = null;
     this.DB_NAME = 'dashboard_db';  // 全インスタンス共有の単一DB
-    this.DB_VERSION = 3;
+    this.DB_VERSION = 4;
     this.instanceId = _instanceId;  // このインスタンスのID
   }
 
@@ -92,6 +98,13 @@ class HomeDB {
           const is = db.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
           is.createIndex('section_id', 'section_id');
           is.createIndex('position', 'position');
+        }
+        if (e.oldVersion < 4) {
+          // 環境バインド変数ストア（instance_id インデックス付き）
+          const envStore = db.createObjectStore('environments', { keyPath: 'id', autoIncrement: true });
+          envStore.createIndex('instance_id', 'instance_id');
+          // アプリ設定ストア（varNames・uiType など）
+          db.createObjectStore('app_config', { keyPath: 'name' });
         }
       };
       req.onsuccess = (e) => {
@@ -197,6 +210,38 @@ class HomeDB {
   updateItem(data) { return this._put('items', data); }
   deleteItem(id) { return this._delete('items', id); }
 
+  // ── 環境バインド変数 ──────────────────────────
+
+  getAllEnvironments() {
+    return new Promise((resolve, reject) => {
+      const os = this.db.transaction('environments').objectStore('environments');
+      const req = os.index('instance_id').getAll(IDBKeyRange.only(this.instanceId));
+      req.onsuccess = () => resolve(req.result.sort((a, b) => a.position - b.position));
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  addEnvironment(data) { return this._add('environments', { ...data, instance_id: this.instanceId }); }
+  updateEnvironment(data) { return this._put('environments', data); }
+  deleteEnvironment(id) { return this._delete('environments', id); }
+
+  // ── アプリ設定 ────────────────────────────
+
+  async getAppConfig(key) {
+    try {
+      const fullKey = `${key}_${this.instanceId}`;
+      const record = await this._get('app_config', fullKey);
+      return record?.value ?? null;
+    } catch { return null; }
+  }
+
+  async setAppConfig(key, value) {
+    try {
+      const fullKey = `${key}_${this.instanceId}`;
+      return await this._put('app_config', { name: fullKey, value });
+    } catch { return null; }
+  }
+
   // ── エクスポート/インポート ────────────
 
   /** このインスタンスのデータをエクスポート */
@@ -207,7 +252,9 @@ class HomeDB {
       const sectionItems = await this.getItemsBySection(section.id);
       items.push(...sectionItems);
     }
-    return { sections, items };
+    const environments = await this.getAllEnvironments();
+    const envConfig = await this.getAppConfig('env_config');
+    return { sections, items, environments, envConfig };
   }
 
   /** このインスタンスのデータをインポート（replace=true なら既存を全削除してから追加） */
@@ -215,6 +262,8 @@ class HomeDB {
     if (replace) {
       const existing = await this.getAllSections();
       for (const s of existing) await this.deleteSection(s.id);
+      const existingEnvs = await this.getAllEnvironments();
+      for (const e of existingEnvs) await this.deleteEnvironment(e.id);
     }
     const idMap = {};
     for (const section of (data.sections || [])) {
@@ -232,12 +281,22 @@ class HomeDB {
         await this._add('items', newItem);
       }
     }
+    for (const env of (data.environments || [])) {
+      const newEnv = { ...env, instance_id: this.instanceId };
+      delete newEnv.id;
+      await this._add('environments', newEnv);
+    }
+    if (data.envConfig) {
+      await this.setAppConfig('env_config', data.envConfig);
+    }
   }
 
   /** このインスタンスのデータを全削除（タブ削除時に使用） */
   async deleteInstance() {
     const sections = await this.getAllSections();
     for (const s of sections) await this.deleteSection(s.id);
+    const envs = await this.getAllEnvironments();
+    for (const e of envs) await this.deleteEnvironment(e.id);
   }
 }
 
@@ -249,11 +308,31 @@ const State = {
   db: null,
   sections: [],    // position 昇順
   itemsMap: {},    // sectionId → items[]
+  environments: [],  // position 昇順
+  activeEnvId: null,
+  envConfig: { varNames: ['IP', 'HOST_NAME'], uiType: 'select' },
   settings: {
     open: false,
-    view: 'sections',      // 'sections' | 'edit-section'
+    view: 'sections',      // 'sections' | 'edit-section' | 'env-settings' | 'edit-env'
     editingSectionId: null,
+    editingEnvId: null,
   },
+};
+
+// ==============================
+// 環境バインド変数の解決
+// ==============================
+
+/** 選択中の環境のバインド変数を解決する（{変数名} → 値に置換） */
+const resolveEnvVars = (str) => {
+  if (!str) return str || '';
+  const env = State.environments.find(e => e.id === State.activeEnvId);
+  if (!env) return str;
+  return str.replace(/\{([^}]+)\}/g, (m, key) => {
+    // {INPUT} はコマンドビルダー専用なのでスキップ
+    if (key === 'INPUT') return m;
+    return (env.values && env.values[key] !== undefined) ? env.values[key] : m;
+  });
 };
 
 // ==============================
@@ -313,8 +392,8 @@ const Renderer = {
       row.dataset.value = item.value || '';
       const cta = item.item_type === 'copy' ? ICONS.clipboard : ICONS.external;
       row.innerHTML = `
-        <span class="row__label">${escapeHtml(item.label || '')}</span>
-        ${item.hint ? `<span class="row__hint">${escapeHtml(item.hint)}</span>` : ''}
+        <span class="row__label">${escapeHtml(resolveEnvVars(item.label || ''))}</span>
+        ${item.hint ? `<span class="row__hint">${escapeHtml(resolveEnvVars(item.hint))}</span>` : ''}
         <span class="row__cta">${cta}</span>
       `;
       bd.appendChild(row);
@@ -337,7 +416,7 @@ const Renderer = {
       card.dataset.value = item.value || '';
       card.innerHTML = `
         <span class="sheet-card__emoji">${escapeHtml(item.emoji || (isCopy ? '📋' : '🔗'))}</span>
-        <span class="sheet-card__name">${escapeHtml(item.label || '')}</span>
+        <span class="sheet-card__name">${escapeHtml(resolveEnvVars(item.label || ''))}</span>
         ${isCopy ? ICONS.clipboard : ICONS.arrow}
       `;
       grid.appendChild(card);
@@ -490,18 +569,18 @@ const Renderer = {
         const val = row_data[col.id] || '';
         if (col.type === 'copy') {
           td.className = 'data-table__td--copy js-copy';
-          td.dataset.value = val;
-          td.innerHTML = `${escapeHtml(val)}<span class="td-copy-icon">${ICONS.clipboardSm}</span>`;
+          td.dataset.value = val;  // コピー時に resolveEnvVars で解決
+          td.innerHTML = `${escapeHtml(resolveEnvVars(val))}<span class="td-copy-icon">${ICONS.clipboardSm}</span>`;
         } else if (col.type === 'link' && val) {
           td.className = 'data-table__td--link';
           const a = document.createElement('a');
           a.className = 'js-link';
           a.href = 'javascript:void(0);';
-          a.dataset.value = val;
-          a.textContent = val;
+          a.dataset.value = val;  // リンク時に resolveEnvVars で解決
+          a.textContent = resolveEnvVars(val);
           td.appendChild(a);
         } else {
-          td.textContent = val;
+          td.textContent = resolveEnvVars(val);
         }
         tr.appendChild(td);
       });
@@ -542,12 +621,31 @@ const Renderer = {
       titleEl.textContent = section ? `${section.icon || ''} ${section.title}` : 'セクション編集';
       backBtn.hidden = false;
       body.innerHTML = Renderer.buildEditSectionView(section);
+    } else if (view === 'env-settings') {
+      titleEl.textContent = '環境バインド変数';
+      backBtn.hidden = false;
+      body.innerHTML = Renderer.buildEnvSettingsView();
+    } else if (view === 'edit-env') {
+      const env = State.environments.find(e => e.id === State.settings.editingEnvId);
+      titleEl.textContent = env ? env.name : '環境編集';
+      backBtn.hidden = false;
+      body.innerHTML = Renderer.buildEditEnvView(env);
     }
   },
 
   buildSectionsView() {
     const sections = State.sections;
-    let html = `<div class="settings-add-bar">
+    const envBadge = State.environments.length > 0
+      ? `<span class="settings-nav-badge">${State.environments.length}</span>` : '';
+    let html = `<div class="settings-nav-row">
+      <button class="settings-nav-btn" data-action="show-env-settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32 2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+        環境バインド変数
+        ${envBadge}
+        <svg class="settings-nav-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div class="settings-add-bar">
       <button class="settings-add-btn" data-action="show-add-section">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         セクションを追加
@@ -827,6 +925,169 @@ const Renderer = {
       </div>`;
     return html;
   },
+
+  // ── 環境バインド変数 設定ビュー ────────────────
+
+  buildEnvSettingsView() {
+    const { varNames, uiType } = State.envConfig;
+    const envs = State.environments;
+
+    const varList = varNames.length > 0
+      ? varNames.map(name => `
+        <div class="settings-row settings-row--sm">
+          <code class="env-var-badge">{${escapeHtml(name)}}</code>
+          <div class="settings-row__actions">
+            <button class="settings-btn settings-btn--danger" data-action="remove-env-var" data-var-name="${escapeAttr(name)}">削除</button>
+          </div>
+        </div>`).join('')
+      : '<p class="section-empty">変数が定義されていません</p>';
+
+    const envList = envs.length > 0
+      ? envs.map((env, idx) => `
+        <div class="settings-row" data-env-id="${env.id}">
+          <span class="settings-row__title">${escapeHtml(env.name)}</span>
+          <div class="settings-row__actions">
+            <button class="settings-btn" data-action="move-env-up" data-env-id="${env.id}" ${idx === 0 ? 'disabled' : ''}>↑</button>
+            <button class="settings-btn" data-action="move-env-down" data-env-id="${env.id}" ${idx === envs.length - 1 ? 'disabled' : ''}>↓</button>
+            <button class="settings-btn settings-btn--primary" data-action="edit-env" data-env-id="${env.id}">編集</button>
+            <button class="settings-btn settings-btn--danger" data-action="delete-env" data-env-id="${env.id}">削除</button>
+          </div>
+        </div>`).join('')
+      : '<p class="section-empty">環境が登録されていません</p>';
+
+    return `<div class="settings-env-view">
+      <div class="settings-subsection">
+        <h3 class="settings-subsection-title">バインド変数の定義</h3>
+        <p class="settings-help">コマンドや値に {変数名} 形式で埋め込めます。例: <code>{IP}</code>, <code>{HOST_NAME}</code></p>
+        <div id="env-var-list">${varList}</div>
+        <div class="settings-form-row settings-form-row--inline">
+          <input class="settings-input" id="new-var-name" type="text" placeholder="変数名（例: HOST_NAME）" />
+          <button class="settings-btn settings-btn--primary" data-action="add-env-var">追加</button>
+        </div>
+      </div>
+      <div class="settings-subsection">
+        <h3 class="settings-subsection-title">選択UI</h3>
+        <div class="settings-form-row">
+          <select class="settings-select" id="env-ui-type">
+            <option value="select" ${uiType === 'select' ? 'selected' : ''}>セレクトボックス</option>
+            <option value="tabs" ${uiType === 'tabs' ? 'selected' : ''}>タブ</option>
+            <option value="segment" ${uiType === 'segment' ? 'selected' : ''}>セグメントコントロール</option>
+          </select>
+        </div>
+        <div class="settings-form-row">
+          <button class="settings-btn settings-btn--primary" data-action="save-env-config">保存</button>
+        </div>
+      </div>
+      <div class="settings-subsection">
+        <div class="settings-subsection-hd">
+          <h3 class="settings-subsection-title">環境一覧</h3>
+          <button class="settings-add-btn settings-add-btn--sm" data-action="show-add-env">＋ 追加</button>
+        </div>
+        <div id="env-list">${envList}</div>
+        <div class="settings-form-panel" id="add-env-form" hidden>
+          <div class="settings-form-row">
+            <input class="settings-input" id="new-env-name" type="text" placeholder="環境名（例: 本番, 開発）" />
+          </div>
+          <div class="settings-form-actions">
+            <button class="settings-btn settings-btn--primary" data-action="save-add-env">追加</button>
+            <button class="settings-btn" data-action="cancel-add-env">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  buildEditEnvView(env) {
+    if (!env) return '<p class="section-empty">環境が見つかりません</p>';
+    const { varNames } = State.envConfig;
+    const values = env.values || {};
+
+    const varFields = varNames.length > 0
+      ? varNames.map(name => `
+        <div class="settings-form-row">
+          <label class="settings-label"><code class="env-var-badge">{${escapeHtml(name)}}</code></label>
+          <input class="settings-input" id="edit-env-var-${escapeAttr(name)}" type="text"
+                 value="${escapeAttr(values[name] || '')}" placeholder="${escapeAttr(name)} の値" />
+        </div>`).join('')
+      : '<p class="section-empty">変数が定義されていません。「環境バインド変数」設定から追加してください。</p>';
+
+    return `<div class="settings-edit-env">
+      <div class="settings-subsection">
+        <h3 class="settings-subsection-title">環境名</h3>
+        <div class="settings-form-row">
+          <input class="settings-input" id="edit-env-name" type="text" value="${escapeAttr(env.name)}" placeholder="環境名" />
+        </div>
+      </div>
+      <div class="settings-subsection">
+        <h3 class="settings-subsection-title">バインド変数の値</h3>
+        ${varFields}
+        <div class="settings-form-row">
+          <button class="settings-btn settings-btn--primary" data-action="save-edit-env" data-env-id="${env.id}">保存</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // ── 環境バー ──────────────────────────────
+
+  renderEnvBar() {
+    const bar = document.getElementById('env-bar');
+    if (!bar) return;
+    const envs = State.environments;
+    if (envs.length === 0) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+    const { uiType } = State.envConfig;
+    const activeId = State.activeEnvId;
+
+    if (uiType === 'tabs') {
+      const tabs = envs.map(env =>
+        `<button class="env-tab${env.id === activeId ? ' is-active' : ''}"
+                 data-action="switch-env" data-env-id="${env.id}">
+          ${escapeHtml(env.name)}
+        </button>`
+      ).join('');
+      bar.innerHTML = `<div class="env-bar__inner env-bar__inner--tabs">
+        <span class="env-bar__label">環境</span>
+        <div class="env-tabs">${tabs}</div>
+      </div>`;
+    } else if (uiType === 'segment') {
+      const items = envs.map(env =>
+        `<label class="env-segment__item">
+          <input type="radio" name="env-radio-${_instanceId}" value="${env.id}" ${env.id === activeId ? 'checked' : ''} />
+          ${escapeHtml(env.name)}
+        </label>`
+      ).join('');
+      bar.innerHTML = `<div class="env-bar__inner env-bar__inner--segment">
+        <span class="env-bar__label">環境</span>
+        <div class="env-segment">${items}</div>
+      </div>`;
+      // セグメントのラジオイベントをバインド（委譲できないため直接）
+      bar.querySelectorAll('input[type=radio]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          EventHandlers.switchEnv(Number(radio.value));
+        });
+      });
+    } else {
+      // select（デフォルト）
+      const options = `<option value="">-- 選択なし --</option>` +
+        envs.map(env =>
+          `<option value="${env.id}" ${env.id === activeId ? 'selected' : ''}>${escapeHtml(env.name)}</option>`
+        ).join('');
+      bar.innerHTML = `<div class="env-bar__inner">
+        <span class="env-bar__label">環境</span>
+        <select class="env-bar__select" id="env-select">${options}</select>
+      </div>`;
+      const sel = bar.querySelector('#env-select');
+      if (sel) {
+        sel.addEventListener('change', () => {
+          EventHandlers.switchEnv(sel.value ? Number(sel.value) : null);
+        });
+      }
+    }
+  },
 };
 
 // ==============================
@@ -864,6 +1125,20 @@ const EventHandlers = {
   backToSections() {
     State.settings.view = 'sections';
     State.settings.editingSectionId = null;
+    State.settings.editingEnvId = null;
+    Renderer.renderSettingsView();
+  },
+
+  backInSettings() {
+    const view = State.settings.view;
+    if (view === 'edit-env') {
+      State.settings.view = 'env-settings';
+      State.settings.editingEnvId = null;
+    } else {
+      State.settings.view = 'sections';
+      State.settings.editingSectionId = null;
+      State.settings.editingEnvId = null;
+    }
     Renderer.renderSettingsView();
   },
 
@@ -1251,7 +1526,8 @@ const EventHandlers = {
     const actionMode = btn.dataset.actionMode || 'copy';
     const input = document.getElementById(`url-input-${sectionId}`);
     const inputVal = input?.value.trim() || '';
-    const result = template.replace('{INPUT}', inputVal);
+    // まず {INPUT} を置換し、次に環境バインド変数を解決
+    const result = resolveEnvVars(template.replace('{INPUT}', inputVal));
 
     if (actionMode === 'open') {
       if (result) window.open(result, '_blank', 'noopener,noreferrer');
@@ -1276,11 +1552,13 @@ const EventHandlers = {
     State.db.exportInstance().then(data => {
       const json = JSON.stringify({
         type: 'dashboard_export',
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         instanceId: _instanceId,
         sections: data.sections,
         items: data.items,
+        environments: data.environments,
+        envConfig: data.envConfig,
       }, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -1293,6 +1571,137 @@ const EventHandlers = {
       URL.revokeObjectURL(url);
     }).catch(console.error);
   },
+
+  // ── 環境バインド変数 ──────────────────────
+
+  showEnvSettings() {
+    State.settings.view = 'env-settings';
+    State.settings.editingEnvId = null;
+    Renderer.renderSettingsView();
+  },
+
+  showAddEnvForm() {
+    const form = document.getElementById('add-env-form');
+    if (form) form.hidden = false;
+  },
+
+  hideAddEnvForm() {
+    const form = document.getElementById('add-env-form');
+    if (form) form.hidden = true;
+  },
+
+  async saveAddEnv() {
+    const name = document.getElementById('new-env-name')?.value.trim();
+    if (!name) { alert('環境名を入力してください'); return; }
+    const maxPos = State.environments.length > 0
+      ? Math.max(...State.environments.map(e => e.position)) + 1 : 0;
+    const data = { name, position: maxPos, values: {} };
+    const newId = await State.db.addEnvironment(data);
+    data.id = newId;
+    State.environments.push(data);
+    Renderer.renderEnvBar();
+    Renderer.renderSettingsView();
+  },
+
+  editEnv(envId) {
+    State.settings.view = 'edit-env';
+    State.settings.editingEnvId = envId;
+    Renderer.renderSettingsView();
+  },
+
+  async saveEditEnv(envId) {
+    const env = State.environments.find(e => e.id === envId);
+    if (!env) return;
+    const name = document.getElementById('edit-env-name')?.value.trim();
+    if (!name) { alert('環境名を入力してください'); return; }
+    env.name = name;
+    const values = {};
+    State.envConfig.varNames.forEach(varName => {
+      values[varName] = document.getElementById(`edit-env-var-${varName}`)?.value.trim() || '';
+    });
+    env.values = values;
+    await State.db.updateEnvironment(env);
+    Renderer.renderEnvBar();
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+    showToast('保存しました');
+  },
+
+  async deleteEnv(envId) {
+    if (!confirm('この環境を削除しますか？')) return;
+    await State.db.deleteEnvironment(envId);
+    State.environments = State.environments.filter(e => e.id !== envId);
+    if (State.activeEnvId === envId) {
+      State.activeEnvId = null;
+      localStorage.removeItem(ACTIVE_ENV_KEY);
+    }
+    Renderer.renderEnvBar();
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+  },
+
+  async moveEnvUp(envId) {
+    const idx = State.environments.findIndex(e => e.id === envId);
+    if (idx <= 0) return;
+    await EventHandlers._swapEnvPos(State.environments[idx], State.environments[idx - 1]);
+  },
+
+  async moveEnvDown(envId) {
+    const idx = State.environments.findIndex(e => e.id === envId);
+    if (idx >= State.environments.length - 1) return;
+    await EventHandlers._swapEnvPos(State.environments[idx], State.environments[idx + 1]);
+  },
+
+  async _swapEnvPos(a, b) {
+    [a.position, b.position] = [b.position, a.position];
+    await Promise.all([State.db.updateEnvironment(a), State.db.updateEnvironment(b)]);
+    State.environments.sort((x, y) => x.position - y.position);
+    Renderer.renderEnvBar();
+    Renderer.renderSettingsView();
+  },
+
+  async saveEnvConfig() {
+    const uiType = document.getElementById('env-ui-type')?.value || 'select';
+    State.envConfig = { ...State.envConfig, uiType };
+    await State.db.setAppConfig('env_config', State.envConfig);
+    Renderer.renderEnvBar();
+    Renderer.renderSettingsView();
+    showToast('保存しました');
+  },
+
+  async addEnvVar() {
+    const input = document.getElementById('new-var-name');
+    const raw = input?.value.trim() || '';
+    // 変数名は英大文字・数字・アンダースコアのみ許容
+    const varName = raw.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    if (!varName) { alert('変数名を入力してください'); return; }
+    if (State.envConfig.varNames.includes(varName)) { alert('すでに存在する変数名です'); return; }
+    State.envConfig.varNames.push(varName);
+    await State.db.setAppConfig('env_config', State.envConfig);
+    if (input) input.value = '';
+    Renderer.renderSettingsView();
+    showToast(`{${varName}} を追加しました`);
+  },
+
+  async removeEnvVar(varName) {
+    if (!confirm(`変数 {${varName}} を削除しますか？`)) return;
+    State.envConfig.varNames = State.envConfig.varNames.filter(v => v !== varName);
+    await State.db.setAppConfig('env_config', State.envConfig);
+    Renderer.renderSettingsView();
+  },
+
+  switchEnv(envId) {
+    State.activeEnvId = envId || null;
+    if (State.activeEnvId) {
+      localStorage.setItem(ACTIVE_ENV_KEY, String(State.activeEnvId));
+    } else {
+      localStorage.removeItem(ACTIVE_ENV_KEY);
+    }
+    Renderer.renderEnvBar();
+    Renderer.renderDashboard();
+  },
+
+  // ── インポート ────────────────────────────
 
   importData() {
     const input = document.createElement('input');
@@ -1309,12 +1718,18 @@ const EventHandlers = {
       }
       if (!confirm(`現在のデータを削除して「${file.name}」のデータで置き換えますか？`)) return;
       try {
-        await State.db.importInstance({ sections: data.sections, items: data.items }, true);
+        await State.db.importInstance({ sections: data.sections, items: data.items, environments: data.environments, envConfig: data.envConfig }, true);
         State.sections = await State.db.getAllSections();
         State.itemsMap = {};
         for (const s of State.sections) {
           State.itemsMap[s.id] = await State.db.getItemsBySection(s.id);
         }
+        State.environments = await State.db.getAllEnvironments();
+        const envConfig = await State.db.getAppConfig('env_config');
+        if (envConfig) State.envConfig = envConfig;
+        State.activeEnvId = null;
+        localStorage.removeItem(ACTIVE_ENV_KEY);
+        Renderer.renderEnvBar();
         Renderer.renderDashboard();
         Renderer.renderSettingsView();
         showToast('インポートしました');
@@ -1337,12 +1752,22 @@ const App = {
     await db.open();
     State.db = db;
 
-    // データをロード
+    // セクション・アイテムをロード
     State.sections = await db.getAllSections();
     for (const section of State.sections) {
       State.itemsMap[section.id] = await db.getItemsBySection(section.id);
     }
 
+    // 環境バインド変数をロード
+    const envConfig = await db.getAppConfig('env_config');
+    if (envConfig) State.envConfig = envConfig;
+    State.environments = await db.getAllEnvironments();
+    const savedEnvId = parseInt(localStorage.getItem(ACTIVE_ENV_KEY));
+    if (savedEnvId && State.environments.some(e => e.id === savedEnvId)) {
+      State.activeEnvId = savedEnvId;
+    }
+
+    Renderer.renderEnvBar();
     Renderer.renderDashboard();
     App.bindEvents();
   },
@@ -1362,17 +1787,17 @@ const App = {
 
     // 全クリック（イベント委譲）
     document.addEventListener('click', (e) => {
-      // ダッシュボードのコピー行
+      // ダッシュボードのコピー行（環境バインド変数を解決してコピー）
       const copyEl = e.target.closest('.js-copy');
       if (copyEl && !copyEl.closest('.home-settings')) {
-        navigator.clipboard.writeText(copyEl.dataset.value || '');
+        navigator.clipboard.writeText(resolveEnvVars(copyEl.dataset.value || ''));
         showToast('コピーしました');
         return;
       }
-      // ダッシュボードのリンク行
+      // ダッシュボードのリンク行（環境バインド変数を解決してリンクを開く）
       const linkEl = e.target.closest('.js-link');
       if (linkEl && !linkEl.closest('.home-settings')) {
-        const url = linkEl.dataset.value || '';
+        const url = resolveEnvVars(linkEl.dataset.value || '');
         if (url) window.open(url, '_blank');
         return;
       }
@@ -1387,11 +1812,12 @@ const App = {
       const sectionId = btn.dataset.sectionId ? Number(btn.dataset.sectionId) : null;
       const itemId = btn.dataset.itemId ? Number(btn.dataset.itemId) : null;
       const colId = btn.dataset.colId || null;
+      const envId = btn.dataset.envId ? Number(btn.dataset.envId) : null;
 
       const eh = EventHandlers;
       switch (action) {
         case 'settings-close':      eh.closeSettings(); break;
-        case 'settings-back':       eh.backToSections(); break;
+        case 'settings-back':       eh.backInSettings(); break;
         case 'show-add-section':    eh.showAddSectionForm(); break;
         case 'cancel-add-section':  eh.hideAddSectionForm(); break;
         case 'save-add-section':    eh.saveAddSection().catch(console.error); break;
@@ -1422,6 +1848,19 @@ const App = {
         case 'toggle-table-col-menu':   eh.toggleTableColMenu(sectionId); break;
         case 'export-data':             eh.exportData(); break;
         case 'import-data':             eh.importData(); break;
+        case 'show-env-settings':       eh.showEnvSettings(); break;
+        case 'show-add-env':            eh.showAddEnvForm(); break;
+        case 'cancel-add-env':          eh.hideAddEnvForm(); break;
+        case 'save-add-env':            eh.saveAddEnv().catch(console.error); break;
+        case 'edit-env':                eh.editEnv(envId); break;
+        case 'save-edit-env':           eh.saveEditEnv(envId).catch(console.error); break;
+        case 'delete-env':              eh.deleteEnv(envId).catch(console.error); break;
+        case 'move-env-up':             eh.moveEnvUp(envId).catch(console.error); break;
+        case 'move-env-down':           eh.moveEnvDown(envId).catch(console.error); break;
+        case 'save-env-config':         eh.saveEnvConfig().catch(console.error); break;
+        case 'add-env-var':             eh.addEnvVar().catch(console.error); break;
+        case 'remove-env-var':          eh.removeEnvVar(btn.dataset.varName).catch(console.error); break;
+        case 'switch-env':              eh.switchEnv(envId); break;
       }
     });
 

@@ -125,7 +125,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ## dashboard.js アーキテクチャ（2026-03現在）
 
-- IndexedDB DB名: `dashboard_db` version **3**（全インスタンス共有の単一DB）
+- IndexedDB DB名: `dashboard_db` version **4**（全インスタンス共有の単一DB）
 - URLパラメータ `?instance=<id>` で複数ダッシュボードタブを識別（DBは共有）
 - `_instanceId = new URLSearchParams(location.search).get('instance') || ''` でファイル冒頭に定義
 - `sections` ストアに `instance_id` フィールド（インデックス付き）を持ち、このIDでフィルタリング
@@ -135,7 +135,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - セクションタイプ: `list` | `grid` | `command_builder` | `table`
 - アイテムタイプ: `copy` | `link`（list）/ `link` | `copy`（grid、旧 `card` は `link` 互換）/ `row`（table）
 - 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉
-- 設定ビュー: `'sections'`（一覧）/ `'edit-section'`（セクション編集）→ `State.settings.view` で管理
+- 設定ビュー: `'sections'`（一覧）/ `'edit-section'`（セクション編集）/ `'env-settings'`（環境設定）/ `'edit-env'`（環境編集）→ `State.settings.view` で管理
 - テーブルセクションの列定義は `section.columns: [{id, label, type: 'text'|'copy'|'link'}]` で保持
 - テーブル行の値は `item.row_data: {[col_id]: string}` で保持
 - `command_builder` セクションは `command_template` に `{INPUT}` プレースホルダーを使う。`action_mode: 'copy'`（デフォルト）はクリップボードにコピー、`action_mode: 'open'` はブラウザで URL を開く
@@ -146,9 +146,18 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `.settings-col-row`: `flex-wrap: nowrap` で通常表示。`:has(input)` セレクターで列編集展開時のみ `flex-wrap: wrap`
 - `.data-table`: `width: auto; min-width: 100%` で列が多い時は `.data-table-wrap`（`overflow-x: auto`）で横スクロール
 - **エクスポート/インポート**:
-  - ダッシュボード設定パネル下部のボタンでこのインスタンスのデータ（sections/items）をJSON出力・読込
+  - ダッシュボード設定パネル下部のボタンでこのインスタンスのデータ（sections/items/environments/envConfig）をJSON出力・読込
   - `HomeDB.exportInstance()` / `HomeDB.importInstance(data, replace)` / `HomeDB.deleteInstance()`
-  - フォーマット: `{ type: 'dashboard_export', version: 1, instanceId, sections, items }`
+  - フォーマット: `{ type: 'dashboard_export', version: 2, instanceId, sections, items, environments, envConfig }`
+- **環境バインド変数**:
+  - ストア: `environments`（id/instance_id/name/position/values: {[varName]: string}）+ `app_config`（keyPath: name）
+  - `app_config` に `env_config_{instanceId}` として `{ varNames: string[], uiType: 'select'|'tabs'|'segment' }` を保存
+  - `State.environments` / `State.activeEnvId` / `State.envConfig` で管理
+  - `resolveEnvVars(str)` → 選択中環境の値で `{変数名}` を置換（`{INPUT}` はスキップ）
+  - 選択中の環境ID: `localStorage("dashboard_active_env_{instanceId}")`（ブラウザ固有）
+  - 環境バー `#env-bar` をダッシュボード上部に表示（environments が 0 件なら hidden）
+  - 設定ビュー「環境バインド変数」→ 変数名定義・UIタイプ切替・環境一覧の管理
+  - コピー・リンク・コマンドビルダー実行時と表示時（テキスト・コピー型テーブルセル）に変数を解決
 
 ## 注意事項
 
