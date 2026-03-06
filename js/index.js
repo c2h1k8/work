@@ -18,8 +18,6 @@ const TAB_ITEMS = [
 
 // ストレージキー
 const STORAGE_KEY_ACTIVE_TAB_ID = "ACTIVE_TAB_ID";
-// TAB_CONFIG は IndexedDB に保存（旧 localStorage キー: 移行用に参照のみ）
-const STORAGE_KEY_TAB_CONFIG_LS = "TAB_CONFIG";
 
 // ==================================================
 // IndexedDB（app_db）: タブ設定の永続化
@@ -124,16 +122,6 @@ function getDefaultConfig() {
 /** IndexedDB から設定を読み込む（なければ localStorage から移行、それもなければデフォルト）*/
 async function loadTabConfig() {
   let saved = await AppDB.get("tab_config");
-
-  // localStorage からの一回限りの移行
-  if (!saved) {
-    const lsData = loadJsonFromStorage(STORAGE_KEY_TAB_CONFIG_LS);
-    if (lsData && Array.isArray(lsData) && lsData.length > 0) {
-      saved = lsData;
-      await AppDB.set("tab_config", saved);
-      localStorage.removeItem(STORAGE_KEY_TAB_CONFIG_LS);
-    }
-  }
 
   if (!saved || !Array.isArray(saved) || saved.length === 0) {
     return getDefaultConfig();
@@ -332,6 +320,213 @@ function syncViewport(config) {
 }
 
 // ==================================================
+// データ管理（エクスポート/インポート）
+// ==================================================
+
+/** dashboard_db（共有DB）から指定インスタンスのデータを全削除 */
+async function _deleteDashboardInstance(instanceId) {
+  const db = await new Promise((resolve) => {
+    const req = indexedDB.open('dashboard_db');
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = () => resolve(null);
+    // DBが存在しない場合（oldVersion===0）は作成しない
+    req.onupgradeneeded = (e) => { if (e.oldVersion === 0) e.target.transaction.abort(); };
+  });
+  if (!db || !db.objectStoreNames.contains('sections')) {
+    if (db) db.close();
+    return;
+  }
+  try {
+    const os = db.transaction('sections').objectStore('sections');
+    const sections = await new Promise((res) => {
+      if (os.indexNames.contains('instance_id')) {
+        const req = os.index('instance_id').getAll(IDBKeyRange.only(instanceId));
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => res([]);
+      } else {
+        const req = os.getAll();
+        req.onsuccess = () => res(req.result.filter(s => s.instance_id === instanceId));
+        req.onerror = () => res([]);
+      }
+    });
+    for (const section of sections) {
+      const items = await new Promise((res) => {
+        const req = db.transaction('items').objectStore('items')
+          .index('section_id').getAll(IDBKeyRange.only(section.id));
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => res([]);
+      });
+      await new Promise((res, rej) => {
+        const tx = db.transaction(['sections', 'items'], 'readwrite');
+        tx.objectStore('sections').delete(section.id);
+        items.forEach(item => tx.objectStore('items').delete(item.id));
+        tx.oncomplete = res;
+        tx.onerror = () => rej(tx.error);
+      });
+    }
+  } finally {
+    db.close();
+  }
+}
+
+/** 全データ（タブ設定 + 全ダッシュボード）をJSONファイルにエクスポート */
+async function exportAllData() {
+  const tabConfig = await AppDB.get("tab_config") || getDefaultConfig();
+
+  let dashboards = [];
+  try {
+    const db = await new Promise((resolve) => {
+      const req = indexedDB.open('dashboard_db');
+      req.onsuccess = e => resolve(e.target.result);
+      req.onerror = () => resolve(null);
+      req.onupgradeneeded = (e) => { if (e.oldVersion === 0) e.target.transaction.abort(); };
+    });
+    if (db && db.objectStoreNames.contains('sections')) {
+      const sections = await new Promise((res) => {
+        const req = db.transaction('sections').objectStore('sections').getAll();
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => res([]);
+      });
+      const items = await new Promise((res) => {
+        const req = db.transaction('items').objectStore('items').getAll();
+        req.onsuccess = () => res(req.result);
+        req.onerror = () => res([]);
+      });
+      db.close();
+
+      // instance_id ごとにグループ化
+      const instanceMap = {};
+      sections.forEach(s => {
+        const id = s.instance_id ?? '';
+        if (!instanceMap[id]) instanceMap[id] = { sections: [], items: [] };
+        instanceMap[id].sections.push(s);
+      });
+      items.forEach(item => {
+        const section = sections.find(s => s.id === item.section_id);
+        if (section) {
+          const id = section.instance_id ?? '';
+          if (instanceMap[id]) instanceMap[id].items.push(item);
+        }
+      });
+      dashboards = Object.entries(instanceMap).map(([instanceId, data]) => ({ instanceId, ...data }));
+    }
+  } catch (e) {
+    console.warn('dashboard_db export error:', e);
+  }
+
+  const exportData = {
+    type: 'app_export',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tabConfig,
+    dashboards,
+  };
+  const json = JSON.stringify(exportData, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const _now = new Date(), _p = n => String(n).padStart(2, '0');
+  const _ts = `${_now.getFullYear()}${_p(_now.getMonth()+1)}${_p(_now.getDate())}_${_p(_now.getHours())}${_p(_now.getMinutes())}${_p(_now.getSeconds())}`;
+  a.download = `mytools_export_${_ts}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** JSONファイルから全データ（タブ設定 + 全ダッシュボード）をインポート */
+async function importAllData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    let data;
+    try { data = JSON.parse(await file.text()); } catch { alert('JSONの解析に失敗しました'); return; }
+    if (data.type !== 'app_export') {
+      alert('アプリのエクスポートファイルではありません\n（ダッシュボード単体のエクスポートは各ダッシュボードの設定からインポートしてください）');
+      return;
+    }
+    if (!confirm('現在の全設定・全ダッシュボードデータを削除してインポートしますか？\nこの操作は元に戻せません。')) return;
+
+    try {
+      // タブ設定を復元
+      if (data.tabConfig) await saveTabConfig(data.tabConfig);
+
+      // dashboard_db を開いて全インスタンスデータを復元
+      if (data.dashboards && data.dashboards.length > 0) {
+        const db = await new Promise((resolve, reject) => {
+          const req = indexedDB.open('dashboard_db', 3);
+          req.onsuccess = e => resolve(e.target.result);
+          req.onerror = () => reject(req.error);
+          req.onupgradeneeded = (ev) => {
+            const idb = ev.target.result;
+            if (!idb.objectStoreNames.contains('sections')) {
+              const ss = idb.createObjectStore('sections', { keyPath: 'id', autoIncrement: true });
+              ss.createIndex('position', 'position');
+              ss.createIndex('instance_id', 'instance_id');
+              const is = idb.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
+              is.createIndex('section_id', 'section_id');
+              is.createIndex('position', 'position');
+            }
+          };
+        });
+
+        // 既存データを全削除
+        await new Promise((res, rej) => {
+          const tx = db.transaction(['sections', 'items'], 'readwrite');
+          tx.objectStore('sections').clear();
+          tx.objectStore('items').clear();
+          tx.oncomplete = res;
+          tx.onerror = () => rej(tx.error);
+        });
+
+        // インスタンスごとにインポート
+        for (const dashboard of data.dashboards) {
+          const { instanceId, sections = [], items = [] } = dashboard;
+          const idMap = {};
+          for (const section of sections) {
+            const oldId = section.id;
+            const newSection = { ...section, instance_id: instanceId };
+            delete newSection.id;
+            const newId = await new Promise((res, rej) => {
+              const req = db.transaction('sections', 'readwrite').objectStore('sections').add(newSection);
+              req.onsuccess = () => res(req.result);
+              req.onerror = () => rej(req.error);
+            });
+            if (oldId !== undefined) idMap[oldId] = newId;
+          }
+          for (const item of items) {
+            const newItem = { ...item };
+            delete newItem.id;
+            if (idMap[newItem.section_id] !== undefined) {
+              newItem.section_id = idMap[newItem.section_id];
+              await new Promise((res, rej) => {
+                const req = db.transaction('items', 'readwrite').objectStore('items').add(newItem);
+                req.onsuccess = () => res();
+                req.onerror = () => rej(req.error);
+              });
+            }
+          }
+        }
+        db.close();
+      }
+
+      // UI を更新
+      const config = await loadTabConfig();
+      rebuildNav(config);
+      renderSettingsList(config);
+      syncViewport(config);
+      alert('インポートが完了しました。各ダッシュボードタブを再読み込みすると変更が反映されます。');
+    } catch (err) {
+      console.error(err);
+      alert('インポートに失敗しました: ' + err.message);
+    }
+  };
+  input.click();
+}
+
+// ==================================================
 // 設定パネル
 // ==================================================
 
@@ -359,6 +554,13 @@ function buildSettingsPanel() {
           <input id="new-tab-url" type="text" placeholder="URL（例: mypage.html）">
           <button class="settings-add-btn">追加</button>
         </div>
+        <div class="settings-io-form">
+          <h3>データ管理</h3>
+          <div class="settings-io-btns">
+            <button class="settings-io-export-btn">↓ 全データをエクスポート</button>
+            <button class="settings-io-import-btn">↑ 全データをインポート</button>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -374,6 +576,9 @@ function buildSettingsPanel() {
     const urlInput = document.getElementById("new-tab-url");
     if (urlInput) urlInput.hidden = e.target.value !== "url";
   });
+  // データ管理ボタン
+  overlay.querySelector(".settings-io-export-btn").addEventListener("click", exportAllData);
+  overlay.querySelector(".settings-io-import-btn").addEventListener("click", importAllData);
   // リスト内のボタンはイベント委譲
   overlay.querySelector("#settings-list").addEventListener("click", _onSettingsListClick);
 
@@ -392,6 +597,7 @@ function _onSettingsListClick(e) {
     case "settings-move-up":      moveTab(label, "up").catch(console.error); break;
     case "settings-move-down":    moveTab(label, "down").catch(console.error); break;
     case "settings-delete":       deleteTab(label).catch(console.error); break;
+    case "settings-rename":       renameTab(label).catch(console.error); break;
     case "settings-pick-icon":       _toggleIconPicker(label); break;
     case "settings-select-icon":     _onSelectIcon(btn).catch(console.error); break;
     case "settings-configure-page":  configureHomePage(label).catch(console.error); break;
@@ -430,6 +636,7 @@ function renderSettingsList(config) {
         ${tab.isBuiltIn ? "" : '<span class="settings-item__custom-badge">カスタム</span>'}
       </label>
       ${isHomePage ? `<button class="settings-configure-btn" data-action="settings-configure-page" data-label="${tab.label}" title="ページを設定">設定</button>` : ""}
+      ${tab.isBuiltIn ? "" : `<button class="settings-rename-btn" data-action="settings-rename" data-label="${tab.label}" aria-label="${tab.label}の名前を変更" title="名前変更">✎</button>`}
       ${tab.isBuiltIn ? "" : `<button class="settings-delete-btn" data-action="settings-delete" data-label="${tab.label}" aria-label="${tab.label}を削除">削除</button>`}
     `;
     // アイコンプレビューを設定（innerHTML でそのまま挿入）
@@ -566,9 +773,51 @@ async function deleteTab(label) {
     .forEach((t, i) => { const c = newConfig.find(x => x.label === t.label); if (c) c.position = i; });
 
   await saveTabConfig(newConfig);
+
+  // ダッシュボードタブの場合は共有DBからそのインスタンスのデータを削除する
+  if (tab.pageSrc?.startsWith("dashboard.html")) {
+    const instanceId = new URLSearchParams(tab.pageSrc.split("?")[1] || "").get("instance") || "";
+    _deleteDashboardInstance(instanceId).catch(console.error);
+  }
+
   // iframe は再読み込み防止のため DOM から削除しない
   rebuildNav(newConfig);
   renderSettingsList(newConfig);
+}
+
+/** カスタムタブのラベル名を変更する */
+async function renameTab(oldLabel) {
+  const newLabel = prompt(`「${oldLabel}」の新しいラベル名を入力してください`, oldLabel);
+  if (!newLabel || newLabel.trim() === "") return;
+  const trimmed = newLabel.trim();
+  if (trimmed === oldLabel) return;
+
+  const config = await loadTabConfig();
+  if (config.find(t => t.label === trimmed)) {
+    alert("同じラベル名のタブが既に存在します");
+    return;
+  }
+  const tab = config.find(t => t.label === oldLabel);
+  if (!tab || tab.isBuiltIn) return;
+
+  tab.label = trimmed;
+  await saveTabConfig(config);
+
+  // iframe を再読み込みせずに id と title だけ更新する
+  const oldFrame = document.getElementById(`frame-${oldLabel}`);
+  if (oldFrame) {
+    oldFrame.id = `frame-${trimmed}`;
+    oldFrame.title = trimmed;
+  }
+
+  // アクティブタブ ID が旧ラベルを指していれば更新する
+  const savedId = loadFromStorage(STORAGE_KEY_ACTIVE_TAB_ID);
+  if (savedId === `TAB-${oldLabel}`) {
+    saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, `TAB-${trimmed}`);
+  }
+
+  rebuildNav(config);
+  renderSettingsList(config);
 }
 
 /** フォームからカスタムタブを追加する */

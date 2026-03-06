@@ -39,7 +39,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - その他ページの localStorage 操作は `js/base/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
 - `js/base/common.js` の共通ユーティリティを活用する（dashboard.html は不使用）
 - コメントは日本語で記載する
-- `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Migration` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `Toast` / `App` の単一ファイル構成
+- `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `Toast` / `App` の単一ファイル構成
 - `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`
 - `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
 - `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
@@ -111,37 +111,44 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `syncViewport(config)` → 新規タブの iframe を追加（既存は再読み込みしない）
 - 表示中タブが 1 件のみの場合は非表示にできない
 - `getDefaultConfig()` → TAB_ITEMS から初期設定を生成（IndexedDB に未保存の初回用）
-- 旧 localStorage（キー `TAB_CONFIG`）からの自動移行: `loadTabConfig()` が初回に検出し IndexedDB へ移行、localStorage を削除
 - **アイコン変更**: 設定画面の各タブ行の左端アイコンボタンをクリック → SVG アイコンパレット（30種）が展開 → 選択すると即時反映
   - 選択した SVG は生の `<svg>` 文字列として `icon` フィールドに保存（TAB_ITEMS と同形式）
   - `ICON_PALETTE` 配列（`{ id, label, svg }`）で選択肢を管理（`js/index.js`）
   - `_toggleIconPicker(label)` / `_onSelectIcon(btn)` で制御（`_onSelectIcon` は async）
   - 組み込みタブも SVG に変更可能
   - CSS: `.icon-picker__item svg { width: 16px; height: 16px; fill: currentColor; }` で SVG サイズ統一
+- **エクスポート/インポート（全体）**: 設定パネル下部「データ管理」セクション
+  - `exportAllData()` → tab_config + dashboard_db の全インスタンスデータを JSON ダウンロード
+  - `importAllData()` → JSON ファイルを読み込んで全データを復元
+  - フォーマット: `{ type: 'app_export', version: 1, tabConfig, dashboards: [{ instanceId, sections, items }] }`
+  - `_deleteDashboardInstance(instanceId)` → タブ削除時に共有DBからそのインスタンスのデータを削除
 
 ## dashboard.js アーキテクチャ（2026-03現在）
 
-- IndexedDB DB名: `dashboard_db` version **1**（インスタンス付きの場合は `dashboard_db_<instanceId>`）
-- URLパラメータ `?instance=<id>` で独立した IndexedDB を使用（複数ダッシュボードタブ対応）
+- IndexedDB DB名: `dashboard_db` version **3**（全インスタンス共有の単一DB）
+- URLパラメータ `?instance=<id>` で複数ダッシュボードタブを識別（DBは共有）
 - `_instanceId = new URLSearchParams(location.search).get('instance') || ''` でファイル冒頭に定義
+- `sections` ストアに `instance_id` フィールド（インデックス付き）を持ち、このIDでフィルタリング
 - `window.addEventListener('message', ...)` で親フレームからの `dashboard:open-settings` を受信して設定パネルを開く
 - `EventHandlers.closeSettings()` は設定パネルを閉じた後、親フレームに `dashboard:settings-closed` を postMessage
-- ストア: `sections`（id/title/icon/position/type/command_template/**action_mode**/columns/**width**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data）
-- セクションタイプ: `list` | `grid` | `url_command` | `table`
-- アイテムタイプ: `copy` | `link`（list）/ `card`（grid）/ `row`（table）
+- ストア: `sections`（id/instance_id/title/icon/position/type/command_template/**action_mode**/columns/**width**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data）
+- セクションタイプ: `list` | `grid` | `command_builder` | `table`
+- アイテムタイプ: `copy` | `link`（list）/ `link` | `copy`（grid、旧 `card` は `link` 互換）/ `row`（table）
 - 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉
 - 設定ビュー: `'sections'`（一覧）/ `'edit-section'`（セクション編集）→ `State.settings.view` で管理
 - テーブルセクションの列定義は `section.columns: [{id, label, type: 'text'|'copy'|'link'}]` で保持
 - テーブル行の値は `item.row_data: {[col_id]: string}` で保持
-- url_command セクションは `command_template` に `{INPUT}` プレースホルダーを使う。`action_mode: 'copy'`（デフォルト）はクリップボードにコピー、`action_mode: 'open'` はブラウザで URL を開く
-- URL コマンド履歴: `localStorage("dashboard_url_history_<sectionId>")` に保存（ブラウザ固有）
-- 旧 `STORAGE_KEY_URLS`（localStorage）は初回起動時に url_command セクションの履歴へ移行
-- 初回起動時にサンプルデータ（SAMPLE_DATA）を挿入（既存アカウント・スプレッドシート・Chrome セクション）
+- `command_builder` セクションは `command_template` に `{INPUT}` プレースホルダーを使う。`action_mode: 'copy'`（デフォルト）はクリップボードにコピー、`action_mode: 'open'` はブラウザで URL を開く
+- URL コマンド履歴: `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
 - モジュール構成: `HomeDB` / `State` / `Renderer` / `EventHandlers` / `App` の単一ファイル構成
 - レイアウト: `max-width: 1440px` + CSS Grid（`auto-fill, minmax(380px, 1fr)`）でセクションカードを複数列配置
 - セクションの表示幅: `section.width = 'auto' | 'wide' | 'full'`。カードに `data-width` 属性を付与し CSS でスパン制御（wide=span 2 / full=1/-1 / ≤840px は全幅）。セクション編集画面の「表示幅」セレクターで設定・保存
 - `.settings-col-row`: `flex-wrap: nowrap` で通常表示。`:has(input)` セレクターで列編集展開時のみ `flex-wrap: wrap`
 - `.data-table`: `width: auto; min-width: 100%` で列が多い時は `.data-table-wrap`（`overflow-x: auto`）で横スクロール
+- **エクスポート/インポート**:
+  - ダッシュボード設定パネル下部のボタンでこのインスタンスのデータ（sections/items）をJSON出力・読込
+  - `HomeDB.exportInstance()` / `HomeDB.importInstance(data, replace)` / `HomeDB.deleteInstance()`
+  - フォーマット: `{ type: 'dashboard_export', version: 1, instanceId, sections, items }`
 
 ## 注意事項
 

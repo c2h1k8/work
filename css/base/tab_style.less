@@ -378,6 +378,7 @@ html, body {
   align-items: center;
   gap: 6px;
   flex: 1;
+  min-width: 0;
   cursor: pointer;
   font-size: 13px;
   color: @nav-text;
@@ -386,6 +387,13 @@ html, body {
     cursor: pointer;
     width: 14px;
     height: 14px;
+    flex-shrink: 0;
+  }
+
+  > span:not(.settings-item__custom-badge) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -436,6 +444,23 @@ html, body {
 
   &:hover {
     background: #fff1f0;
+  }
+}
+
+.settings-rename-btn {
+  padding: 4px 8px;
+  border: 1px solid @nav-border;
+  border-radius: 4px;
+  background: transparent;
+  color: @nav-text;
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  &:hover {
+    background: #f6f8fa;
+    border-color: @nav-text;
   }
 }
 
@@ -520,5 +545,44 @@ html, body {
     &:hover {
       background: darken(@nav-accent, 8%);
     }
+  }
+}
+
+.settings-io-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid @nav-border;
+
+  h3 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: @nav-text;
+  }
+}
+
+.settings-io-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-io-export-btn,
+.settings-io-import-btn {
+  flex: 1;
+  padding: 7px 12px;
+  border: 1px solid @nav-border;
+  border-radius: 6px;
+  background: transparent;
+  color: @nav-text;
+  font-size: 12px;
+  font-family: @font-stack;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+
+  &:hover {
+    background: @nav-hover-bg;
+    border-color: @nav-accent;
+    color: @nav-accent;
   }
 }

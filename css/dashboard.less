@@ -218,6 +218,15 @@ body {
   transition: opacity @t, transform @t;
 }
 
+// コピーカードはクリップボードアイコンを常時薄く表示
+.sheet-card--copy .sheet-card__arrow {
+  opacity: 0.35;
+}
+.sheet-card--copy:hover .sheet-card__arrow {
+  opacity: 1;
+  transform: none;
+}
+
 // ── URL フォーム ─────────────────────────────────────────────
 .url-form {
   display: flex;
@@ -438,6 +447,90 @@ body {
 }
 
 .data-table__td--copy:hover .td-copy-icon { opacity: 1; }
+
+// ── テーブルツールバー（フィルタ + 列切り替え） ───────────────────────────
+.data-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 6px;
+}
+
+.data-table-filter {
+  flex: 1;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 12px;
+  color: @text;
+  background: @bg;
+  outline: none;
+  transition: border-color @t, box-shadow @t;
+
+  &:focus {
+    border-color: @accent;
+    box-shadow: 0 0 0 2px fade(@accent, 18%);
+  }
+  &::placeholder { color: @text-muted; }
+}
+
+.data-table-col-toggle-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.data-table-col-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 12px;
+  color: @text-sub;
+  background: @card-bg;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background @t, border-color @t, color @t;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    color: @accent;
+  }
+
+  svg { width: 13px; height: 13px; }
+}
+
+.data-table-col-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: @radius-md;
+  box-shadow: @shadow;
+  padding: 4px 0;
+  z-index: 100;
+  min-width: 140px;
+}
+
+.data-table-col-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: @text;
+  cursor: pointer;
+  transition: background @t;
+
+  &:hover { background: @accent-l; }
+
+  input[type=checkbox] { cursor: pointer; accent-color: @accent; }
+}
 
 // ── ギアボタン（右下固定） ─────────────────────────────────
 .home-gear-btn {
@@ -835,6 +928,27 @@ body {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid @border;
+}
+
+// ── エクスポート/インポートバー ──────────────────────────
+.settings-io-bar {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid @border;
+}
+
+.settings-io-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 12px;
+  font-size: 12px;
+
+  svg { width: 13px; height: 13px; flex-shrink: 0; }
 }
 
 // ── トースト通知 ─────────────────────────────────────────────

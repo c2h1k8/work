@@ -13,18 +13,6 @@
     <script defer src="./js/todo.js"></script>
   </head>
   <body>
-    <!-- マイグレーションバナー（旧データ検出時のみ表示） -->
-    <div id="migration-banner" hidden>
-      <div class="migration-banner__inner">
-        <span class="migration-banner__icon">ℹ️</span>
-        <span class="migration-banner__text">
-          旧形式のデータ（localStorage）が検出されました。IndexedDB へ移行します。
-          <small>※ file:// では SQLite を直接扱えないため、ブラウザ内蔵の IndexedDB を使用しています。</small>
-        </span>
-        <button class="migration-banner__btn" data-action="run-migration">今すぐ移行</button>
-        <button class="migration-banner__btn migration-banner__btn--dismiss" data-action="dismiss-migration">後で</button>
-      </div>
-    </div>
 
     <!-- ヘッダー -->
     <header class="app-header">

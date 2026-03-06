@@ -678,58 +678,6 @@ function renderFilterLabels() {
 }
 
 // ==================================================
-// Migration: 旧 localStorage → IndexedDB
-// ==================================================
-const Migration = {
-  /** 旧データが存在するか確認 */
-  hasLegacyData() {
-    return !!localStorage.getItem('tasks');
-  },
-
-  /** バナーを表示する */
-  showBanner() {
-    document.getElementById('migration-banner').removeAttribute('hidden');
-  },
-
-  /** 移行実行 */
-  async run(db) {
-    const raw = localStorage.getItem('tasks');
-    if (!raw) return;
-
-    let groups;
-    try { groups = JSON.parse(raw); } catch { return; }
-    if (!Array.isArray(groups)) return;
-
-    const columnMap = ['backlog', 'in_progress', 'in_review', 'done'];
-
-    for (let gIndex = 0; gIndex < groups.length; gIndex++) {
-      const group  = groups[gIndex];
-      const column = columnMap[Math.min(gIndex, columnMap.length - 1)];
-      const tasks  = Array.isArray(group.task) ? group.task : [];
-
-      for (let tIndex = 0; tIndex < tasks.length; tIndex++) {
-        const t    = tasks[tIndex];
-        // notes[] → description に結合
-        let desc = '';
-        if (Array.isArray(t.notes) && t.notes.length > 0) {
-          desc = t.notes.map(n => n.isLink ? `${n.val} ${n.url}`.trim() : n.val).join('\n');
-        }
-        await db.addTask({
-          title:       t.name || '(無題)',
-          description: desc,
-          column,
-          position:    gIndex * 1000 + tIndex * 10,
-          due_date:    t.date || '',
-        });
-      }
-    }
-
-    localStorage.removeItem('tasks');
-    Toast.show('旧データを IndexedDB に移行しました', 'success');
-  },
-};
-
-// ==================================================
 // Backup: エクスポート／インポート
 // ==================================================
 const Backup = {
@@ -740,7 +688,7 @@ const Backup = {
     const url  = URL.createObjectURL(blob);
     const a    = Object.assign(document.createElement('a'), {
       href: url,
-      download: `kanban_backup_${new Date().toISOString().slice(0, 10)}.json`,
+      download: (() => { const n = new Date(), p = x => String(x).padStart(2,'0'); return `kanban_backup_${n.getFullYear()}${p(n.getMonth()+1)}${p(n.getDate())}_${p(n.getHours())}${p(n.getMinutes())}${p(n.getSeconds())}.json`; })(),
     });
     a.click();
     URL.revokeObjectURL(url);
@@ -1641,12 +1589,6 @@ const EventHandlers = {
       Renderer.renderModal(taskId, db);
     });
 
-    // マイグレーションバナー
-    document.getElementById('migration-banner').addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-action]');
-      if (!btn) return;
-      this._dispatch(btn.dataset.action, btn, db);
-    });
 
     // ヘッダー（バックアップ操作）
     document.querySelector('.app-header').addEventListener('click', (e) => {
@@ -1782,8 +1724,6 @@ const EventHandlers = {
       case 'edit-description':  this._onEditDescription();       break;
       case 'pick-label':        this._onPickLabel(btn, db);      break;
       case 'delete-label':      this._onDeleteLabel(btn, db);    break;
-      case 'run-migration':     this._onRunMigration(db);        break;
-      case 'dismiss-migration': document.getElementById('migration-banner').setAttribute('hidden', ''); break;
       case 'add-column':        this._onAddColumn(db);           break;
       case 'delete-column':     this._onDeleteColumn(btn, db);   break;
       case 'open-datepicker':   this._onOpenDatepicker(db);           break;
@@ -2670,12 +2610,6 @@ const EventHandlers = {
     State._pickerCandidates = null;
   },
 
-  /** マイグレーション実行 */
-  async _onRunMigration(db) {
-    document.getElementById('migration-banner').setAttribute('hidden', '');
-    await Migration.run(db);
-    await Renderer.renderBoard(db);
-  },
 };
 
 // ==================================================
@@ -2749,11 +2683,6 @@ const App = {
     renderFilterLabels();
     if (State.filter.text || State.filter.labelIds.size > 0 || State.filter.due) {
       applyFilter();
-    }
-
-    // 旧データのマイグレーション確認
-    if (Migration.hasLegacyData()) {
-      Migration.showBanner();
     }
 
     // 前回エクスポート後に変更があるか確認してインジケーターを初期化
