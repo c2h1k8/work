@@ -40,7 +40,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `js/base/common.js` の共通ユーティリティを活用する（dashboard.html は不使用）
 - コメントは日本語で記載する
 - `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `Toast` / `App` の単一ファイル構成
-- `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`
+- `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
 - `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
 - `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
 - `State.columns: []` は `{ id, key, name, position }` の配列。`getColumnKeys()` で key 一覧を取得
@@ -160,6 +160,30 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - 設定ビュー「共通バインド変数」→ 変数名定義・UIタイプ切替・プリセット一覧の管理
   - コピー・リンク・コマンドビルダー実行時と表示時（テキスト・コピー型テーブルセル）に変数を解決
   - DB v4→v5 マイグレーション: `environments` ストアを `presets` に自動移行、旧 localStorage キーも移行
+
+## knowledge.js アーキテクチャ（2026-03現在）
+
+- IndexedDB DB名: `knowledge_db` version **1**
+- ストア: `tasks`（id/title/created_at/updated_at）+ `fields`（id/name/type/options/position/**width**/**listVisible**）+ `entries`（id/task_id/field_id/label/value/created_at）
+- フィールドタイプ: `link` | `text` | `date` | `select` | `label`
+- `link`: 複数エントリ可。追加ボタンあり、表示名＋URL
+- `text`: 単一エントリ。メモ風インライン textarea（自動保存、debounce 600ms）
+- `date`: 単一エントリ。カスタム DatePicker（`js/base/date_picker.js`）で選択。クリッカブルな日付表示エリア
+- `select`: 単一エントリ。インライン select（change イベントで自動保存）
+- `label`: バッジトグル形式（チェックボックスなし・保存ボタンなし）。クリックで即時保存
+- タイプバッジは非表示（フィールド名のみ表示）
+- `field.width`: `'auto'`（標準）/ `'wide'`（広幅=span 2）/ `'full'`（全幅=1/-1）。ダッシュボードと同仕様。旧 `'half'` は `'auto'` 扱い
+- `field.listVisible`: `true` のフィールドをタスク一覧に値バッジとして表示
+- `.kn-fields` は CSS Grid（`auto-fill, minmax(380px, 1fr)`）。≤840px は全幅
+- `State.allEntries`: 全タスクのエントリキャッシュ（タスク一覧表示用）
+- `State.sort`: `{ field, dir }` ソート状態。localStorage `kn_sort` に永続化（`"created_at-desc"` 形式）
+- `State.listFilter`: `{ [fieldId]: string（select）or Set（label） }` フィルター状態（メモリのみ）
+- `Renderer.renderFilterUI()`: `listVisible=true` な select/label フィールドのフィルター UI を動的生成
+- `Renderer._sortTasks()` / `Renderer._filterTasks()`: ソート・フィルター処理
+- `Renderer._renderFieldBadge()`: フィールドタイプ別バッジ HTML 生成
+- CSS: `knowledge.less` に `:root { --color-card, --color-border, ... }` を追加（DatePicker が参照）
+- モジュール構成: `KnowledgeDB` / `State` / `Renderer` / `EventHandlers` / `App`
+- エクスポート/インポート: JSON形式（`type: 'knowledge_export'`）
 
 ## 注意事項
 

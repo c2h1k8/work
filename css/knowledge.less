@@ -1,0 +1,1016 @@
+// ── CSS カスタムプロパティ（DatePicker 等の共通コンポーネントが参照） ──
+:root {
+  --color-card:       #ffffff;
+  --color-bg:         #eef1f8;
+  --color-border:     #e3e7f1;
+  --color-text:       #1e2130;
+  --color-text-muted: #9aa3bf;
+  --color-accent:     #5048e5;
+  --color-danger:     #ef4444;
+  --radius-sm:        6px;
+  --radius-md:        10px;
+  --radius-lg:        14px;
+}
+
+// ── 変数（dashboard.less と統一） ────────────────────────────
+@bg:          #eef1f8;
+@card-bg:     #ffffff;
+@text:        #1e2130;
+@text-sub:    #5c6680;
+@text-muted:  #9aa3bf;
+@accent:      #5048e5;
+@accent-d:    #4338ca;
+@accent-l:    #eef2ff;
+@green:       #059669;
+@green-l:     #ecfdf5;
+@border:      #e3e7f1;
+@border-l:    #edf0f8;
+@radius-lg:   14px;
+@radius-md:   10px;
+@radius-sm:   6px;
+@shadow:      0 1px 2px rgba(0,0,0,.05), 0 4px 12px rgba(20,28,60,.07);
+@t:           0.15s ease;
+@header-h:    52px;
+@sidebar-w:   280px;
+
+// ── リセット ─────────────────────────────────────────────────
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background: @bg;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  color: @text;
+  font-size: 14px;
+  line-height: 1.5;
+  height: 100vh;
+  overflow: hidden;
+}
+
+// ── ヘッダー ─────────────────────────────────────────────────
+.kn-header {
+  height: @header-h;
+  background: @card-bg;
+  border-bottom: 1px solid @border;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+.kn-header__inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.kn-header__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: @text;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    color: @accent;
+    flex-shrink: 0;
+  }
+}
+
+.kn-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+// ── レイアウト（ヘッダー分オフセット） ───────────────────────
+.kn-layout {
+  display: flex;
+  height: 100vh;
+  padding-top: @header-h;
+}
+
+// ── サイドバー（タスクリスト） ────────────────────────────────
+.kn-sidebar {
+  width: @sidebar-w;
+  flex-shrink: 0;
+  background: @card-bg;
+  border-right: 1px solid @border;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.kn-sidebar__search {
+  padding: 10px;
+  border-bottom: 1px solid @border-l;
+  flex-shrink: 0;
+}
+
+.kn-search {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 13px;
+  background: @bg;
+  color: @text;
+  outline: none;
+  transition: border-color @t, background @t;
+
+  &::placeholder { color: @text-muted; }
+  &:focus { border-color: @accent; background: #fff; }
+}
+
+// ── サイドバー：ソート・フィルターコントロール ────────────────
+.kn-sidebar__controls {
+  padding: 8px 10px;
+  border-bottom: 1px solid @border-l;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kn-controls__sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kn-controls__label {
+  font-size: 11px;
+  color: @text-muted;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.kn-select--grow {
+  flex: 1;
+}
+
+// フィルター行（フィールド単位）
+.kn-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kn-filter-label {
+  font-size: 11px;
+  color: @text-muted;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.kn-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.kn-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid @border;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 500;
+  color: @text-sub;
+  background: @card-bg;
+  cursor: pointer;
+  transition: background @t, border-color @t, color @t;
+  font-family: inherit;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    color: @accent;
+  }
+
+  &.is-active {
+    background: @accent;
+    border-color: @accent;
+    color: #fff;
+  }
+}
+
+.kn-task-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.kn-task-list__empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: @text-muted;
+  font-size: 13px;
+}
+
+.kn-task-item {
+  padding: 9px 11px;
+  border-radius: @radius-sm;
+  cursor: pointer;
+  transition: background @t;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-left: 3px solid transparent;
+
+  &:hover { background: @accent-l; }
+
+  &.is-selected {
+    background: @accent-l;
+    border-left-color: @accent;
+  }
+}
+
+.kn-task-item__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: @text;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.kn-task-item__date {
+  font-size: 11px;
+  color: @text-muted;
+}
+
+// タスク一覧に表示するフィールド値バッジ
+.kn-task-item__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 1px;
+}
+
+.kn-task-field-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.6;
+
+  &--select,
+  &--label {
+    background: @accent-l;
+    color: @accent;
+  }
+
+  &--date {
+    background: @green-l;
+    color: @green;
+  }
+
+  &--link {
+    background: @border-l;
+    color: @text-sub;
+  }
+
+  &--text {
+    background: @border-l;
+    color: @text-sub;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.kn-add-task-btn {
+  margin: 8px;
+  padding: 9px 12px;
+  background: none;
+  border: 1px dashed @border;
+  border-radius: @radius-sm;
+  color: @accent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background @t, border-color @t;
+  flex-shrink: 0;
+  text-align: center;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+  }
+}
+
+// ── 詳細パネル ────────────────────────────────────────────────
+.kn-detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px 60px;
+  min-width: 0;
+}
+
+// 空状態（タスク未選択）
+.kn-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: @text-muted;
+  font-size: 15px;
+
+  // display: flex が [hidden] のブラウザデフォルトスタイルを上書きするため明示指定
+  &[hidden] { display: none; }
+
+  svg {
+    width: 48px;
+    height: 48px;
+    opacity: 0.4;
+  }
+}
+
+.kn-detail__content {
+  // max-width なし → ダッシュボードと同様にグリッドで幅を自動制御
+}
+
+// ── 詳細ヘッダー ──────────────────────────────────────────────
+.kn-detail__header {
+  margin-bottom: 20px;
+}
+
+.kn-detail__title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.kn-detail__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: @text;
+  cursor: pointer;
+  flex: 1;
+  line-height: 1.3;
+  word-break: break-word;
+  transition: color @t;
+
+  &:hover { color: @accent; }
+}
+
+.kn-title-input {
+  flex: 1;
+  font-size: 22px;
+  font-weight: 700;
+  color: @text;
+  border: none;
+  border-bottom: 2px solid @accent;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  width: 100%;
+}
+
+.kn-detail__meta {
+  font-size: 12px;
+  color: @text-muted;
+}
+
+// ── フィールドラベル ──────────────────────────────────────────
+.kn-field-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: @text-sub;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: block;
+  line-height: 1;
+}
+
+// ── フィールド一覧（CSS Grid・ダッシュボードと同仕様） ────────
+.kn-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.kn-field {
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: @radius-md;
+  padding: 14px 16px;
+  box-shadow: @shadow;
+  transition: border-color @t;
+  min-width: 0;
+
+  &:focus-within { border-color: darken(@border, 6%); }
+
+  // ダッシュボードと同仕様の幅指定
+  &[data-width="wide"] { grid-column: span 2; }
+  &[data-width="full"] { grid-column: 1 / -1; }
+  // 行頭開始（data-new-row 属性で制御）
+  &[data-new-row="true"] { grid-column-start: 1; }
+  // half は旧データ後方互換（auto と同扱い＝デフォルト）
+}
+
+// 狭い画面では span を解除して 1 列に収める
+@media (max-width: 840px) {
+  .kn-field[data-width="wide"],
+  .kn-field[data-width="full"] {
+    grid-column: 1 / -1;
+  }
+}
+
+.kn-field__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+// ── メモ風テキストエリア（テキストフィールド・メモ共通） ──────
+.kn-memo {
+  width: 100%;
+  margin-top: 0;
+  padding: 6px 0;
+  border: none;
+  border-top: 1px solid @border-l;
+  font-size: 14px;
+  color: @text;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  background: transparent;
+  display: block;
+
+  &::placeholder { color: @text-muted; }
+}
+
+// ── 日付表示（クリッカブル） ──────────────────────────────────
+.kn-date-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: @bg;
+  border-radius: @radius-sm;
+  cursor: pointer;
+  transition: background @t;
+  border: 1px solid transparent;
+
+  &:hover {
+    background: darken(@bg, 2%);
+    border-color: @border;
+
+    .kn-entry__delete { opacity: 1; }
+  }
+
+  &--empty {
+    color: @text-muted;
+  }
+}
+
+.kn-date-display__icon {
+  color: @text-muted;
+  flex-shrink: 0;
+}
+
+.kn-date-text {
+  font-size: 13px;
+  color: @text;
+  font-weight: 500;
+}
+
+.kn-date-placeholder {
+  font-size: 13px;
+  color: @text-muted;
+}
+
+// ── フィールド一覧 ────────────────────────────────────────────
+.kn-field__entries {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+// ── エントリ ─────────────────────────────────────────────────
+.kn-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  background: @bg;
+  border-radius: @radius-sm;
+  transition: background @t;
+
+  &:hover {
+    background: darken(@bg, 2%);
+    .kn-entry__delete { opacity: 1; }
+  }
+}
+
+.kn-entry__link {
+  flex: 1;
+  color: @accent;
+  text-decoration: none;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding-top: 1px;
+
+  svg { flex-shrink: 0; }
+
+  &:hover { text-decoration: underline; }
+}
+
+.kn-entry__link-text {
+  word-break: break-all;
+}
+
+.kn-entry__text {
+  flex: 1;
+  font-size: 13px;
+  color: @text;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.kn-entry__delete {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: @text-muted;
+  padding: 2px 3px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity @t, color @t, background @t;
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+
+  &:hover {
+    color: #ef4444;
+    background: #fee2e2;
+  }
+}
+
+// ── エントリ追加ボタン ────────────────────────────────────────
+.kn-add-entry-btn {
+  background: none;
+  border: none;
+  color: @accent;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 3px 0;
+  transition: opacity @t;
+
+  &:hover { opacity: 0.7; }
+}
+
+// ── エントリ追加フォーム ──────────────────────────────────────
+.kn-entry-form {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid @border-l;
+
+  // display: flex が [hidden] のブラウザデフォルトスタイルを上書きするため明示指定
+  &[hidden] { display: none; }
+}
+
+.kn-entry-form__row {
+  display: flex;
+  gap: 8px;
+
+  .kn-input:first-child { flex: 0 0 200px; }
+  .kn-input:last-child  { flex: 1; }
+}
+
+.kn-entry-form__actions {
+  display: flex;
+  gap: 8px;
+}
+
+// ── select 全幅バリアント ────────────────────────────────────
+.kn-select {
+  &--full { width: 100%; }
+}
+
+// ── ラベルタイプフォーム（バッジトグル） ────────────────────
+.kn-label-form {
+  padding-top: 2px;
+}
+
+.kn-label-form__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kn-label-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border: 1px solid @border;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  color: @text-sub;
+  background: @card-bg;
+  cursor: pointer;
+  transition: background @t, border-color @t, color @t;
+  font-family: inherit;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    color: @accent;
+  }
+
+  &.is-active {
+    background: @accent;
+    border-color: @accent;
+    color: #fff;
+  }
+}
+
+// ── 共通入力 ─────────────────────────────────────────────────
+.kn-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 13px;
+  font-family: inherit;
+  color: @text;
+  background: @card-bg;
+  outline: none;
+  transition: border-color @t;
+
+  &::placeholder { color: @text-muted; }
+  &:focus { border-color: @accent; }
+
+  &--textarea {
+    resize: vertical;
+    min-height: 72px;
+  }
+
+  &--date { max-width: 200px; }
+
+  &--sm {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+}
+
+.kn-select {
+  padding: 7px 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 13px;
+  font-family: inherit;
+  color: @text;
+  background: @card-bg;
+  outline: none;
+  cursor: pointer;
+  transition: border-color @t;
+
+  &:focus { border-color: @accent; }
+
+  &--sm {
+    padding: 4px 7px;
+    font-size: 12px;
+  }
+}
+
+// ── ボタン ────────────────────────────────────────────────────
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: @radius-sm;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background @t, border-color @t, color @t;
+  white-space: nowrap;
+  font-family: inherit;
+
+  &--primary {
+    background: @accent;
+    color: #fff;
+    &:hover { background: @accent-d; }
+  }
+
+  &--secondary {
+    background: @card-bg;
+    border-color: @border;
+    color: @text;
+    &:hover { background: @bg; }
+  }
+
+  &--sm { padding: 5px 10px; font-size: 12px; }
+}
+
+.kn-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px 6px;
+  border-radius: @radius-sm;
+  color: @text-muted;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  transition: background @t, color @t;
+
+  &:hover:not(:disabled) { background: @bg; color: @text; }
+  &:disabled { opacity: 0.35; cursor: default; }
+
+  &--danger {
+    &:hover:not(:disabled) { background: #fee2e2; color: #ef4444; }
+  }
+}
+
+// ── フィールド管理モーダル ────────────────────────────────────
+.kn-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &[hidden] { display: none; }
+}
+
+.kn-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+}
+
+.kn-modal__dialog {
+  position: relative;
+  background: @card-bg;
+  border-radius: @radius-lg;
+  width: 580px;
+  max-width: 92vw;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, .18);
+}
+
+.kn-modal__hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid @border;
+  flex-shrink: 0;
+}
+
+.kn-modal__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: @text;
+}
+
+.kn-modal__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: @radius-sm;
+  color: @text-muted;
+  display: flex;
+  align-items: center;
+  transition: background @t, color @t;
+
+  &:hover { background: @bg; color: @text; }
+}
+
+.kn-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 20px;
+  min-height: 0;
+}
+
+.kn-modal__ft {
+  padding: 14px 20px;
+  border-top: 1px solid @border;
+  flex-shrink: 0;
+}
+
+.kn-field-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kn-field-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 9px 12px;
+  background: @bg;
+  border-radius: @radius-sm;
+
+  &__main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: @text;
+    min-width: 60px;
+  }
+
+  &__type {
+    font-size: 11px;
+    color: @text-muted;
+    flex-shrink: 0;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  // 一覧表示チェックボックス
+  &__visible {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    color: @text-muted;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+
+    input[type="checkbox"] {
+      cursor: pointer;
+      width: 12px;
+      height: 12px;
+      accent-color: @accent;
+    }
+  }
+
+  // 選択肢管理パネル
+  &__options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid @border-l;
+
+    &[hidden] { display: none; }
+  }
+}
+
+// 選択肢チップ
+.kn-option-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 26px;
+  align-items: center;
+
+  &__empty {
+    font-size: 12px;
+    color: @text-muted;
+  }
+}
+
+.kn-option-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 10px;
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: 99px;
+  font-size: 12px;
+  color: @text;
+
+  &__del {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: @text-muted;
+    padding: 0 2px;
+    font-size: 13px;
+    line-height: 1;
+    border-radius: 99px;
+    transition: color @t, background @t;
+
+    &:hover { color: #ef4444; background: #fee2e2; }
+  }
+}
+
+.kn-option-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+
+  .kn-input { flex: 1; }
+}
+
+.kn-add-field-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+
+    .kn-input { flex: 1; }
+  }
+
+  &__options {
+    &[hidden] { display: none; }
+  }
+}
+
+// インラインの空メッセージ（フィールドカード内）
+.kn-empty-msg--inline {
+  padding: 6px 0;
+  margin: 0;
+  font-size: 12px;
+  color: @text-muted;
+  text-align: left;
+}
+
+// ── 空メッセージ ──────────────────────────────────────────────
+.kn-empty-msg {
+  text-align: center;
+  color: @text-muted;
+  font-size: 13px;
+  padding: 20px;
+  margin: 0;
+}
+
+// ── トースト ─────────────────────────────────────────────────
+.kn-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: @text;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: @radius-md;
+  font-size: 13px;
+  z-index: 500;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
+  pointer-events: none;
+}

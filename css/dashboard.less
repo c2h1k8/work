@@ -50,6 +50,8 @@ body {
 // セクションカードの幅指定（data-width 属性で制御）
 .home > .card[data-width="wide"] { grid-column: span 2; }
 .home > .card[data-width="full"] { grid-column: 1 / -1; }
+// 行頭開始（data-new-row 属性で制御）
+.home > .card[data-new-row="true"] { grid-column-start: 1; }
 
 // 狭い画面では span を解除して 1 列に収める
 @media (max-width: 840px) {
@@ -785,6 +787,14 @@ body {
     align-items: center;
     flex-wrap: wrap;
   }
+}
+
+.settings-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .settings-label {

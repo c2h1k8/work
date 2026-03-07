@@ -375,6 +375,7 @@ const Renderer = {
     el.className = 'card';
     el.dataset.sectionId = section.id;
     el.dataset.width = section.width || 'auto';
+    if (section.newRow) el.dataset.newRow = 'true';
 
     const isCollapsed = localStorage.getItem(COLLAPSE_PREFIX + section.id) === '1';
 
@@ -782,6 +783,11 @@ const Renderer = {
           <option value="full">全幅</option>
         </select>
       </div>
+      <div class="settings-form-row">
+        <label class="settings-checkbox-label">
+          <input type="checkbox" id="new-section-new-row"> 新しい行から開始する
+        </label>
+      </div>
       <div class="settings-form-actions">
         <button class="settings-btn settings-btn--primary" data-action="save-add-section">追加</button>
         <button class="settings-btn" data-action="cancel-add-section">キャンセル</button>
@@ -816,6 +822,11 @@ const Renderer = {
           </select>
         </div>
         <div class="settings-form-row">
+          <label class="settings-checkbox-label">
+            <input type="checkbox" id="edit-section-new-row"${section.newRow ? ' checked' : ''}> 新しい行から開始する
+          </label>
+        </div>
+        <div class="settings-form-row">
           <button class="settings-btn settings-btn--primary" data-action="save-section-meta" data-section-id="${section.id}">保存</button>
         </div>`;
 
@@ -836,8 +847,11 @@ const Renderer = {
         <div class="settings-form-row">
           <label class="settings-label">チェックのリセット</label>
           <select class="settings-select" id="edit-section-checklist-reset">
-            <option value="never" ${curReset === 'never' ? 'selected' : ''}>リセットしない</option>
-            <option value="daily" ${curReset === 'daily' ? 'selected' : ''}>毎日リセット（日付が変わったら自動リセット）</option>
+            <option value="never"   ${curReset === 'never'   ? 'selected' : ''}>リセットしない</option>
+            <option value="daily"   ${curReset === 'daily'   ? 'selected' : ''}>毎日（日付が変わったら自動リセット）</option>
+            <option value="weekly"  ${curReset === 'weekly'  ? 'selected' : ''}>毎週（週が変わったら自動リセット）</option>
+            <option value="monthly" ${curReset === 'monthly' ? 'selected' : ''}>毎月（月が変わったら自動リセット）</option>
+            <option value="yearly"  ${curReset === 'yearly'  ? 'selected' : ''}>毎年（年が変わったら自動リセット）</option>
           </select>
         </div>
         <div class="settings-form-row">
@@ -1238,12 +1252,31 @@ const Renderer = {
       return;
     }
 
-    // 日次リセット
-    const dateKey = CHECKLIST_DATE_PREFIX + section.id;
-    const today = new Date().toISOString().slice(0, 10);
-    if (section.checklist_reset === 'daily' && localStorage.getItem(dateKey) !== today) {
-      localStorage.removeItem(CHECKLIST_STATE_PREFIX + section.id);
-      localStorage.setItem(dateKey, today);
+    // 期間リセット（日・週・月・年）
+    const reset = section.checklist_reset || 'never';
+    if (reset !== 'never') {
+      const dateKey = CHECKLIST_DATE_PREFIX + section.id;
+      const now = new Date();
+      let periodKey;
+      if (reset === 'daily') {
+        periodKey = now.toISOString().slice(0, 10); // YYYY-MM-DD
+      } else if (reset === 'weekly') {
+        // ISO週: 月曜始まりの週番号 YYYY-Www
+        const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+        const day = d.getUTCDay() || 7; // 日=7に変換
+        d.setUTCDate(d.getUTCDate() + 4 - day); // 木曜に移動
+        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+        const weekNum = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+        periodKey = `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+      } else if (reset === 'monthly') {
+        periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+      } else if (reset === 'yearly') {
+        periodKey = String(now.getFullYear()); // YYYY
+      }
+      if (localStorage.getItem(dateKey) !== periodKey) {
+        localStorage.removeItem(CHECKLIST_STATE_PREFIX + section.id);
+        localStorage.setItem(dateKey, periodKey);
+      }
     }
 
     const checked = loadJsonFromStorage(CHECKLIST_STATE_PREFIX + section.id) || {};
@@ -1388,6 +1421,7 @@ const EventHandlers = {
     const cmd = document.getElementById('new-section-cmd')?.value.trim() || '';
     const actionMode = document.getElementById('new-section-action-mode')?.value || 'copy';
     const width = document.getElementById('new-section-width')?.value || 'auto';
+    const newRow = document.getElementById('new-section-new-row')?.checked || false;
 
     if (!title) { alert('タイトルを入力してください'); return; }
 
@@ -1395,7 +1429,7 @@ const EventHandlers = {
       ? Math.max(...State.sections.map(s => s.position)) + 1 : 0;
 
     const data = {
-      title, icon, position: maxPos, type, width,
+      title, icon, position: maxPos, type, width, newRow,
       command_template: type === 'command_builder' ? cmd : null,
       action_mode: type === 'command_builder' ? actionMode : null,
       columns: type === 'table' ? [] : null,
@@ -1467,6 +1501,7 @@ const EventHandlers = {
     section.icon = icon || section.icon;
     section.title = title;
     section.width = document.getElementById('edit-section-width')?.value || 'auto';
+    section.newRow = document.getElementById('edit-section-new-row')?.checked || false;
     await State.db.updateSection(section);
     document.getElementById('settings-title').textContent = `${section.icon || ''} ${section.title}`;
     Renderer.renderDashboard();

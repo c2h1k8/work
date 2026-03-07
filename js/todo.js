@@ -433,6 +433,7 @@ const State = {
   isDirty:   false,      // 前回エクスポート後に変更があるか
   taskLabels: new Map(), // taskId → Set<labelId>（フィルター用キャッシュ）
   comments:  new Map(), // taskId → string[]（コメント本文、テキスト検索用キャッシュ）
+  _labelFilterInst: null,                                     // LabelFilter コンポーネントインスタンス
   filter:         { text: '', labelIds: new Set(), due: '' }, // フィルター状態
   sort:           { field: '', dir: 'asc' },                  // ソート状態
   timelineFilter: 'comments',                                 // 'comments' | 'all'
@@ -626,55 +627,14 @@ function applyFilter() {
 }
 
 // ==================================================
-// Helper: ラベルフィルタードロップダウンを再描画
+// Helper: ラベルフィルタードロップダウンを再描画（LabelFilter コンポーネント使用）
 // ==================================================
 function renderFilterLabels() {
-  const menu    = document.getElementById('filter-label-menu');
-  const trigger = document.getElementById('filter-label-trigger');
-  const countBadge = document.getElementById('filter-label-count');
-  if (!menu) return;
-
-  // メニュー内を再描画
-  menu.innerHTML = '';
-  if (State.labels.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'filter-label-menu__empty';
-    empty.textContent = 'ラベルがありません';
-    menu.appendChild(empty);
-  } else {
-    for (const label of State.labels) {
-      const active = State.filter.labelIds.has(label.id);
-      const item = document.createElement('button');
-      item.className = 'filter-label-item' + (active ? ' filter-label-item--active' : '');
-      item.dataset.labelId = label.id;
-      item.type = 'button';
-
-      const dot = document.createElement('span');
-      dot.className = 'filter-label-item__dot';
-      dot.style.background = label.color;
-
-      const check = document.createElement('span');
-      check.className = 'filter-label-item__check';
-      check.textContent = '✓';
-
-      const name = document.createElement('span');
-      name.className = 'filter-label-item__name';
-      name.textContent = label.name;
-
-      item.append(check, dot, name);
-      menu.appendChild(item);
-    }
-  }
-
-  // トリガーボタンのバッジ更新
-  const count = State.filter.labelIds.size;
-  if (countBadge) {
-    countBadge.hidden = count === 0;
-    countBadge.textContent = count;
-  }
-  if (trigger) {
-    trigger.classList.toggle('filter-label-trigger--active', count > 0);
-  }
+  if (!State._labelFilterInst) return;
+  State._labelFilterInst.update(
+    State.labels.map(l => ({ id: l.id, name: l.name, color: l.color })),
+    State.filter.labelIds,
+  );
 }
 
 // ==================================================
@@ -1613,12 +1573,6 @@ const EventHandlers = {
       this._onDescriptionBlur(e, db);
     });
 
-    // カレンダーピッカー（クリック委譲）
-    document.getElementById('date-picker').addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-dp-action]');
-      if (btn) DatePicker.handleAction(btn.dataset.dpAction, btn);
-    });
-
     // ソート選択変更
     document.getElementById('sort-select').addEventListener('change', (e) => {
       const [field = '', dir = 'asc'] = e.target.value.split(':');
@@ -1641,34 +1595,22 @@ const EventHandlers = {
       applyFilter();
     });
 
-    // ラベルフィルタードロップダウン
-    const labelTrigger = document.getElementById('filter-label-trigger');
-    const labelMenu    = document.getElementById('filter-label-menu');
-    labelTrigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      labelMenu.hidden = !labelMenu.hidden;
-    });
-    labelMenu.addEventListener('click', (e) => {
-      const item = e.target.closest('.filter-label-item');
-      if (!item) return;
-      e.stopPropagation(); // ドキュメントへのバブルを止めてメニューを閉じない
-      const labelId = parseInt(item.dataset.labelId, 10);
-      if (!labelId) return;
-      if (State.filter.labelIds.has(labelId)) {
-        State.filter.labelIds.delete(labelId);
-      } else {
-        State.filter.labelIds.add(labelId);
+    // ラベルフィルター（LabelFilter コンポーネント）
+    State._labelFilterInst = LabelFilter.create(
+      document.getElementById('filter-label-dropdown'),
+      {
+        items:    State.labels.map(l => ({ id: l.id, name: l.name, color: l.color })),
+        selected: State.filter.labelIds,
+        label:    'ラベル',
+        onChange: selected => {
+          State.filter.labelIds = selected;
+          saveFilterState();
+          applyFilter();
+        },
       }
-      saveFilterState();
-      renderFilterLabels();
-      applyFilter();
-    });
-    // メニュー外クリックで閉じる
+    );
+    // タスクピッカー外クリックで閉じる
     document.addEventListener('click', (e) => {
-      if (!document.getElementById('filter-label-dropdown').contains(e.target)) {
-        labelMenu.hidden = true;
-      }
-      // タスクピッカー外クリックで閉じる
       const picker = document.getElementById('task-picker');
       if (picker && !picker.hidden && !picker.contains(e.target)) {
         this._closeTaskPicker();

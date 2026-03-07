@@ -3,39 +3,7 @@
 //
 // 使い方:
 //   1. このスクリプトをページに読み込む
-//   2. 以下のHTML構造をページに配置する:
-//
-//      <div id="date-picker" class="datepicker" hidden>
-//        <div class="datepicker__backdrop" data-dp-action="cancel"></div>
-//        <div class="datepicker__dialog">
-//          <div class="datepicker__quickbtns">
-//            <button data-dp-action="today">今日</button>
-//            <button data-dp-action="tomorrow">明日</button>
-//            <button data-dp-action="month-end">月末</button>
-//            <button data-dp-action="clear" class="datepicker__btn--danger">クリア</button>
-//          </div>
-//          <div class="datepicker__nav">
-//            <button data-dp-action="prev-year" aria-label="前の年">«</button>
-//            <button data-dp-action="prev-month" aria-label="前の月">‹</button>
-//            <span id="dp-month-label"></span>
-//            <button data-dp-action="next-month" aria-label="次の月">›</button>
-//            <button data-dp-action="next-year" aria-label="次の年">»</button>
-//          </div>
-//          <div id="dp-grid" class="datepicker__grid"></div>
-//          <div class="datepicker__footer">
-//            <button data-dp-action="confirm" class="btn btn--sm btn--primary">決定</button>
-//          </div>
-//        </div>
-//      </div>
-//
-//   3. イベントリスナーをページ側で登録する:
-//
-//      document.getElementById('date-picker').addEventListener('click', (e) => {
-//        const btn = e.target.closest('[data-dp-action]');
-//        if (btn) DatePicker.handleAction(btn.dataset.dpAction, btn);
-//      });
-//
-//   4. DatePicker.open(dateStr, onSelect, onClear) を呼び出す:
+//   2. DatePicker.open(dateStr, onSelect, onClear) を呼び出す:
 //
 //      DatePicker.open(
 //        '2025-03-15',              // 初期選択日（YYYY-MM-DD）。空文字で未選択
@@ -43,6 +11,8 @@
 //        ()        => { ... },      // クリア時コールバック
 //      );
 //
+//   HTML は初回 open() 時に自動生成・挿入される。
+//   カーソルキー（←→: 前後月, ↑↓: 前後年）/ ホイールで月を切り替え可能。
 //   CSSは css/base/date_picker.css を読み込む。
 // ==================================================
 
@@ -54,24 +24,58 @@ const DatePicker = {
   _onClear:     null,
   _holidays:    null,   // 現在表示年の祝日 Set（'MM-DD' 形式）
   _cachedYear:  NaN,    // _holidays をキャッシュした年
-  _wheelBound:  false,  // wheel イベント登録済みフラグ
   _onKeyDown:   null,   // keydown ハンドラ参照（open/close で着脱）
+  _injected:    false,  // DOM 自動挿入済みフラグ
 
   // --------------------------------------------------
   // 公開 API
   // --------------------------------------------------
 
+  /** DOM を body に挿入してイベントを登録（初回のみ） */
+  _inject() {
+    if (this._injected) return;
+    this._injected = true;
+
+    const el = document.createElement('div');
+    el.id = 'date-picker';
+    el.className = 'datepicker';
+    el.setAttribute('hidden', '');
+    el.innerHTML = `
+      <div class="datepicker__backdrop" data-dp-action="cancel"></div>
+      <div class="datepicker__dialog">
+        <div class="datepicker__quickbtns">
+          <button data-dp-action="today">今日</button>
+          <button data-dp-action="tomorrow">明日</button>
+          <button data-dp-action="month-end">月末</button>
+          <button data-dp-action="clear" class="datepicker__btn--danger">クリア</button>
+        </div>
+        <div class="datepicker__nav">
+          <span id="dp-month-label"></span>
+        </div>
+        <div id="dp-grid" class="datepicker__grid"></div>
+        <div class="datepicker__footer">
+          <button data-dp-action="confirm" class="btn btn--sm btn--primary">決定</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(el);
+
+    // クリック委譲
+    el.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-dp-action]');
+      if (btn) this.handleAction(btn.dataset.dpAction, btn);
+    });
+
+    // ホイールで月移動
+    el.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.handleAction(e.deltaY < 0 ? 'prev-month' : 'next-month', null);
+    }, { passive: false });
+  },
+
   /** 日付ピッカーを開く */
   open(dateStr, onSelect, onClear) {
-    // スクロールで月を変えるリスナーを初回のみ登録
-    if (!this._wheelBound) {
-      document.getElementById('date-picker').addEventListener('wheel', (e) => {
-        e.preventDefault();
-        this.handleAction(e.deltaY < 0 ? 'prev-month' : 'next-month', null);
-      }, { passive: false });
-      this._wheelBound = true;
-    }
-
+    this._inject();
     const today = new Date();
     if (dateStr) {
       const d = new Date(dateStr + 'T00:00:00');

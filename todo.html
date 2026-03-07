@@ -6,10 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TODO</title>
     <link rel="stylesheet" href="./css/base/date_picker.css" />
+    <link rel="stylesheet" href="./css/base/label_filter.css" />
     <link rel="stylesheet" href="./css/todo.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/marked@4/marked.min.js"></script>
     <script defer src="./js/base/date_picker.js"></script>
+    <script defer src="./js/base/label_filter.js"></script>
     <script defer src="./js/todo.js"></script>
   </head>
   <body>
@@ -35,17 +37,8 @@
             <option value="week">今週</option>
             <option value="month">今月</option>
           </select>
-          <!-- ラベルフィルター（ドロップダウン） -->
-          <div class="filter-label-dropdown" id="filter-label-dropdown">
-            <button class="filter-label-trigger" id="filter-label-trigger" type="button">
-              <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h11A1.5 1.5 0 0 1 15 2.5v1.586a1.5 1.5 0 0 1-.44 1.06L10.5 9.207V13.5a.75.75 0 0 1-.375.65l-3 1.75A.75.75 0 0 1 6 15.25V9.207L1.44 5.146A1.5 1.5 0 0 1 1 4.086Zm1.5 0v1.586l4.56 4.061a.75.75 0 0 1 .24.544v5.338l1.5-.875V8.69a.75.75 0 0 1 .24-.544L13.5 4.086V2.5Z"/></svg>
-              ラベル
-              <span class="filter-label-count" id="filter-label-count" hidden></span>
-            </button>
-            <div class="filter-label-menu" id="filter-label-menu" hidden>
-              <!-- ラベルボタンは JS で動的生成 -->
-            </div>
-          </div>
+          <!-- ラベルフィルター（LabelFilter コンポーネントが構築） -->
+          <div id="filter-label-dropdown"></div>
           <button id="filter-clear" class="btn btn--sm btn--secondary" hidden>クリア</button>
         </div>
         <div class="app-header__sort">
@@ -267,25 +260,6 @@
       </div>
     </div>
 
-    <!-- カスタムカレンダーピッカー -->
-    <div id="date-picker" class="datepicker" hidden>
-      <div class="datepicker__backdrop" data-dp-action="cancel"></div>
-      <div class="datepicker__dialog">
-        <div class="datepicker__quickbtns">
-          <button data-dp-action="today">今日</button>
-          <button data-dp-action="tomorrow">明日</button>
-          <button data-dp-action="month-end">月末</button>
-          <button data-dp-action="clear" class="datepicker__btn--danger">クリア</button>
-        </div>
-        <div class="datepicker__nav">
-          <span id="dp-month-label"></span>
-        </div>
-        <div id="dp-grid" class="datepicker__grid"></div>
-        <div class="datepicker__footer">
-          <button data-dp-action="confirm" class="btn btn--sm btn--primary">決定</button>
-        </div>
-      </div>
-    </div>
 
     <!-- タスクピッカー（関係タスク選択用） -->
     <div id="task-picker" class="task-picker" hidden>

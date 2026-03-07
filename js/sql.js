@@ -230,12 +230,6 @@ window.addEventListener("load", async () => {
     });
   });
 
-  // DatePicker イベント委譲
-  document.getElementById("date-picker").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-dp-action]");
-    if (btn) DatePicker.handleAction(btn.dataset.dpAction, btn);
-  });
-
   // 環境追加フォーム
   document.getElementById("env-form").addEventListener("submit", async (e) => {
     e.preventDefault();

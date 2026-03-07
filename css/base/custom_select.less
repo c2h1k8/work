@@ -1,0 +1,143 @@
+// ==================================================
+// CustomSelect: カスタムセレクトコンポーネント
+// js/base/custom_select.js とセットで使用する
+// ==================================================
+
+.cs-wrapper {
+  position: relative;
+  display: inline-block;
+
+  &--grow {
+    flex: 1;
+  }
+
+  // JS が挿入後に元の select を非表示化
+  > select { display: none !important; }
+}
+
+.cs-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-card);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  text-align: left;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--color-accent);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(80, 72, 229, 0.12);
+  }
+
+  &--sm {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  &__text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    text-align: left;
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    transition: transform 0.15s;
+
+    svg { display: block; }
+  }
+}
+
+// 開いている状態のトリガースタイル
+.cs-wrapper:has(.cs-dropdown--open) .cs-trigger {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(80, 72, 229, 0.12);
+
+  .cs-trigger__icon {
+    transform: rotate(180deg);
+    color: var(--color-accent);
+  }
+}
+
+.cs-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  min-width: 140px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  padding: 4px;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.13s ease, transform 0.13s ease;
+
+  &--open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+.cs-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+
+  &:hover,
+  &:focus {
+    background: var(--color-bg);
+    outline: none;
+  }
+
+  &--selected {
+    color: var(--color-accent);
+    font-weight: 600;
+
+    &::before {
+      content: '';
+      display: block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      flex-shrink: 0;
+    }
+  }
+}
