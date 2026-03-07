@@ -8,10 +8,21 @@ const TYPE_LABELS = {
   grid: 'グリッド',
   command_builder: 'コマンドビルダー',
   table: 'テーブル',
+  memo: 'メモ',
+  checklist: 'チェックリスト',
 };
 
 /** コマンドビルダー履歴の localStorage キープレフィックス（ブラウザ固有の UI 状態） */
 const CMD_HISTORY_PREFIX = 'dashboard_url_history_';
+
+/** セクション折りたたみ状態の localStorage キープレフィックス（ブラウザ固有） */
+const COLLAPSE_PREFIX = 'dashboard_collapsed_';
+
+/** チェックリスト状態の localStorage キープレフィックス（ブラウザ固有） */
+const CHECKLIST_STATE_PREFIX = 'dashboard_checklist_';
+
+/** チェックリスト最終リセット日の localStorage キープレフィックス（ブラウザ固有） */
+const CHECKLIST_DATE_PREFIX = 'dashboard_checklist_date_';
 
 /** テーブル列の非表示状態保存用 localStorage キープレフィックス（ブラウザ固有の UI 状態） */
 const TABLE_COL_HIDDEN_PREFIX = 'dashboard_table_hidden_cols_';
@@ -33,6 +44,9 @@ const ICONS = {
   clock: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
   urlLinkIcon: `<svg class="url-history__item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
   columns: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>`,
+  chevron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
+  hamburger: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
+  checkmark: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
 };
 
 // ==============================
@@ -312,6 +326,7 @@ const State = {
   presets: [],       // position 昇順
   activePresetId: null,
   bindConfig: { varNames: ['IP', 'HOST_NAME'], uiType: 'select' },
+  tableSortState: {},  // sectionId → { colId, dir: 'asc' | 'desc' }
   settings: {
     open: false,
     view: 'sections',      // 'sections' | 'edit-section' | 'bind-settings' | 'edit-preset'
@@ -351,6 +366,8 @@ const Renderer = {
       const items = State.itemsMap[section.id] || [];
       board.appendChild(Renderer.buildSectionCard(section, items));
     });
+    // セクション数が変わる可能性があるのでジャンプナビも更新
+    Renderer.renderJumpNav();
   },
 
   buildSectionCard(section, items) {
@@ -359,23 +376,33 @@ const Renderer = {
     el.dataset.sectionId = section.id;
     el.dataset.width = section.width || 'auto';
 
+    const isCollapsed = localStorage.getItem(COLLAPSE_PREFIX + section.id) === '1';
+
     // ヘッダー
     const hd = document.createElement('div');
     hd.className = 'card__hd';
     hd.innerHTML = `
       <span class="card__hd-icon">${escapeHtml(section.icon || '📋')}</span>
       <h2 class="card__hd-title">${escapeHtml(section.title)}</h2>
+      <button class="card__collapse-btn${isCollapsed ? ' is-collapsed' : ''}"
+              data-action="toggle-collapse" data-section-id="${section.id}"
+              title="${isCollapsed ? '展開' : '折りたたむ'}">
+        ${ICONS.chevron}
+      </button>
     `;
     el.appendChild(hd);
 
     // ボディ
     const bd = document.createElement('div');
     bd.className = 'card__bd';
+    if (isCollapsed) bd.hidden = true;
     switch (section.type) {
       case 'list':        Renderer.buildListSection(section, items, bd); break;
       case 'grid':        Renderer.buildGridSection(section, items, bd); break;
       case 'command_builder': Renderer.buildCommandBuilderSection(section, bd); break;
       case 'table':       Renderer.buildTableSection(section, items, bd); break;
+      case 'memo':        Renderer.buildMemoSection(section, bd); break;
+      case 'checklist':   Renderer.buildChecklistSection(section, items, bd); break;
     }
     el.appendChild(bd);
     return el;
@@ -386,6 +413,22 @@ const Renderer = {
       bd.innerHTML = `<p class="section-empty">アイテムがありません。設定から追加してください。</p>`;
       return;
     }
+
+    // フィルター入力（5件以上の場合に表示）
+    let listFilterInput = null;
+    if (items.length >= 5) {
+      const filterWrap = document.createElement('div');
+      filterWrap.className = 'list-filter-wrap';
+      listFilterInput = document.createElement('input');
+      listFilterInput.type = 'text';
+      listFilterInput.className = 'list-filter';
+      listFilterInput.placeholder = '絞り込み...';
+      filterWrap.appendChild(listFilterInput);
+      bd.appendChild(filterWrap);
+    }
+
+    const rowsWrap = document.createElement('div');
+    rowsWrap.className = 'list-rows';
     items.forEach(item => {
       const row = document.createElement('a');
       row.className = `row ${item.item_type === 'copy' ? 'js-copy' : 'js-link'}`;
@@ -397,8 +440,19 @@ const Renderer = {
         ${item.hint ? `<span class="row__hint">${escapeHtml(resolveBindVars(item.hint))}</span>` : ''}
         <span class="row__cta">${cta}</span>
       `;
-      bd.appendChild(row);
+      rowsWrap.appendChild(row);
     });
+    bd.appendChild(rowsWrap);
+
+    if (listFilterInput) {
+      listFilterInput.addEventListener('input', () => {
+        const q = listFilterInput.value.trim().toLowerCase();
+        rowsWrap.querySelectorAll('.row').forEach(row => {
+          const text = (row.querySelector('.row__label')?.textContent || '').toLowerCase();
+          row.hidden = q ? !text.includes(q) : false;
+        });
+      });
+    }
   },
 
   buildGridSection(section, items, bd) {
@@ -550,17 +604,29 @@ const Renderer = {
     const headerRow = document.createElement('tr');
     columns.forEach(col => {
       const th = document.createElement('th');
-      th.textContent = col.label;
+      const sort = State.tableSortState[section.id];
+      const isSorted = sort?.colId === col.id;
+      const dir = isSorted ? sort.dir : '';
+      th.className = 'data-table-th--sortable';
+      th.dataset.action = 'sort-table-col';
+      th.dataset.sectionId = section.id;
       th.dataset.colId = col.id;
+      th.innerHTML = `${escapeHtml(col.label)}<span class="sort-icon${isSorted ? ` is-${dir}` : ''}">↕</span>`;
       if (hiddenCols.has(col.id)) th.hidden = true;
       headerRow.appendChild(th);
     });
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // ボディ
+    // ボディ（ソート適用）
     const tbody = document.createElement('tbody');
-    items.forEach(item => {
+    const sort = State.tableSortState[section.id];
+    const sortedItems = sort ? [...items].sort((a, b) => {
+      const va = ((a.row_data || {})[sort.colId] || '').toLowerCase();
+      const vb = ((b.row_data || {})[sort.colId] || '').toLowerCase();
+      return sort.dir === 'asc' ? va.localeCompare(vb, 'ja') : vb.localeCompare(va, 'ja');
+    }) : items;
+    sortedItems.forEach(item => {
       const row_data = item.row_data || {};
       const tr = document.createElement('tr');
       columns.forEach(col => {
@@ -693,6 +759,8 @@ const Renderer = {
           <option value="grid">グリッド（カード型）</option>
           <option value="command_builder">コマンドビルダー</option>
           <option value="table">テーブル（自由列）</option>
+          <option value="memo">メモ（フリーテキスト）</option>
+          <option value="checklist">チェックリスト</option>
         </select>
       </div>
       <div class="settings-form-row" id="new-section-action-row" hidden>
@@ -726,6 +794,8 @@ const Renderer = {
     if (!section) return '<p class="section-empty">セクションが見つかりません</p>';
     const isCmdBuilder = section.type === 'command_builder';
     const isTable = section.type === 'table';
+    const isMemo = section.type === 'memo';
+    const isChecklist = section.type === 'checklist';
     const columns = section.columns || [];
     const items = State.itemsMap[section.id] || [];
 
@@ -748,6 +818,32 @@ const Renderer = {
         <div class="settings-form-row">
           <button class="settings-btn settings-btn--primary" data-action="save-section-meta" data-section-id="${section.id}">保存</button>
         </div>`;
+
+    if (isMemo) {
+      html += `
+        <div class="settings-form-row">
+          <label class="settings-label">メモ内容（Markdown 対応：**太字** *斜体* \`コード\` - リスト）</label>
+          <textarea class="settings-textarea" id="edit-section-memo" rows="10" placeholder="# 見出し&#10;**太字** *斜体* \`コード\`&#10;- リスト項目">${escapeHtml(section.memo_content || '')}</textarea>
+        </div>
+        <div class="settings-form-row">
+          <button class="settings-btn settings-btn--primary" data-action="save-section-memo" data-section-id="${section.id}">保存</button>
+        </div>`;
+    }
+
+    if (isChecklist) {
+      const curReset = section.checklist_reset || 'never';
+      html += `
+        <div class="settings-form-row">
+          <label class="settings-label">チェックのリセット</label>
+          <select class="settings-select" id="edit-section-checklist-reset">
+            <option value="never" ${curReset === 'never' ? 'selected' : ''}>リセットしない</option>
+            <option value="daily" ${curReset === 'daily' ? 'selected' : ''}>毎日リセット（日付が変わったら自動リセット）</option>
+          </select>
+        </div>
+        <div class="settings-form-row">
+          <button class="settings-btn settings-btn--primary" data-action="save-section-checklist" data-section-id="${section.id}">保存</button>
+        </div>`;
+    }
 
     if (isCmdBuilder) {
       const curMode = section.action_mode || 'copy';
@@ -812,8 +908,8 @@ const Renderer = {
       </div>`;
     }
 
-    // アイテム一覧（command_builder 以外）
-    if (!isCmdBuilder) {
+    // アイテム一覧（command_builder・memo 以外）
+    if (!isCmdBuilder && !isMemo) {
       const label = isTable ? '行' : section.type === 'grid' ? 'カード' : 'アイテム';
       html += `
       <div class="settings-subsection">
@@ -1094,6 +1190,118 @@ const Renderer = {
       }
     }
   },
+
+  // ── メモセクション ────────────────────────────────────
+
+  buildMemoSection(section, bd) {
+    const content = section.memo_content || '';
+    if (!content.trim()) {
+      bd.innerHTML = `<p class="section-empty">メモが空です。設定からテキストを追加してください。</p>`;
+      return;
+    }
+    const div = document.createElement('div');
+    div.className = 'memo-content';
+    div.innerHTML = Renderer._renderMarkdown(content);
+    bd.appendChild(div);
+  },
+
+  /** シンプルな Markdown レンダリング（行単位処理） */
+  _renderMarkdown(text) {
+    if (!text) return '';
+    const lines = text.split('\n');
+    let html = '';
+    let inList = false;
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i];
+      let line = escapeHtml(raw);
+      // 太字・斜体・コード
+      line = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      line = line.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      line = line.replace(/`(.+?)`/g, '<code class="memo-inline-code">$1</code>');
+      if (raw.startsWith('- ')) {
+        if (!inList) { html += '<ul class="memo-list">'; inList = true; }
+        html += `<li>${line.slice(2)}</li>`;
+      } else {
+        if (inList) { html += '</ul>'; inList = false; }
+        html += (raw === '' ? '<br>' : line + '<br>');
+      }
+    }
+    if (inList) html += '</ul>';
+    return html;
+  },
+
+  // ── チェックリストセクション ────────────────────────────
+
+  buildChecklistSection(section, items, bd) {
+    if (items.length === 0) {
+      bd.innerHTML = `<p class="section-empty">アイテムがありません。設定から追加してください。</p>`;
+      return;
+    }
+
+    // 日次リセット
+    const dateKey = CHECKLIST_DATE_PREFIX + section.id;
+    const today = new Date().toISOString().slice(0, 10);
+    if (section.checklist_reset === 'daily' && localStorage.getItem(dateKey) !== today) {
+      localStorage.removeItem(CHECKLIST_STATE_PREFIX + section.id);
+      localStorage.setItem(dateKey, today);
+    }
+
+    const checked = loadJsonFromStorage(CHECKLIST_STATE_PREFIX + section.id) || {};
+    const total = items.length;
+    const doneCount = items.filter(i => checked[i.id]).length;
+
+    // 進捗バー
+    const progressWrap = document.createElement('div');
+    progressWrap.className = 'checklist-progress';
+    progressWrap.innerHTML = `
+      <div class="checklist-progress__bar">
+        <div class="checklist-progress__fill" style="width: ${total > 0 ? Math.round(doneCount / total * 100) : 0}%"></div>
+      </div>
+      <span class="checklist-progress__text">${doneCount} / ${total}</span>
+    `;
+    bd.appendChild(progressWrap);
+
+    items.forEach(item => {
+      const isChecked = checked[item.id] === true;
+      const row = document.createElement('label');
+      row.className = `checklist-item${isChecked ? ' is-checked' : ''}`;
+      row.innerHTML = `
+        <input type="checkbox" class="checklist-cb"
+               data-checklist-section-id="${section.id}"
+               data-checklist-item-id="${item.id}"
+               ${isChecked ? 'checked' : ''} />
+        <span class="checklist-check-icon">${ICONS.checkmark}</span>
+        <span class="checklist-label">${escapeHtml(item.label || '')}</span>
+      `;
+      bd.appendChild(row);
+    });
+  },
+
+  // ── セクションジャンプナビ ────────────────────────────
+
+  renderJumpNav() {
+    const nav = document.getElementById('section-nav');
+    if (!nav) return;
+    if (State.sections.length < 3) {
+      nav.hidden = true;
+      return;
+    }
+    nav.hidden = false;
+    const itemsHtml = State.sections
+      .map(s => `<button class="section-nav__item" data-action="jump-to-section" data-section-id="${s.id}">
+        <span class="section-nav__item-icon">${escapeHtml(s.icon || '📋')}</span>
+        ${escapeHtml(s.title)}
+      </button>`)
+      .join('');
+    nav.innerHTML = `
+      <button class="section-nav__toggle" data-action="toggle-jump-nav" title="セクションへジャンプ">
+        ${ICONS.hamburger}
+      </button>
+      <div class="section-nav__menu" id="section-nav-menu" hidden>
+        ${itemsHtml}
+      </div>
+    `;
+  },
 };
 
 // ==============================
@@ -1191,6 +1399,8 @@ const EventHandlers = {
       command_template: type === 'command_builder' ? cmd : null,
       action_mode: type === 'command_builder' ? actionMode : null,
       columns: type === 'table' ? [] : null,
+      memo_content: type === 'memo' ? '' : null,
+      checklist_reset: type === 'checklist' ? 'never' : null,
     };
     const newId = await State.db.addSection(data);
     data.id = newId;
@@ -1747,6 +1957,106 @@ const EventHandlers = {
     };
     input.click();
   },
+
+  // ── 折りたたみ ────────────────────────────────────────
+
+  toggleSectionCollapse(sectionId) {
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    const bd = card?.querySelector('.card__bd');
+    if (!bd) return;
+    const nowCollapsed = bd.hidden;
+    bd.hidden = !nowCollapsed;
+    localStorage.setItem(COLLAPSE_PREFIX + sectionId, !nowCollapsed ? '1' : '0');
+    const btn = card.querySelector('.card__collapse-btn');
+    if (btn) {
+      btn.classList.toggle('is-collapsed', !nowCollapsed);
+      btn.title = !nowCollapsed ? '展開' : '折りたたむ';
+    }
+  },
+
+  // ── チェックリスト ────────────────────────────────────
+
+  onChecklistChange(cb) {
+    const sectionId = Number(cb.dataset.checklistSectionId);
+    const itemId = Number(cb.dataset.checklistItemId);
+    const isChecked = cb.checked;
+    const key = CHECKLIST_STATE_PREFIX + sectionId;
+    const state = loadJsonFromStorage(key) || {};
+    if (isChecked) { state[itemId] = true; } else { delete state[itemId]; }
+    localStorage.setItem(key, JSON.stringify(state));
+    // 行に is-checked クラスを付け外し
+    const row = cb.closest('.checklist-item');
+    if (row) row.classList.toggle('is-checked', isChecked);
+    // 進捗バーを更新
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    const items = State.itemsMap[sectionId] || [];
+    const total = items.length;
+    const doneCount = items.filter(i => state[i.id]).length;
+    const fill = card?.querySelector('.checklist-progress__fill');
+    const text = card?.querySelector('.checklist-progress__text');
+    if (fill) fill.style.width = `${total > 0 ? Math.round(doneCount / total * 100) : 0}%`;
+    if (text) text.textContent = `${doneCount} / ${total}`;
+  },
+
+  // ── メモ保存 ──────────────────────────────────────────
+
+  async saveSectionMemo(sectionId) {
+    const section = State.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    section.memo_content = document.getElementById('edit-section-memo')?.value || '';
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    showToast('保存しました');
+  },
+
+  // ── チェックリスト設定保存 ───────────────────────────
+
+  async saveSectionChecklist(sectionId) {
+    const section = State.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    section.checklist_reset = document.getElementById('edit-section-checklist-reset')?.value || 'never';
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    showToast('保存しました');
+  },
+
+  // ── テーブルソート ────────────────────────────────────
+
+  sortTableCol(sectionId, colId) {
+    const cur = State.tableSortState[sectionId];
+    if (cur && cur.colId === colId) {
+      State.tableSortState[sectionId] = { colId, dir: cur.dir === 'asc' ? 'desc' : 'asc' };
+    } else {
+      State.tableSortState[sectionId] = { colId, dir: 'asc' };
+    }
+    // このセクションのカードボディのみ再描画
+    const section = State.sections.find(s => s.id === sectionId);
+    const items = State.itemsMap[sectionId] || [];
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (!card || !section) return;
+    const bd = card.querySelector('.card__bd');
+    if (!bd) return;
+    bd.innerHTML = '';
+    Renderer.buildTableSection(section, items, bd);
+  },
+
+  // ── ジャンプナビ ──────────────────────────────────────
+
+  toggleJumpNav() {
+    const menu = document.getElementById('section-nav-menu');
+    if (menu) menu.hidden = !menu.hidden;
+  },
+
+  jumpToSection(sectionId) {
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (!card) return;
+    // 折りたたまれていたら展開
+    const bd = card.querySelector('.card__bd');
+    if (bd && bd.hidden) EventHandlers.toggleSectionCollapse(sectionId);
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const menu = document.getElementById('section-nav-menu');
+    if (menu) menu.hidden = true;
+  },
 };
 
 // ==============================
@@ -1776,6 +2086,7 @@ const App = {
 
     Renderer.renderEnvBar();
     Renderer.renderDashboard();
+    Renderer.renderJumpNav();
     App.bindEvents();
   },
 
@@ -1825,6 +2136,12 @@ const App = {
       switch (action) {
         case 'settings-close':      eh.closeSettings(); break;
         case 'settings-back':       eh.backInSettings(); break;
+        case 'toggle-collapse':     eh.toggleSectionCollapse(sectionId); break;
+        case 'sort-table-col':      eh.sortTableCol(sectionId, colId); break;
+        case 'save-section-memo':   eh.saveSectionMemo(sectionId).catch(console.error); break;
+        case 'save-section-checklist': eh.saveSectionChecklist(sectionId).catch(console.error); break;
+        case 'toggle-jump-nav':     eh.toggleJumpNav(); break;
+        case 'jump-to-section':     eh.jumpToSection(sectionId); break;
         case 'show-add-section':    eh.showAddSectionForm(); break;
         case 'cancel-add-section':  eh.hideAddSectionForm(); break;
         case 'save-add-section':    eh.saveAddSection().catch(console.error); break;
@@ -1876,12 +2193,20 @@ const App = {
       if (!e.target.closest('.data-table-col-toggle-wrap')) {
         document.querySelectorAll('.data-table-col-menu').forEach(m => { m.hidden = true; });
       }
+      // ジャンプナビ外クリックで閉じる
+      if (!e.target.closest('#section-nav')) {
+        const menu = document.getElementById('section-nav-menu');
+        if (menu) menu.hidden = true;
+      }
     });
 
-    // change イベント（テーブル列の表示切替 + セクションタイプ変更）
+    // change イベント（テーブル列の表示切替 + セクションタイプ変更 + チェックリスト）
     document.addEventListener('change', (e) => {
       if (e.target.matches('.data-table-col-menu input[type=checkbox]')) {
         EventHandlers.onTableColVisibilityChange(e.target); return;
+      }
+      if (e.target.matches('.checklist-cb')) {
+        EventHandlers.onChecklistChange(e.target); return;
       }
       if (e.target.id === 'new-section-type') EventHandlers.onNewSectionTypeChange();
     });

@@ -1181,3 +1181,289 @@ body {
     transform: translateX(-50%) translateY(0);
   }
 }
+
+// ── カード折りたたみボタン ─────────────────────────────────────
+.card__collapse-btn {
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: @radius-sm;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: @text-muted;
+  flex-shrink: 0;
+  transition: background @t, color @t;
+
+  svg { width: 14px; height: 14px; transition: transform .2s ease; }
+
+  &:hover { background: @bg; color: @text; }
+
+  &.is-collapsed svg { transform: rotate(-90deg); }
+}
+
+// ── リストフィルター ────────────────────────────────────────
+.list-filter-wrap {
+  padding: 8px 12px 4px;
+  border-bottom: 1px solid @border-l;
+}
+
+.list-filter {
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 12px;
+  font-family: inherit;
+  color: @text;
+  background: @bg;
+  outline: none;
+  transition: border-color @t, box-shadow @t;
+
+  &:focus {
+    border-color: @accent;
+    box-shadow: 0 0 0 2px fade(@accent, 15%);
+  }
+  &::placeholder { color: @text-muted; }
+}
+
+// ── テーブルソート ──────────────────────────────────────────
+.data-table-th--sortable {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover { color: @accent; }
+}
+
+.sort-icon {
+  margin-left: 4px;
+  font-size: 10px;
+  color: @text-muted;
+  opacity: .5;
+  transition: opacity @t, color @t;
+
+  .data-table-th--sortable:hover & { opacity: 1; }
+
+  &.is-asc,
+  &.is-desc {
+    color: @accent;
+    opacity: 1;
+  }
+
+  &.is-asc::after  { content: '▲'; }
+  &.is-desc::after { content: '▼'; }
+  &.is-asc,
+  &.is-desc { font-size: 0; }  // テキスト非表示にして ::after で矢印
+}
+
+// ── メモセクション ──────────────────────────────────────────
+.memo-content {
+  padding: 14px 18px 16px;
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: @text;
+
+  br { display: block; content: ''; margin: 0; }
+
+  strong { font-weight: 600; }
+  em { font-style: italic; color: @text-sub; }
+
+  .memo-inline-code {
+    background: darken(@bg, 3%);
+    border: 1px solid @border;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: "SF Mono", "Consolas", monospace;
+    font-size: 12px;
+    color: @accent;
+  }
+
+  .memo-list {
+    margin: 4px 0 8px;
+    padding-left: 20px;
+
+    li {
+      margin-bottom: 4px;
+      color: @text;
+    }
+  }
+}
+
+.settings-textarea {
+  width: 100%;
+  min-height: 160px;
+  border: 1.5px solid @border;
+  border-radius: @radius-sm;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: "SF Mono", "Consolas", monospace;
+  color: @text;
+  background: @bg;
+  outline: none;
+  box-sizing: border-box;
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color @t, background @t, box-shadow @t;
+
+  &:focus {
+    border-color: @accent;
+    background: #fff;
+    box-shadow: 0 0 0 3px fade(@accent, 10%);
+  }
+  &::placeholder { color: @text-muted; }
+}
+
+// ── チェックリストセクション ──────────────────────────────
+.checklist-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px 8px;
+  border-bottom: 1px solid @border-l;
+}
+
+.checklist-progress__bar {
+  flex: 1;
+  height: 6px;
+  background: @border;
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.checklist-progress__fill {
+  height: 100%;
+  background: @green;
+  border-radius: 100px;
+  transition: width .3s ease;
+}
+
+.checklist-progress__text {
+  font-size: 11px;
+  font-weight: 600;
+  color: @text-muted;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 18px;
+  cursor: pointer;
+  transition: background @t;
+
+  & + & { border-top: 1px solid @border-l; }
+  &:hover { background: @accent-l; }
+  &:active { background: darken(@accent-l, 3%); }
+
+  input[type=checkbox] { display: none; }
+}
+
+.checklist-check-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid @border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background @t, border-color @t;
+
+  svg { width: 10px; height: 10px; color: #fff; opacity: 0; transition: opacity @t; }
+}
+
+.checklist-item.is-checked {
+  .checklist-check-icon {
+    background: @green;
+    border-color: @green;
+    svg { opacity: 1; }
+  }
+  .checklist-label { color: @text-muted; text-decoration: line-through; }
+}
+
+.checklist-label {
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+  transition: color @t;
+}
+
+// ── セクションジャンプナビ ────────────────────────────────
+.section-nav {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 200;
+}
+
+.section-nav__toggle {
+  width: 38px;
+  height: 38px;
+  border-radius: @radius-md;
+  background: @card-bg;
+  border: 1.5px solid @border;
+  box-shadow: @shadow;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: @text-sub;
+  transition: background @t, color @t, border-color @t, box-shadow @t;
+
+  svg { width: 16px; height: 16px; }
+
+  &:hover {
+    background: @accent;
+    color: #fff;
+    border-color: @accent;
+    box-shadow: 0 4px 16px fade(@accent, 30%);
+  }
+}
+
+.section-nav__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: @radius-md;
+  box-shadow: @shadow-hover;
+  padding: 4px 0;
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 70vh;
+  overflow-y: auto;
+  z-index: 200;
+}
+
+.section-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid @border-l;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-family: inherit;
+  color: @text;
+  transition: background @t, color @t;
+
+  &:first-child { border-top: none; }
+  &:hover { background: @accent-l; color: @accent; }
+}
+
+.section-nav__item-icon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
