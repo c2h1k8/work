@@ -220,6 +220,13 @@
               </div>
             </div>
 
+            <!-- ナレッジ紐づけ -->
+            <div class="modal__sidebar-item" id="modal-kn-section">
+              <span class="modal__sidebar-label">ナレッジ</span>
+              <div id="modal-kn-links"></div>
+              <button class="modal__relation-add-btn" data-action="pick-knowledge-task">＋ 追加</button>
+            </div>
+
             <!-- 関係タスク -->
             <div class="modal__sidebar-item" id="modal-relations-section">
               <!-- 親タスク -->
@@ -259,6 +266,12 @@
     <div id="task-picker" class="task-picker" hidden>
       <input id="task-picker-input" type="text" placeholder="タスクを検索..." class="task-picker__input" />
       <ul id="task-picker-list" class="task-picker__list"></ul>
+    </div>
+
+    <!-- ナレッジピッカー（ナレッジ紐づけ選択用） -->
+    <div id="kn-picker" class="task-picker" hidden>
+      <input id="kn-picker-input" type="text" placeholder="ナレッジを検索..." class="task-picker__input" />
+      <ul id="kn-picker-list" class="task-picker__list"></ul>
     </div>
 
     <!-- トースト通知 -->

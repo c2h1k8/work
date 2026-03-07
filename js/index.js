@@ -914,3 +914,34 @@ async function configureHomePage(label) {
     iframe.addEventListener('load', sendMsg, { once: true });
   }
 }
+
+// ==================================================
+// ページ間ナビゲーション: iframe からの要求を中継
+// ==================================================
+window.addEventListener('message', async (e) => {
+  const { type, knTaskId, todoTaskId } = e.data || {};
+  if (type !== 'navigate:knowledge' && type !== 'navigate:todo') return;
+
+  const config  = await loadTabConfig();
+  const pageSrc = type === 'navigate:knowledge' ? 'knowledge.html' : 'todo.html';
+  const tab     = config.find(t => t.visible && t.pageSrc === pageSrc);
+  if (!tab) return;
+
+  // タブを切り替え
+  const tabId = `TAB-${tab.label}`;
+  activateTab(tabId);
+  saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, tabId);
+
+  // 対象 iframe にメッセージを転送
+  const iframe = document.getElementById(`frame-${tab.label}`);
+  if (!iframe) return;
+  const msg     = type === 'navigate:knowledge'
+    ? { type: 'navigate:knowledge', knTaskId }
+    : { type: 'navigate:todo', todoTaskId };
+  const sendMsg = () => iframe.contentWindow?.postMessage(msg, '*');
+  if (iframe.contentDocument?.readyState === 'complete') {
+    sendMsg();
+  } else {
+    iframe.addEventListener('load', sendMsg, { once: true });
+  }
+});

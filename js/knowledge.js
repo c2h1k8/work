@@ -215,6 +215,15 @@ const KnowledgeDB = (() => {
   };
 })();
 
+// ── kanban_db アクセスヘルパー ──────────────────────────────────
+async function _openKanbanDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('kanban_db');
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
 // ── State ──────────────────────────────────────────────────────
 const State = {
   tasks: [],           // 全タスク
@@ -504,7 +513,66 @@ const Renderer = {
       <div class="kn-fields" id="detail-fields">
         ${State.fields.map(f => this._renderField(f, entryMap[f.id] || [])).join('')}
       </div>
+
+      <div class="kn-todo-section" id="kn-todo-links-section" hidden>
+        <div class="kn-todo-section__header">
+          <span class="kn-field-label">紐づきTODO</span>
+        </div>
+        <div id="kn-todo-links" class="kn-todo-links"></div>
+      </div>
     `;
+
+    // TODOリンクを非同期で描画（kanban_db が存在しない場合は無視）
+    this.renderTodoLinks(task.id).catch(() => {});
+  },
+
+  /** 紐づきTODOタスクを描画 */
+  async renderTodoLinks(knTaskId) {
+    const section   = document.getElementById('kn-todo-links-section');
+    const container = document.getElementById('kn-todo-links');
+    if (!section || !container) return;
+    container.innerHTML = '';
+    section.hidden = true;
+
+    try {
+      const kanbanDb = await _openKanbanDB();
+
+      // knowledge_links ストアから kn_task_id で検索
+      const links = await new Promise((resolve) => {
+        try {
+          const req = kanbanDb.transaction('knowledge_links')
+            .objectStore('knowledge_links')
+            .index('kn_task_id')
+            .getAll(knTaskId);
+          req.onsuccess = e => resolve(e.target.result);
+          req.onerror   = () => resolve([]);
+        } catch (e) { resolve([]); } // ストアが存在しない場合
+      });
+
+      if (links.length === 0) { kanbanDb.close(); return; }
+
+      // TODOタスクのタイトルを取得
+      const todoTasks = await new Promise((resolve, reject) => {
+        const req = kanbanDb.transaction('tasks').objectStore('tasks').getAll();
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror   = e => reject(e.target.error);
+      });
+      kanbanDb.close();
+
+      const taskMap = new Map(todoTasks.map(t => [t.id, t]));
+
+      section.hidden = false;
+      container.innerHTML = links.map(link => {
+        const task  = taskMap.get(link.todo_task_id);
+        const title = task ? _esc(task.title) : `(ID: ${link.todo_task_id})`;
+        return `
+          <div class="kn-todo-chip">
+            <button class="kn-todo-chip__title" type="button" data-action="open-todo-task" data-todo-task-id="${link.todo_task_id}" title="${task ? 'TODOで開く: ' + _esc(task.title) : ''}">${title}</button>
+            <button class="kn-icon-btn" data-action="remove-todo-link" data-link-id="${link.id}" title="紐づきを解除">×</button>
+          </div>
+        `;
+      }).join('');
+    } catch (e) { /* kanban_db が存在しない場合は無視 */ }
   },
 
   _renderField(field, entries) {
@@ -894,6 +962,8 @@ const EventHandlers = {
       case 'open-datepicker':  this._onOpenDatePicker(btn, db); break;
       case 'toggle-select':    await this._onToggleSelect(btn, db); break;
       case 'toggle-label':     await this._onToggleLabel(btn, db); break;
+      case 'remove-todo-link': await this._onRemoveTodoLink(btn); break;
+      case 'open-todo-task':   this._onOpenTodoTask(btn); break;
     }
   },
 
@@ -1460,6 +1530,31 @@ const EventHandlers = {
     showToast(`「${optionValue}」を削除しました`);
   },
 
+  /** TODOとの紐づけを解除 */
+  async _onRemoveTodoLink(btn) {
+    const linkId = Number(btn.dataset.linkId);
+    try {
+      const kanbanDb = await _openKanbanDB();
+      await new Promise((resolve, reject) => {
+        const req = kanbanDb.transaction('knowledge_links', 'readwrite')
+          .objectStore('knowledge_links')
+          .delete(linkId);
+        req.onsuccess = resolve;
+        req.onerror   = e => reject(e.target.error);
+      });
+      kanbanDb.close();
+      await Renderer.renderTodoLinks(State.selectedTaskId);
+    } catch (e) {
+      showToast('紐づき解除に失敗しました');
+    }
+  },
+
+  /** TODOページでタスクを開く（親フレームにナビゲーション要求を送信） */
+  _onOpenTodoTask(btn) {
+    const todoTaskId = parseInt(btn.dataset.todoTaskId, 10);
+    parent.postMessage({ type: 'navigate:todo', todoTaskId }, '*');
+  },
+
   // タスクの updated_at を更新し、詳細パネルのメタ情報をインプレース更新
   async _touchTask(db) {
     if (!State.selectedTaskId) return;
@@ -1545,6 +1640,19 @@ const App = {
     Renderer.renderFilterUI();
     await Renderer.renderDetail();
     await EventHandlers.init(KnowledgeDB);
+
+    // 親フレームからの navigate:knowledge 指示を受信してタスクを選択・表示
+    window.addEventListener('message', async (e) => {
+      const { type, knTaskId } = e.data || {};
+      if (type !== 'navigate:knowledge' || !knTaskId) return;
+      const task = State.tasks.find(t => t.id === knTaskId);
+      if (!task) return;
+      State.selectedTaskId = knTaskId;
+      State.entries = await KnowledgeDB.getEntriesByTask(knTaskId);
+      Renderer.renderTaskList();
+      await Renderer.renderDetail();
+      document.querySelector(`[data-task-id="${knTaskId}"]`)?.scrollIntoView({ block: 'nearest' });
+    });
 
     // CustomSelect: ソートセレクトをカスタム UI に置き換え
     CustomSelect.replaceAll(document.getElementById('kn-sidebar-controls'));

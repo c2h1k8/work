@@ -13,7 +13,7 @@ class KanbanDB {
   /** DBをオープン（スキーマ初期化含む） */
   open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('kanban_db', 1);
+      const req = indexedDB.open('kanban_db', 2);
 
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -60,6 +60,13 @@ class KanbanDB {
           const rels = db.createObjectStore('task_relations', { keyPath: 'id', autoIncrement: true });
           rels.createIndex('task_id', 'task_id', { unique: false });
           rels.createIndex('related_id', 'related_id', { unique: false });
+        }
+
+        // knowledge_links ストア (v2で追加)
+        if (!db.objectStoreNames.contains('knowledge_links')) {
+          const kl = db.createObjectStore('knowledge_links', { keyPath: 'id', autoIncrement: true });
+          kl.createIndex('todo_task_id', 'todo_task_id', { unique: false });
+          kl.createIndex('kn_task_id',   'kn_task_id',   { unique: false });
         }
       };
 
@@ -150,6 +157,8 @@ class KanbanDB {
     ]);
     // task_relations は双方向インデックスから取得して削除
     await this.deleteRelationsByTask(id).catch(() => {});
+    // knowledge_links をカスケード削除
+    await this.deleteKnowledgeLinksByTodo(id).catch(() => {});
 
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(['tasks', 'comments', 'task_labels', 'activities'], 'readwrite');
@@ -365,6 +374,45 @@ class KanbanDB {
     });
   }
 
+  // ---- Knowledge Links ----
+  /** ナレッジタスクとの紐づけを追加 */
+  async addKnowledgeLink(todoTaskId, knTaskId) {
+    return new Promise((resolve, reject) => {
+      const record = { todo_task_id: todoTaskId, kn_task_id: knTaskId };
+      const tx  = this.db.transaction('knowledge_links', 'readwrite');
+      const req = tx.objectStore('knowledge_links').add(record);
+      req.onsuccess = () => { record.id = req.result; resolve(record); };
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  /** TODO タスクに紐づくナレッジリンクを取得 */
+  async getKnowledgeLinksByTodo(todoTaskId) {
+    return this._getAllByIndex('knowledge_links', 'todo_task_id', todoTaskId);
+  }
+
+  /** ナレッジリンクを削除 */
+  async deleteKnowledgeLink(id) {
+    return new Promise((resolve, reject) => {
+      const tx  = this.db.transaction('knowledge_links', 'readwrite');
+      const req = tx.objectStore('knowledge_links').delete(id);
+      req.onsuccess = resolve;
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  /** タスク削除時に関連するナレッジリンクをカスケード削除 */
+  async deleteKnowledgeLinksByTodo(todoTaskId) {
+    const links = await this.getKnowledgeLinksByTodo(todoTaskId).catch(() => []);
+    if (links.length === 0) return;
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction('knowledge_links', 'readwrite');
+      tx.oncomplete = resolve;
+      tx.onerror    = (e) => reject(e.target.error);
+      for (const l of links) tx.objectStore('knowledge_links').delete(l.id);
+    });
+  }
+
   // ---- Activities ----
   /** 作業履歴を追加 */
   async addActivity(taskId, type, content) {
@@ -385,30 +433,32 @@ class KanbanDB {
 
   /** 全ストアのデータを一括エクスポート */
   async exportAll() {
-    const [tasks, comments, labels, task_labels, columns, activities, task_relations] = await Promise.all([
+    const [tasks, comments, labels, task_labels, columns, activities, task_relations, knowledge_links] = await Promise.all([
       this._getAll('tasks'), this._getAll('comments'),
       this._getAll('labels'), this._getAll('task_labels'),
       this._getAll('columns'), this._getAll('activities'),
       this._getAll('task_relations').catch(() => []),
+      this._getAll('knowledge_links').catch(() => []),
     ]);
-    return { version: 4, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns, activities, task_relations };
+    return { version: 5, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns, activities, task_relations, knowledge_links };
   }
 
   /** 全ストアをクリアして data で上書き（put で ID 保持） */
   async importAll(data) {
-    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities', 'task_relations'];
+    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities', 'task_relations', 'knowledge_links'];
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(stores, 'readwrite');
       tx.oncomplete = resolve;
       tx.onerror    = (e) => reject(e.target.error);
       for (const s of stores) tx.objectStore(s).clear();
-      for (const t   of (data.tasks           ?? [])) tx.objectStore('tasks').put(t);
-      for (const c   of (data.comments        ?? [])) tx.objectStore('comments').put(c);
-      for (const l   of (data.labels          ?? [])) tx.objectStore('labels').put(l);
-      for (const tl  of (data.task_labels     ?? [])) tx.objectStore('task_labels').put(tl);
-      for (const col of (data.columns         ?? [])) tx.objectStore('columns').put(col);
-      for (const a   of (data.activities      ?? [])) tx.objectStore('activities').put(a);
-      for (const r   of (data.task_relations  ?? [])) tx.objectStore('task_relations').put(r);
+      for (const t   of (data.tasks            ?? [])) tx.objectStore('tasks').put(t);
+      for (const c   of (data.comments         ?? [])) tx.objectStore('comments').put(c);
+      for (const l   of (data.labels           ?? [])) tx.objectStore('labels').put(l);
+      for (const tl  of (data.task_labels      ?? [])) tx.objectStore('task_labels').put(tl);
+      for (const col of (data.columns          ?? [])) tx.objectStore('columns').put(col);
+      for (const a   of (data.activities       ?? [])) tx.objectStore('activities').put(a);
+      for (const r   of (data.task_relations   ?? [])) tx.objectStore('task_relations').put(r);
+      for (const kl  of (data.knowledge_links  ?? [])) tx.objectStore('knowledge_links').put(kl);
     });
   }
 
@@ -541,6 +591,17 @@ function _resetMdEditor(editor) {
   });
   if (textarea) textarea.removeAttribute('hidden');
   if (preview)  preview.setAttribute('hidden', '');
+}
+
+// ==================================================
+// Helper: knowledge_db を読み取り専用で開く
+// ==================================================
+function _openKnowledgeDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('knowledge_db');
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
 }
 
 // ==================================================
@@ -990,6 +1051,9 @@ const Renderer = {
     // 関係タスク
     await this.renderRelations(taskId, db);
 
+    // ナレッジ紐づけ
+    await this.renderKnowledgeLinks(taskId, db);
+
     // コメント
     await this.renderComments(taskId, db);
 
@@ -1388,6 +1452,55 @@ const Renderer = {
     const count = document.querySelector(`[data-count="${column}"]`);
     if (count) count.textContent = (State.tasks[column] || []).length;
   },
+
+  /** ナレッジ紐づけセクションを描画 */
+  async renderKnowledgeLinks(taskId, db) {
+    const container = document.getElementById('modal-kn-links');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const links = await db.getKnowledgeLinksByTodo(taskId).catch(() => []);
+    if (links.length === 0) return;
+
+    // knowledge_db からナレッジタスク情報を取得
+    let knTasks = [];
+    try {
+      const knDb = await _openKnowledgeDB();
+      knTasks = await new Promise((resolve, reject) => {
+        const req = knDb.transaction('tasks').objectStore('tasks').getAll();
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror   = e => reject(e.target.error);
+      });
+      knDb.close();
+    } catch (e) { /* knowledge_db が未作成の場合は無視 */ }
+
+    const taskMap = new Map(knTasks.map(t => [t.id, t]));
+
+    for (const link of links) {
+      const knTask = taskMap.get(link.kn_task_id);
+      const chip = document.createElement('div');
+      chip.className = 'relation-chip';
+      chip.dataset.action  = 'open-kn-task';
+      chip.dataset.knTaskId = link.kn_task_id;
+
+      const title = document.createElement('span');
+      title.className = 'relation-chip__title';
+      title.textContent = knTask ? knTask.title : `(ID: ${link.kn_task_id})`;
+      title.title = knTask ? `ナレッジで開く: ${knTask.title}` : '';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'relation-chip__remove';
+      removeBtn.dataset.action = 'remove-kn-link';
+      removeBtn.dataset.linkId = link.id;
+      removeBtn.textContent = '×';
+      removeBtn.setAttribute('aria-label', '紐づきを解除');
+      removeBtn.title = '紐づきを解除';
+
+      chip.appendChild(title);
+      chip.appendChild(removeBtn);
+      container.appendChild(chip);
+    }
+  },
 };
 
 // ==================================================
@@ -1608,6 +1721,10 @@ const EventHandlers = {
       if (picker && !picker.hidden && !picker.contains(e.target)) {
         this._closeTaskPicker();
       }
+      const knPicker = document.getElementById('kn-picker');
+      if (knPicker && !knPicker.hidden && !knPicker.contains(e.target)) {
+        this._closeKnPicker();
+      }
     });
 
     // タスクピッカー検索入力
@@ -1620,6 +1737,18 @@ const EventHandlers = {
       const item = e.target.closest('[data-action="select-relation-task"]');
       if (!item) return;
       this._onSelectRelationTask(item, db);
+    });
+
+    // ナレッジピッカー検索入力
+    document.getElementById('kn-picker-input').addEventListener('input', (e) => {
+      this._filterKnPickerList(e.target.value);
+    });
+
+    // ナレッジピッカーのリストクリック委譲
+    document.getElementById('kn-picker-list').addEventListener('click', (e) => {
+      const item = e.target.closest('[data-action="select-kn-task"]');
+      if (!item) return;
+      this._onSelectKnTask(item, db).catch(console.error);
     });
 
     // 期限フィルター
@@ -1670,6 +1799,10 @@ const EventHandlers = {
       case 'remove-relation':    this._onRemoveRelation(btn, db);   break;
       case 'open-related-task':  this._onOpenRelatedTask(btn, db);  break;
       case 'select-relation-task': this._onSelectRelationTask(btn, db); break;
+      case 'pick-knowledge-task':  this._onPickKnowledgeTask(btn, db).catch(console.error); break;
+      case 'select-kn-task':       this._onSelectKnTask(btn, db).catch(console.error); break;
+      case 'remove-kn-link':       this._onRemoveKnLink(btn, db).catch(console.error); break;
+      case 'open-kn-task':         this._onOpenKnTask(btn); break;
     }
   },
 
@@ -2514,6 +2647,113 @@ const EventHandlers = {
     State._pickerCandidates = null;
   },
 
+  // ---- ナレッジ紐づけ操作 ----
+
+  /** ナレッジピッカーを開く */
+  async _onPickKnowledgeTask(btn, db) {
+    if (!State.currentTaskId) return;
+
+    // 既存リンクを除外
+    const existingLinks = await db.getKnowledgeLinksByTodo(State.currentTaskId).catch(() => []);
+    const excludeIds = new Set(existingLinks.map(l => l.kn_task_id));
+
+    // knowledge_db からタスク一覧を取得
+    let knTasks = [];
+    try {
+      const knDb = await _openKnowledgeDB();
+      knTasks = await new Promise((resolve, reject) => {
+        const req = knDb.transaction('tasks').objectStore('tasks').getAll();
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror   = e => reject(e.target.error);
+      });
+      knDb.close();
+    } catch (e) {
+      Toast.show('ナレッジDBを開けませんでした', 'error');
+      return;
+    }
+
+    State._knPickerCandidates = knTasks.filter(t => !excludeIds.has(t.id));
+
+    const picker = document.getElementById('kn-picker');
+    const input  = document.getElementById('kn-picker-input');
+    input.value  = '';
+    this._renderKnPickerList(State._knPickerCandidates);
+
+    const rect = btn.getBoundingClientRect();
+    picker.style.top  = (rect.bottom + 4) + 'px';
+    picker.style.left = rect.left + 'px';
+    picker.removeAttribute('hidden');
+    input.focus();
+  },
+
+  /** ナレッジピッカーのリストを描画 */
+  _renderKnPickerList(tasks) {
+    const list = document.getElementById('kn-picker-list');
+    list.innerHTML = '';
+    if (tasks.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'task-picker__empty';
+      empty.textContent = '選択可能なナレッジタスクがありません';
+      list.appendChild(empty);
+      return;
+    }
+    for (const t of tasks) {
+      const item = document.createElement('li');
+      item.className = 'task-picker__item';
+      item.dataset.action = 'select-kn-task';
+      item.dataset.taskId = t.id;
+
+      const titleEl = document.createElement('span');
+      titleEl.className = 'task-picker__item-title';
+      titleEl.textContent = t.title;
+
+      item.appendChild(titleEl);
+      list.appendChild(item);
+    }
+  },
+
+  /** ナレッジピッカーの検索フィルター */
+  _filterKnPickerList(query) {
+    const q = query.toLowerCase();
+    const candidates = (State._knPickerCandidates || []).filter(
+      t => t.title.toLowerCase().includes(q),
+    );
+    this._renderKnPickerList(candidates);
+  },
+
+  /** ナレッジピッカーを閉じる */
+  _closeKnPicker() {
+    const picker = document.getElementById('kn-picker');
+    if (picker) picker.setAttribute('hidden', '');
+    State._knPickerCandidates = null;
+  },
+
+  /** ナレッジタスクを選択して紐づけ */
+  async _onSelectKnTask(btn, db) {
+    const knTaskId  = parseInt(btn.dataset.taskId, 10);
+    const todoTaskId = State.currentTaskId;
+    if (!todoTaskId || !knTaskId) return;
+
+    await db.addKnowledgeLink(todoTaskId, knTaskId);
+    this._closeKnPicker();
+    await Renderer.renderKnowledgeLinks(todoTaskId, db);
+    markDirty();
+  },
+
+  /** ナレッジ紐づけを解除 */
+  async _onRemoveKnLink(btn, db) {
+    const linkId = parseInt(btn.dataset.linkId, 10);
+    await db.deleteKnowledgeLink(linkId);
+    await Renderer.renderKnowledgeLinks(State.currentTaskId, db);
+    markDirty();
+  },
+
+  /** ナレッジページでタスクを開く（親フレームにナビゲーション要求を送信） */
+  _onOpenKnTask(btn) {
+    const knTaskId = parseInt(btn.dataset.knTaskId, 10);
+    parent.postMessage({ type: 'navigate:knowledge', knTaskId }, '*');
+  },
+
 };
 
 // ==================================================
@@ -2574,6 +2814,13 @@ const App = {
 
     // イベントハンドラを初期化
     EventHandlers.init(db);
+
+    // 親フレームからの navigate:todo 指示を受信してモーダルを開く
+    window.addEventListener('message', async (e) => {
+      const { type, todoTaskId } = e.data || {};
+      if (type !== 'navigate:todo' || !todoTaskId) return;
+      await Renderer.renderModal(todoTaskId, db);
+    });
 
     // ソート選択の初期値を設定
     const sortSelect = document.getElementById('sort-select');

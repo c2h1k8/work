@@ -48,7 +48,10 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `State.sort: { field, dir }` でソート状態を保持。localStorage `kanban_sort` に永続化
 - `State.taskLabels: Map<taskId, Set<labelId>>` はフィルター用キャッシュ。`renderBoard()` でリビルド、ラベル追加／削除時にインクリメンタル更新
 - `State.filter: { text, labelIds }` でフィルター状態を保持。`applyFilter()` でカードの表示／非表示を制御
-- IndexedDB は version 2（`columns` ストアを v2 で追加。`key` / `position` インデックス付き）
+- IndexedDB は version 2（`columns` ストアを v2 で追加、`knowledge_links` ストアも v2 で追加）
+- `knowledge_links` スキーマ: `{ id, todo_task_id, kn_task_id }`。インデックス: `todo_task_id` / `kn_task_id`
+- `Renderer.renderKnowledgeLinks(taskId, db)`: モーダルサイドバーの「ナレッジ」セクションを描画
+- `_openKnowledgeDB()`: `knowledge_db` を開くモジュールレベルヘルパー（todo.js 内）
 - 期限日フィールドはカスタムカレンダー（`js/base/date_picker.js` の `DatePicker`）で選択。`#modal-due` は hidden input
 - カラムは動的追加・削除可能。削除時にタスクが残っていればブロック
 
@@ -189,6 +192,8 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - CSS: `knowledge.less` に `:root { --color-card, --color-border, ... }` を追加（DatePicker が参照）
 - モジュール構成: `KnowledgeDB` / `State` / `Renderer` / `EventHandlers` / `App`
 - エクスポート/インポート: JSON形式（`type: 'knowledge_export'`）
+- **TODOとの紐づけ**: `kanban_db` の `knowledge_links` ストアに `{ id, todo_task_id, kn_task_id }` 形式で保存。詳細パネル末尾の「紐づきTODO」セクションに表示。`Renderer.renderTodoLinks(knTaskId)` で描画、`_openKanbanDB()` で cross-DB アクセス
+- `_openKanbanDB()`: `kanban_db` を開くモジュールレベルヘルパー（knowledge.js 内）
 
 ## 注意事項
 
