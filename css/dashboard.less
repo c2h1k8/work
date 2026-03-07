@@ -930,7 +930,7 @@ body {
   border-top: 1px solid @border;
 }
 
-// ── 設定パネルナビボタン（環境バインド変数への入口） ─────────────
+// ── 設定パネルナビボタン（共通バインド変数への入口） ─────────────
 .settings-nav-row {
   margin-bottom: 12px;
 }
@@ -973,19 +973,19 @@ body {
   flex-shrink: 0;
 }
 
-// ── 環境バー ──────────────────────────────────────────────
-#env-bar {
+// ── バインド変数バー ──────────────────────────────────────────────
+#bind-bar {
   max-width: 1440px;
   margin: 20px auto 0;
   padding: 0 32px;
 }
 
-// env-bar が表示されているときはホームグリッドの上余白を縮小
-#env-bar:not([hidden]) + .home {
+// bind-bar が表示されているときはホームグリッドの上余白を縮小
+#bind-bar:not([hidden]) + .home {
   padding-top: 16px;
 }
 
-.env-bar__inner {
+.bind-bar__inner {
   background: @card-bg;
   border: 1px solid @border;
   border-radius: @radius-md;
@@ -996,7 +996,7 @@ body {
   box-shadow: @shadow;
 }
 
-.env-bar__label {
+.bind-bar__label {
   font-size: 11px;
   font-weight: 700;
   color: @text-muted;
@@ -1006,7 +1006,7 @@ body {
   flex-shrink: 0;
 }
 
-.env-bar__select {
+.bind-bar__select {
   height: 30px;
   border: 1.5px solid @border;
   border-radius: @radius-sm;
@@ -1024,13 +1024,13 @@ body {
 }
 
 // タブ型
-.env-tabs {
+.bind-tabs {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
 }
 
-.env-tab {
+.bind-tab {
   padding: 5px 14px;
   border-radius: @radius-sm;
   border: 1.5px solid @border;
@@ -1055,14 +1055,14 @@ body {
 }
 
 // セグメントコントロール型
-.env-segment {
+.bind-segment {
   display: flex;
   border: 1.5px solid @border;
   border-radius: @radius-sm;
   overflow: hidden;
 }
 
-.env-segment__item {
+.bind-segment__item {
   display: flex;
   align-items: center;
   padding: 5px 14px;
@@ -1090,7 +1090,7 @@ body {
   }
 }
 
-// ── 環境バインド変数 設定ビュー ───────────────────────────
+// ── 共通バインド変数 設定ビュー ───────────────────────────
 .settings-help {
   font-size: 12px;
   color: @text-muted;
@@ -1107,7 +1107,7 @@ body {
   }
 }
 
-.env-var-badge {
+.bind-var-badge {
   background: darken(@accent-l, 2%);
   border: 1px solid lighten(@accent, 25%);
   border-radius: 4px;
