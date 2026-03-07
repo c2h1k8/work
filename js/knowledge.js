@@ -228,6 +228,37 @@ const State = {
   _labelFilters: [],   // LabelFilter インスタンス（renderFilterUI で管理）
 };
 
+// ── フィルター状態の永続化 ──────────────────────────────────────
+function _saveFilter() {
+  const serialized = {};
+  for (const [key, val] of Object.entries(State.listFilter)) {
+    if (val instanceof Set && val.size > 0) {
+      serialized[key] = { type: 'set', values: [...val] };
+    } else if (val) {
+      serialized[key] = { type: 'string', value: val };
+    }
+  }
+  localStorage.setItem('kn_filter', JSON.stringify(serialized));
+}
+
+function _loadFilter() {
+  try {
+    const raw = localStorage.getItem('kn_filter');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    for (const [key, entry] of Object.entries(parsed)) {
+      const fieldId = Number(key);
+      const field = State.fields.find(f => f.id === fieldId);
+      if (!field || !field.listVisible) continue;
+      if (field.type === 'select' && entry.type === 'string') {
+        State.listFilter[key] = entry.value;
+      } else if (field.type === 'label' && entry.type === 'set') {
+        State.listFilter[key] = new Set(entry.values || []);
+      }
+    }
+  } catch (e) { /* ignore */ }
+}
+
 // ── ユーティリティ ──────────────────────────────────────────────
 function _esc(str) {
   return String(str ?? '')
@@ -318,10 +349,15 @@ const Renderer = {
 
       case 'label': {
         if (!entry) return '';
-        let labels = [];
-        try { labels = JSON.parse(entry.value); } catch { return ''; }
-        if (labels.length === 0) return '';
-        return labels.map(l => `<span class="kn-task-field-badge kn-task-field-badge--label">${_esc(l)}</span>`).join('');
+        let labelNames = [];
+        try { labelNames = JSON.parse(entry.value); } catch { return ''; }
+        if (labelNames.length === 0) return '';
+        const opts = field.options || [];
+        return labelNames.map(name => {
+          const opt = opts.find(o => o.name === name);
+          const color = opt?.color || '#8957e5';
+          return `<span class="kn-task-field-badge kn-task-field-badge--label" style="background:${color}22;color:${color};">${_esc(name)}</span>`;
+        }).join('');
       }
 
       case 'date':
@@ -421,10 +457,10 @@ const Renderer = {
         CustomSelect.create(select);
 
       } else if (f.type === 'label') {
-        // LabelFilter コンポーネントを使用
-        const options = f.options || [];
+        // LabelFilter コンポーネントを使用（カラー付き）
+        const opts = f.options || [];
         const activeSet = State.listFilter[f.id] instanceof Set ? State.listFilter[f.id] : new Set();
-        const items = options.map(o => ({ id: o, name: o }));
+        const items = opts.map(o => ({ id: o.name, name: o.name, color: o.color }));
 
         const lfContainer = document.createElement('div');
         row.appendChild(lfContainer);
@@ -436,6 +472,7 @@ const Renderer = {
           label: f.name,
           onChange: selected => {
             State.listFilter[fieldId] = selected;
+            _saveFilter();
             Renderer.renderTaskList();
           },
         });
@@ -566,10 +603,10 @@ const Renderer = {
     `;
   },
 
-  // ラベルタイプ：バッジトグル形式（チェックボックスなし、保存ボタンなし）
+  // ラベルタイプ：バッジトグル形式（チェックボックスなし、保存ボタンなし、カラー付き）
   _renderLabelForm(field, entries) {
-    const options = field.options || [];
-    if (options.length === 0) {
+    const opts = field.options || [];
+    if (opts.length === 0) {
       return '<p class="kn-empty-msg kn-empty-msg--inline">選択肢が設定されていません。フィールド管理で追加してください。</p>';
     }
 
@@ -582,12 +619,19 @@ const Renderer = {
     return `
       <div class="kn-label-form" data-field-id="${field.id}" data-entry-id="${entryId !== null ? entryId : ''}">
         <div class="kn-label-form__options">
-          ${options.map(o => `
-            <button class="kn-label-tag${selectedLabels.includes(o) ? ' is-active' : ''}"
-                    data-action="toggle-label" data-field-id="${field.id}" data-option="${_esc(o)}">
-              ${_esc(o)}
-            </button>
-          `).join('')}
+          ${opts.map(opt => {
+            const isActive = selectedLabels.includes(opt.name);
+            const style = isActive
+              ? `background:${opt.color};border-color:${opt.color};color:#fff;`
+              : `border-color:${opt.color}66;color:${opt.color};`;
+            return `
+              <button class="kn-label-tag${isActive ? ' is-active' : ''}"
+                      data-action="toggle-label" data-field-id="${field.id}" data-option="${_esc(opt.name)}"
+                      style="${style}">
+                ${_esc(opt.name)}
+              </button>
+            `;
+          }).join('')}
         </div>
       </div>
     `;
@@ -617,7 +661,8 @@ const Renderer = {
     const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '選択', label: 'ラベル' };
     body.innerHTML = `<ul class="kn-field-list">
       ${State.fields.map((f, i) => {
-        const hasOptions = f.type === 'select' || f.type === 'label';
+        const hasSelectOptions = f.type === 'select';
+        const hasLabelOptions  = f.type === 'label';
         const options = f.options || [];
         // half は旧データ互換として auto 扱い
         const rawWidth = f.width || 'full';
@@ -625,8 +670,8 @@ const Renderer = {
         return `
           <li class="kn-field-item" data-field-id="${f.id}">
             <div class="kn-field-item__main">
-              <span class="kn-field-item__name">${_esc(f.name)}</span>
-              <span class="kn-field-item__type">${typeLabels[f.type] || f.type}</span>
+              <span class="kn-field-item__name kn-field-item__name--editable" data-action="edit-field-name" data-field-id="${f.id}" title="クリックしてフィールド名を変更">${_esc(f.name)}</span>
+              <span class="kn-field-item__type" data-type="${f.type}">${typeLabels[f.type] || f.type}</span>
               <select class="kn-select kn-select--sm" data-field-width="${f.id}" title="表示幅">
                 <option value="auto" ${displayWidth === 'auto' ? 'selected' : ''}>標準</option>
                 <option value="wide" ${displayWidth === 'wide' ? 'selected' : ''}>広幅</option>
@@ -643,11 +688,19 @@ const Renderer = {
               <div class="kn-field-item__actions">
                 <button class="kn-icon-btn" data-action="move-field-up" data-field-id="${f.id}" ${i === 0 ? 'disabled' : ''} title="上へ">↑</button>
                 <button class="kn-icon-btn" data-action="move-field-down" data-field-id="${f.id}" ${i === State.fields.length - 1 ? 'disabled' : ''} title="下へ">↓</button>
-                ${hasOptions ? `
+                ${hasSelectOptions ? `
                   <button class="kn-icon-btn" data-action="toggle-field-options" data-field-id="${f.id}" title="選択肢を管理">
                     <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
                       <path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v2.5A1.75 1.75 0 0 1 14.25 7H1.75A1.75 1.75 0 0 1 0 5.25Zm1.75-.25a.25.25 0 0 0-.25.25v2.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-2.5a.25.25 0 0 0-.25-.25ZM0 10.75C0 9.784.784 9 1.75 9h12.5c.966 0 1.75.784 1.75 1.75v2.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v2.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-2.5a.25.25 0 0 0-.25-.25Z"/>
                     </svg>
+                  </button>
+                ` : ''}
+                ${hasLabelOptions ? `
+                  <button class="btn-manage-labels kn-icon-btn--manage-labels" data-action="open-label-manager" data-field-id="${f.id}" title="ラベルを管理">
+                    <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
+                      <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.879a1.5 1.5 0 0 1 1.06.44l8.5 8.5a1.5 1.5 0 0 1 0 2.12l-3.878 3.879a1.5 1.5 0 0 1-2.122 0l-8.5-8.5A1.5 1.5 0 0 1 1 6.38Zm1.5 0v3.879l8.5 8.5 3.879-3.878-8.5-8.5ZM6 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/>
+                    </svg>
+                    ラベル
                   </button>
                 ` : ''}
                 <button class="kn-icon-btn kn-icon-btn--danger" data-action="delete-field" data-field-id="${f.id}" title="削除">
@@ -657,7 +710,7 @@ const Renderer = {
                 </button>
               </div>
             </div>
-            ${hasOptions ? `
+            ${hasSelectOptions ? `
               <div class="kn-field-item__options" id="field-options-${f.id}" hidden>
                 <div class="kn-option-chips">
                   ${options.length > 0
@@ -714,6 +767,7 @@ const EventHandlers = {
       if (!sel) return;
       const fieldId = Number(sel.dataset.filterSelect);
       State.listFilter[fieldId] = sel.value || null;
+      _saveFilter();
       Renderer.renderTaskList();
     });
 
@@ -818,7 +872,8 @@ const EventHandlers = {
 
     // フィールドタイプ変更でオプション入力欄を切り替え
     document.getElementById('new-field-type').addEventListener('change', e => {
-      const needsOptions = e.target.value === 'select' || e.target.value === 'label';
+      // label タイプは LabelManager で管理するため、新規作成時は選択肢不要
+      const needsOptions = e.target.value === 'select';
       document.getElementById('new-field-options-row').hidden = !needsOptions;
     });
   },
@@ -943,8 +998,8 @@ const EventHandlers = {
     const entry = await db.addEntry(State.selectedTaskId, fieldId, label, value);
     State.entries.push(entry);
     State.allEntries.push(entry);
+    await this._touchTask(db);
     await Renderer.renderDetail();
-    Renderer.renderTaskList();
   },
 
   async _onDeleteEntry(btn, db) {
@@ -952,8 +1007,8 @@ const EventHandlers = {
     await db.deleteEntry(entryId);
     State.entries = State.entries.filter(e => e.id !== entryId);
     State.allEntries = State.allEntries.filter(e => e.id !== entryId);
+    await this._touchTask(db);
     await Renderer.renderDetail();
-    Renderer.renderTaskList();
   },
 
   // テキストフィールドの自動保存
@@ -973,7 +1028,7 @@ const EventHandlers = {
       State.allEntries.push(entry);
       if (textarea) textarea.dataset.entryId = entry.id;
     }
-    Renderer.renderTaskList();
+    await this._touchTask(db);
   },
 
   // 選択フィールドの自動保存
@@ -1000,7 +1055,7 @@ const EventHandlers = {
       State.allEntries.push(entry);
       if (select) select.dataset.entryId = entry.id;
     }
-    Renderer.renderTaskList();
+    await this._touchTask(db);
   },
 
   // カスタム日付ピッカーを開く
@@ -1028,8 +1083,8 @@ const EventHandlers = {
             State.allEntries.push(entry);
           }
         }
+        await this._touchTask(db).catch(console.error);
         await Renderer.renderDetail().catch(console.error);
-        Renderer.renderTaskList();
       },
       async () => {
         // クリア時
@@ -1037,8 +1092,8 @@ const EventHandlers = {
           await db.deleteEntry(entryId).catch(console.error);
           State.entries = State.entries.filter(e => e.id !== entryId);
           State.allEntries = State.allEntries.filter(e => e.id !== entryId);
+          await this._touchTask(db).catch(console.error);
           await Renderer.renderDetail().catch(console.error);
-          Renderer.renderTaskList();
         }
       },
     );
@@ -1085,21 +1140,126 @@ const EventHandlers = {
       form.dataset.entryId = newEntry.id;
     }
 
-    // ボタンの is-active をインプレース更新（再レンダリング不要）
-    btn.classList.toggle('is-active', selectedLabels.includes(optionValue));
-    Renderer.renderTaskList();
+    // ボタンのスタイルをインプレース更新（再レンダリング不要）
+    const isActive = selectedLabels.includes(optionValue);
+    btn.classList.toggle('is-active', isActive);
+    const field = State.fields.find(f => f.id === fieldId);
+    if (field?.type === 'label') {
+      const opts = field.options || [];
+      const opt = opts.find(o => o.name === optionValue);
+      if (opt) {
+        btn.style.cssText = isActive
+          ? `background:${opt.color};border-color:${opt.color};color:#fff;`
+          : `border-color:${opt.color}66;color:${opt.color};`;
+      }
+    }
+    await this._touchTask(db);
+  },
+
+  /** ラベルタイプフィールドのラベル管理ダイアログを開く */
+  async _onOpenLabelManager(btn, db) {
+    const fieldId = Number(btn.dataset.fieldId);
+    const field = State.fields.find(f => f.id === fieldId);
+    if (!field) return;
+
+    // 選択肢を {id, name, color} 形式に正規化
+    const labels = field.options || [].map(o => ({ id: o.name, name: o.name, color: o.color }));
+
+    LabelManager.open({
+      title: `${field.name} — ラベル設定`,
+      labels,
+      onAdd: async (name, color) => {
+        const opts = field.options || [];
+        if (opts.some(o => o.name === name)) { showToast('同名のラベルがすでに存在します'); throw new Error('duplicate'); }
+        opts.push({ name, color });
+        field.options = opts;
+        await db.updateField(field);
+        return { id: name, name, color };
+      },
+      onUpdate: async (id, newName, newColor) => {
+        const opts = field.options || [];
+        const opt = opts.find(o => o.name === id);
+        if (!opt) return;
+        const oldName = opt.name;
+        opt.name = newName;
+        opt.color = newColor;
+        field.options = opts;
+        await db.updateField(field);
+        // エントリ内の旧ラベル名を新名に更新
+        if (oldName !== newName) {
+          const affected = [...State.allEntries, ...State.entries].filter(
+            e => e.field_id === fieldId
+          );
+          const seen = new Set();
+          for (const entry of affected) {
+            if (seen.has(entry.id)) continue;
+            seen.add(entry.id);
+            try {
+              let names = JSON.parse(entry.value);
+              const idx = names.indexOf(oldName);
+              if (idx !== -1) {
+                names[idx] = newName;
+                entry.value = JSON.stringify(names);
+                await db.updateEntry(entry);
+              }
+            } catch {}
+          }
+        }
+      },
+      onDelete: async (id) => {
+        // id = option name
+        const opts = field.options || [].filter(o => o.name !== id);
+        field.options = opts;
+        await db.updateField(field);
+        // エントリから削除されたオプションを除去
+        const affected = [...State.allEntries, ...State.entries].filter(
+          e => e.field_id === fieldId
+        );
+        const seen = new Set();
+        for (const entry of affected) {
+          if (seen.has(entry.id)) continue;
+          seen.add(entry.id);
+          try {
+            let names = JSON.parse(entry.value);
+            const filtered = names.filter(n => n !== id);
+            if (filtered.length !== names.length) {
+              entry.value = JSON.stringify(filtered);
+              await db.updateEntry(entry);
+            }
+          } catch {}
+        }
+        // フィルター状態から除去
+        if (State.listFilter[fieldId] instanceof Set) {
+          State.listFilter[fieldId].delete(id);
+          _saveFilter();
+        }
+      },
+      onChange: async () => {
+        State.fields = await db.getAllFields();
+        State.allEntries = await db.getAllEntries();
+        if (State.selectedTaskId) {
+          State.entries = await db.getEntriesByTask(State.selectedTaskId);
+          await Renderer.renderDetail();
+        }
+        Renderer.renderFilterUI();
+        Renderer.renderTaskList();
+        Renderer.renderFieldModal();
+      },
+    });
   },
 
   async _onFieldModalAction(btn, db) {
     switch (btn.dataset.action) {
       case 'close-field-modal':    document.getElementById('field-modal').hidden = true; break;
       case 'add-field':            await this._onAddField(db); break;
+      case 'edit-field-name':      await this._onEditFieldName(btn, db); break;
       case 'delete-field':         await this._onDeleteField(btn, db); break;
       case 'move-field-up':        await this._onMoveField(btn, 'up', db); break;
       case 'move-field-down':      await this._onMoveField(btn, 'down', db); break;
       case 'toggle-field-options': this._onToggleFieldOptions(btn); break;
       case 'add-field-option':     await this._onAddFieldOption(btn, db); break;
       case 'remove-field-option':  await this._onRemoveFieldOption(btn, db); break;
+      case 'open-label-manager':   await this._onOpenLabelManager(btn, db); break;
     }
   },
 
@@ -1110,12 +1270,13 @@ const EventHandlers = {
     if (!name) { showToast('フィールド名を入力してください'); return; }
 
     let options = [];
-    if (type === 'select' || type === 'label') {
+    if (type === 'select') {
       const optionsInput = document.getElementById('new-field-options');
       if (optionsInput) {
         options = optionsInput.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
       }
     }
+    // label タイプは空で作成→LabelManager で追加
 
     const field = await db.addField(name, type, options);
     State.fields.push(field);
@@ -1142,6 +1303,7 @@ const EventHandlers = {
     State.allEntries = State.allEntries.filter(e => e.field_id !== fieldId);
     // フィールド削除後はフィルターもクリア
     delete State.listFilter[fieldId];
+    _saveFilter();
     Renderer.renderFieldModal();
     Renderer.renderFilterUI();
     Renderer.renderTaskList();
@@ -1192,7 +1354,7 @@ const EventHandlers = {
     field.listVisible = visible;
     await db.updateField(field);
     // 非表示にした場合はフィルターもクリア
-    if (!visible) delete State.listFilter[fieldId];
+    if (!visible) { delete State.listFilter[fieldId]; _saveFilter(); }
     Renderer.renderFilterUI();
     Renderer.renderTaskList();
   },
@@ -1202,6 +1364,42 @@ const EventHandlers = {
     const panel = document.getElementById(`field-options-${fieldId}`);
     if (!panel) return;
     panel.hidden = !panel.hidden;
+  },
+
+  async _onEditFieldName(btn, db) {
+    const fieldId = Number(btn.dataset.fieldId);
+    const field = State.fields.find(f => f.id === fieldId);
+    if (!field) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = field.name;
+    input.className = 'kn-input kn-input--sm';
+    input.style.cssText = 'flex: 1; min-width: 60px;';
+    btn.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let _done = false;
+    const save = async (commit) => {
+      if (_done) return;
+      _done = true;
+      const newName = input.value.trim();
+      if (commit && newName && newName !== field.name) {
+        field.name = newName;
+        await db.updateField(field);
+        Renderer.renderFilterUI();
+        if (State.selectedTaskId) await Renderer.renderDetail();
+        showToast(`フィールド名を「${newName}」に変更しました`);
+      }
+      Renderer.renderFieldModal();
+    };
+
+    input.addEventListener('blur', () => save(true).catch(console.error));
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); save(true).catch(console.error); }
+      if (e.key === 'Escape') { save(false).catch(console.error); }
+    });
   },
 
   async _onAddFieldOption(btn, db) {
@@ -1250,6 +1448,26 @@ const EventHandlers = {
     showToast(`「${optionValue}」を削除しました`);
   },
 
+  // タスクの updated_at を更新し、詳細パネルのメタ情報をインプレース更新
+  async _touchTask(db) {
+    if (!State.selectedTaskId) return;
+    const task = State.tasks.find(t => t.id === State.selectedTaskId);
+    if (!task) return;
+    await db.updateTask(task); // task.updated_at = Date.now() がインプレース更新される
+    this._refreshDetailMeta(task);
+    Renderer.renderTaskList();
+  },
+
+  _refreshDetailMeta(task) {
+    const meta = document.querySelector('.kn-detail__meta');
+    if (!meta) return;
+    let text = `作成日: ${new Date(task.created_at).toLocaleString('ja-JP')}`;
+    if (task.updated_at !== task.created_at) {
+      text += `\u3000更新日: ${new Date(task.updated_at).toLocaleString('ja-JP')}`;
+    }
+    meta.textContent = text;
+  },
+
   async _onExport(db) {
     const data = await db.exportData();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1277,6 +1495,7 @@ const EventHandlers = {
       State.selectedTaskId = null;
       State.entries = [];
       State.listFilter = {};
+      _saveFilter();
       Renderer.renderTaskList();
       Renderer.renderFilterUI();
       await Renderer.renderDetail();
@@ -1297,6 +1516,9 @@ const App = {
       KnowledgeDB.getAllFields(),
       KnowledgeDB.getAllEntries(),
     ]);
+
+    // フィルター状態を localStorage から復元
+    _loadFilter();
 
     // ソート状態を localStorage から復元
     const savedSort = localStorage.getItem('kn_sort');

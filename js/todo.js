@@ -219,6 +219,15 @@ class KanbanDB {
     });
   }
 
+  async updateLabel(id, name, color) {
+    return new Promise((resolve, reject) => {
+      const tx  = this.db.transaction('labels', 'readwrite');
+      const req = tx.objectStore('labels').put({ id, name, color });
+      req.onsuccess = () => resolve();
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
   async deleteLabel(id) {
     // task_labels も削除
     const taskLabels = await this._getAll('task_labels');
@@ -1025,22 +1034,17 @@ const Renderer = {
       container.appendChild(chip);
     }
 
-    // 未適用の既存ラベル（クリックで追加、🗑 でシステムから削除）
+    // 未適用の既存ラベル（クリックで追加）
     const existing = document.getElementById('modal-existing-labels');
     if (existing) {
       existing.innerHTML = '';
-      // 適用済み・未適用の全ラベルを表示（適用済みは「追加」ボタンなし）
       for (const label of labels) {
-        const row = document.createElement('div');
-        row.className = 'modal-existing-label-row';
-
         const chip = document.createElement('span');
         chip.className = 'modal-existing-label';
         chip.textContent = label.name;
         chip.style.background  = label.color + '22';
         chip.style.color       = label.color;
         chip.style.borderColor = label.color + '99';
-        // 未適用のみクリックでタスクに追加
         if (!appliedIds.has(label.id)) {
           chip.dataset.action  = 'pick-label';
           chip.dataset.labelId = label.id;
@@ -1048,18 +1052,7 @@ const Renderer = {
         } else {
           chip.classList.add('modal-existing-label--applied');
         }
-
-        const delBtn = document.createElement('button');
-        delBtn.className = 'modal-label-delete-btn';
-        delBtn.dataset.action  = 'delete-label';
-        delBtn.dataset.labelId = label.id;
-        delBtn.setAttribute('aria-label', `${label.name} を削除`);
-        delBtn.title = 'ラベルを削除';
-        delBtn.innerHTML = '<svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>';
-
-        row.appendChild(chip);
-        row.appendChild(delBtn);
-        existing.appendChild(row);
+        existing.appendChild(chip);
       }
     }
   },
@@ -1660,12 +1653,11 @@ const EventHandlers = {
       case 'edit-comment':         this._onEditComment(btn, db);        break;
       case 'save-comment-edit':    this._onSaveCommentEdit(btn, db);    break;
       case 'cancel-comment-edit':  this._onCancelCommentEdit(db);       break;
-      case 'add-label':         this._onAddLabel(db);            break;
+      case 'open-label-manager': this._onManageLabels(db);       break;
       case 'remove-label':      this._onRemoveLabel(btn, db);    break;
       case 'edit-title':        this._onEditTitle();             break;
       case 'edit-description':  this._onEditDescription();       break;
       case 'pick-label':        this._onPickLabel(btn, db);      break;
-      case 'delete-label':      this._onDeleteLabel(btn, db);    break;
       case 'add-column':        this._onAddColumn(db);           break;
       case 'delete-column':     this._onDeleteColumn(btn, db);   break;
       case 'open-datepicker':   this._onOpenDatepicker(db);           break;
@@ -1962,36 +1954,46 @@ const EventHandlers = {
     State.comments.set(taskId, cs.filter(c => !c.deleted_at).map(c => c.body));
   },
 
-  /** ラベル追加 */
-  async _onAddLabel(db) {
-    const nameInput  = document.getElementById('modal-label-name');
-    const colorInput = document.getElementById('modal-label-color');
-    const name  = nameInput.value.trim();
-    const color = colorInput.value;
-    if (!name || !State.currentTaskId) return;
-    const taskId = State.currentTaskId; // レースコンディション防止
-
-    // 同名ラベルが存在するか確認
-    let label = State.labels.find(l => l.name === name && l.color === color);
-    if (!label) {
-      label = await db.addLabel(name, color);
-      State.labels.push(label);
-      renderFilterLabels();
-    }
-
-    await db.addTaskLabel(taskId, label.id);
-    // taskLabels キャッシュ更新
-    if (!State.taskLabels.has(taskId)) State.taskLabels.set(taskId, new Set());
-    State.taskLabels.get(taskId).add(label.id);
-    markDirty();
-    nameInput.value = '';
-    await Renderer.renderModalLabels(taskId, db);
-    await Renderer.refreshCard(taskId, db);
-    // 作業履歴（非同期、失敗してもUIに影響しない）
-    try {
-      await db.addActivity(taskId, 'label_add', { name: label.name, color: label.color });
-      if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
-    } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+  /** ラベル管理ダイアログを開く（LabelManager 共通部品） */
+  async _onManageLabels(db) {
+    LabelManager.open({
+      title: 'ラベル設定',
+      labels: [...State.labels],
+      onAdd: async (name, color) => {
+        const label = await db.addLabel(name, color);
+        State.labels.push(label);
+        return label;
+      },
+      onUpdate: async (id, name, color) => {
+        await db.updateLabel(id, name, color);
+        const label = State.labels.find(l => l.id === id);
+        if (label) { label.name = name; label.color = color; }
+      },
+      onDelete: async (id) => {
+        // 削除前に影響タスクを収集してアクティビティ記録
+        const label = State.labels.find(l => l.id === id);
+        const affectedTaskIds = [];
+        for (const [taskId, labelIds] of State.taskLabels) {
+          if (labelIds.has(id)) affectedTaskIds.push(taskId);
+        }
+        await db.deleteLabel(id);
+        for (const taskId of affectedTaskIds) {
+          try { await db.addActivity(taskId, 'label_remove', { name: label?.name, color: label?.color }); } catch {}
+        }
+        State.labels = State.labels.filter(l => l.id !== id);
+        for (const [, ids] of State.taskLabels) ids.delete(id);
+        State.filter.labelIds.delete(id);
+      },
+      onChange: async () => {
+        markDirty();
+        renderFilterLabels();
+        applyFilter();
+        if (State.currentTaskId) {
+          await Renderer.renderModalLabels(State.currentTaskId, db);
+          await Renderer.refreshCard(State.currentTaskId, db);
+        }
+      },
+    });
   },
 
   /** ラベル削除（タスクから切り離すのみ） */
@@ -2037,46 +2039,6 @@ const EventHandlers = {
         await db.addActivity(taskId, 'label_add', { name: label.name, color: label.color });
         if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
       } catch (e) { console.error('活動履歴の記録に失敗:', e); }
-    }
-  },
-
-  /** ラベルをシステムから完全削除 */
-  async _onDeleteLabel(btn, db) {
-    const labelId = parseInt(btn.dataset.labelId, 10);
-    if (!labelId) return;
-    const label = State.labels.find(l => l.id === labelId);
-    if (!confirm(`ラベル「${label?.name ?? ''}」を削除しますか？\n（このラベルはすべてのタスクから外れます）`)) return;
-
-    // 削除前に影響を受けるタスク ID を収集
-    const affectedTaskIds = [];
-    for (const [taskId, labelIds] of State.taskLabels) {
-      if (labelIds.has(labelId)) affectedTaskIds.push(taskId);
-    }
-
-    await db.deleteLabel(labelId);
-
-    // 影響を受けた全タスクにアクティビティを記録
-    for (const taskId of affectedTaskIds) {
-      try {
-        await db.addActivity(taskId, 'label_remove', { name: label.name, color: label.color });
-      } catch (e) { /* ignore */ }
-    }
-
-    // State.labels から削除
-    State.labels = State.labels.filter(l => l.id !== labelId);
-
-    // taskLabels キャッシュから削除
-    for (const [, ids] of State.taskLabels) ids.delete(labelId);
-
-    // フィルターに含まれていれば解除
-    State.filter.labelIds.delete(labelId);
-
-    markDirty();
-    renderFilterLabels();
-    applyFilter();
-    if (State.currentTaskId) {
-      await Renderer.renderModalLabels(State.currentTaskId, db);
-      await Renderer.refreshCard(State.currentTaskId, db);
     }
   },
 

@@ -41,6 +41,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - コメントは日本語で記載する
 - `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `Toast` / `App` の単一ファイル構成
 - `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
+- `LabelManager` は `js/base/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/base/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`
 - `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
 - `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
 - `State.columns: []` は `{ id, key, name, position }` の配列。`getColumnKeys()` で key 一覧を取得
@@ -170,14 +171,18 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `text`: 単一エントリ。メモ風インライン textarea（自動保存、debounce 600ms）
 - `date`: 単一エントリ。カスタム DatePicker（`js/base/date_picker.js`）で選択。クリッカブルな日付表示エリア
 - `select`: 単一エントリ。インライン select（change イベントで自動保存）
-- `label`: バッジトグル形式（チェックボックスなし・保存ボタンなし）。クリックで即時保存
+- `label`: バッジトグル形式（チェックボックスなし・保存ボタンなし）。クリックで即時保存。オプションは `{name, color}[]` 形式。色はインラインスタイルで適用。管理は LabelManager（フィールド管理モーダルの「ラベル」ボタン）
 - タイプバッジは非表示（フィールド名のみ表示）
 - `field.width`: `'auto'`（標準）/ `'wide'`（広幅=span 2）/ `'full'`（全幅=1/-1）。ダッシュボードと同仕様。旧 `'half'` は `'auto'` 扱い
 - `field.listVisible`: `true` のフィールドをタスク一覧に値バッジとして表示
 - `.kn-fields` は CSS Grid（`auto-fill, minmax(380px, 1fr)`）。≤840px は全幅
 - `State.allEntries`: 全タスクのエントリキャッシュ（タスク一覧表示用）
 - `State.sort`: `{ field, dir }` ソート状態。localStorage `kn_sort` に永続化（`"created_at-desc"` 形式）
-- `State.listFilter`: `{ [fieldId]: string（select）or Set（label） }` フィルター状態（メモリのみ）
+- `State.listFilter`: `{ [fieldId]: string（select）or Set（label） }` フィルター状態。localStorage `kn_filter` に永続化
+- `_saveFilter()` / `_loadFilter()`: フィルター状態を localStorage に保存・復元。フィールド ID をキーに JSON シリアライズ
+- `EventHandlers._touchTask(db)`: 選択中タスクの `updated_at` を更新し、詳細パネルのメタ情報をインプレース更新。エントリ追加・更新・削除時に呼ぶ
+- `EventHandlers._refreshDetailMeta(task)`: 詳細パネルの `.kn-detail__meta` をインプレース更新（再レンダリング不要）
+- フィールド名変更: フィールド管理モーダルのフィールド名をクリックしてインライン編集可能。`_onEditFieldName(btn, db)` で処理
 - `Renderer.renderFilterUI()`: `listVisible=true` な select/label フィールドのフィルター UI を動的生成
 - `Renderer._sortTasks()` / `Renderer._filterTasks()`: ソート・フィルター処理
 - `Renderer._renderFieldBadge()`: フィールドタイプ別バッジ HTML 生成

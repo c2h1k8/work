@@ -450,6 +450,14 @@ body {
 
 .data-table__td--copy:hover .td-copy-icon { opacity: 1; }
 
+// 値が空のセルに — を表示（行の存在を示す）
+.data-table td.data-table__td--empty::after {
+  content: '—';
+  color: @text-muted;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 // ── テーブルツールバー（フィルタ + 列切り替え） ───────────────────────────
 .data-table-toolbar {
   display: flex;
@@ -507,16 +515,16 @@ body {
 }
 
 .data-table-col-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
+  position: fixed;
   background: @card-bg;
   border: 1px solid @border;
   border-radius: @radius-md;
   box-shadow: @shadow;
   padding: 4px 0;
-  z-index: 100;
+  z-index: 200;
   min-width: 140px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .data-table-col-menu__item {

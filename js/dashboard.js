@@ -648,7 +648,10 @@ const Renderer = {
           a.textContent = resolveBindVars(val);
           td.appendChild(a);
         } else {
-          td.textContent = resolveBindVars(val);
+          const resolved = resolveBindVars(val);
+          td.textContent = resolved;
+          // 値が空の場合はプレースホルダークラスを付与（CSS ::after で — を表示）
+          if (!resolved) td.classList.add('data-table__td--empty');
         }
         tr.appendChild(td);
       });
@@ -1744,7 +1747,17 @@ const EventHandlers = {
     const wasHidden = menu.hidden;
     // 全メニューを閉じてから対象を開閉
     document.querySelectorAll('.data-table-col-menu').forEach(m => { m.hidden = true; });
-    if (wasHidden) menu.hidden = false;
+    if (wasHidden) {
+      // position:fixed でカードの overflow:hidden をバイパス
+      const btn = document.querySelector(`[data-action="toggle-table-col-menu"][data-section-id="${sectionId}"]`);
+      if (btn) {
+        const rect = btn.getBoundingClientRect();
+        menu.style.top = `${rect.bottom + 4}px`;
+        menu.style.right = `${window.innerWidth - rect.right}px`;
+        menu.style.left = 'auto';
+      }
+      menu.hidden = false;
+    }
   },
 
   onTableColVisibilityChange(cb) {

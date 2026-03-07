@@ -7,11 +7,13 @@
     <title>TODO</title>
     <link rel="stylesheet" href="./css/base/date_picker.css" />
     <link rel="stylesheet" href="./css/base/label_filter.css" />
+    <link rel="stylesheet" href="./css/base/label_manager.css" />
     <link rel="stylesheet" href="./css/todo.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/marked@4/marked.min.js"></script>
     <script defer src="./js/base/date_picker.js"></script>
     <script defer src="./js/base/label_filter.js"></script>
+    <script defer src="./js/base/label_manager.js"></script>
     <script defer src="./js/todo.js"></script>
   </head>
   <body>
@@ -206,23 +208,15 @@
                 <!-- 適用済みラベル（× 付き）-->
               </div>
               <div id="modal-existing-labels" class="modal__existing-labels">
-                <!-- 未適用の既存ラベル（クリックで追加）＋削除 🗑 -->
+                <!-- 未適用の既存ラベル（クリックで追加） -->
               </div>
-              <div class="modal__label-form">
-                <input
-                  id="modal-label-name"
-                  class="modal__label-input"
-                  type="text"
-                  placeholder="ラベル名"
-                  maxlength="20"
-                />
-                <input
-                  id="modal-label-color"
-                  class="modal__label-color"
-                  type="color"
-                  value="#0969da"
-                />
-                <button class="btn btn--sm btn--secondary" data-action="add-label">追加</button>
+              <div class="modal__label-manage">
+                <button class="btn-manage-labels" data-action="open-label-manager" type="button">
+                  <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor" aria-hidden="true">
+                    <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.879a1.5 1.5 0 0 1 1.06.44l8.5 8.5a1.5 1.5 0 0 1 0 2.12l-3.878 3.879a1.5 1.5 0 0 1-2.122 0l-8.5-8.5A1.5 1.5 0 0 1 1 6.38Zm1.5 0v3.879l8.5 8.5 3.879-3.878-8.5-8.5ZM6 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/>
+                  </svg>
+                  ラベルを管理
+                </button>
               </div>
             </div>
 

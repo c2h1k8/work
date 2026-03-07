@@ -110,7 +110,8 @@ body {
   border-right: 1px solid @border;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  // overflow: hidden を外してドロップダウンが見切れないようにする
+  // タスクリストは内部で overflow-y: auto で処理する
 }
 
 .kn-sidebar__search {
@@ -167,6 +168,7 @@ body {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  padding: 4px 0;
 }
 
 .kn-filter-label {
@@ -212,10 +214,13 @@ body {
 .kn-task-list {
   list-style: none;
   margin: 0;
-  padding: 6px;
+  padding: 8px;
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .kn-task-list__empty {
@@ -229,17 +234,28 @@ body {
   padding: 9px 11px;
   border-radius: @radius-sm;
   cursor: pointer;
-  transition: background @t;
+  transition: background @t, border-color @t, box-shadow @t;
   display: flex;
   flex-direction: column;
   gap: 3px;
   border-left: 3px solid transparent;
+  border: 1px solid @border-l;
+  border-left: 3px solid transparent;
+  background: @card-bg;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
 
-  &:hover { background: @accent-l; }
+  &:hover {
+    background: @accent-l;
+    border-color: fade(@accent, 30%);
+    border-left-color: fade(@accent, 30%);
+    box-shadow: 0 2px 6px rgba(80, 72, 229, .10);
+  }
 
   &.is-selected {
     background: @accent-l;
+    border-color: @accent;
     border-left-color: @accent;
+    box-shadow: 0 2px 8px rgba(80, 72, 229, .15);
   }
 }
 
@@ -273,10 +289,16 @@ body {
   font-weight: 500;
   line-height: 1.6;
 
-  &--select,
-  &--label {
+  &--select {
     background: @accent-l;
     color: @accent;
+  }
+
+  // label タイプはインラインスタイルでカラーを設定（フォールバックのみ）
+  &--label {
+    background: rgba(137, 87, 229, 0.13);
+    color: #8957e5;
+    border-radius: 99px;
   }
 
   &--date {
@@ -649,18 +671,15 @@ body {
   color: @text-sub;
   background: @card-bg;
   cursor: pointer;
-  transition: background @t, border-color @t, color @t;
+  transition: filter @t, opacity @t;
   font-family: inherit;
 
   &:hover {
-    background: @accent-l;
-    border-color: @accent;
-    color: @accent;
+    filter: brightness(0.92);
   }
 
   &.is-active {
-    background: @accent;
-    border-color: @accent;
+    // is-active 時は JS でインラインスタイルを設定（カラー付き）
     color: #fff;
   }
 }
@@ -764,6 +783,19 @@ body {
 
   &--danger {
     &:hover:not(:disabled) { background: #fee2e2; color: #ef4444; }
+  }
+
+  // ラベル管理ボタン（btn-manage-labels 基本スタイルを上書き）
+  &--manage-labels {
+    font-size: 11px;
+    padding: 3px 8px;
+    gap: 4px;
+    border: 1px solid @border;
+    border-radius: @radius-sm;
+    color: @text-muted;
+    background: transparent;
+
+    &:hover { background: @bg; border-color: @accent; color: @accent; }
   }
 }
 
@@ -870,12 +902,32 @@ body {
     font-weight: 500;
     color: @text;
     min-width: 60px;
+
+    &--editable {
+      cursor: pointer;
+      border-radius: 3px;
+      transition: color @t, background @t;
+
+      &:hover {
+        color: @accent;
+        text-decoration: underline dotted;
+      }
+    }
   }
 
   &__type {
     font-size: 11px;
-    color: @text-muted;
+    font-weight: 600;
     flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 99px;
+
+    // タイプ別カラー
+    &[data-type="link"]   { background: #eff6ff; color: #2563eb; }
+    &[data-type="text"]   { background: @border-l; color: @text-sub; }
+    &[data-type="date"]   { background: @green-l; color: @green; }
+    &[data-type="select"] { background: #f5f3ff; color: #7c3aed; }
+    &[data-type="label"]  { background: #fff7ed; color: #c2410c; }
   }
 
   &__actions {
