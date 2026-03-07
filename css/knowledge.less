@@ -143,6 +143,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  // フィルタードロップダウンがタスクリストの上に表示されるようスタッキングコンテキストを確立
+  position: relative;
+  z-index: 1;
 }
 
 .kn-controls__sort {
@@ -681,6 +684,48 @@ body {
   &.is-active {
     // is-active 時は JS でインラインスタイルを設定（カラー付き）
     color: #fff;
+  }
+}
+
+// ── select タイプ（単一選択バッジ） ──────────────────────────
+.kn-select-form {
+  padding-top: 2px;
+}
+
+.kn-select-form__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kn-select-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border: 1px solid @border;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  color: @text-sub;
+  background: @card-bg;
+  cursor: pointer;
+  transition: background @t, color @t, border-color @t;
+  font-family: inherit;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    color: @accent;
+  }
+
+  &.is-active {
+    background: @accent;
+    border-color: @accent;
+    color: #fff;
+
+    &:hover {
+      filter: brightness(0.92);
+    }
   }
 }
 

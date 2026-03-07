@@ -224,7 +224,7 @@ const State = {
   allEntries: [],      // 全タスクのエントリ（タスク一覧表示用キャッシュ）
   searchText: '',
   sort: { field: 'created_at', dir: 'desc' }, // ソート状態（localStorage: kn_sort）
-  listFilter: {},      // field_id → string（select）or Set（label）
+  listFilter: {},      // field_id → Set（select/label 共通）
   _labelFilters: [],   // LabelFilter インスタンス（renderFilterUI で管理）
 };
 
@@ -234,8 +234,6 @@ function _saveFilter() {
   for (const [key, val] of Object.entries(State.listFilter)) {
     if (val instanceof Set && val.size > 0) {
       serialized[key] = { type: 'set', values: [...val] };
-    } else if (val) {
-      serialized[key] = { type: 'string', value: val };
     }
   }
   localStorage.setItem('kn_filter', JSON.stringify(serialized));
@@ -250,9 +248,7 @@ function _loadFilter() {
       const fieldId = Number(key);
       const field = State.fields.find(f => f.id === fieldId);
       if (!field || !field.listVisible) continue;
-      if (field.type === 'select' && entry.type === 'string') {
-        State.listFilter[key] = entry.value;
-      } else if (field.type === 'label' && entry.type === 'set') {
+      if ((field.type === 'select' || field.type === 'label') && entry.type === 'set') {
         State.listFilter[key] = new Set(entry.values || []);
       }
     }
@@ -318,10 +314,10 @@ const Renderer = {
       if (!field) continue;
 
       if (field.type === 'select') {
-        if (!filterVal) continue; // 「すべて」= フィルタなし
+        if (!(filterVal instanceof Set) || filterVal.size === 0) continue;
         result = result.filter(t => {
           const entries = State.allEntries.filter(e => e.task_id === t.id && e.field_id === fieldId);
-          return entries.some(e => e.value === filterVal);
+          return entries.some(e => filterVal.has(e.value));
         });
       } else if (field.type === 'label') {
         if (!(filterVal instanceof Set) || filterVal.size === 0) continue;
@@ -343,9 +339,16 @@ const Renderer = {
   _renderFieldBadge(field, entries) {
     const entry = entries[0] || null;
     switch (field.type) {
-      case 'select':
+      case 'select': {
         if (!entry || !entry.value) return '';
+        const selectOpts = field.options || [];
+        const selectOpt = selectOpts.find(o => o.name === entry.value);
+        const selectColor = selectOpt ? selectOpt.color : null;
+        if (selectColor) {
+          return `<span class="kn-task-field-badge kn-task-field-badge--label" style="background:${selectColor}22;color:${selectColor};">${_esc(entry.value)}</span>`;
+        }
         return `<span class="kn-task-field-badge kn-task-field-badge--select">${_esc(entry.value)}</span>`;
+      }
 
       case 'label': {
         if (!entry) return '';
@@ -413,7 +416,7 @@ const Renderer = {
     }).join('');
   },
 
-  // フィルター UI を再描画（CustomSelect + LabelFilter コンポーネント使用）
+  // フィルター UI を再描画（LabelFilter コンポーネント使用）
   renderFilterUI() {
     const container = document.getElementById('kn-filters');
     const filterFields = State.fields.filter(f => f.listVisible && (f.type === 'select' || f.type === 'label'));
@@ -435,29 +438,8 @@ const Renderer = {
       row.appendChild(labelEl);
       container.appendChild(row);
 
-      if (f.type === 'select') {
-        // CustomSelect で select を置き換える
-        const select = document.createElement('select');
-        select.className = 'kn-select kn-select--sm kn-select--grow';
-        select.dataset.filterSelect = f.id;
-
-        const allOpt = document.createElement('option');
-        allOpt.value = '';
-        allOpt.textContent = 'すべて';
-        select.appendChild(allOpt);
-
-        for (const o of (f.options || [])) {
-          const opt = document.createElement('option');
-          opt.value = o;
-          opt.textContent = o;
-          if (State.listFilter[f.id] === o) opt.selected = true;
-          select.appendChild(opt);
-        }
-        row.appendChild(select);
-        CustomSelect.create(select);
-
-      } else if (f.type === 'label') {
-        // LabelFilter コンポーネントを使用（カラー付き）
+      if (f.type === 'select' || f.type === 'label') {
+        // select / label ともに LabelFilter コンポーネントを使用
         const opts = f.options || [];
         const activeSet = State.listFilter[f.id] instanceof Set ? State.listFilter[f.id] : new Set();
         const items = opts.map(o => ({ id: o.name, name: o.name, color: o.color }));
@@ -477,6 +459,7 @@ const Renderer = {
           },
         });
         State._labelFilters.push(inst);
+
       }
     }
   },
@@ -577,17 +560,8 @@ const Renderer = {
         `;
       }
     } else if (field.type === 'select') {
-      // 選択はインライン select（単一・自動保存）
-      if (options.length === 0) {
-        bodyHtml = `<p class="kn-empty-msg kn-empty-msg--inline">選択肢が設定されていません。フィールド管理で追加してください。</p>`;
-      } else {
-        bodyHtml = `
-          <select class="kn-select kn-select--full" data-select-field="${field.id}" data-entry-id="${entry ? entry.id : ''}">
-            <option value="">選択してください</option>
-            ${options.map(o => `<option value="${_esc(o)}" ${entry && entry.value === o ? 'selected' : ''}>${_esc(o)}</option>`).join('')}
-          </select>
-        `;
-      }
+      // 単一選択ラベル UI（バッジトグル、必ず1つ選択）
+      bodyHtml = this._renderSelectForm(field, entries);
     } else if (field.type === 'label') {
       // ラベルはバッジトグル形式（自動保存）
       bodyHtml = this._renderLabelForm(field, entries);
@@ -637,6 +611,40 @@ const Renderer = {
     `;
   },
 
+  // selectタイプ：単一選択バッジ形式（必ず1つ選択、色付き）
+  _renderSelectForm(field, entries) {
+    const rawOpts = field.options || [];
+    if (rawOpts.length === 0) {
+      return '<p class="kn-empty-msg kn-empty-msg--inline">選択肢が設定されていません。フィールド管理で追加してください。</p>';
+    }
+
+    const currentValue = entries.length > 0 ? entries[0].value : null;
+    const entryId = entries.length > 0 ? entries[0].id : null;
+    const opts = rawOpts;
+
+    return `
+      <div class="kn-select-form" data-field-id="${field.id}" data-entry-id="${entryId !== null ? entryId : ''}">
+        <div class="kn-select-form__options">
+          ${opts.map(opt => {
+            const isActive = opt.name === currentValue;
+            const style = opt.color
+              ? isActive
+                ? `background:${opt.color};border-color:${opt.color};color:#fff;`
+                : `border-color:${opt.color}66;color:${opt.color};`
+              : '';
+            return `
+              <button class="kn-select-tag${isActive ? ' is-active' : ''}"
+                      data-action="toggle-select" data-field-id="${field.id}" data-option="${_esc(opt.name)}"
+                      ${style ? `style="${style}"` : ''}>
+                ${_esc(opt.name)}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  },
+
   // リンクエントリの描画（リンクタイプのみ使用）
   _renderLinkEntry(entry) {
     const display = entry.label || entry.value;
@@ -658,15 +666,13 @@ const Renderer = {
       body.innerHTML = '<p class="kn-empty-msg">フィールドがありません。下のフォームから追加してください。</p>';
       return;
     }
-    const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '選択', label: 'ラベル' };
+    const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '単一ラベル', label: 'ラベル' };
     body.innerHTML = `<ul class="kn-field-list">
       ${State.fields.map((f, i) => {
-        const hasSelectOptions = f.type === 'select';
-        const hasLabelOptions  = f.type === 'label';
+        const hasSelectOptions = false; // 単一選択タイプも LabelManager で管理するため展開パネル不要
+        const hasLabelOptions  = f.type === 'label' || f.type === 'select';
         const options = f.options || [];
-        // half は旧データ互換として auto 扱い
-        const rawWidth = f.width || 'full';
-        const displayWidth = (rawWidth === 'half') ? 'auto' : rawWidth;
+        const displayWidth = f.width || 'full';
         return `
           <li class="kn-field-item" data-field-id="${f.id}">
             <div class="kn-field-item__main">
@@ -696,11 +702,11 @@ const Renderer = {
                   </button>
                 ` : ''}
                 ${hasLabelOptions ? `
-                  <button class="btn-manage-labels kn-icon-btn--manage-labels" data-action="open-label-manager" data-field-id="${f.id}" title="ラベルを管理">
+                  <button class="btn-manage-labels kn-icon-btn--manage-labels" data-action="open-label-manager" data-field-id="${f.id}" title="${f.type === 'select' ? '選択肢を管理' : 'ラベルを管理'}">
                     <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
                       <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.879a1.5 1.5 0 0 1 1.06.44l8.5 8.5a1.5 1.5 0 0 1 0 2.12l-3.878 3.879a1.5 1.5 0 0 1-2.122 0l-8.5-8.5A1.5 1.5 0 0 1 1 6.38Zm1.5 0v3.879l8.5 8.5 3.879-3.878-8.5-8.5ZM6 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/>
                     </svg>
-                    ラベル
+                    ${f.type === 'select' ? '選択肢' : 'ラベル'}
                   </button>
                 ` : ''}
                 <button class="kn-icon-btn kn-icon-btn--danger" data-action="delete-field" data-field-id="${f.id}" title="削除">
@@ -761,16 +767,6 @@ const EventHandlers = {
       Renderer.renderTaskList();
     });
 
-    // フィルター：select タイプ（CustomSelect が dispatch する change イベントで動作）
-    document.getElementById('kn-filters').addEventListener('change', e => {
-      const sel = e.target.closest('[data-filter-select]');
-      if (!sel) return;
-      const fieldId = Number(sel.dataset.filterSelect);
-      State.listFilter[fieldId] = sel.value || null;
-      _saveFilter();
-      Renderer.renderTaskList();
-    });
-
     // ヘッダーアクション（フィールド管理・エクスポート・インポート）
     document.querySelector('.kn-header__actions').addEventListener('click', e => {
       const btn = e.target.closest('[data-action]');
@@ -814,14 +810,6 @@ const EventHandlers = {
       this._textFieldTimers[fieldId] = setTimeout(() => {
         this._onSaveTextField(fieldId, entryId, e.target.value, db, e.target).catch(console.error);
       }, 600);
-    });
-
-    // 選択フィールドの自動保存
-    document.getElementById('detail-content').addEventListener('change', e => {
-      if (!e.target.matches('[data-select-field]')) return;
-      const fieldId = Number(e.target.dataset.selectField);
-      const entryId = e.target.dataset.entryId ? Number(e.target.dataset.entryId) : null;
-      this._onSaveSelectField(fieldId, entryId, e.target.value, db, e.target).catch(console.error);
     });
 
     // フィールド管理モーダルのクリック（イベント委譲）
@@ -870,11 +858,9 @@ const EventHandlers = {
       if (addBtn) addBtn.click();
     });
 
-    // フィールドタイプ変更でオプション入力欄を切り替え
-    document.getElementById('new-field-type').addEventListener('change', e => {
-      // label タイプは LabelManager で管理するため、新規作成時は選択肢不要
-      const needsOptions = e.target.value === 'select';
-      document.getElementById('new-field-options-row').hidden = !needsOptions;
+    // 全タイプで初期選択肢入力不要（選択肢は LabelManager で管理）
+    document.getElementById('new-field-type').addEventListener('change', () => {
+      document.getElementById('new-field-options-row').hidden = true;
     });
   },
 
@@ -906,6 +892,7 @@ const EventHandlers = {
       case 'save-entry':       await this._onSaveEntry(btn, db); break;
       case 'delete-entry':     await this._onDeleteEntry(btn, db); break;
       case 'open-datepicker':  this._onOpenDatePicker(btn, db); break;
+      case 'toggle-select':    await this._onToggleSelect(btn, db); break;
       case 'toggle-label':     await this._onToggleLabel(btn, db); break;
     }
   },
@@ -1031,30 +1018,46 @@ const EventHandlers = {
     await this._touchTask(db);
   },
 
-  // 選択フィールドの自動保存
-  async _onSaveSelectField(fieldId, entryId, value, db, select) {
-    if (entryId) {
-      if (!value) {
-        // 空選択 → エントリ削除
-        await db.deleteEntry(entryId);
-        State.entries = State.entries.filter(e => e.id !== entryId);
-        State.allEntries = State.allEntries.filter(e => e.id !== entryId);
-        if (select) select.dataset.entryId = '';
-      } else {
-        const entry = State.entries.find(e => e.id === entryId);
-        if (entry) {
-          entry.value = value;
-          await db.updateEntry(entry);
-          const cached = State.allEntries.find(e => e.id === entryId);
-          if (cached) cached.value = value;
-        }
-      }
-    } else if (value) {
-      const entry = await db.addEntry(State.selectedTaskId, fieldId, '', value);
-      State.entries.push(entry);
-      State.allEntries.push(entry);
-      if (select) select.dataset.entryId = entry.id;
+  // 選択フィールドのバッジトグル（単一選択・必須）
+  async _onToggleSelect(btn, db) {
+    const fieldId = Number(btn.dataset.fieldId);
+    const optionValue = btn.dataset.option;
+    const form = btn.closest('.kn-select-form');
+    if (!form) return;
+
+    const entryId = form.dataset.entryId ? Number(form.dataset.entryId) : null;
+    const entry = entryId ? State.entries.find(e => e.id === entryId) : null;
+    const currentValue = entry ? entry.value : null;
+
+    // 既に選択済みの値はクリックしても変更しない（単一選択・必須のため解除不可）
+    if (optionValue === currentValue) return;
+
+    if (entry) {
+      entry.value = optionValue;
+      await db.updateEntry(entry);
+      const cached = State.allEntries.find(e => e.id === entryId);
+      if (cached) cached.value = optionValue;
+    } else {
+      const newEntry = await db.addEntry(State.selectedTaskId, fieldId, '', optionValue);
+      State.entries.push(newEntry);
+      State.allEntries.push(newEntry);
+      form.dataset.entryId = newEntry.id;
     }
+
+    // ボタンスタイルをインプレース更新（再レンダリング不要）
+    const selectField = State.fields.find(f => f.id === fieldId);
+    const rawSelectOpts = selectField ? (selectField.options || []) : [];
+    const selectOptsNorm = rawSelectOpts.map(o => typeof o === 'string' ? { name: o, color: '' } : o);
+    form.querySelectorAll('[data-action="toggle-select"]').forEach(b => {
+      const isActive = b.dataset.option === optionValue;
+      b.classList.toggle('is-active', isActive);
+      const optDef = selectOptsNorm.find(o => o.name === b.dataset.option);
+      if (optDef && optDef.color) {
+        b.style.cssText = isActive
+          ? `background:${optDef.color};border-color:${optDef.color};color:#fff;`
+          : `border-color:${optDef.color}66;color:${optDef.color};`;
+      }
+    });
     await this._touchTask(db);
   },
 
@@ -1156,21 +1159,25 @@ const EventHandlers = {
     await this._touchTask(db);
   },
 
-  /** ラベルタイプフィールドのラベル管理ダイアログを開く */
+  /** ラベル・単一選択タイプフィールドの選択肢管理ダイアログを開く */
   async _onOpenLabelManager(btn, db) {
     const fieldId = Number(btn.dataset.fieldId);
     const field = State.fields.find(f => f.id === fieldId);
     if (!field) return;
 
-    // 選択肢を {id, name, color} 形式に正規化
-    const labels = field.options || [].map(o => ({ id: o.name, name: o.name, color: o.color }));
+    const isSelect = field.type === 'select';
+
+    const rawOpts = field.options || [];
+    const labels = rawOpts.map(o => ({ id: o.name, name: o.name, color: o.color }));
 
     LabelManager.open({
-      title: `${field.name} — ラベル設定`,
+      title: `${field.name} — ${isSelect ? '選択肢' : 'ラベル'}設定`,
       labels,
       onAdd: async (name, color) => {
         const opts = field.options || [];
-        if (opts.some(o => o.name === name)) { showToast('同名のラベルがすでに存在します'); throw new Error('duplicate'); }
+        if (opts.some(o => o.name === name)) {
+          showToast('同名の選択肢がすでに存在します'); throw new Error('duplicate');
+        }
         opts.push({ name, color });
         field.options = opts;
         await db.updateField(field);
@@ -1185,48 +1192,62 @@ const EventHandlers = {
         opt.color = newColor;
         field.options = opts;
         await db.updateField(field);
-        // エントリ内の旧ラベル名を新名に更新
+        // エントリ内の旧値を新名に更新
         if (oldName !== newName) {
-          const affected = [...State.allEntries, ...State.entries].filter(
-            e => e.field_id === fieldId
-          );
+          const affected = [...State.allEntries, ...State.entries].filter(e => e.field_id === fieldId);
           const seen = new Set();
           for (const entry of affected) {
             if (seen.has(entry.id)) continue;
             seen.add(entry.id);
-            try {
-              let names = JSON.parse(entry.value);
-              const idx = names.indexOf(oldName);
-              if (idx !== -1) {
-                names[idx] = newName;
-                entry.value = JSON.stringify(names);
+            if (isSelect) {
+              // select: plain string 値
+              if (entry.value === oldName) {
+                entry.value = newName;
                 await db.updateEntry(entry);
               }
-            } catch {}
+            } else {
+              // label: JSON string[] 値
+              try {
+                let names = JSON.parse(entry.value);
+                const idx = names.indexOf(oldName);
+                if (idx !== -1) {
+                  names[idx] = newName;
+                  entry.value = JSON.stringify(names);
+                  await db.updateEntry(entry);
+                }
+              } catch {}
+            }
           }
         }
       },
       onDelete: async (id) => {
-        // id = option name
-        const opts = field.options || [].filter(o => o.name !== id);
-        field.options = opts;
+        const opts = field.options || [];
+        field.options = opts.filter(o => o.name !== id);
         await db.updateField(field);
-        // エントリから削除されたオプションを除去
-        const affected = [...State.allEntries, ...State.entries].filter(
-          e => e.field_id === fieldId
-        );
+        // エントリの後処理
+        const affected = [...State.allEntries, ...State.entries].filter(e => e.field_id === fieldId);
         const seen = new Set();
         for (const entry of affected) {
           if (seen.has(entry.id)) continue;
           seen.add(entry.id);
-          try {
-            let names = JSON.parse(entry.value);
-            const filtered = names.filter(n => n !== id);
-            if (filtered.length !== names.length) {
-              entry.value = JSON.stringify(filtered);
-              await db.updateEntry(entry);
+          if (isSelect) {
+            // select: 削除された値のエントリを除去
+            if (entry.value === id) {
+              await db.deleteEntry(entry.id);
+              State.entries    = State.entries.filter(e => e.id !== entry.id);
+              State.allEntries = State.allEntries.filter(e => e.id !== entry.id);
             }
-          } catch {}
+          } else {
+            // label: JSON 配列から削除されたオプションを除去
+            try {
+              let names = JSON.parse(entry.value);
+              const filtered = names.filter(n => n !== id);
+              if (filtered.length !== names.length) {
+                entry.value = JSON.stringify(filtered);
+                await db.updateEntry(entry);
+              }
+            } catch {}
+          }
         }
         // フィルター状態から除去
         if (State.listFilter[fieldId] instanceof Set) {
@@ -1256,9 +1277,6 @@ const EventHandlers = {
       case 'delete-field':         await this._onDeleteField(btn, db); break;
       case 'move-field-up':        await this._onMoveField(btn, 'up', db); break;
       case 'move-field-down':      await this._onMoveField(btn, 'down', db); break;
-      case 'toggle-field-options': this._onToggleFieldOptions(btn); break;
-      case 'add-field-option':     await this._onAddFieldOption(btn, db); break;
-      case 'remove-field-option':  await this._onRemoveFieldOption(btn, db); break;
       case 'open-label-manager':   await this._onOpenLabelManager(btn, db); break;
     }
   },
@@ -1269,14 +1287,8 @@ const EventHandlers = {
     const type = document.getElementById('new-field-type').value;
     if (!name) { showToast('フィールド名を入力してください'); return; }
 
-    let options = [];
-    if (type === 'select') {
-      const optionsInput = document.getElementById('new-field-options');
-      if (optionsInput) {
-        options = optionsInput.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
-      }
-    }
-    // label タイプは空で作成→LabelManager で追加
+    // 選択肢は LabelManager で管理するため、新規作成時はすべて空で作成
+    const options = [];
 
     const field = await db.addField(name, type, options);
     State.fields.push(field);

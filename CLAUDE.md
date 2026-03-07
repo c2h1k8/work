@@ -170,7 +170,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `link`: 複数エントリ可。追加ボタンあり、表示名＋URL
 - `text`: 単一エントリ。メモ風インライン textarea（自動保存、debounce 600ms）
 - `date`: 単一エントリ。カスタム DatePicker（`js/base/date_picker.js`）で選択。クリッカブルな日付表示エリア
-- `select`: 単一エントリ。インライン select（change イベントで自動保存）
+- `select`: 単一エントリ。バッジトグル形式（単一選択・必須。選択済みをクリックしても解除不可）。オプションは文字列配列 `string[]` 形式。色なし。管理は LabelManager（フィールド管理モーダルの「選択肢」ボタン）。フィールドタイプ表示名は「単一選択」
 - `label`: バッジトグル形式（チェックボックスなし・保存ボタンなし）。クリックで即時保存。オプションは `{name, color}[]` 形式。色はインラインスタイルで適用。管理は LabelManager（フィールド管理モーダルの「ラベル」ボタン）
 - タイプバッジは非表示（フィールド名のみ表示）
 - `field.width`: `'auto'`（標準）/ `'wide'`（広幅=span 2）/ `'full'`（全幅=1/-1）。ダッシュボードと同仕様。旧 `'half'` は `'auto'` 扱い
@@ -178,7 +178,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `.kn-fields` は CSS Grid（`auto-fill, minmax(380px, 1fr)`）。≤840px は全幅
 - `State.allEntries`: 全タスクのエントリキャッシュ（タスク一覧表示用）
 - `State.sort`: `{ field, dir }` ソート状態。localStorage `kn_sort` に永続化（`"created_at-desc"` 形式）
-- `State.listFilter`: `{ [fieldId]: string（select）or Set（label） }` フィルター状態。localStorage `kn_filter` に永続化
+- `State.listFilter`: `{ [fieldId]: Set }` フィルター状態（select/label 共通で Set 形式）。localStorage `kn_filter` に永続化
 - `_saveFilter()` / `_loadFilter()`: フィルター状態を localStorage に保存・復元。フィールド ID をキーに JSON シリアライズ
 - `EventHandlers._touchTask(db)`: 選択中タスクの `updated_at` を更新し、詳細パネルのメタ情報をインプレース更新。エントリ追加・更新・削除時に呼ぶ
 - `EventHandlers._refreshDetailMeta(task)`: 詳細パネルの `.kn-detail__meta` をインプレース更新（再レンダリング不要）
