@@ -94,6 +94,8 @@ const CustomSelect = (() => {
     }
 
     inst.render = render;
+    // 要素からインスタンスを参照できるように保持（外部からの再描画用）
+    selectEl._csInst = inst;
     render();
 
     trigger.addEventListener('click', e => {

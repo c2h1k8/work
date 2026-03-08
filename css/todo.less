@@ -19,23 +19,10 @@
   --color-done:         var(--c-success);
   --color-column-bg:    var(--c-bg-2);
   --color-shadow:       rgba(20,28,80,.1);
-  --radius-sm:          var(--radius-xs);
-  --radius-md:          var(--radius-sm);
-  --radius-lg:          var(--radius-md);
 }
 
-// リセット
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
+// body ページ固有スタイル（基本は ui.css で定義）
 body {
-  margin: 0;
-  font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--c-text);
-  background: var(--c-bg);
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -50,7 +37,6 @@ body {
   border-bottom: 1px solid #54aeff;
   padding: 8px 16px;
 
-  &[hidden] { display: none; }
 
   .migration-banner__inner {
     display: flex;
@@ -338,7 +324,7 @@ body {
     }
 
     &:hover {
-      background: #e9ebee;
+      background: var(--c-bg-2);
       color: var(--color-text);
     }
   }
@@ -493,7 +479,6 @@ body {
   inset: 0;
   z-index: 200;
 
-  &[hidden] { display: none; }
 
   &__backdrop {
     position: fixed;
@@ -552,7 +537,6 @@ body {
     color: var(--color-text);
     word-break: break-word;
 
-    &[hidden] { display: none; }
   }
 
   &__title-input {
@@ -567,7 +551,6 @@ body {
     padding: 2px 0;
     border-bottom: 2px solid var(--color-accent);
 
-    &[hidden] { display: none; }
     &::placeholder { color: var(--color-text-muted); }
   }
 
@@ -592,7 +575,6 @@ body {
       fill: currentColor;
     }
 
-    &[hidden] { display: none; }
 
     &:hover {
       background: var(--color-bg);
@@ -723,7 +705,6 @@ body {
     background: var(--color-bg);
     min-height: 80px;
 
-    &[hidden] { display: none; }
 
     // 空のとき（説明なし）
     &:empty::before {
@@ -747,7 +728,6 @@ body {
     transition: border-color 0.15s;
     outline: none;
 
-    &[hidden] { display: none; }
 
     &:focus {
       border-color: var(--color-accent);
@@ -900,7 +880,6 @@ body {
   flex-direction: column;
   gap: 0;
 
-  &[hidden] { display: none; }
 
   &__tabs {
     display: flex;
@@ -953,7 +932,6 @@ body {
     min-height: 80px;
     font-size: 13px;
 
-    &[hidden] { display: none; }
 
     // 空のとき
     &:empty::before {
@@ -1410,7 +1388,6 @@ body {
   width: 260px;
   padding: 8px;
 
-  &[hidden] { display: none; }
 
   &__input {
     width: 100%;
@@ -1481,48 +1458,7 @@ body {
 // ==================================================
 // ボタン
 // ==================================================
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-family: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-
-  &--primary {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
-    color: #fff;
-
-    &:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
-  }
-
-  &--secondary {
-    background: var(--color-bg);
-    border-color: var(--color-border);
-    color: var(--color-text);
-
-    &:hover { background: #e9ebee; }
-  }
-
-  &--danger {
-    background: var(--color-danger-bg);
-    border-color: var(--color-danger);
-    color: var(--color-danger);
-
-    &:hover { background: var(--color-danger); color: #fff; }
-  }
-
-  &--sm {
-    padding: 3px 10px;
-    font-size: 12px;
-  }
-}
+// .btn は css/base/ui.css で定義（共通化）
 
 // ==================================================
 // フィルターバー
@@ -1687,24 +1623,4 @@ body {
   }
 }
 
-// ==================================================
-// トースト通知
-// ==================================================
-.toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 300;
-  padding: 10px 18px;
-  background: var(--color-text);
-  color: #fff;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: opacity 0.3s;
-
-  &[hidden] { display: none; }
-
-  &--success { background: var(--color-done); }
-  &--error   { background: var(--color-danger); }
-}
+// トースト通知: css/base/toast.css に移動

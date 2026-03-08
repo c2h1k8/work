@@ -14,8 +14,12 @@
       })();
     </script>
     <link rel="stylesheet" href="./css/base/tokens.css" />
+    <link rel="stylesheet" href="./css/base/ui.css" />
+    <link rel="stylesheet" href="./css/base/custom_select.css" />
     <link rel="stylesheet" href="./css/sql.css" />
     <link rel="stylesheet" href="./css/base/date_picker.css" />
+    <script defer src="./js/base/utils.js"></script>
+    <script defer src="./js/base/custom_select.js"></script>
     <script defer src="./js/base/common.js"></script>
     <script defer src="./js/base/local_storage.js"></script>
     <script defer src="./js/base/date_picker.js"></script>
@@ -95,12 +99,12 @@
               <!-- エクスポート / インポート -->
               <div class="env-io">
                 <button id="env-export" class="btn btn--secondary btn--sm">
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Zm-1-5.573 3.25 3.25a.749.749 0 0 0 1.06 0l3.25-3.25a.749.749 0 1 0-1.06-1.06L8 11.19 6.75 9.94 5.81 9H7V2.75a.75.75 0 0 0-1.5 0V9H3.81l-.94.94L1.81 11.19 3.31 9.69a.749.749 0 1 0-1.06 1.06Z"/></svg>
-                  JSONエクスポート
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>
+                  エクスポート
                 </button>
                 <label class="btn btn--secondary btn--sm" for="env-import-file">
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM11.25 1.75 8 5 4.75 1.75a.749.749 0 1 0-1.06 1.06l3.72 3.72a.749.749 0 0 0 1.06 0l3.72-3.72a.749.749 0 1 0-1.06-1.06Z"/></svg>
-                  JSONインポート
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M11.78 4.22a.749.749 0 1 1-1.06 1.06L8.75 3.311V9a.75.75 0 0 1-1.5 0V3.311L5.28 5.28a.749.749 0 1 1-1.06-1.06l3.25-3.25a.749.749 0 0 1 1.06 0l3.25 3.25Z"/></svg>
+                  インポート
                 </label>
                 <input type="file" id="env-import-file" accept=".json" class="sr-only" />
               </div>

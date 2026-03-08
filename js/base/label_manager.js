@@ -16,12 +16,8 @@
 // ==================================================
 
 const LabelManager = (() => {
-  // HTML エスケープ
-  function _esc(str) {
-    return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
+  // HTML エスケープ: js/base/utils.js の escapeHtml を使用
+  const _esc = escapeHtml;
 
   // プリセットカラー（GitHub ライクな発色）
   const PRESET_COLORS = [

@@ -8,17 +8,9 @@
 @nav-height: 48px;
 @font-stack: var(--font);
 
-// ── Global Reset ────────────────────────────────────
-*, *::before, *::after { box-sizing: border-box; }
-
+// ── Global Reset（box-sizing・body 基本は ui.css で定義）──────
 html, body {
   height: 100%;
-  margin: 0;
-  font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--c-text);
-  background: var(--c-bg);
   overflow: hidden;
 }
 
@@ -400,6 +392,8 @@ html, body {
   }
 
   > span:not(.settings-item__custom-badge) {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -407,6 +401,7 @@ html, body {
 }
 
 .settings-item__custom-badge {
+  flex-shrink: 0;
   font-size: 11px;
   color: var(--c-text-3);
   background: var(--c-bg-2);
@@ -505,6 +500,13 @@ html, body {
     color: var(--c-text);
   }
 
+  // CustomSelect のラッパーも同様に全幅ブロック化
+  .cs-wrapper {
+    display: block;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
   input[type="text"],
   select {
     display: block;
@@ -569,21 +571,23 @@ html, body {
 .settings-io-export-btn,
 .settings-io-import-btn {
   flex: 1;
-  padding: 7px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 3px 10px;
   border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
+  border-radius: var(--radius-md);
+  background: var(--c-surface);
   color: var(--c-text);
   font-size: 12px;
   font-family: var(--font);
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--t), border-color var(--t), color var(--t);
+  transition: background var(--t), border-color var(--t);
 
-  &:hover {
-    background: var(--c-bg-2);
-    border-color: var(--c-accent);
-    color: var(--c-accent);
-  }
+  svg { width: 13px; height: 13px; flex-shrink: 0; fill: currentColor; }
+
+  &:hover { background: var(--c-bg-2); }
 }

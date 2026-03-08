@@ -30,7 +30,7 @@ class SqlDB {
   getAllEnvs() {
     return new Promise((resolve, reject) => {
       const req = this._store('envs').getAll();
-      req.onsuccess = () => resolve(req.result.sort((a, b) => a.position - b.position));
+      req.onsuccess = () => resolve(sortByPosition(req.result));
       req.onerror   = (e) => reject(e.target.error);
     });
   }
@@ -723,7 +723,7 @@ function createParamRow(no, s = {}) {
   // ── 型 <select> ──
   const typeSelect     = document.createElement("select");
   typeSelect.id        = `type-${no}`;
-  typeSelect.className = "param-row__type-select";
+  typeSelect.className = "param-row__type-select kn-select--sm";
   typeSelect.setAttribute("aria-label", `型 ${no}`);
   Object.entries(TYPE_DEFS).forEach(([key, def]) => {
     const opt       = document.createElement("option");
@@ -847,6 +847,8 @@ function createParamRow(no, s = {}) {
   }
 
   row.append(useWrap, varnameInput, typeSelect, lenInput, valCell, deleteBtn);
+  // CustomSelect で型セレクトを置き換え（DOM に追加後に適用）
+  CustomSelect.create(typeSelect);
   return row;
 }
 

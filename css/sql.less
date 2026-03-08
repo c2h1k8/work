@@ -16,24 +16,12 @@
   --color-done:         var(--c-success);
   --color-done-bg:      var(--c-success-bg);
   --color-shadow:       rgba(20,28,80,.1);
-  --radius-sm:          var(--radius-xs);
-  --radius-md:          var(--radius-sm);
-  --radius-lg:          var(--radius-md);
+  // radius は tokens.css の値をそのまま使用（--radius-sm=5px / --radius-md=7px / --radius-lg=10px）
 }
 
 // ==================================================
-// ベース
+// ベース（box-sizing・body 基本スタイルは ui.css で定義）
 // ==================================================
-*, *::before, *::after { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--color-text);
-  background: var(--color-bg);
-}
 
 // ==================================================
 // ページヘッダー
@@ -103,7 +91,7 @@ body {
     justify-content: space-between;
     padding: 12px 16px;
     border-bottom: 1px solid var(--color-border);
-    background: var(--color-bg);
+    background: var(--c-surface-raised);
     gap: 8px;
   }
 
@@ -140,7 +128,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    background: var(--color-bg);
+    background: var(--c-surface-raised);
     cursor: pointer;
     list-style: none;
 
@@ -466,85 +454,7 @@ body {
   flex-wrap: wrap;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-family: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  text-decoration: none;
-  user-select: none;
-
-  svg {
-    width: 14px;
-    height: 14px;
-    fill: currentColor;
-    flex-shrink: 0;
-  }
-
-  &:active { transform: translateY(1px); }
-
-  &--primary {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
-    color: #fff;
-    &:hover { background: var(--color-accent-hover); border-color: var(--color-accent-hover); }
-  }
-
-  &--secondary {
-    background: var(--color-card);
-    border-color: var(--color-border);
-    color: var(--color-text);
-    &:hover { background: var(--color-bg); }
-  }
-
-  // 小さいサイズ
-  &--sm {
-    padding: 4px 10px;
-    font-size: 12px;
-    gap: 5px;
-
-    svg { width: 12px; height: 12px; }
-  }
-
-  // ゴーストスタイル（通常操作）
-  &--ghost {
-    background: transparent;
-    border-color: transparent;
-    color: var(--color-text-muted);
-    padding: 4px 6px;
-
-    &:hover {
-      background: var(--color-bg);
-      border-color: var(--color-border);
-      color: var(--color-text);
-    }
-
-    svg { width: 14px; height: 14px; }
-  }
-
-  // ゴーストスタイル（危険操作用）
-  &--ghost-danger {
-    background: transparent;
-    border-color: transparent;
-    color: var(--color-text-muted);
-    padding: 4px 6px;
-
-    &:hover {
-      background: var(--color-danger-bg);
-      border-color: var(--color-danger-bg);
-      color: var(--color-danger);
-    }
-
-    svg { width: 14px; height: 14px; }
-  }
-}
+// .btn は css/base/ui.css で定義（共通化）
 
 // スクリーンリーダー専用（視覚的に非表示）
 .sr-only {
@@ -597,7 +507,7 @@ body {
     }
 
     &:hover {
-      background: #eaecef;
+      background: var(--c-bg-2);
       color: var(--color-text);
     }
   }
@@ -661,7 +571,7 @@ body {
     gap: 8px;
     padding: 5px 8px;
 
-    &:hover { background: #eaecef; }
+    &:hover { background: var(--c-bg-2); }
   }
 
   // 上/下ボタンの縦積みコンテナ
@@ -772,6 +682,12 @@ body {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 2px;
+
+  // ボタンを均等幅に伸ばす
+  .btn { flex: 1; justify-content: center; }
 }
 
 // ==================================================
@@ -898,9 +814,6 @@ body {
 .val-cell {
   display: block;
   min-width: 0;
-
-  // hidden 属性付きの子要素は確実に非表示
-  > [hidden] { display: none !important; }
 }
 
 // DATE 型用の DatePicker トリガーボタン
@@ -951,8 +864,6 @@ body {
   font-weight: 500;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   animation: toast-in 0.2s ease;
-
-  &[hidden] { display: none; }
 
   &--error {
     background: var(--color-danger);

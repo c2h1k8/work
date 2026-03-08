@@ -109,7 +109,7 @@ const NoteDB = (() => {
   // ── フィールド操作 ──────────────────────────────────────────
   async function getAllFields() {
     const fields = await _getAll('fields');
-    return fields.sort((a, b) => a.position - b.position);
+    return sortByPosition(fields);
   }
 
   async function addField(name, type, options = []) {
@@ -268,13 +268,8 @@ function _loadFilter() {
 }
 
 // ── ユーティリティ ──────────────────────────────────────────────
-function _esc(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+// HTML エスケープ: js/base/utils.js の escapeHtml を使用
+const _esc = escapeHtml;
 
 // 日付文字列（YYYY-MM-DD）を日本語形式（YYYY/MM/DD）に変換
 function _formatDate(dateStr) {
@@ -283,13 +278,8 @@ function _formatDate(dateStr) {
   return `${y}/${m}/${d}`;
 }
 
-function showToast(msg) {
-  const el = document.getElementById('note-toast');
-  el.textContent = msg;
-  el.hidden = false;
-  clearTimeout(el._timer);
-  el._timer = setTimeout(() => { el.hidden = true; }, 2500);
-}
+// トースト通知: js/base/toast.js の Toast.show() を使用
+const showToast = (msg) => Toast.show(msg);
 
 // 削除アイコン SVG
 const DEL_SVG = `<svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
@@ -749,7 +739,7 @@ const Renderer = {
             <div class="note-field-item__main">
               <span class="note-field-item__name note-field-item__name--editable" data-action="edit-field-name" data-field-id="${f.id}" title="クリックしてフィールド名を変更">${_esc(f.name)}</span>
               <span class="note-field-item__type" data-type="${f.type}">${typeLabels[f.type] || f.type}</span>
-              <select class="note-select note-select--sm" data-field-width="${f.id}" title="表示幅">
+              <select class="cs-target kn-select--sm" data-field-width="${f.id}" title="表示幅">
                 <option value="auto" ${displayWidth === 'auto' ? 'selected' : ''}>標準</option>
                 <option value="wide" ${displayWidth === 'wide' ? 'selected' : ''}>広幅</option>
                 <option value="full" ${displayWidth === 'full' ? 'selected' : ''}>全幅</option>
@@ -810,6 +800,8 @@ const Renderer = {
         `;
       }).join('')}
     </ul>`;
+    // カスタムセレクトに置き換え
+    CustomSelect.replaceAll(body);
   },
 };
 
@@ -1408,7 +1400,7 @@ const EventHandlers = {
     [a.position, b.position] = [b.position, a.position];
     await db.updateField(a);
     await db.updateField(b);
-    State.fields.sort((x, y) => x.position - y.position);
+    State.fields = sortByPosition(State.fields);
 
     Renderer.renderFieldModal();
     if (State.selectedTaskId) await Renderer.renderDetail();

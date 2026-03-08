@@ -21,10 +21,10 @@
   gap: 6px;
   width: 100%;
   padding: 7px 10px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
-  background: var(--color-card);
-  color: var(--color-text);
+  background: var(--c-surface);
+  color: var(--c-text);
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
@@ -33,12 +33,12 @@
   white-space: nowrap;
 
   &:hover {
-    border-color: var(--color-accent);
+    border-color: var(--c-accent);
   }
 
   &:focus {
     outline: none;
-    border-color: var(--color-accent);
+    border-color: var(--c-accent);
     box-shadow: 0 0 0 3px rgba(80, 72, 229, 0.12);
   }
 
@@ -58,7 +58,7 @@
 
   &__icon {
     flex-shrink: 0;
-    color: var(--color-text-muted);
+    color: var(--c-text-3);
     display: flex;
     align-items: center;
     transition: transform 0.15s;
@@ -69,12 +69,12 @@
 
 // 開いている状態のトリガースタイル
 .cs-wrapper:has(.cs-dropdown--open) .cs-trigger {
-  border-color: var(--color-accent);
+  border-color: var(--c-accent);
   box-shadow: 0 0 0 3px rgba(80, 72, 229, 0.12);
 
   .cs-trigger__icon {
     transform: rotate(180deg);
-    color: var(--color-accent);
+    color: var(--c-accent);
   }
 }
 
@@ -86,8 +86,8 @@
   min-width: 140px;
   max-height: 260px;
   overflow-y: auto;
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: var(--radius-md);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   z-index: 200;
@@ -113,7 +113,7 @@
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-text);
+  color: var(--c-text);
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
@@ -122,12 +122,12 @@
 
   &:hover,
   &:focus {
-    background: var(--color-bg);
+    background: var(--c-bg-2);
     outline: none;
   }
 
   &--selected {
-    color: var(--color-accent);
+    color: var(--c-accent);
     font-weight: 600;
 
     &::before {
@@ -136,7 +136,7 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--color-accent);
+      background: var(--c-accent);
       flex-shrink: 0;
     }
   }

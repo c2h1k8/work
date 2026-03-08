@@ -1,0 +1,24 @@
+// ==================================================
+// Toast: 全ページ共通トースト通知
+// js/base/toast.js とセットで使用する
+// ==================================================
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  padding: 10px 18px;
+  background: var(--c-text);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+
+  &[hidden] { display: none; }
+
+  &--success { background: var(--c-success); }
+  &--error   { background: var(--c-danger); }
+}

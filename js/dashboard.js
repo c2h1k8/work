@@ -30,36 +30,13 @@ const TABLE_COL_HIDDEN_PREFIX = 'dashboard_table_hidden_cols_';
 /** 選択中のプリセットID の localStorage キー（ブラウザ固有の UI 状態） */
 const ACTIVE_PRESET_KEY_PREFIX = 'dashboard_active_preset_';
 
-// ==============================
-// SVG アイコン
-// ==============================
-
-const ICONS = {
-  copy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
-  link: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
-  clipboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-  clipboardSm: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
-  external: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
-  arrow: `<svg class="sheet-card__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>`,
-  clock: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-  urlLinkIcon: `<svg class="url-history__item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
-  columns: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>`,
-  chevron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
-  hamburger: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
-  checkmark: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
-};
+// SVGアイコンは js/base/icons.js の Icons を使用
 
 // ==============================
 // ユーティリティ
 // ==============================
 
-/** HTML 特殊文字をエスケープ */
-const escapeHtml = (str) =>
-  String(str ?? '').replace(/[&<>"']/g, (m) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])
-  );
-
-/** 属性値をエスケープ（escapeHtml と同じ） */
+// HTML エスケープ / 属性エスケープ: js/base/utils.js の escapeHtml を使用
 const escapeAttr = escapeHtml;
 
 /** URL バリデーション */
@@ -67,18 +44,8 @@ const isValidUrl = (url) => {
   try { new URL(url); return true; } catch { return false; }
 };
 
-/** トーストタイマー */
-let _toastTimer = null;
-
-/** トーストを表示 */
-const showToast = (msg = 'コピーしました') => {
-  const toast = document.getElementById('copy-toast');
-  const textEl = toast.querySelector('.toast-text');
-  if (textEl) textEl.textContent = msg;
-  toast.classList.add('is-visible');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2000);
-};
+// トースト通知: js/base/toast.js の Toast.show() を使用
+const showToast = (msg = 'コピーしました') => Toast.show(msg);
 
 // URLパラメータから instance ID を取得（複数ホームタブ対応）
 const _instanceId = new URLSearchParams(location.search).get('instance') || '';
@@ -179,7 +146,7 @@ class HomeDB {
     return new Promise((resolve, reject) => {
       const os = this.db.transaction('sections').objectStore('sections');
       const req = os.index('instance_id').getAll(IDBKeyRange.only(this.instanceId));
-      req.onsuccess = () => resolve(req.result.sort((a, b) => a.position - b.position));
+      req.onsuccess = () => resolve(sortByPosition(req.result));
       req.onerror = () => reject(req.error);
     });
   }
@@ -212,7 +179,7 @@ class HomeDB {
 
   getItemsBySection(sectionId) {
     return this._getAll('items', 'section_id', IDBKeyRange.only(sectionId))
-      .then(items => items.sort((a, b) => a.position - b.position));
+      .then(sortByPosition);
   }
 
   addItem(data) { return this._add('items', data); }
@@ -225,7 +192,7 @@ class HomeDB {
     return new Promise((resolve, reject) => {
       const os = this.db.transaction('presets').objectStore('presets');
       const req = os.index('instance_id').getAll(IDBKeyRange.only(this.instanceId));
-      req.onsuccess = () => resolve(req.result.sort((a, b) => a.position - b.position));
+      req.onsuccess = () => resolve(sortByPosition(req.result));
       req.onerror = () => reject(req.error);
     });
   }
@@ -382,7 +349,7 @@ const Renderer = {
       <button class="card__collapse-btn${isCollapsed ? ' is-collapsed' : ''}"
               data-action="toggle-collapse" data-section-id="${section.id}"
               title="${isCollapsed ? '展開' : '折りたたむ'}">
-        ${ICONS.chevron}
+        ${Icons.chevron}
       </button>
     `;
     el.appendChild(hd);
@@ -429,7 +396,7 @@ const Renderer = {
       row.className = `row ${item.item_type === 'copy' ? 'js-copy' : 'js-link'}`;
       row.href = 'javascript:void(0);';
       row.dataset.value = item.value || '';
-      const cta = item.item_type === 'copy' ? ICONS.clipboard : ICONS.external;
+      const cta = item.item_type === 'copy' ? Icons.clipboard : Icons.external;
       row.innerHTML = `
         <span class="row__label">${escapeHtml(resolveBindVars(item.label || ''))}</span>
         ${item.hint ? `<span class="row__hint">${escapeHtml(resolveBindVars(item.hint))}</span>` : ''}
@@ -466,7 +433,7 @@ const Renderer = {
       card.innerHTML = `
         <span class="sheet-card__emoji">${escapeHtml(item.emoji || (isCopy ? '📋' : '🔗'))}</span>
         <span class="sheet-card__name">${escapeHtml(resolveBindVars(item.label || ''))}</span>
-        ${isCopy ? ICONS.clipboard : ICONS.arrow}
+        ${isCopy ? Icons.clipboard : Icons.arrow}
       `;
       grid.appendChild(card);
     });
@@ -482,7 +449,7 @@ const Renderer = {
     form.innerHTML = `
       <input id="url-input-${sectionId}" type="text" class="url-form__input" placeholder="入力値を入力..." />
       <button class="url-form__btn js-copy-cmd" data-section-id="${sectionId}" data-template="${escapeAttr(template)}" data-action-mode="${isOpen ? 'open' : 'copy'}">
-        ${isOpen ? ICONS.link : ICONS.clipboard}
+        ${isOpen ? Icons.link : Icons.clipboard}
         ${isOpen ? 'URLを開く' : 'コマンドをコピー'}
       </button>
     `;
@@ -505,7 +472,7 @@ const Renderer = {
 
     const hd = document.createElement('p');
     hd.className = 'url-history__hd';
-    hd.innerHTML = `${ICONS.clock} 最近使ったテキスト`;
+    hd.innerHTML = `${Icons.clock} 最近使ったテキスト`;
     wrap.appendChild(hd);
 
     const list = document.createElement('div');
@@ -516,7 +483,7 @@ const Renderer = {
       btn.title = url;
       btn.innerHTML = `
         <span class="url-history__item-num">${i + 1}</span>
-        ${ICONS.urlLinkIcon}
+        ${Icons.urlLinkIcon}
         <span class="url-history__item-text">${escapeHtml(url)}</span>
         <span class="url-history__item-enter">↵ 選択</span>
       `;
@@ -557,7 +524,7 @@ const Renderer = {
     colBtn.className = 'data-table-col-btn';
     colBtn.dataset.action = 'toggle-table-col-menu';
     colBtn.dataset.sectionId = section.id;
-    colBtn.innerHTML = `${ICONS.columns} 列`;
+    colBtn.innerHTML = `${Icons.columns} 列`;
     colToggleWrap.appendChild(colBtn);
 
     const colMenu = document.createElement('div');
@@ -631,7 +598,7 @@ const Renderer = {
         if (col.type === 'copy') {
           td.className = 'data-table__td--copy js-copy';
           td.dataset.value = val;  // コピー時に resolveBindVars で解決
-          td.innerHTML = `${escapeHtml(resolveBindVars(val))}<span class="td-copy-icon">${ICONS.clipboardSm}</span>`;
+          td.innerHTML = `${escapeHtml(resolveBindVars(val))}<span class="td-copy-icon">${Icons.clipboardSm}</span>`;
         } else if (col.type === 'link' && val) {
           td.className = 'data-table__td--link';
           const a = document.createElement('a');
@@ -695,6 +662,8 @@ const Renderer = {
       backBtn.hidden = false;
       body.innerHTML = Renderer.buildEditPresetView(preset);
     }
+    // カスタムセレクトに置き換え
+    CustomSelect.replaceAll(body);
   },
 
   buildSectionsView() {
@@ -735,11 +704,11 @@ const Renderer = {
     html += `</div>
     <div class="settings-io-bar">
       <button class="settings-btn settings-io-btn" data-action="export-data">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        ${Icons.export}
         エクスポート
       </button>
       <button class="settings-btn settings-io-btn" data-action="import-data">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        ${Icons.import}
         インポート
       </button>
     </div>
@@ -751,7 +720,7 @@ const Renderer = {
       </div>
       <div class="settings-form-row">
         <label class="settings-label">タイプ</label>
-        <select class="settings-select" id="new-section-type">
+        <select class="cs-target" id="new-section-type">
           <option value="list">リスト（コピー・リンク行）</option>
           <option value="grid">グリッド（カード型）</option>
           <option value="command_builder">コマンドビルダー</option>
@@ -762,7 +731,7 @@ const Renderer = {
       </div>
       <div class="settings-form-row" id="new-section-action-row" hidden>
         <label class="settings-label">アクション</label>
-        <select class="settings-select" id="new-section-action-mode">
+        <select class="cs-target" id="new-section-action-mode">
           <option value="copy">コマンドをコピー（ターミナル用）</option>
           <option value="open">URLを開く（ブラウザ）</option>
         </select>
@@ -773,7 +742,7 @@ const Renderer = {
       </div>
       <div class="settings-form-row">
         <label class="settings-label">表示幅</label>
-        <select class="settings-select" id="new-section-width">
+        <select class="cs-target" id="new-section-width">
           <option value="auto">自動（グリッド列幅）</option>
           <option value="wide">ワイド（2列分）</option>
           <option value="full">全幅</option>
@@ -811,7 +780,7 @@ const Renderer = {
         </div>
         <div class="settings-form-row">
           <label class="settings-label">表示幅</label>
-          <select class="settings-select" id="edit-section-width">
+          <select class="cs-target" id="edit-section-width">
             <option value="auto" ${curWidth === 'auto' ? 'selected' : ''}>自動（グリッド列幅）</option>
             <option value="wide" ${curWidth === 'wide' ? 'selected' : ''}>ワイド（2列分）</option>
             <option value="full" ${curWidth === 'full' ? 'selected' : ''}>全幅</option>
@@ -842,7 +811,7 @@ const Renderer = {
       html += `
         <div class="settings-form-row">
           <label class="settings-label">チェックのリセット</label>
-          <select class="settings-select" id="edit-section-checklist-reset">
+          <select class="cs-target" id="edit-section-checklist-reset">
             <option value="never"   ${curReset === 'never'   ? 'selected' : ''}>リセットしない</option>
             <option value="daily"   ${curReset === 'daily'   ? 'selected' : ''}>毎日（日付が変わったら自動リセット）</option>
             <option value="weekly"  ${curReset === 'weekly'  ? 'selected' : ''}>毎週（週が変わったら自動リセット）</option>
@@ -860,7 +829,7 @@ const Renderer = {
       html += `
         <div class="settings-form-row">
           <label class="settings-label">アクション</label>
-          <select class="settings-select" id="edit-section-action-mode">
+          <select class="cs-target" id="edit-section-action-mode">
             <option value="copy" ${curMode === 'copy' ? 'selected' : ''}>コマンドをコピー（ターミナル用）</option>
             <option value="open" ${curMode === 'open' ? 'selected' : ''}>URLを開く（ブラウザ）</option>
           </select>
@@ -906,7 +875,7 @@ const Renderer = {
         <div class="settings-form-panel" id="add-column-form" hidden>
           <div class="settings-form-row settings-form-row--inline">
             <input class="settings-input" id="new-col-label" type="text" placeholder="列名" />
-            <select class="settings-select settings-select--sm" id="new-col-type">
+            <select class="cs-target kn-select--sm" id="new-col-type">
               <option value="text">テキスト</option>
               <option value="copy">コピー</option>
               <option value="link">リンク</option>
@@ -987,7 +956,7 @@ const Renderer = {
       html += `
         <div class="settings-form-row">
           <label class="settings-label">アクション</label>
-          <select class="settings-select" id="item-type">
+          <select class="cs-target" id="item-type">
             <option value="link" ${(!item || item.item_type === 'link' || item.item_type === 'card') ? 'selected' : ''}>リンク（クリックで URL を開く）</option>
             <option value="copy" ${item?.item_type === 'copy' ? 'selected' : ''}>コピー（クリックでクリップボードにコピー）</option>
           </select>
@@ -1011,7 +980,7 @@ const Renderer = {
       html += `
         <div class="settings-form-row">
           <label class="settings-label">タイプ</label>
-          <select class="settings-select" id="item-type">
+          <select class="cs-target" id="item-type">
             <option value="copy" ${item?.item_type === 'copy' ? 'selected' : ''}>コピー（クリックでクリップボードにコピー）</option>
             <option value="link" ${item?.item_type === 'link' ? 'selected' : ''}>リンク（クリックで URL を開く）</option>
           </select>
@@ -1079,7 +1048,7 @@ const Renderer = {
           <input class="settings-input" id="bind-bar-label" type="text" value="${escapeAttr(barLabel || '')}" placeholder="プリセット" />
         </div>
         <div class="settings-form-row">
-          <select class="settings-select" id="bind-ui-type">
+          <select class="cs-target" id="bind-ui-type">
             <option value="select" ${uiType === 'select' ? 'selected' : ''}>セレクトボックス</option>
             <option value="tabs" ${uiType === 'tabs' ? 'selected' : ''}>タブ</option>
             <option value="segment" ${uiType === 'segment' ? 'selected' : ''}>セグメントコントロール</option>
@@ -1190,13 +1159,14 @@ const Renderer = {
         ).join('');
       bar.innerHTML = `<div class="bind-bar__inner">
         ${labelHtml}
-        <select class="bind-bar__select" id="preset-select">${options}</select>
+        <select class="cs-target kn-select--grow" id="preset-select">${options}</select>
       </div>`;
       const sel = bar.querySelector('#preset-select');
       if (sel) {
         sel.addEventListener('change', () => {
           EventHandlers.switchPreset(sel.value ? Number(sel.value) : null);
         });
+        CustomSelect.create(sel);
       }
     }
   },
@@ -1299,7 +1269,7 @@ const Renderer = {
                data-checklist-section-id="${section.id}"
                data-checklist-item-id="${item.id}"
                ${isChecked ? 'checked' : ''} />
-        <span class="checklist-check-icon">${ICONS.checkmark}</span>
+        <span class="checklist-check-icon">${Icons.checkmark}</span>
         <span class="checklist-label">${escapeHtml(item.label || '')}</span>
       `;
       bd.appendChild(row);
@@ -1324,7 +1294,7 @@ const Renderer = {
       .join('');
     nav.innerHTML = `
       <button class="section-nav__toggle" data-action="toggle-jump-nav" title="セクションへジャンプ">
-        ${ICONS.hamburger}
+        ${Icons.hamburger}
       </button>
       <div class="section-nav__menu" id="section-nav-menu" hidden>
         ${itemsHtml}
@@ -1483,7 +1453,7 @@ const EventHandlers = {
   async _swapSectionPos(a, b) {
     [a.position, b.position] = [b.position, a.position];
     await Promise.all([State.db.updateSection(a), State.db.updateSection(b)]);
-    State.sections.sort((x, y) => x.position - y.position);
+    State.sections = sortByPosition(State.sections);
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
   },
@@ -1558,7 +1528,7 @@ const EventHandlers = {
     if (!row) return;
     row.innerHTML = `
       <input class="settings-input" id="edit-col-label" type="text" value="${escapeAttr(col.label)}" />
-      <select class="settings-select settings-select--sm" id="edit-col-type">
+      <select class="cs-target kn-select--sm" id="edit-col-type">
         <option value="text" ${col.type === 'text' ? 'selected' : ''}>テキスト</option>
         <option value="copy" ${col.type === 'copy' ? 'selected' : ''}>コピー</option>
         <option value="link" ${col.type === 'link' ? 'selected' : ''}>リンク</option>
@@ -1727,7 +1697,7 @@ const EventHandlers = {
   async _swapItemPos(a, b, sectionId) {
     [a.position, b.position] = [b.position, a.position];
     await Promise.all([State.db.updateItem(a), State.db.updateItem(b)]);
-    State.itemsMap[sectionId].sort((x, y) => x.position - y.position);
+    State.itemsMap[sectionId] = sortByPosition(State.itemsMap[sectionId]);
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
   },
@@ -1912,7 +1882,7 @@ const EventHandlers = {
   async _swapPresetPos(a, b) {
     [a.position, b.position] = [b.position, a.position];
     await Promise.all([State.db.updatePreset(a), State.db.updatePreset(b)]);
-    State.presets.sort((x, y) => x.position - y.position);
+    State.presets = sortByPosition(State.presets);
     Renderer.renderEnvBar();
     Renderer.renderSettingsView();
   },

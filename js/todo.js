@@ -111,7 +111,7 @@ class KanbanDB {
 
   async getTasksByColumn(column) {
     const tasks = await this._getAllByIndex('tasks', 'column', column);
-    return tasks.sort((a, b) => a.position - b.position);
+    return sortByPosition(tasks);
   }
 
   async addTask(data) {
@@ -744,7 +744,7 @@ const Backup = {
         await db.importAll(data);
 
         // カラムキャッシュ再構築
-        State.columns = (await db.getAllColumns()).sort((a, b) => a.position - b.position);
+        State.columns = sortByPosition(await db.getAllColumns());
         State.tasks = {};
         for (const col of State.columns) State.tasks[col.key] = [];
 
@@ -870,6 +870,8 @@ const Renderer = {
     if ([...select.options].some(o => o.value === currentVal)) {
       select.value = currentVal;
     }
+    // CustomSelect の表示を更新
+    if (select._csInst) select._csInst.render();
   },
 
   /** ボード全体を描画（初回・インポート後用） */
@@ -1026,7 +1028,10 @@ const Renderer = {
     // カラム
     this.renderModalColumnSelect();
     const colSelect = document.getElementById('modal-column');
-    if (colSelect) colSelect.value = t.column;
+    if (colSelect) {
+      colSelect.value = t.column;
+      if (colSelect._csInst) colSelect._csInst.render();
+    }
 
     // 期限（hidden input + 表示 div）
     const dueHidden  = document.getElementById('modal-due');
@@ -1597,7 +1602,7 @@ const DragDrop = {
       const idx = (State.tasks[toCol] || []).findIndex(t => t.id === taskId);
       if (idx !== -1) State.tasks[toCol][idx] = updated;
     }
-    State.tasks[toCol].sort((a, b) => a.position - b.position);
+    State.tasks[toCol] = sortByPosition(State.tasks[toCol]);
 
     // gap が小さすぎる場合は全体再採番
     const positions = State.tasks[toCol].map(t => t.position);
@@ -2757,19 +2762,7 @@ const EventHandlers = {
 };
 
 // ==================================================
-// Toast: 通知表示
-// ==================================================
-const Toast = {
-  _timer: null,
-  show(message, type = '') {
-    const el = document.getElementById('toast');
-    el.textContent = message;
-    el.className   = 'toast' + (type ? ` toast--${type}` : '');
-    el.removeAttribute('hidden');
-    clearTimeout(this._timer);
-    this._timer = setTimeout(() => el.setAttribute('hidden', ''), 3000);
-  },
-};
+// Toast 通知: js/base/toast.js の Toast を使用
 
 // ==================================================
 // App: エントリポイント
@@ -2780,7 +2773,7 @@ const App = {
     await db.open();
 
     // カラムをロード
-    State.columns = (await db.getAllColumns()).sort((a, b) => a.position - b.position);
+    State.columns = sortByPosition(await db.getAllColumns());
 
     // tasks キャッシュを動的に初期化
     for (const col of State.columns) State.tasks[col.key] = [];
@@ -2835,6 +2828,11 @@ const App = {
     if (State.filter.text || State.filter.labelIds.size > 0 || State.filter.due) {
       applyFilter();
     }
+
+    // CustomSelect を初期化（初期値設定後に適用）
+    CustomSelect.replaceAll(document.querySelector('.app-header'));
+    const modalColSel = document.getElementById('modal-column');
+    if (modalColSel) modalColSel._csInst = CustomSelect.create(modalColSel);
 
     // 前回エクスポート後に変更があるか確認してインジケーターを初期化
     const dirtyAt  = localStorage.getItem('kanban_dirty_at')      || '';

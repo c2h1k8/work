@@ -7,9 +7,6 @@
   --color-text-muted: var(--c-text-3);
   --color-accent:     var(--c-accent);
   --color-danger:     var(--c-danger);
-  --radius-sm:        var(--radius-xs);
-  --radius-md:        var(--radius-sm);
-  --radius-lg:        var(--radius-md);
 }
 // LESS vars（以下のスタイルで使用）
 @bg:          var(--c-bg);
@@ -24,27 +21,16 @@
 @accent-l:    var(--c-accent-light);
 @green:       var(--c-success);
 @green-l:     var(--c-success-bg);
-@radius-lg:   14px;
-@radius-md:   10px;
-@radius-sm:   6px;
+@radius-lg:   10px;
+@radius-md:   7px;
+@radius-sm:   5px;
 @shadow:      0 1px 2px rgba(0,0,0,.05), 0 4px 12px rgba(20,28,60,.07);
 @t:           0.15s ease;
 @header-h:    52px;
 @sidebar-w:   280px;
 
-// ── リセット ─────────────────────────────────────────────────
-*,
-*::before,
-*::after { box-sizing: border-box; }
-
+// ── body ページ固有スタイル（基本は ui.css で定義）──────────────
 body {
-  margin: 0;
-  padding: 0;
-  background: @bg;
-  font-family: var(--font);
-  color: @text;
-  font-size: 14px;
-  line-height: 1.5;
   height: 100vh;
   overflow: hidden;
 }
@@ -158,10 +144,6 @@ body {
   color: @text-muted;
   flex-shrink: 0;
   white-space: nowrap;
-}
-
-.note-select--grow {
-  flex: 1;
 }
 
 // フィルター行（フィールド単位）
@@ -361,9 +343,6 @@ body {
   gap: 12px;
   color: @text-muted;
   font-size: 15px;
-
-  // display: flex が [hidden] のブラウザデフォルトスタイルを上書きするため明示指定
-  &[hidden] { display: none; }
 
   svg {
     width: 48px;
@@ -628,9 +607,6 @@ body {
   gap: 8px;
   padding-top: 10px;
   border-top: 1px solid @border-l;
-
-  // display: flex が [hidden] のブラウザデフォルトスタイルを上書きするため明示指定
-  &[hidden] { display: none; }
 }
 
 .note-entry-form__row {
@@ -757,56 +733,10 @@ body {
   }
 }
 
-.note-select {
-  padding: 7px 10px;
-  border: 1px solid @border;
-  border-radius: @radius-sm;
-  font-size: 13px;
-  font-family: inherit;
-  color: @text;
-  background: @card-bg;
-  outline: none;
-  cursor: pointer;
-  transition: border-color @t;
-
-  &:focus { border-color: @accent; }
-
-  &--sm {
-    padding: 4px 7px;
-    font-size: 12px;
-  }
-}
+// .note-select: CustomSelect(css/base/custom_select.css)に移行
 
 // ── ボタン ────────────────────────────────────────────────────
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
-  border-radius: @radius-sm;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: background @t, border-color @t, color @t;
-  white-space: nowrap;
-  font-family: inherit;
-
-  &--primary {
-    background: @accent;
-    color: #fff;
-    &:hover { background: @accent-d; }
-  }
-
-  &--secondary {
-    background: @card-bg;
-    border-color: @border;
-    color: @text;
-    &:hover { background: @bg; }
-  }
-
-  &--sm { padding: 5px 10px; font-size: 12px; }
-}
+// .btn は css/base/ui.css で定義（共通化）
 
 .note-icon-btn {
   background: none;
@@ -851,8 +781,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-
-  &[hidden] { display: none; }
 }
 
 .note-modal__backdrop {
@@ -1007,8 +935,6 @@ body {
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px solid @border-l;
-
-    &[hidden] { display: none; }
   }
 }
 
@@ -1074,7 +1000,6 @@ body {
   }
 
   &__options {
-    &[hidden] { display: none; }
   }
 }
 
@@ -1159,17 +1084,4 @@ body {
   }
 }
 
-// ── トースト ─────────────────────────────────────────────────
-.note-toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: @text;
-  color: #fff;
-  padding: 10px 18px;
-  border-radius: @radius-md;
-  font-size: 13px;
-  z-index: 500;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
-  pointer-events: none;
-}
+// トースト: css/base/toast.css に移動

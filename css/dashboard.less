@@ -7,9 +7,6 @@
   --color-text-muted: var(--c-text-3);
   --color-accent:     var(--c-accent);
   --color-danger:     var(--c-danger);
-  --radius-sm:        var(--radius-xs);
-  --radius-md:        var(--radius-sm);
-  --radius-lg:        var(--radius-md);
 }
 // LESS vars（以下のスタイルで使用）
 @bg:          var(--c-bg);
@@ -24,28 +21,17 @@
 @accent-l:    var(--c-accent-light);
 @green:       var(--c-success);
 @green-l:     var(--c-success-bg);
-@radius-lg:    14px;
-@radius-md:    10px;
-@radius-sm:    6px;
+@radius-lg:    10px;
+@radius-md:    7px;
+@radius-sm:    5px;
 // レイヤードシャドウ：浮遊感を自然に
 @shadow:       0 1px 2px rgba(0,0,0,.05), 0 4px 12px rgba(20,28,60,.07);
 @shadow-hover: 0 2px 4px rgba(0,0,0,.06), 0 8px 24px rgba(20,28,60,.1);
 @t:            0.15s ease;
 
-// ── リセット ─────────────────────────────────────────────────
-*,
-*::before,
-*::after { box-sizing: border-box; }
-
+// body ページ固有スタイル（基本は ui.css で定義）
 body {
-  margin: 0;
-  padding: 0;
   min-height: 100vh;
-  background: var(--c-bg);
-  font-family: var(--font);
-  color: @text;
-  font-size: 14px;
-  line-height: 1.5;
 }
 
 // ── レイアウト ────────────────────────────────────────────────
@@ -93,8 +79,8 @@ body {
   align-items: center;
   gap: 10px;
   padding: 14px 18px 13px;
-  // ヘッダー背景に極わずかな差をつけて視認性向上
-  background: #fafbff;
+  // ヘッダー背景に極わずかな差をつけて視認性向上（ダークモード対応）
+  background: var(--c-surface-raised);
   border-bottom: 1px solid @border-l;
 }
 
@@ -264,7 +250,7 @@ body {
 
   &:focus {
     border-color: @accent;
-    background: #fff;
+    background: var(--c-surface);
     box-shadow: 0 0 0 3px var(--c-accent-dim);
   }
 
@@ -423,7 +409,7 @@ body {
     text-transform: uppercase;
     border-bottom: 2px solid @border;
     white-space: nowrap;
-    background: #fafbff;
+    background: var(--c-surface-raised);
   }
 
   td {
@@ -714,7 +700,7 @@ body {
   margin-bottom: 6px;
 
   &--item {
-    background: #fff;
+    background: var(--c-surface);
     padding: 8px 10px;
   }
 
@@ -781,7 +767,7 @@ body {
 }
 
 .settings-form-panel {
-  background: #fff;
+  background: var(--c-surface);
   border: 1px solid @border;
   border-radius: @radius-md;
   padding: 14px;
@@ -849,7 +835,7 @@ body {
 
   &:focus {
     border-color: @accent;
-    background: #fff;
+    background: var(--c-surface);
     box-shadow: 0 0 0 3px var(--c-accent-dim);
   }
   &::placeholder { color: @text-muted; }
@@ -858,22 +844,7 @@ body {
   &--xs { width: 56px; flex-shrink: 0; text-align: center; }
 }
 
-.settings-select {
-  height: 34px;
-  border: 1.5px solid @border;
-  border-radius: @radius-sm;
-  padding: 0 8px;
-  font-size: 13px;
-  font-family: inherit;
-  color: @text;
-  background: @bg;
-  outline: none;
-  cursor: pointer;
-  transition: border-color @t;
-
-  &:focus { border-color: @accent; }
-  &--sm { width: auto; }
-}
+// .settings-select: CustomSelect(css/base/custom_select.css)に移行
 
 .settings-form-actions {
   display: flex;
@@ -1036,22 +1007,7 @@ body {
   flex-shrink: 0;
 }
 
-.bind-bar__select {
-  height: 30px;
-  border: 1.5px solid @border;
-  border-radius: @radius-sm;
-  padding: 0 8px;
-  font-size: 13px;
-  font-family: inherit;
-  color: @text;
-  background: @bg;
-  outline: none;
-  cursor: pointer;
-  transition: border-color @t;
-  min-width: 160px;
-
-  &:focus { border-color: @accent; }
-}
+// .bind-bar__select: CustomSelect(css/base/custom_select.css)に移行
 
 // タブ型
 .bind-tabs {
@@ -1170,47 +1126,17 @@ body {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 8px 12px;
+  padding: 3px 10px;
+  border-radius: @radius-md;
   font-size: 12px;
+  color: @text;
 
-  svg { width: 13px; height: 13px; flex-shrink: 0; }
+  svg { width: 13px; height: 13px; flex-shrink: 0; fill: currentColor; }
+
+  &:hover:not(:disabled) { background: @bg; }
 }
 
-// ── トースト通知 ─────────────────────────────────────────────
-.toast {
-  position: fixed;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%) translateY(8px);
-  background: rgba(17, 24, 39, .88);
-  color: #fff;
-  padding: 9px 22px;
-  border-radius: 100px;
-  font-size: 13px;
-  font-weight: 500;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .2s, transform .2s;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 9999;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-
-  svg {
-    width: 14px;
-    height: 14px;
-    color: #6ee7b7;
-    flex-shrink: 0;
-  }
-
-  &.is-visible {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
+// トースト通知: css/base/toast.css に移動
 
 // ── カード折りたたみボタン ─────────────────────────────────────
 .card__collapse-btn {
@@ -1341,7 +1267,7 @@ body {
 
   &:focus {
     border-color: @accent;
-    background: #fff;
+    background: var(--c-surface);
     box-shadow: 0 0 0 3px var(--c-accent-dim);
   }
   &::placeholder { color: @text-muted; }

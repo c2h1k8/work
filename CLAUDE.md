@@ -38,10 +38,14 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `todo.html` は IndexedDB（`KanbanDB` クラス）でデータ永続化。`localStorage` は使わない
 - その他ページの localStorage 操作は `js/base/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
 - `js/base/common.js` の共通ユーティリティを活用する（dashboard.html は不使用）
+- `js/base/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` — HTML エスケープと position 昇順ソート
+- `js/base/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` — 統一トースト通知（自己挿入型）。CSS は `css/base/toast.{less,css}`
+- `js/base/icons.js` を `index.html` / `dashboard.html` で読み込む: `Icons.export` / `Icons.import` — JS生成HTML内で使う共通SVGアイコン定数
 - コメントは日本語で記載する
-- `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `Toast` / `App` の単一ファイル構成
+- `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `App` の単一ファイル構成（Toast は `js/base/toast.js` に移動）
 - `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
 - `LabelManager` は `js/base/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/base/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`
+- `CustomSelect` は `js/base/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/base/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。使用ページ: `index.html` / `todo.html` / `sql.html` / `note.html` / `dashboard.html`
 - `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
 - `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
 - `State.columns: []` は `{ id, key, name, position }` の配列。`getColumnKeys()` で key 一覧を取得
@@ -67,7 +71,10 @@ Claude Code がこのプロジェクトで作業する際の指針。
 ### デザインシステム（2026-03現在）
 
 - **デザイントークン**: `css/base/tokens.less` / `css/base/tokens.css` — 全ページ共通の CSS カスタムプロパティ（色・シャドウ・ラジウス・フォント・スペーシング）
-- **共通 UI コンポーネント**: `css/base/ui.less` / `css/base/ui.css` — `.btn`, `.form-input`, `.badge`, `.card` などの汎用クラス
+- **共通 UI**: `css/base/ui.less` / `css/base/ui.css` — 全ページ共通のスタイルを定義。`--c-*` トークンを直接参照。全ページ（note / todo / sql / dashboard / index）で `tokens.css` の直後に読み込む
+  - **リセット**: `*, *::before, *::after { box-sizing: border-box }` / `[hidden] { display: none !important }` — ページ LESS で重複定義しない。flex/grid コンテナ内での `&[hidden]` も不要
+  - **body 基本**: `margin: 0; padding: 0; font-family; font-size: 14px; line-height: 1.5; color; background` — ページ LESS では layout 系（height / overflow / display）のみ上書きする
+  - **ボタン**: `.btn` / `.btn--primary` / `.btn--secondary` / `.btn--danger` / `.btn--ghost` / `.btn--ghost-danger` / `.btn--sm` — ページ固有 LESS には記載しない
 - **ダークモード**: `[data-theme="dark"]` を `<html>` に付与することで tokens.css のダーク用変数が有効になる
   - ライトモード時: `icon-moon` 表示、`icon-sun` 非表示
   - ダークモード時: `icon-sun` 表示、`icon-moon` 非表示
@@ -77,7 +84,8 @@ Claude Code がこのプロジェクトで作業する際の指針。
   3. `_applyTheme()` は全 iframe に `postMessage({ type: 'theme-change', theme })` を送信
   4. 各ページ JS は `window.addEventListener('message', ...)` で受け取り `data-theme` を更新
 - **トークン命名規則**: `--c-*` （カラー）、`--shadow-*`（シャドウ）、`--radius-*`（角丸）、`--t`（トランジション）、`--font`（フォント）、`--space-*`（スペーシング）
-- **ページ側エイリアス**: 各ページ LESS の `:root` で `--color-*` を `var(--c-*)` にマッピング（後方互換）
+- **ページ側エイリアス**: 各ページ LESS の `:root` で `--color-*` を `var(--c-*)` にマッピング（後方互換）。`--radius-*` は tokens.css の値をそのまま使うこと（上書き禁止）
+- **ハードコード禁止**: `#fff`, `#fafbff`, `#eaecef` 等の色をページ LESS に直書きしない。`var(--c-surface)`, `var(--c-surface-raised)`, `var(--c-bg-2)` 等のトークンを使うこと（ダークモード対応のため）
 - **LESS で CSS 変数をLESS変数に代入した場合**: `darken()`, `lighten()`, `fade()` 等の LESS 色関数は使用不可。`var(--c-bg-2)`, `var(--c-accent-dim)`, `var(--c-border-2)` 等の CSS 変数で代替すること
 - **テーマ初期化スクリプト**: 全 HTML ページの `<head>` 先頭（defer なし）に追加必須:
   ```html
