@@ -10,7 +10,7 @@
 | `todo.html`       | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・タスク紐づけ・エクスポート／インポート付き） |
 | `home.html`       | カスタマイズ可能なホームダッシュボード（設定画面からセクション・アイテムを自由に作成）                                       |
 | `sql.html`        | Oracle SQL\*Plusコマンド・チューニングリファレンス                                                                           |
-| `knowledge.html`  | タスクナレッジ管理（設計書・テストケース・エビデンス等のリンクや備考を可変フィールドで管理。フィールド幅・DatePicker対応）     |
+| `note.html`       | ノート管理（設計書・テストケース・エビデンス等のリンクや備考を可変フィールドで管理。フィールド幅・DatePicker対応）     |
 
 ## 技術スタック
 
@@ -31,7 +31,7 @@ work/
 ├── home.html           # ホームダッシュボード
 ├── todo.html           # TODO管理
 ├── sql.html            # SQLリファレンス
-├── knowledge.html      # タスクナレッジ管理
+├── note.html           # ノート管理
 ├── js/
 │   ├── base/
 │   │   ├── local_storage.js  # localStorage ユーティリティ
@@ -41,7 +41,7 @@ work/
 │   ├── home.js         # ホーム機能
 │   ├── todo.js         # Vanilla JS Kanban ロジック（IndexedDB）
 │   ├── sql.js          # SQL コマンド生成
-│   └── knowledge.js    # タスクナレッジ管理（IndexedDB）
+│   └── note.js         # ノート管理（IndexedDB）
 └── css/
     ├── base/
     │   ├── common.{less,css}          # 共通スタイル
@@ -54,7 +54,7 @@ work/
     ├── home.{less,css}
     ├── todo.{less,css}
     ├── sql.{less,css}
-    └── knowledge.{less,css}
+    └── note.{less,css}
 ```
 
 ## 使い方

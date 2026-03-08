@@ -4,29 +4,29 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ナレッジ</title>
+    <title>ノート</title>
     <link rel="stylesheet" href="./css/base/date_picker.css" />
     <link rel="stylesheet" href="./css/base/label_filter.css" />
     <link rel="stylesheet" href="./css/base/custom_select.css" />
     <link rel="stylesheet" href="./css/base/label_manager.css" />
-    <link rel="stylesheet" href="./css/knowledge.css" />
+    <link rel="stylesheet" href="./css/note.css" />
     <script defer src="./js/base/date_picker.js"></script>
     <script defer src="./js/base/label_filter.js"></script>
     <script defer src="./js/base/custom_select.js"></script>
     <script defer src="./js/base/label_manager.js"></script>
-    <script defer src="./js/knowledge.js"></script>
+    <script defer src="./js/note.js"></script>
   </head>
   <body>
     <!-- ヘッダー -->
-    <header class="kn-header">
-      <div class="kn-header__inner">
-        <h1 class="kn-header__title">
+    <header class="note-header">
+      <div class="note-header__inner">
+        <h1 class="note-header__title">
           <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
             <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/>
           </svg>
-          ナレッジ
+          ノート
         </h1>
-        <div class="kn-header__actions">
+        <div class="note-header__actions">
           <button class="btn btn--secondary btn--sm" data-action="manage-fields">
             <svg viewBox="0 0 16 16" aria-hidden="true" width="13" height="13" fill="currentColor">
               <path d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.038.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.102-.302c-.067-.019-.177-.011-.3.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.05-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.038-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.102.302c.067.019.177.011.3-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.009.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.529.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456a4.709 4.709 0 0 0 0 .582c.032.499-.119 1.05-.53 1.456l-.815.806c-.081.08-.073.159-.059.19.162.346.353.677.573.989.02.03.085.076.195.046l1.102-.303c.56-.153 1.113-.008 1.53.27.161.107.328.204.501.29.447.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.561.549-.967.998-1.189.173-.086.34-.183.5-.29.417-.278.97-.423 1.529-.27l1.103.303c.109.029.175-.016.195-.045.22-.313.411-.644.573-.99.014-.031.021-.11-.059-.19l-.815-.806c-.411-.406-.562-.957-.53-1.456a4.709 4.709 0 0 0 0-.582c-.032-.499.119-1.05.53-1.456l.815-.806c.081-.08.073-.159.059-.19a6.464 6.464 0 0 0-.573-.989c-.02-.03-.085-.076-.195-.046l-1.102.303c-.56.153-1.113.008-1.53-.27a4.44 4.44 0 0 0-.501-.29c-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM8 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm0 1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/>
@@ -50,16 +50,16 @@
     </header>
 
     <!-- メインレイアウト（左：タスクリスト / 右：詳細） -->
-    <div class="kn-layout">
+    <div class="note-layout">
       <!-- 左：タスクリスト -->
-      <aside class="kn-sidebar">
-        <div class="kn-sidebar__search">
-          <input type="text" id="task-search" class="kn-search" placeholder="タスクを検索...">
+      <aside class="note-sidebar">
+        <div class="note-sidebar__search">
+          <input type="text" id="task-search" class="note-search" placeholder="タスクを検索...">
         </div>
-        <div class="kn-sidebar__controls" id="kn-sidebar-controls">
-          <div class="kn-controls__sort">
-            <label class="kn-controls__label" for="kn-sort">並び順</label>
-            <select id="kn-sort" class="kn-select kn-select--sm kn-select--grow cs-target">
+        <div class="note-sidebar__controls" id="note-sidebar-controls">
+          <div class="note-controls__sort">
+            <label class="note-controls__label" for="note-sort">並び順</label>
+            <select id="note-sort" class="note-select note-select--sm note-select--grow cs-target">
               <option value="created_at-desc">作成日 新→古</option>
               <option value="created_at-asc">作成日 古→新</option>
               <option value="updated_at-desc">更新日 新→古</option>
@@ -67,42 +67,42 @@
               <option value="title-desc">タイトル Z→A</option>
             </select>
           </div>
-          <div id="kn-filters"></div>
+          <div id="note-filters"></div>
         </div>
-        <ul class="kn-task-list" id="task-list"></ul>
-        <button class="kn-add-task-btn" data-action="add-task">＋ 新規タスク</button>
+        <ul class="note-task-list" id="task-list"></ul>
+        <button class="note-add-task-btn" data-action="add-task">＋ 新規タスク</button>
       </aside>
 
       <!-- 右：タスク詳細 -->
-      <main class="kn-detail" id="kn-detail">
-        <div class="kn-empty" id="kn-empty">
+      <main class="note-detail" id="note-detail">
+        <div class="note-empty" id="note-empty">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z"/>
           </svg>
           タスクを選択してください
         </div>
-        <div class="kn-detail__content" id="detail-content" hidden></div>
+        <div class="note-detail__content" id="detail-content" hidden></div>
       </main>
     </div>
 
     <!-- フィールド管理モーダル -->
-    <div class="kn-modal" id="field-modal" hidden>
-      <div class="kn-modal__backdrop" data-action="close-field-modal"></div>
-      <div class="kn-modal__dialog">
-        <div class="kn-modal__hd">
-          <h2 class="kn-modal__title">フィールド管理</h2>
-          <button class="kn-modal__close" data-action="close-field-modal" aria-label="閉じる">
+    <div class="note-modal" id="field-modal" hidden>
+      <div class="note-modal__backdrop" data-action="close-field-modal"></div>
+      <div class="note-modal__dialog">
+        <div class="note-modal__hd">
+          <h2 class="note-modal__title">フィールド管理</h2>
+          <button class="note-modal__close" data-action="close-field-modal" aria-label="閉じる">
             <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
               <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
             </svg>
           </button>
         </div>
-        <div class="kn-modal__body" id="field-modal-body"></div>
-        <div class="kn-modal__ft">
-          <div class="kn-add-field-form">
-            <div class="kn-add-field-form__row">
-              <input type="text" id="new-field-name" placeholder="フィールド名" class="kn-input" maxlength="30">
-              <select id="new-field-type" class="kn-select">
+        <div class="note-modal__body" id="field-modal-body"></div>
+        <div class="note-modal__ft">
+          <div class="note-add-field-form">
+            <div class="note-add-field-form__row">
+              <input type="text" id="new-field-name" placeholder="フィールド名" class="note-input" maxlength="30">
+              <select id="new-field-type" class="note-select">
                 <option value="link">リンク</option>
                 <option value="text">テキスト</option>
                 <option value="date">日付</option>
@@ -111,8 +111,8 @@
               </select>
               <button class="btn btn--primary btn--sm" data-action="add-field">追加</button>
             </div>
-            <div class="kn-add-field-form__options" id="new-field-options-row" hidden>
-              <input type="text" id="new-field-options" class="kn-input" placeholder="選択肢をカンマ区切りで入力（例: 対応中,完了,保留）">
+            <div class="note-add-field-form__options" id="new-field-options-row" hidden>
+              <input type="text" id="new-field-options" class="note-input" placeholder="選択肢をカンマ区切りで入力（例: 対応中,完了,保留）">
             </div>
           </div>
         </div>
@@ -123,6 +123,6 @@
     <input type="file" id="import-file" accept=".json" hidden>
 
     <!-- トースト通知 -->
-    <div class="kn-toast" id="kn-toast" hidden></div>
+    <div class="note-toast" id="note-toast" hidden></div>
   </body>
 </html>

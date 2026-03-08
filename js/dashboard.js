@@ -94,7 +94,7 @@ class HomeDB {
   constructor() {
     this.db = null;
     this.DB_NAME = 'dashboard_db';  // 全インスタンス共有の単一DB
-    this.DB_VERSION = 5;
+    this.DB_VERSION = 1;
     this.instanceId = _instanceId;  // このインスタンスのID
   }
 
@@ -103,24 +103,18 @@ class HomeDB {
       const req = indexedDB.open(this.DB_NAME, this.DB_VERSION);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
-        const tx = e.target.transaction;
-        if (e.oldVersion < 1) {
-          // sections ストア（instance_id インデックス付き）
-          const ss = db.createObjectStore('sections', { keyPath: 'id', autoIncrement: true });
-          ss.createIndex('position', 'position');
-          ss.createIndex('instance_id', 'instance_id');
-          const is = db.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
-          is.createIndex('section_id', 'section_id');
-          is.createIndex('position', 'position');
-        }
-        if (e.oldVersion < 4) {
-          // アプリ設定ストア（varNames・uiType など）
-          db.createObjectStore('app_config', { keyPath: 'name' });
-        }
-        if (e.oldVersion < 5) {
-          const presetsStore = db.createObjectStore('presets', { keyPath: 'id', autoIncrement: true });
-          presetsStore.createIndex('instance_id', 'instance_id');
-        }
+        // sections ストア（instance_id インデックス付き）
+        const ss = db.createObjectStore('sections', { keyPath: 'id', autoIncrement: true });
+        ss.createIndex('position', 'position');
+        ss.createIndex('instance_id', 'instance_id');
+        const is = db.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
+        is.createIndex('section_id', 'section_id');
+        is.createIndex('position', 'position');
+        // アプリ設定ストア（varNames・uiType など）
+        db.createObjectStore('app_config', { keyPath: 'name' });
+        // プリセットストア
+        const presetsStore = db.createObjectStore('presets', { keyPath: 'id', autoIncrement: true });
+        presetsStore.createIndex('instance_id', 'instance_id');
       };
       req.onsuccess = (e) => {
         this.db = e.target.result;
@@ -464,7 +458,6 @@ const Renderer = {
     const grid = document.createElement('div');
     grid.className = 'sheet-grid';
     items.forEach(item => {
-      // 'card' は後方互換で 'link' として扱う
       const isCopy = item.item_type === 'copy';
       const card = document.createElement('a');
       card.className = `sheet-card ${isCopy ? 'js-copy sheet-card--copy' : 'js-link'}`;

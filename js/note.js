@@ -1,8 +1,8 @@
 'use strict';
 
 // ── IndexedDB ─────────────────────────────────────────────────
-const KnowledgeDB = (() => {
-  const DB_NAME = 'knowledge_db';
+const NoteDB = (() => {
+  const DB_NAME = 'note_db';
   const DB_VERSION = 1;
   let _db = null;
 
@@ -28,7 +28,10 @@ const KnowledgeDB = (() => {
           es.createIndex('field_id', 'field_id');
         }
       };
-      req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+      req.onsuccess = (e) => {
+        _db = e.target.result;
+        resolve(_db);
+      };
       req.onerror = e => reject(e.target.error);
     });
   }
@@ -180,7 +183,7 @@ const KnowledgeDB = (() => {
     const [tasks, fields, entries] = await Promise.all([
       getAllTasks(), getAllFields(), _getAll('entries'),
     ]);
-    return { type: 'knowledge_export', version: 1, tasks, fields, entries };
+    return { type: 'note_export', version: 1, tasks, fields, entries };
   }
 
   async function importData(data) {
@@ -232,7 +235,7 @@ const State = {
   entries: [],         // 選択中タスクのエントリ
   allEntries: [],      // 全タスクのエントリ（タスク一覧表示用キャッシュ）
   searchText: '',
-  sort: { field: 'created_at', dir: 'desc' }, // ソート状態（localStorage: kn_sort）
+  sort: { field: 'created_at', dir: 'desc' }, // ソート状態（localStorage: note_sort）
   listFilter: {},      // field_id → Set（select/label 共通）
   _labelFilters: [],   // LabelFilter インスタンス（renderFilterUI で管理）
 };
@@ -245,12 +248,12 @@ function _saveFilter() {
       serialized[key] = { type: 'set', values: [...val] };
     }
   }
-  localStorage.setItem('kn_filter', JSON.stringify(serialized));
+  localStorage.setItem('note_filter', JSON.stringify(serialized));
 }
 
 function _loadFilter() {
   try {
-    const raw = localStorage.getItem('kn_filter');
+    const raw = localStorage.getItem('note_filter');
     if (!raw) return;
     const parsed = JSON.parse(raw);
     for (const [key, entry] of Object.entries(parsed)) {
@@ -281,7 +284,7 @@ function _formatDate(dateStr) {
 }
 
 function showToast(msg) {
-  const el = document.getElementById('kn-toast');
+  const el = document.getElementById('note-toast');
   el.textContent = msg;
   el.hidden = false;
   clearTimeout(el._timer);
@@ -354,9 +357,9 @@ const Renderer = {
         const selectOpt = selectOpts.find(o => o.name === entry.value);
         const selectColor = selectOpt ? selectOpt.color : null;
         if (selectColor) {
-          return `<span class="kn-task-field-badge kn-task-field-badge--label" style="background:${selectColor}22;color:${selectColor};">${_esc(entry.value)}</span>`;
+          return `<span class="note-task-field-badge note-task-field-badge--label" style="background:${selectColor}22;color:${selectColor};">${_esc(entry.value)}</span>`;
         }
-        return `<span class="kn-task-field-badge kn-task-field-badge--select">${_esc(entry.value)}</span>`;
+        return `<span class="note-task-field-badge note-task-field-badge--select">${_esc(entry.value)}</span>`;
       }
 
       case 'label': {
@@ -368,22 +371,22 @@ const Renderer = {
         return labelNames.map(name => {
           const opt = opts.find(o => o.name === name);
           const color = opt?.color || '#8957e5';
-          return `<span class="kn-task-field-badge kn-task-field-badge--label" style="background:${color}22;color:${color};">${_esc(name)}</span>`;
+          return `<span class="note-task-field-badge note-task-field-badge--label" style="background:${color}22;color:${color};">${_esc(name)}</span>`;
         }).join('');
       }
 
       case 'date':
         if (!entry || !entry.value) return '';
-        return `<span class="kn-task-field-badge kn-task-field-badge--date">${_esc(_formatDate(entry.value))}</span>`;
+        return `<span class="note-task-field-badge note-task-field-badge--date">${_esc(_formatDate(entry.value))}</span>`;
 
       case 'link':
         if (entries.length === 0) return '';
-        return `<span class="kn-task-field-badge kn-task-field-badge--link">${_esc(field.name)}: ${entries.length}件</span>`;
+        return `<span class="note-task-field-badge note-task-field-badge--link">${_esc(field.name)}: ${entries.length}件</span>`;
 
       case 'text': {
         if (!entry || !entry.value) return '';
         const truncated = entry.value.length > 20 ? entry.value.slice(0, 20) + '…' : entry.value;
-        return `<span class="kn-task-field-badge kn-task-field-badge--text" title="${_esc(entry.value)}">${_esc(truncated)}</span>`;
+        return `<span class="note-task-field-badge note-task-field-badge--text" title="${_esc(entry.value)}">${_esc(truncated)}</span>`;
       }
 
       default:
@@ -399,7 +402,7 @@ const Renderer = {
     const visibleFields = State.fields.filter(f => f.listVisible);
 
     if (filtered.length === 0) {
-      list.innerHTML = '<li class="kn-task-list__empty">タスクがありません</li>';
+      list.innerHTML = '<li class="note-task-list__empty">タスクがありません</li>';
       return;
     }
 
@@ -414,12 +417,12 @@ const Renderer = {
           return this._renderFieldBadge(f, entries);
         }).filter(s => s);
         if (badges.length > 0) {
-          fieldsHtml = `<div class="kn-task-item__fields">${badges.join('')}</div>`;
+          fieldsHtml = `<div class="note-task-item__fields">${badges.join('')}</div>`;
         }
       }
 
-      return `<li class="kn-task-item${isSelected ? ' is-selected' : ''}" data-task-id="${task.id}">
-        <span class="kn-task-item__title">${_esc(task.title)}</span>
+      return `<li class="note-task-item${isSelected ? ' is-selected' : ''}" data-task-id="${task.id}">
+        <span class="note-task-item__title">${_esc(task.title)}</span>
         ${fieldsHtml}
       </li>`;
     }).join('');
@@ -427,7 +430,7 @@ const Renderer = {
 
   // フィルター UI を再描画（LabelFilter コンポーネント使用）
   renderFilterUI() {
-    const container = document.getElementById('kn-filters');
+    const container = document.getElementById('note-filters');
     const filterFields = State.fields.filter(f => f.listVisible && (f.type === 'select' || f.type === 'label'));
 
     // 既存の LabelFilter インスタンスをクリーンアップ
@@ -439,10 +442,10 @@ const Renderer = {
 
     for (const f of filterFields) {
       const row = document.createElement('div');
-      row.className = 'kn-filter-row';
+      row.className = 'note-filter-row';
 
       const labelEl = document.createElement('span');
-      labelEl.className = 'kn-filter-label';
+      labelEl.className = 'note-filter-label';
       labelEl.textContent = f.name + ':';
       row.appendChild(labelEl);
       container.appendChild(row);
@@ -476,7 +479,7 @@ const Renderer = {
   // 詳細パネル描画
   async renderDetail() {
     const task = State.tasks.find(t => t.id === State.selectedTaskId);
-    const empty = document.getElementById('kn-empty');
+    const empty = document.getElementById('note-empty');
     const content = document.getElementById('detail-content');
 
     if (!task) {
@@ -495,30 +498,30 @@ const Renderer = {
     });
 
     content.innerHTML = `
-      <div class="kn-detail__header">
-        <div class="kn-detail__title-row">
-          <h2 class="kn-detail__title" id="detail-title" data-action="edit-title" title="クリックして編集">${_esc(task.title)}</h2>
-          <button class="kn-icon-btn kn-icon-btn--danger" data-action="delete-task" data-task-id="${task.id}" title="タスクを削除">
+      <div class="note-detail__header">
+        <div class="note-detail__title-row">
+          <h2 class="note-detail__title" id="detail-title" data-action="edit-title" title="クリックして編集">${_esc(task.title)}</h2>
+          <button class="note-icon-btn note-icon-btn--danger" data-action="delete-task" data-task-id="${task.id}" title="タスクを削除">
             <svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14" fill="currentColor">
               <path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/>
             </svg>
           </button>
         </div>
-        <div class="kn-detail__meta">
+        <div class="note-detail__meta">
           作成日: ${new Date(task.created_at).toLocaleString('ja-JP')}
           ${task.updated_at !== task.created_at ? `　更新日: ${new Date(task.updated_at).toLocaleString('ja-JP')}` : ''}
         </div>
       </div>
 
-      <div class="kn-fields" id="detail-fields">
+      <div class="note-fields" id="detail-fields">
         ${State.fields.map(f => this._renderField(f, entryMap[f.id] || [])).join('')}
       </div>
 
-      <div class="kn-todo-section" id="kn-todo-links-section" hidden>
-        <div class="kn-todo-section__header">
-          <span class="kn-field-label">紐づきTODO</span>
+      <div class="note-todo-section" id="note-todo-links-section" hidden>
+        <div class="note-todo-section__header">
+          <span class="note-field-label">紐づきTODO</span>
         </div>
-        <div id="kn-todo-links" class="kn-todo-links"></div>
+        <div id="note-todo-links" class="note-todo-links"></div>
       </div>
     `;
 
@@ -528,8 +531,8 @@ const Renderer = {
 
   /** 紐づきTODOタスクを描画 */
   async renderTodoLinks(knTaskId) {
-    const section   = document.getElementById('kn-todo-links-section');
-    const container = document.getElementById('kn-todo-links');
+    const section   = document.getElementById('note-todo-links-section');
+    const container = document.getElementById('note-todo-links');
     if (!section || !container) return;
     container.innerHTML = '';
     section.hidden = true;
@@ -537,12 +540,12 @@ const Renderer = {
     try {
       const kanbanDb = await _openKanbanDB();
 
-      // knowledge_links ストアから kn_task_id で検索
+      // note_links ストアから note_task_id で検索
       const links = await new Promise((resolve) => {
         try {
-          const req = kanbanDb.transaction('knowledge_links')
-            .objectStore('knowledge_links')
-            .index('kn_task_id')
+          const req = kanbanDb.transaction('note_links')
+            .objectStore('note_links')
+            .index('note_task_id')
             .getAll(knTaskId);
           req.onsuccess = e => resolve(e.target.result);
           req.onerror   = () => resolve([]);
@@ -566,9 +569,9 @@ const Renderer = {
         const task  = taskMap.get(link.todo_task_id);
         const title = task ? _esc(task.title) : `(ID: ${link.todo_task_id})`;
         return `
-          <div class="kn-todo-chip">
-            <button class="kn-todo-chip__title" type="button" data-action="open-todo-task" data-todo-task-id="${link.todo_task_id}" title="${task ? 'TODOで開く: ' + _esc(task.title) : ''}">${title}</button>
-            <button class="kn-icon-btn" data-action="remove-todo-link" data-link-id="${link.id}" title="紐づきを解除">×</button>
+          <div class="note-todo-chip">
+            <button class="note-todo-chip__title" type="button" data-action="open-todo-task" data-todo-task-id="${link.todo_task_id}" title="${task ? 'TODOで開く: ' + _esc(task.title) : ''}">${title}</button>
+            <button class="note-icon-btn" data-action="remove-todo-link" data-link-id="${link.id}" title="紐づきを解除">×</button>
           </div>
         `;
       }).join('');
@@ -585,16 +588,16 @@ const Renderer = {
     if (field.type === 'link') {
       // リンクは複数可 → 追加ボタンあり
       bodyHtml = `
-        <div class="kn-field__entries" id="entries-${field.id}">
+        <div class="note-field__entries" id="entries-${field.id}">
           ${entries.map(e => this._renderLinkEntry(e)).join('')}
         </div>
-        <button class="kn-add-entry-btn" data-action="add-entry" data-field-id="${field.id}" data-field-type="link">＋ 追加</button>
-        <div class="kn-entry-form" id="entry-form-${field.id}" hidden>
-          <div class="kn-entry-form__row">
-            <input type="text" class="kn-input" placeholder="表示名（省略可）" data-entry-label>
-            <input type="url" class="kn-input" placeholder="URL（例: https://...）" data-entry-value>
+        <button class="note-add-entry-btn" data-action="add-entry" data-field-id="${field.id}" data-field-type="link">＋ 追加</button>
+        <div class="note-entry-form" id="entry-form-${field.id}" hidden>
+          <div class="note-entry-form__row">
+            <input type="text" class="note-input" placeholder="表示名（省略可）" data-entry-label>
+            <input type="url" class="note-input" placeholder="URL（例: https://...）" data-entry-value>
           </div>
-          <div class="kn-entry-form__actions">
+          <div class="note-entry-form__actions">
             <button class="btn btn--primary btn--sm" data-action="save-entry" data-field-id="${field.id}" data-field-type="link">追加</button>
             <button class="btn btn--secondary btn--sm" data-action="cancel-entry" data-field-id="${field.id}">キャンセル</button>
           </div>
@@ -602,28 +605,28 @@ const Renderer = {
       `;
     } else if (field.type === 'text') {
       // テキストはメモ風インライン textarea（単一・自動保存）
-      bodyHtml = `<textarea class="kn-memo" data-text-field="${field.id}" data-entry-id="${entry ? entry.id : ''}" rows="3" placeholder="テキストを入力...">${_esc(entry ? entry.value : '')}</textarea>`;
+      bodyHtml = `<textarea class="note-memo" data-text-field="${field.id}" data-entry-id="${entry ? entry.id : ''}" rows="3" placeholder="テキストを入力...">${_esc(entry ? entry.value : '')}</textarea>`;
     } else if (field.type === 'date') {
       // 日付はカスタムDatePicker（単一）
       const dateStr = entry ? entry.value : '';
       const displayStr = entry ? _formatDate(entry.value) : '';
       if (displayStr) {
         bodyHtml = `
-          <div class="kn-date-display" data-action="open-datepicker" data-field-id="${field.id}" data-entry-id="${entry.id}" data-date-value="${_esc(dateStr)}">
-            <svg viewBox="0 0 16 16" aria-hidden="true" width="13" height="13" fill="currentColor" class="kn-date-display__icon">
+          <div class="note-date-display" data-action="open-datepicker" data-field-id="${field.id}" data-entry-id="${entry.id}" data-date-value="${_esc(dateStr)}">
+            <svg viewBox="0 0 16 16" aria-hidden="true" width="13" height="13" fill="currentColor" class="note-date-display__icon">
               <path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z"/>
             </svg>
-            <span class="kn-date-text">${_esc(displayStr)}</span>
-            <button class="kn-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="クリア">${DEL_SVG}</button>
+            <span class="note-date-text">${_esc(displayStr)}</span>
+            <button class="note-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="クリア">${DEL_SVG}</button>
           </div>
         `;
       } else {
         bodyHtml = `
-          <div class="kn-date-display kn-date-display--empty" data-action="open-datepicker" data-field-id="${field.id}" data-entry-id="" data-date-value="">
-            <svg viewBox="0 0 16 16" aria-hidden="true" width="13" height="13" fill="currentColor" class="kn-date-display__icon">
+          <div class="note-date-display note-date-display--empty" data-action="open-datepicker" data-field-id="${field.id}" data-entry-id="" data-date-value="">
+            <svg viewBox="0 0 16 16" aria-hidden="true" width="13" height="13" fill="currentColor" class="note-date-display__icon">
               <path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z"/>
             </svg>
-            <span class="kn-date-placeholder">日付を選択...</span>
+            <span class="note-date-placeholder">日付を選択...</span>
           </div>
         `;
       }
@@ -636,9 +639,9 @@ const Renderer = {
     }
 
     return `
-      <div class="kn-field" data-field-id="${field.id}" data-width="${width}"${field.newRow ? ' data-new-row="true"' : ''}>
-        <div class="kn-field__header">
-          <span class="kn-field-label">${_esc(field.name)}</span>
+      <div class="note-field" data-field-id="${field.id}" data-width="${width}"${field.newRow ? ' data-new-row="true"' : ''}>
+        <div class="note-field__header">
+          <span class="note-field-label">${_esc(field.name)}</span>
         </div>
         ${bodyHtml}
       </div>
@@ -649,7 +652,7 @@ const Renderer = {
   _renderLabelForm(field, entries) {
     const opts = field.options || [];
     if (opts.length === 0) {
-      return '<p class="kn-empty-msg kn-empty-msg--inline">選択肢が設定されていません。フィールド管理で追加してください。</p>';
+      return '<p class="note-empty-msg note-empty-msg--inline">選択肢が設定されていません。フィールド管理で追加してください。</p>';
     }
 
     let selectedLabels = [];
@@ -659,15 +662,15 @@ const Renderer = {
     }
 
     return `
-      <div class="kn-label-form" data-field-id="${field.id}" data-entry-id="${entryId !== null ? entryId : ''}">
-        <div class="kn-label-form__options">
+      <div class="note-label-form" data-field-id="${field.id}" data-entry-id="${entryId !== null ? entryId : ''}">
+        <div class="note-label-form__options">
           ${opts.map(opt => {
             const isActive = selectedLabels.includes(opt.name);
             const style = isActive
               ? `background:${opt.color};border-color:${opt.color};color:#fff;`
               : `border-color:${opt.color}66;color:${opt.color};`;
             return `
-              <button class="kn-label-tag${isActive ? ' is-active' : ''}"
+              <button class="note-label-tag${isActive ? ' is-active' : ''}"
                       data-action="toggle-label" data-field-id="${field.id}" data-option="${_esc(opt.name)}"
                       style="${style}">
                 ${_esc(opt.name)}
@@ -683,7 +686,7 @@ const Renderer = {
   _renderSelectForm(field, entries) {
     const rawOpts = field.options || [];
     if (rawOpts.length === 0) {
-      return '<p class="kn-empty-msg kn-empty-msg--inline">選択肢が設定されていません。フィールド管理で追加してください。</p>';
+      return '<p class="note-empty-msg note-empty-msg--inline">選択肢が設定されていません。フィールド管理で追加してください。</p>';
     }
 
     const currentValue = entries.length > 0 ? entries[0].value : null;
@@ -691,8 +694,8 @@ const Renderer = {
     const opts = rawOpts;
 
     return `
-      <div class="kn-select-form" data-field-id="${field.id}" data-entry-id="${entryId !== null ? entryId : ''}">
-        <div class="kn-select-form__options">
+      <div class="note-select-form" data-field-id="${field.id}" data-entry-id="${entryId !== null ? entryId : ''}">
+        <div class="note-select-form__options">
           ${opts.map(opt => {
             const isActive = opt.name === currentValue;
             const style = opt.color
@@ -701,7 +704,7 @@ const Renderer = {
                 : `border-color:${opt.color}66;color:${opt.color};`
               : '';
             return `
-              <button class="kn-select-tag${isActive ? ' is-active' : ''}"
+              <button class="note-select-tag${isActive ? ' is-active' : ''}"
                       data-action="toggle-select" data-field-id="${field.id}" data-option="${_esc(opt.name)}"
                       ${style ? `style="${style}"` : ''}>
                 ${_esc(opt.name)}
@@ -716,14 +719,14 @@ const Renderer = {
   // リンクエントリの描画（リンクタイプのみ使用）
   _renderLinkEntry(entry) {
     const display = entry.label || entry.value;
-    return `<div class="kn-entry" data-entry-id="${entry.id}">
-      <a href="${_esc(entry.value)}" target="_blank" rel="noopener noreferrer" class="kn-entry__link">
+    return `<div class="note-entry" data-entry-id="${entry.id}">
+      <a href="${_esc(entry.value)}" target="_blank" rel="noopener noreferrer" class="note-entry__link">
         <svg viewBox="0 0 16 16" aria-hidden="true" width="11" height="11" fill="currentColor" flex-shrink="0">
           <path d="M3.75 2h3.5a.75.75 0 0 1 0 1.5h-3.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-3.5a.75.75 0 0 1 1.5 0v3.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2Zm6.854-1h4.146a.25.25 0 0 1 .25.25v4.146a.25.25 0 0 1-.427.177L13.03 4.03 9.28 7.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.75-3.75-1.543-1.543A.25.25 0 0 1 10.604 1Z"/>
         </svg>
-        <span class="kn-entry__link-text">${_esc(display)}</span>
+        <span class="note-entry__link-text">${_esc(display)}</span>
       </a>
-      <button class="kn-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="削除">${DEL_SVG}</button>
+      <button class="note-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="削除">${DEL_SVG}</button>
     </div>`;
   },
 
@@ -731,53 +734,53 @@ const Renderer = {
   renderFieldModal() {
     const body = document.getElementById('field-modal-body');
     if (State.fields.length === 0) {
-      body.innerHTML = '<p class="kn-empty-msg">フィールドがありません。下のフォームから追加してください。</p>';
+      body.innerHTML = '<p class="note-empty-msg">フィールドがありません。下のフォームから追加してください。</p>';
       return;
     }
     const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '単一ラベル', label: 'ラベル' };
-    body.innerHTML = `<ul class="kn-field-list">
+    body.innerHTML = `<ul class="note-field-list">
       ${State.fields.map((f, i) => {
         const hasSelectOptions = false; // 単一選択タイプも LabelManager で管理するため展開パネル不要
         const hasLabelOptions  = f.type === 'label' || f.type === 'select';
         const options = f.options || [];
         const displayWidth = f.width || 'full';
         return `
-          <li class="kn-field-item" data-field-id="${f.id}">
-            <div class="kn-field-item__main">
-              <span class="kn-field-item__name kn-field-item__name--editable" data-action="edit-field-name" data-field-id="${f.id}" title="クリックしてフィールド名を変更">${_esc(f.name)}</span>
-              <span class="kn-field-item__type" data-type="${f.type}">${typeLabels[f.type] || f.type}</span>
-              <select class="kn-select kn-select--sm" data-field-width="${f.id}" title="表示幅">
+          <li class="note-field-item" data-field-id="${f.id}">
+            <div class="note-field-item__main">
+              <span class="note-field-item__name note-field-item__name--editable" data-action="edit-field-name" data-field-id="${f.id}" title="クリックしてフィールド名を変更">${_esc(f.name)}</span>
+              <span class="note-field-item__type" data-type="${f.type}">${typeLabels[f.type] || f.type}</span>
+              <select class="note-select note-select--sm" data-field-width="${f.id}" title="表示幅">
                 <option value="auto" ${displayWidth === 'auto' ? 'selected' : ''}>標準</option>
                 <option value="wide" ${displayWidth === 'wide' ? 'selected' : ''}>広幅</option>
                 <option value="full" ${displayWidth === 'full' ? 'selected' : ''}>全幅</option>
               </select>
-              <label class="kn-field-item__visible" title="新しい行から開始する">
+              <label class="note-field-item__visible" title="新しい行から開始する">
                 <input type="checkbox" data-field-new-row="${f.id}"${f.newRow ? ' checked' : ''}>
                 行頭開始
               </label>
-              <label class="kn-field-item__visible" title="タスク一覧に値を表示する">
+              <label class="note-field-item__visible" title="タスク一覧に値を表示する">
                 <input type="checkbox" data-field-list-visible="${f.id}"${f.listVisible ? ' checked' : ''}>
                 一覧表示
               </label>
-              <div class="kn-field-item__actions">
-                <button class="kn-icon-btn" data-action="move-field-up" data-field-id="${f.id}" ${i === 0 ? 'disabled' : ''} title="上へ">↑</button>
-                <button class="kn-icon-btn" data-action="move-field-down" data-field-id="${f.id}" ${i === State.fields.length - 1 ? 'disabled' : ''} title="下へ">↓</button>
+              <div class="note-field-item__actions">
+                <button class="note-icon-btn" data-action="move-field-up" data-field-id="${f.id}" ${i === 0 ? 'disabled' : ''} title="上へ">↑</button>
+                <button class="note-icon-btn" data-action="move-field-down" data-field-id="${f.id}" ${i === State.fields.length - 1 ? 'disabled' : ''} title="下へ">↓</button>
                 ${hasSelectOptions ? `
-                  <button class="kn-icon-btn" data-action="toggle-field-options" data-field-id="${f.id}" title="選択肢を管理">
+                  <button class="note-icon-btn" data-action="toggle-field-options" data-field-id="${f.id}" title="選択肢を管理">
                     <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
                       <path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v2.5A1.75 1.75 0 0 1 14.25 7H1.75A1.75 1.75 0 0 1 0 5.25Zm1.75-.25a.25.25 0 0 0-.25.25v2.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-2.5a.25.25 0 0 0-.25-.25ZM0 10.75C0 9.784.784 9 1.75 9h12.5c.966 0 1.75.784 1.75 1.75v2.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v2.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-2.5a.25.25 0 0 0-.25-.25Z"/>
                     </svg>
                   </button>
                 ` : ''}
                 ${hasLabelOptions ? `
-                  <button class="btn-manage-labels kn-icon-btn--manage-labels" data-action="open-label-manager" data-field-id="${f.id}" title="${f.type === 'select' ? '選択肢を管理' : 'ラベルを管理'}">
+                  <button class="btn-manage-labels note-icon-btn--manage-labels" data-action="open-label-manager" data-field-id="${f.id}" title="${f.type === 'select' ? '選択肢を管理' : 'ラベルを管理'}">
                     <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
                       <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.879a1.5 1.5 0 0 1 1.06.44l8.5 8.5a1.5 1.5 0 0 1 0 2.12l-3.878 3.879a1.5 1.5 0 0 1-2.122 0l-8.5-8.5A1.5 1.5 0 0 1 1 6.38Zm1.5 0v3.879l8.5 8.5 3.879-3.878-8.5-8.5ZM6 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/>
                     </svg>
                     ${f.type === 'select' ? '選択肢' : 'ラベル'}
                   </button>
                 ` : ''}
-                <button class="kn-icon-btn kn-icon-btn--danger" data-action="delete-field" data-field-id="${f.id}" title="削除">
+                <button class="note-icon-btn note-icon-btn--danger" data-action="delete-field" data-field-id="${f.id}" title="削除">
                   <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
                     <path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/>
                   </svg>
@@ -785,20 +788,20 @@ const Renderer = {
               </div>
             </div>
             ${hasSelectOptions ? `
-              <div class="kn-field-item__options" id="field-options-${f.id}" hidden>
-                <div class="kn-option-chips">
+              <div class="note-field-item__options" id="field-options-${f.id}" hidden>
+                <div class="note-option-chips">
                   ${options.length > 0
                     ? options.map(o => `
-                        <span class="kn-option-chip">
+                        <span class="note-option-chip">
                           ${_esc(o)}
-                          <button class="kn-option-chip__del" data-action="remove-field-option" data-field-id="${f.id}" data-option="${_esc(o)}" title="削除">×</button>
+                          <button class="note-option-chip__del" data-action="remove-field-option" data-field-id="${f.id}" data-option="${_esc(o)}" title="削除">×</button>
                         </span>
                       `).join('')
-                    : '<span class="kn-option-chips__empty">選択肢がありません</span>'
+                    : '<span class="note-option-chips__empty">選択肢がありません</span>'
                   }
                 </div>
-                <div class="kn-option-add-row">
-                  <input type="text" class="kn-input kn-input--sm" placeholder="新しい選択肢を入力" data-option-input data-field-id="${f.id}">
+                <div class="note-option-add-row">
+                  <input type="text" class="note-input note-input--sm" placeholder="新しい選択肢を入力" data-option-input data-field-id="${f.id}">
                   <button class="btn btn--primary btn--sm" data-action="add-field-option" data-field-id="${f.id}">追加</button>
                 </div>
               </div>
@@ -817,7 +820,7 @@ const EventHandlers = {
   async init(db) {
     // タスクリストのクリック
     document.getElementById('task-list').addEventListener('click', e => {
-      const item = e.target.closest('.kn-task-item');
+      const item = e.target.closest('.note-task-item');
       if (item) this._onSelectTask(item, db).catch(console.error);
     });
 
@@ -828,15 +831,15 @@ const EventHandlers = {
     });
 
     // ソート変更
-    document.getElementById('kn-sort').addEventListener('change', e => {
+    document.getElementById('note-sort').addEventListener('change', e => {
       const [field, dir] = e.target.value.split('-');
       State.sort = { field, dir };
-      localStorage.setItem('kn_sort', e.target.value);
+      localStorage.setItem('note_sort', e.target.value);
       Renderer.renderTaskList();
     });
 
     // ヘッダーアクション（フィールド管理・エクスポート・インポート）
-    document.querySelector('.kn-header__actions').addEventListener('click', e => {
+    document.querySelector('.note-header__actions').addEventListener('click', e => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
       switch (btn.dataset.action) {
@@ -976,14 +979,14 @@ const EventHandlers = {
     const input = document.createElement('input');
     input.type = 'text';
     input.value = task.title;
-    input.className = 'kn-title-input';
+    input.className = 'note-title-input';
     titleEl.replaceWith(input);
     input.focus();
     input.select();
 
     const restore = (newTitle) => {
       const h2 = document.createElement('h2');
-      h2.className = 'kn-detail__title';
+      h2.className = 'note-detail__title';
       h2.id = 'detail-title';
       h2.dataset.action = 'edit-title';
       h2.title = 'クリックして編集';
@@ -1092,7 +1095,7 @@ const EventHandlers = {
   async _onToggleSelect(btn, db) {
     const fieldId = Number(btn.dataset.fieldId);
     const optionValue = btn.dataset.option;
-    const form = btn.closest('.kn-select-form');
+    const form = btn.closest('.note-select-form');
     if (!form) return;
 
     const entryId = form.dataset.entryId ? Number(form.dataset.entryId) : null;
@@ -1176,7 +1179,7 @@ const EventHandlers = {
   async _onToggleLabel(btn, db) {
     const fieldId = Number(btn.dataset.fieldId);
     const optionValue = btn.dataset.option;
-    const form = btn.closest('.kn-label-form');
+    const form = btn.closest('.note-label-form');
     if (!form) return;
 
     const entryId = form.dataset.entryId ? Number(form.dataset.entryId) : null;
@@ -1456,7 +1459,7 @@ const EventHandlers = {
     const input = document.createElement('input');
     input.type = 'text';
     input.value = field.name;
-    input.className = 'kn-input kn-input--sm';
+    input.className = 'note-input note-input--sm';
     input.style.cssText = 'flex: 1; min-width: 60px;';
     btn.replaceWith(input);
     input.focus();
@@ -1536,8 +1539,8 @@ const EventHandlers = {
     try {
       const kanbanDb = await _openKanbanDB();
       await new Promise((resolve, reject) => {
-        const req = kanbanDb.transaction('knowledge_links', 'readwrite')
-          .objectStore('knowledge_links')
+        const req = kanbanDb.transaction('note_links', 'readwrite')
+          .objectStore('note_links')
           .delete(linkId);
         req.onsuccess = resolve;
         req.onerror   = e => reject(e.target.error);
@@ -1566,7 +1569,7 @@ const EventHandlers = {
   },
 
   _refreshDetailMeta(task) {
-    const meta = document.querySelector('.kn-detail__meta');
+    const meta = document.querySelector('.note-detail__meta');
     if (!meta) return;
     let text = `作成日: ${new Date(task.created_at).toLocaleString('ja-JP')}`;
     if (task.updated_at !== task.created_at) {
@@ -1581,7 +1584,7 @@ const EventHandlers = {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `knowledge_export_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `note_export_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('エクスポートしました');
@@ -1594,7 +1597,7 @@ const EventHandlers = {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      if (data.type !== 'knowledge_export') throw new Error('不正なファイル形式です');
+      if (data.type !== 'note_export') throw new Error('不正なファイル形式です');
       if (!confirm('現在のデータをすべて上書きします。よろしいですか？')) return;
       await db.importData(data);
       [State.tasks, State.fields] = await Promise.all([db.getAllTasks(), db.getAllFields()]);
@@ -1616,46 +1619,46 @@ const EventHandlers = {
 // ── App ──────────────────────────────────────────────────────────
 const App = {
   async init() {
-    await KnowledgeDB.open();
-    await KnowledgeDB.initDefaultFields();
+    await NoteDB.open();
+    await NoteDB.initDefaultFields();
     [State.tasks, State.fields, State.allEntries] = await Promise.all([
-      KnowledgeDB.getAllTasks(),
-      KnowledgeDB.getAllFields(),
-      KnowledgeDB.getAllEntries(),
+      NoteDB.getAllTasks(),
+      NoteDB.getAllFields(),
+      NoteDB.getAllEntries(),
     ]);
 
     // フィルター状態を localStorage から復元
     _loadFilter();
 
     // ソート状態を localStorage から復元
-    const savedSort = localStorage.getItem('kn_sort');
+    const savedSort = localStorage.getItem('note_sort');
     if (savedSort) {
       const [field, dir] = savedSort.split('-');
       State.sort = { field, dir };
-      const sortEl = document.getElementById('kn-sort');
+      const sortEl = document.getElementById('note-sort');
       if (sortEl) sortEl.value = savedSort;
     }
 
     Renderer.renderTaskList();
     Renderer.renderFilterUI();
     await Renderer.renderDetail();
-    await EventHandlers.init(KnowledgeDB);
+    await EventHandlers.init(NoteDB);
 
-    // 親フレームからの navigate:knowledge 指示を受信してタスクを選択・表示
+    // 親フレームからの navigate:note 指示を受信してタスクを選択・表示
     window.addEventListener('message', async (e) => {
       const { type, knTaskId } = e.data || {};
-      if (type !== 'navigate:knowledge' || !knTaskId) return;
+      if (type !== 'navigate:note' || !knTaskId) return;
       const task = State.tasks.find(t => t.id === knTaskId);
       if (!task) return;
       State.selectedTaskId = knTaskId;
-      State.entries = await KnowledgeDB.getEntriesByTask(knTaskId);
+      State.entries = await NoteDB.getEntriesByTask(knTaskId);
       Renderer.renderTaskList();
       await Renderer.renderDetail();
       document.querySelector(`[data-task-id="${knTaskId}"]`)?.scrollIntoView({ block: 'nearest' });
     });
 
     // CustomSelect: ソートセレクトをカスタム UI に置き換え
-    CustomSelect.replaceAll(document.getElementById('kn-sidebar-controls'));
+    CustomSelect.replaceAll(document.getElementById('note-sidebar-controls'));
   },
 };
 

@@ -48,10 +48,10 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `State.sort: { field, dir }` でソート状態を保持。localStorage `kanban_sort` に永続化
 - `State.taskLabels: Map<taskId, Set<labelId>>` はフィルター用キャッシュ。`renderBoard()` でリビルド、ラベル追加／削除時にインクリメンタル更新
 - `State.filter: { text, labelIds }` でフィルター状態を保持。`applyFilter()` でカードの表示／非表示を制御
-- IndexedDB は version 2（`columns` ストアを v2 で追加、`knowledge_links` ストアも v2 で追加）
-- `knowledge_links` スキーマ: `{ id, todo_task_id, kn_task_id }`。インデックス: `todo_task_id` / `kn_task_id`
-- `Renderer.renderKnowledgeLinks(taskId, db)`: モーダルサイドバーの「ナレッジ」セクションを描画
-- `_openKnowledgeDB()`: `knowledge_db` を開くモジュールレベルヘルパー（todo.js 内）
+- IndexedDB は version 1
+- `note_links` スキーマ: `{ id, todo_task_id, note_task_id }`。インデックス: `todo_task_id` / `note_task_id`
+- `Renderer.renderNoteLinks(taskId, db)`: モーダルサイドバーの「ノート」セクションを描画
+- `_openNoteDB()`: `note_db` を開くモジュールレベルヘルパー（todo.js 内）
 - 期限日フィールドはカスタムカレンダー（`js/base/date_picker.js` の `DatePicker`）で選択。`#modal-due` は hidden input
 - カラムは動的追加・削除可能。削除時にタスクが残っていればブロック
 
@@ -129,7 +129,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ## dashboard.js アーキテクチャ（2026-03現在）
 
-- IndexedDB DB名: `dashboard_db` version **5**（全インスタンス共有の単一DB）
+- IndexedDB DB名: `dashboard_db` version **1**（全インスタンス共有の単一DB）
 - URLパラメータ `?instance=<id>` で複数ダッシュボードタブを識別（DBは共有）
 - `_instanceId = new URLSearchParams(location.search).get('instance') || ''` でファイル冒頭に定義
 - `sections` ストアに `instance_id` フィールド（インデックス付き）を持ち、このIDでフィルタリング
@@ -163,11 +163,11 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - バインド変数バー `#bind-bar` をダッシュボード上部に表示（presets が 0 件なら hidden）
   - 設定ビュー「共通バインド変数」→ 変数名定義・UIタイプ切替・プリセット一覧の管理
   - コピー・リンク・コマンドビルダー実行時と表示時（テキスト・コピー型テーブルセル）に変数を解決
-  - DB v4→v5 マイグレーション: `environments` ストアを `presets` に自動移行、旧 localStorage キーも移行
 
-## knowledge.js アーキテクチャ（2026-03現在）
 
-- IndexedDB DB名: `knowledge_db` version **1**
+## note.js アーキテクチャ（2026-03現在）
+
+- IndexedDB DB名: `note_db` version **1**
 - ストア: `tasks`（id/title/created_at/updated_at）+ `fields`（id/name/type/options/position/**width**/**listVisible**）+ `entries`（id/task_id/field_id/label/value/created_at）
 - フィールドタイプ: `link` | `text` | `date` | `select` | `label`
 - `link`: 複数エントリ可。追加ボタンあり、表示名＋URL
@@ -178,22 +178,22 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - タイプバッジは非表示（フィールド名のみ表示）
 - `field.width`: `'auto'`（標準）/ `'wide'`（広幅=span 2）/ `'full'`（全幅=1/-1）。ダッシュボードと同仕様。旧 `'half'` は `'auto'` 扱い
 - `field.listVisible`: `true` のフィールドをタスク一覧に値バッジとして表示
-- `.kn-fields` は CSS Grid（`auto-fill, minmax(380px, 1fr)`）。≤840px は全幅
+- `.note-fields` は CSS Grid（`auto-fill, minmax(380px, 1fr)`）。≤840px は全幅
 - `State.allEntries`: 全タスクのエントリキャッシュ（タスク一覧表示用）
-- `State.sort`: `{ field, dir }` ソート状態。localStorage `kn_sort` に永続化（`"created_at-desc"` 形式）
-- `State.listFilter`: `{ [fieldId]: Set }` フィルター状態（select/label 共通で Set 形式）。localStorage `kn_filter` に永続化
+- `State.sort`: `{ field, dir }` ソート状態。localStorage `note_sort` に永続化（`"created_at-desc"` 形式）
+- `State.listFilter`: `{ [fieldId]: Set }` フィルター状態（select/label 共通で Set 形式）。localStorage `note_filter` に永続化
 - `_saveFilter()` / `_loadFilter()`: フィルター状態を localStorage に保存・復元。フィールド ID をキーに JSON シリアライズ
 - `EventHandlers._touchTask(db)`: 選択中タスクの `updated_at` を更新し、詳細パネルのメタ情報をインプレース更新。エントリ追加・更新・削除時に呼ぶ
-- `EventHandlers._refreshDetailMeta(task)`: 詳細パネルの `.kn-detail__meta` をインプレース更新（再レンダリング不要）
+- `EventHandlers._refreshDetailMeta(task)`: 詳細パネルの `.note-detail__meta` をインプレース更新（再レンダリング不要）
 - フィールド名変更: フィールド管理モーダルのフィールド名をクリックしてインライン編集可能。`_onEditFieldName(btn, db)` で処理
 - `Renderer.renderFilterUI()`: `listVisible=true` な select/label フィールドのフィルター UI を動的生成
 - `Renderer._sortTasks()` / `Renderer._filterTasks()`: ソート・フィルター処理
 - `Renderer._renderFieldBadge()`: フィールドタイプ別バッジ HTML 生成
-- CSS: `knowledge.less` に `:root { --color-card, --color-border, ... }` を追加（DatePicker が参照）
-- モジュール構成: `KnowledgeDB` / `State` / `Renderer` / `EventHandlers` / `App`
-- エクスポート/インポート: JSON形式（`type: 'knowledge_export'`）
-- **TODOとの紐づけ**: `kanban_db` の `knowledge_links` ストアに `{ id, todo_task_id, kn_task_id }` 形式で保存。詳細パネル末尾の「紐づきTODO」セクションに表示。`Renderer.renderTodoLinks(knTaskId)` で描画、`_openKanbanDB()` で cross-DB アクセス
-- `_openKanbanDB()`: `kanban_db` を開くモジュールレベルヘルパー（knowledge.js 内）
+- CSS: `note.less` に `:root { --color-card, --color-border, ... }` を追加（DatePicker が参照）
+- モジュール構成: `NoteDB` / `State` / `Renderer` / `EventHandlers` / `App`
+- エクスポート/インポート: JSON形式（`type: 'note_export'`）
+- **TODOとの紐づけ**: `kanban_db` の `note_links` ストアに `{ id, todo_task_id, note_task_id }` 形式で保存。詳細パネル末尾の「紐づきTODO」セクションに表示。`Renderer.renderTodoLinks(noteTaskId)` で描画、`_openKanbanDB()` で cross-DB アクセス
+- `_openKanbanDB()`: `kanban_db` を開くモジュールレベルヘルパー（note.js 内）
 
 ## 注意事項
 

@@ -13,7 +13,7 @@ class KanbanDB {
   /** DBをオープン（スキーマ初期化含む） */
   open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('kanban_db', 2);
+      const req = indexedDB.open('kanban_db', 1);
 
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
@@ -62,11 +62,11 @@ class KanbanDB {
           rels.createIndex('related_id', 'related_id', { unique: false });
         }
 
-        // knowledge_links ストア (v2で追加)
-        if (!db.objectStoreNames.contains('knowledge_links')) {
-          const kl = db.createObjectStore('knowledge_links', { keyPath: 'id', autoIncrement: true });
-          kl.createIndex('todo_task_id', 'todo_task_id', { unique: false });
-          kl.createIndex('kn_task_id',   'kn_task_id',   { unique: false });
+        // note_links ストア
+        if (!db.objectStoreNames.contains('note_links')) {
+          const nl = db.createObjectStore('note_links', { keyPath: 'id', autoIncrement: true });
+          nl.createIndex('todo_task_id', 'todo_task_id', { unique: false });
+          nl.createIndex('note_task_id', 'note_task_id', { unique: false });
         }
       };
 
@@ -157,8 +157,8 @@ class KanbanDB {
     ]);
     // task_relations は双方向インデックスから取得して削除
     await this.deleteRelationsByTask(id).catch(() => {});
-    // knowledge_links をカスケード削除
-    await this.deleteKnowledgeLinksByTodo(id).catch(() => {});
+    // note_links をカスケード削除
+    await this.deleteNoteLinksByTodo(id).catch(() => {});
 
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(['tasks', 'comments', 'task_labels', 'activities'], 'readwrite');
@@ -374,42 +374,42 @@ class KanbanDB {
     });
   }
 
-  // ---- Knowledge Links ----
-  /** ナレッジタスクとの紐づけを追加 */
-  async addKnowledgeLink(todoTaskId, knTaskId) {
+  // ---- Note Links ----
+  /** ノートタスクとの紐づけを追加 */
+  async addNoteLink(todoTaskId, noteTaskId) {
     return new Promise((resolve, reject) => {
-      const record = { todo_task_id: todoTaskId, kn_task_id: knTaskId };
-      const tx  = this.db.transaction('knowledge_links', 'readwrite');
-      const req = tx.objectStore('knowledge_links').add(record);
+      const record = { todo_task_id: todoTaskId, note_task_id: noteTaskId };
+      const tx  = this.db.transaction('note_links', 'readwrite');
+      const req = tx.objectStore('note_links').add(record);
       req.onsuccess = () => { record.id = req.result; resolve(record); };
       req.onerror   = (e) => reject(e.target.error);
     });
   }
 
-  /** TODO タスクに紐づくナレッジリンクを取得 */
-  async getKnowledgeLinksByTodo(todoTaskId) {
-    return this._getAllByIndex('knowledge_links', 'todo_task_id', todoTaskId);
+  /** TODO タスクに紐づくノートリンクを取得 */
+  async getNoteLinksByTodo(todoTaskId) {
+    return this._getAllByIndex('note_links', 'todo_task_id', todoTaskId);
   }
 
-  /** ナレッジリンクを削除 */
-  async deleteKnowledgeLink(id) {
+  /** ノートリンクを削除 */
+  async deleteNoteLink(id) {
     return new Promise((resolve, reject) => {
-      const tx  = this.db.transaction('knowledge_links', 'readwrite');
-      const req = tx.objectStore('knowledge_links').delete(id);
+      const tx  = this.db.transaction('note_links', 'readwrite');
+      const req = tx.objectStore('note_links').delete(id);
       req.onsuccess = resolve;
       req.onerror   = (e) => reject(e.target.error);
     });
   }
 
-  /** タスク削除時に関連するナレッジリンクをカスケード削除 */
-  async deleteKnowledgeLinksByTodo(todoTaskId) {
-    const links = await this.getKnowledgeLinksByTodo(todoTaskId).catch(() => []);
+  /** タスク削除時に関連するノートリンクをカスケード削除 */
+  async deleteNoteLinksByTodo(todoTaskId) {
+    const links = await this.getNoteLinksByTodo(todoTaskId).catch(() => []);
     if (links.length === 0) return;
     return new Promise((resolve, reject) => {
-      const tx = this.db.transaction('knowledge_links', 'readwrite');
+      const tx = this.db.transaction('note_links', 'readwrite');
       tx.oncomplete = resolve;
       tx.onerror    = (e) => reject(e.target.error);
-      for (const l of links) tx.objectStore('knowledge_links').delete(l.id);
+      for (const l of links) tx.objectStore('note_links').delete(l.id);
     });
   }
 
@@ -433,32 +433,32 @@ class KanbanDB {
 
   /** 全ストアのデータを一括エクスポート */
   async exportAll() {
-    const [tasks, comments, labels, task_labels, columns, activities, task_relations, knowledge_links] = await Promise.all([
+    const [tasks, comments, labels, task_labels, columns, activities, task_relations, note_links] = await Promise.all([
       this._getAll('tasks'), this._getAll('comments'),
       this._getAll('labels'), this._getAll('task_labels'),
       this._getAll('columns'), this._getAll('activities'),
       this._getAll('task_relations').catch(() => []),
-      this._getAll('knowledge_links').catch(() => []),
+      this._getAll('note_links').catch(() => []),
     ]);
-    return { version: 5, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns, activities, task_relations, knowledge_links };
+    return { version: 5, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns, activities, task_relations, note_links };
   }
 
   /** 全ストアをクリアして data で上書き（put で ID 保持） */
   async importAll(data) {
-    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities', 'task_relations', 'knowledge_links'];
+    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities', 'task_relations', 'note_links'];
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(stores, 'readwrite');
       tx.oncomplete = resolve;
       tx.onerror    = (e) => reject(e.target.error);
       for (const s of stores) tx.objectStore(s).clear();
-      for (const t   of (data.tasks            ?? [])) tx.objectStore('tasks').put(t);
-      for (const c   of (data.comments         ?? [])) tx.objectStore('comments').put(c);
-      for (const l   of (data.labels           ?? [])) tx.objectStore('labels').put(l);
-      for (const tl  of (data.task_labels      ?? [])) tx.objectStore('task_labels').put(tl);
-      for (const col of (data.columns          ?? [])) tx.objectStore('columns').put(col);
-      for (const a   of (data.activities       ?? [])) tx.objectStore('activities').put(a);
-      for (const r   of (data.task_relations   ?? [])) tx.objectStore('task_relations').put(r);
-      for (const kl  of (data.knowledge_links  ?? [])) tx.objectStore('knowledge_links').put(kl);
+      for (const t   of (data.tasks          ?? [])) tx.objectStore('tasks').put(t);
+      for (const c   of (data.comments       ?? [])) tx.objectStore('comments').put(c);
+      for (const l   of (data.labels         ?? [])) tx.objectStore('labels').put(l);
+      for (const tl  of (data.task_labels    ?? [])) tx.objectStore('task_labels').put(tl);
+      for (const col of (data.columns        ?? [])) tx.objectStore('columns').put(col);
+      for (const a   of (data.activities     ?? [])) tx.objectStore('activities').put(a);
+      for (const r   of (data.task_relations ?? [])) tx.objectStore('task_relations').put(r);
+      for (const nl  of (data.note_links     ?? [])) tx.objectStore('note_links').put(nl);
     });
   }
 
@@ -594,11 +594,11 @@ function _resetMdEditor(editor) {
 }
 
 // ==================================================
-// Helper: knowledge_db を読み取り専用で開く
+// Helper: note_db を読み取り専用で開く
 // ==================================================
-function _openKnowledgeDB() {
+function _openNoteDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('knowledge_db');
+    const req = indexedDB.open('note_db');
     req.onsuccess = e => resolve(e.target.result);
     req.onerror   = e => reject(e.target.error);
   });
@@ -1051,8 +1051,8 @@ const Renderer = {
     // 関係タスク
     await this.renderRelations(taskId, db);
 
-    // ナレッジ紐づけ
-    await this.renderKnowledgeLinks(taskId, db);
+    // ノート紐づけ
+    await this.renderNoteLinks(taskId, db);
 
     // コメント
     await this.renderComments(taskId, db);
@@ -1453,44 +1453,44 @@ const Renderer = {
     if (count) count.textContent = (State.tasks[column] || []).length;
   },
 
-  /** ナレッジ紐づけセクションを描画 */
-  async renderKnowledgeLinks(taskId, db) {
-    const container = document.getElementById('modal-kn-links');
+  /** ノート紐づけセクションを描画 */
+  async renderNoteLinks(taskId, db) {
+    const container = document.getElementById('modal-note-links');
     if (!container) return;
     container.innerHTML = '';
 
-    const links = await db.getKnowledgeLinksByTodo(taskId).catch(() => []);
+    const links = await db.getNoteLinksByTodo(taskId).catch(() => []);
     if (links.length === 0) return;
 
-    // knowledge_db からナレッジタスク情報を取得
-    let knTasks = [];
+    // note_db からノートタスク情報を取得
+    let noteTasks = [];
     try {
-      const knDb = await _openKnowledgeDB();
-      knTasks = await new Promise((resolve, reject) => {
-        const req = knDb.transaction('tasks').objectStore('tasks').getAll();
+      const noteDb = await _openNoteDB();
+      noteTasks = await new Promise((resolve, reject) => {
+        const req = noteDb.transaction('tasks').objectStore('tasks').getAll();
         req.onsuccess = e => resolve(e.target.result);
         req.onerror   = e => reject(e.target.error);
       });
-      knDb.close();
-    } catch (e) { /* knowledge_db が未作成の場合は無視 */ }
+      noteDb.close();
+    } catch (e) { /* note_db が未作成の場合は無視 */ }
 
-    const taskMap = new Map(knTasks.map(t => [t.id, t]));
+    const taskMap = new Map(noteTasks.map(t => [t.id, t]));
 
     for (const link of links) {
-      const knTask = taskMap.get(link.kn_task_id);
+      const noteTask = taskMap.get(link.note_task_id);
       const chip = document.createElement('div');
       chip.className = 'relation-chip';
-      chip.dataset.action  = 'open-kn-task';
-      chip.dataset.knTaskId = link.kn_task_id;
+      chip.dataset.action    = 'open-note-task';
+      chip.dataset.noteTaskId = link.note_task_id;
 
       const title = document.createElement('span');
       title.className = 'relation-chip__title';
-      title.textContent = knTask ? knTask.title : `(ID: ${link.kn_task_id})`;
-      title.title = knTask ? `ナレッジで開く: ${knTask.title}` : '';
+      title.textContent = noteTask ? noteTask.title : `(ID: ${link.note_task_id})`;
+      title.title = noteTask ? `ノートで開く: ${noteTask.title}` : '';
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'relation-chip__remove';
-      removeBtn.dataset.action = 'remove-kn-link';
+      removeBtn.dataset.action = 'remove-note-link';
       removeBtn.dataset.linkId = link.id;
       removeBtn.textContent = '×';
       removeBtn.setAttribute('aria-label', '紐づきを解除');
@@ -1721,9 +1721,9 @@ const EventHandlers = {
       if (picker && !picker.hidden && !picker.contains(e.target)) {
         this._closeTaskPicker();
       }
-      const knPicker = document.getElementById('kn-picker');
-      if (knPicker && !knPicker.hidden && !knPicker.contains(e.target)) {
-        this._closeKnPicker();
+      const notePicker = document.getElementById('note-picker');
+      if (notePicker && !notePicker.hidden && !notePicker.contains(e.target)) {
+        this._closeNotePicker();
       }
     });
 
@@ -1739,16 +1739,16 @@ const EventHandlers = {
       this._onSelectRelationTask(item, db);
     });
 
-    // ナレッジピッカー検索入力
-    document.getElementById('kn-picker-input').addEventListener('input', (e) => {
-      this._filterKnPickerList(e.target.value);
+    // ノートピッカー検索入力
+    document.getElementById('note-picker-input').addEventListener('input', (e) => {
+      this._filterNotePickerList(e.target.value);
     });
 
-    // ナレッジピッカーのリストクリック委譲
-    document.getElementById('kn-picker-list').addEventListener('click', (e) => {
-      const item = e.target.closest('[data-action="select-kn-task"]');
+    // ノートピッカーのリストクリック委譲
+    document.getElementById('note-picker-list').addEventListener('click', (e) => {
+      const item = e.target.closest('[data-action="select-note-task"]');
       if (!item) return;
-      this._onSelectKnTask(item, db).catch(console.error);
+      this._onSelectNoteTask(item, db).catch(console.error);
     });
 
     // 期限フィルター
@@ -1799,10 +1799,10 @@ const EventHandlers = {
       case 'remove-relation':    this._onRemoveRelation(btn, db);   break;
       case 'open-related-task':  this._onOpenRelatedTask(btn, db);  break;
       case 'select-relation-task': this._onSelectRelationTask(btn, db); break;
-      case 'pick-knowledge-task':  this._onPickKnowledgeTask(btn, db).catch(console.error); break;
-      case 'select-kn-task':       this._onSelectKnTask(btn, db).catch(console.error); break;
-      case 'remove-kn-link':       this._onRemoveKnLink(btn, db).catch(console.error); break;
-      case 'open-kn-task':         this._onOpenKnTask(btn); break;
+      case 'pick-note-task':   this._onPickNoteTask(btn, db).catch(console.error); break;
+      case 'select-note-task': this._onSelectNoteTask(btn, db).catch(console.error); break;
+      case 'remove-note-link': this._onRemoveNoteLink(btn, db).catch(console.error); break;
+      case 'open-note-task':   this._onOpenNoteTask(btn); break;
     }
   },
 
@@ -2647,37 +2647,37 @@ const EventHandlers = {
     State._pickerCandidates = null;
   },
 
-  // ---- ナレッジ紐づけ操作 ----
+  // ---- ノート紐づけ操作 ----
 
-  /** ナレッジピッカーを開く */
-  async _onPickKnowledgeTask(btn, db) {
+  /** ノートピッカーを開く */
+  async _onPickNoteTask(btn, db) {
     if (!State.currentTaskId) return;
 
     // 既存リンクを除外
-    const existingLinks = await db.getKnowledgeLinksByTodo(State.currentTaskId).catch(() => []);
-    const excludeIds = new Set(existingLinks.map(l => l.kn_task_id));
+    const existingLinks = await db.getNoteLinksByTodo(State.currentTaskId).catch(() => []);
+    const excludeIds = new Set(existingLinks.map(l => l.note_task_id));
 
-    // knowledge_db からタスク一覧を取得
-    let knTasks = [];
+    // note_db からタスク一覧を取得
+    let noteTasks = [];
     try {
-      const knDb = await _openKnowledgeDB();
-      knTasks = await new Promise((resolve, reject) => {
-        const req = knDb.transaction('tasks').objectStore('tasks').getAll();
+      const noteDb = await _openNoteDB();
+      noteTasks = await new Promise((resolve, reject) => {
+        const req = noteDb.transaction('tasks').objectStore('tasks').getAll();
         req.onsuccess = e => resolve(e.target.result);
         req.onerror   = e => reject(e.target.error);
       });
-      knDb.close();
+      noteDb.close();
     } catch (e) {
-      Toast.show('ナレッジDBを開けませんでした', 'error');
+      Toast.show('ノートDBを開けませんでした', 'error');
       return;
     }
 
-    State._knPickerCandidates = knTasks.filter(t => !excludeIds.has(t.id));
+    State._notePickerCandidates = noteTasks.filter(t => !excludeIds.has(t.id));
 
-    const picker = document.getElementById('kn-picker');
-    const input  = document.getElementById('kn-picker-input');
+    const picker = document.getElementById('note-picker');
+    const input  = document.getElementById('note-picker-input');
     input.value  = '';
-    this._renderKnPickerList(State._knPickerCandidates);
+    this._renderNotePickerList(State._notePickerCandidates);
 
     const rect = btn.getBoundingClientRect();
     picker.style.top  = (rect.bottom + 4) + 'px';
@@ -2686,21 +2686,21 @@ const EventHandlers = {
     input.focus();
   },
 
-  /** ナレッジピッカーのリストを描画 */
-  _renderKnPickerList(tasks) {
-    const list = document.getElementById('kn-picker-list');
+  /** ノートピッカーのリストを描画 */
+  _renderNotePickerList(tasks) {
+    const list = document.getElementById('note-picker-list');
     list.innerHTML = '';
     if (tasks.length === 0) {
       const empty = document.createElement('li');
       empty.className = 'task-picker__empty';
-      empty.textContent = '選択可能なナレッジタスクがありません';
+      empty.textContent = '選択可能なノートがありません';
       list.appendChild(empty);
       return;
     }
     for (const t of tasks) {
       const item = document.createElement('li');
       item.className = 'task-picker__item';
-      item.dataset.action = 'select-kn-task';
+      item.dataset.action = 'select-note-task';
       item.dataset.taskId = t.id;
 
       const titleEl = document.createElement('span');
@@ -2712,46 +2712,46 @@ const EventHandlers = {
     }
   },
 
-  /** ナレッジピッカーの検索フィルター */
-  _filterKnPickerList(query) {
+  /** ノートピッカーの検索フィルター */
+  _filterNotePickerList(query) {
     const q = query.toLowerCase();
-    const candidates = (State._knPickerCandidates || []).filter(
+    const candidates = (State._notePickerCandidates || []).filter(
       t => t.title.toLowerCase().includes(q),
     );
-    this._renderKnPickerList(candidates);
+    this._renderNotePickerList(candidates);
   },
 
-  /** ナレッジピッカーを閉じる */
-  _closeKnPicker() {
-    const picker = document.getElementById('kn-picker');
+  /** ノートピッカーを閉じる */
+  _closeNotePicker() {
+    const picker = document.getElementById('note-picker');
     if (picker) picker.setAttribute('hidden', '');
-    State._knPickerCandidates = null;
+    State._notePickerCandidates = null;
   },
 
-  /** ナレッジタスクを選択して紐づけ */
-  async _onSelectKnTask(btn, db) {
-    const knTaskId  = parseInt(btn.dataset.taskId, 10);
+  /** ノートタスクを選択して紐づけ */
+  async _onSelectNoteTask(btn, db) {
+    const noteTaskId = parseInt(btn.dataset.taskId, 10);
     const todoTaskId = State.currentTaskId;
-    if (!todoTaskId || !knTaskId) return;
+    if (!todoTaskId || !noteTaskId) return;
 
-    await db.addKnowledgeLink(todoTaskId, knTaskId);
-    this._closeKnPicker();
-    await Renderer.renderKnowledgeLinks(todoTaskId, db);
+    await db.addNoteLink(todoTaskId, noteTaskId);
+    this._closeNotePicker();
+    await Renderer.renderNoteLinks(todoTaskId, db);
     markDirty();
   },
 
-  /** ナレッジ紐づけを解除 */
-  async _onRemoveKnLink(btn, db) {
+  /** ノート紐づけを解除 */
+  async _onRemoveNoteLink(btn, db) {
     const linkId = parseInt(btn.dataset.linkId, 10);
-    await db.deleteKnowledgeLink(linkId);
-    await Renderer.renderKnowledgeLinks(State.currentTaskId, db);
+    await db.deleteNoteLink(linkId);
+    await Renderer.renderNoteLinks(State.currentTaskId, db);
     markDirty();
   },
 
-  /** ナレッジページでタスクを開く（親フレームにナビゲーション要求を送信） */
-  _onOpenKnTask(btn) {
-    const knTaskId = parseInt(btn.dataset.knTaskId, 10);
-    parent.postMessage({ type: 'navigate:knowledge', knTaskId }, '*');
+  /** ノートページでタスクを開く（親フレームにナビゲーション要求を送信） */
+  _onOpenNoteTask(btn) {
+    const noteTaskId = parseInt(btn.dataset.noteTaskId, 10);
+    parent.postMessage({ type: 'navigate:note', noteTaskId }, '*');
   },
 
 };

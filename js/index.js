@@ -15,9 +15,9 @@ const TAB_ITEMS = [
     isSelected: false,
   },
   {
-    label: "ナレッジ",
+    label: "ノート",
     icon: `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/></svg>`,
-    pageSrc: "knowledge.html",
+    pageSrc: "note.html",
     isSelected: false,
   },
 ];
@@ -482,7 +482,7 @@ async function importAllData() {
       // dashboard_db を開いて全インスタンスデータを復元
       if (data.dashboards && data.dashboards.length > 0) {
         const db = await new Promise((resolve, reject) => {
-          const req = indexedDB.open('dashboard_db', 3);
+          const req = indexedDB.open('dashboard_db', 1);
           req.onsuccess = e => resolve(e.target.result);
           req.onerror = () => reject(req.error);
           req.onupgradeneeded = (ev) => {
@@ -919,11 +919,11 @@ async function configureHomePage(label) {
 // ページ間ナビゲーション: iframe からの要求を中継
 // ==================================================
 window.addEventListener('message', async (e) => {
-  const { type, knTaskId, todoTaskId } = e.data || {};
-  if (type !== 'navigate:knowledge' && type !== 'navigate:todo') return;
+  const { type, noteTaskId, todoTaskId } = e.data || {};
+  if (type !== 'navigate:note' && type !== 'navigate:todo') return;
 
   const config  = await loadTabConfig();
-  const pageSrc = type === 'navigate:knowledge' ? 'knowledge.html' : 'todo.html';
+  const pageSrc = type === 'navigate:note' ? 'note.html' : 'todo.html';
   const tab     = config.find(t => t.visible && t.pageSrc === pageSrc);
   if (!tab) return;
 
@@ -935,8 +935,8 @@ window.addEventListener('message', async (e) => {
   // 対象 iframe にメッセージを転送
   const iframe = document.getElementById(`frame-${tab.label}`);
   if (!iframe) return;
-  const msg     = type === 'navigate:knowledge'
-    ? { type: 'navigate:knowledge', knTaskId }
+  const msg     = type === 'navigate:note'
+    ? { type: 'navigate:note', noteTaskId }
     : { type: 'navigate:todo', todoTaskId };
   const sendMsg = () => iframe.contentWindow?.postMessage(msg, '*');
   if (iframe.contentDocument?.readyState === 'complete') {
