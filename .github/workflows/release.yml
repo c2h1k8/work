@@ -49,6 +49,7 @@ jobs:
             note.html \
             sql.html \
             dashboard.html \
+            favicon.svg \
             js/ \
             css/ \
             -x "css/**/*.less" \
