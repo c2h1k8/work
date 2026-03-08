@@ -1,52 +1,42 @@
 // ==================================================
-// カラー変数
+// MyTools – App Shell & Tab Navigation
+// Design Tokens は tokens.css / tokens.less で定義
 // ==================================================
-@nav-height:     48px;
-@nav-bg:         #ffffff;
-@nav-border:     #d0d7de;
-@nav-text:       #24292f;
-@nav-text-muted: #656d76;
-@nav-accent:     #0969da;
-@nav-hover-bg:   #f6f8fa;
-@font-stack:     -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
-                 Helvetica, Arial, sans-serif;
 
-// ==================================================
-// グローバルリセット・ベース
-// ==================================================
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+@import "./tokens.less";
+
+@nav-height: 48px;
+@font-stack: var(--font);
+
+// ── Global Reset ────────────────────────────────────
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body {
   height: 100%;
   margin: 0;
-  font-family: @font-stack;
+  font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
-  color: @nav-text;
-  background: @nav-hover-bg;
+  color: var(--c-text);
+  background: var(--c-bg);
   overflow: hidden;
 }
 
-// ==================================================
-// アプリシェル（ヘッダー + コンテンツの縦積み）
-// ==================================================
+// ── App Shell ───────────────────────────────────────
 .app-shell {
   display: flex;
   flex-direction: column;
   height: 100vh;
 }
 
-// ==================================================
-// トップナビゲーションバー
-// ==================================================
+// ── Top Navigation ──────────────────────────────────
 .top-nav {
   height: @nav-height;
-  background: @nav-bg;
-  border-bottom: 1px solid @nav-border;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
   flex-shrink: 0;
   z-index: 100;
+  box-shadow: var(--shadow-xs);
 
   &__inner {
     display: flex;
@@ -55,48 +45,52 @@ html, body {
     padding: 0 20px;
   }
 
-  // ブランド（アイコン + タイトル）
   &__brand {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: @nav-text;
+    color: var(--c-text);
     font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     white-space: nowrap;
     padding-right: 20px;
     margin-right: 8px;
-    border-right: 1px solid @nav-border;
+    border-right: 1px solid var(--c-border);
     flex-shrink: 0;
 
     svg {
       width: 20px;
       height: 20px;
-      fill: @nav-accent;
+      fill: var(--c-accent);
       flex-shrink: 0;
     }
   }
 
-  // タブ群コンテナ
   &__tabs {
     display: flex;
     align-items: stretch;
     gap: 2px;
     flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    flex-shrink: 0;
   }
 }
 
-// ==================================================
-// ラジオボタン（非表示）
-// ==================================================
-.tab-switch {
-  display: none;
-}
+// ── Tab radio (hidden) ──────────────────────────────
+.tab-switch { display: none; }
 
-// ==================================================
-// タブボタン（label 要素）
-// ==================================================
+// ── Tab Button ──────────────────────────────────────
 .tab-btn {
   display: inline-flex;
   align-items: center;
@@ -104,16 +98,16 @@ html, body {
   padding: 0 14px;
   border: none;
   border-bottom: 2px solid transparent;
-  margin-bottom: -1px; // nav の border-bottom にアクティブ下線を重ねる
+  margin-bottom: -1px;
   background: transparent;
-  color: @nav-text-muted;
+  color: var(--c-text-3);
   font-size: 13px;
   font-weight: 500;
-  font-family: @font-stack;
+  font-family: var(--font);
   cursor: pointer;
   white-space: nowrap;
   border-radius: 6px 6px 0 0;
-  transition: color 0.15s, background 0.12s, border-color 0.15s;
+  transition: color var(--t), background var(--t), border-color var(--t);
   user-select: none;
 
   svg {
@@ -123,7 +117,6 @@ html, body {
     flex-shrink: 0;
   }
 
-  // 絵文字アイコン（アイコンピッカーで選択した場合）
   .tab-icon-emoji {
     font-size: 14px;
     line-height: 1;
@@ -131,33 +124,91 @@ html, body {
   }
 
   &:hover {
-    color: @nav-text;
-    background: @nav-hover-bg;
+    color: var(--c-text);
+    background: var(--c-bg-2);
   }
 
-  // アクティブタブ
   &--active {
-    color: @nav-text;
+    color: var(--c-text);
     font-weight: 600;
-    border-bottom-color: @nav-accent;
+    border-bottom-color: var(--c-accent);
 
-    &:hover {
-      background: transparent;
-    }
+    &:hover { background: transparent; }
   }
 }
 
-// ==================================================
-// コンテンツエリア（iframe ラッパー）
-// ==================================================
+// ── Action buttons (gear, theme) ────────────────────
+.nav-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--t), background var(--t), border-color var(--t);
+
+  svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  &:hover {
+    color: var(--c-text);
+    background: var(--c-bg-2);
+    border-color: var(--c-border);
+  }
+}
+
+// legacy alias（既存の .settings-btn クラスとの互換）
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--t), background var(--t), border-color var(--t);
+
+  svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  &:hover {
+    color: var(--c-text);
+    background: var(--c-bg-2);
+    border-color: var(--c-border);
+  }
+}
+
+// ── Dark mode toggle icon visibility ────────────────
+[data-theme="dark"] .icon-sun { display: block; }
+[data-theme="dark"] .icon-moon { display: none; }
+.icon-sun { display: none; }
+.icon-moon { display: block; }
+
+// ── Viewport ────────────────────────────────────────
 .tab-viewport {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: @nav-hover-bg;
+  background: var(--c-bg);
 }
 
-// 全 iframe を重ねて配置し、アクティブなものだけ表示
 .tab-frame {
   position: absolute;
   inset: 0;
@@ -174,41 +225,7 @@ html, body {
   }
 }
 
-// ==================================================
-// ギアアイコンボタン（ナビ右端）
-// ==================================================
-.settings-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin: auto 0 auto 8px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: @nav-text-muted;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color 0.15s, background 0.12s, border-color 0.12s;
-
-  svg {
-    width: 16px;
-    height: 16px;
-    fill: currentColor;
-  }
-
-  &:hover {
-    color: @nav-text;
-    background: @nav-hover-bg;
-    border-color: @nav-border;
-  }
-}
-
-// ==================================================
-// 設定モーダル
-// ==================================================
+// ── Settings Modal ──────────────────────────────────
 #settings-overlay {
   position: fixed;
   inset: 0;
@@ -217,27 +234,28 @@ html, body {
   align-items: center;
   justify-content: center;
 
-  &[hidden] {
-    display: none;
-  }
+  &[hidden] { display: none; }
 }
 
 .settings-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, .4);
+  background: rgba(10,12,25,0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .settings-dialog {
   position: relative;
   z-index: 1;
-  background: #fff;
-  border-radius: 8px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
   width: min(480px, 90vw);
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, .2);
+  box-shadow: var(--shadow-lg);
 }
 
 .settings-header {
@@ -245,30 +263,37 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid @nav-border;
+  border-bottom: 1px solid var(--c-border);
   flex-shrink: 0;
 
   h2 {
     margin: 0;
     font-size: 15px;
     font-weight: 600;
-    color: @nav-text;
+    color: var(--c-text);
   }
 }
 
 .settings-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
   cursor: pointer;
-  color: @nav-text-muted;
+  color: var(--c-text-3);
   font-size: 18px;
   line-height: 1;
-  padding: 4px 8px;
-  border-radius: 4px;
+  transition: background var(--t), color var(--t);
 
   &:hover {
-    background: @nav-hover-bg;
-    color: @nav-text;
+    background: var(--c-bg-2);
+    border-color: var(--c-border);
+    color: var(--c-text);
   }
 }
 
@@ -288,11 +313,9 @@ html, body {
   display: flex;
   flex-direction: column;
   padding: 8px 0;
-  border-bottom: 1px solid @nav-border;
+  border-bottom: 1px solid var(--c-border);
 
-  &:last-child {
-    border-bottom: none;
-  }
+  &:last-child { border-bottom: none; }
 }
 
 .settings-item__row {
@@ -301,7 +324,6 @@ html, body {
   gap: 8px;
 }
 
-// アイコンプレビューボタン
 .settings-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -309,37 +331,26 @@ html, body {
   width: 30px;
   height: 30px;
   padding: 0;
-  border: 1px solid @nav-border;
-  border-radius: 4px;
-  background: @nav-hover-bg;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-xs);
+  background: var(--c-bg-2);
   cursor: pointer;
   flex-shrink: 0;
   overflow: hidden;
+  transition: border-color var(--t), background var(--t);
 
-  svg {
-    width: 14px;
-    height: 14px;
-    fill: @nav-text;
-  }
-
-  .tab-icon-emoji {
-    font-size: 15px;
-    line-height: 1;
-  }
+  svg { width: 14px; height: 14px; fill: var(--c-text); }
+  .tab-icon-emoji { font-size: 15px; line-height: 1; }
 
   &:hover {
-    border-color: @nav-accent;
-    background: lighten(@nav-accent, 46%);
+    border-color: var(--c-accent);
+    background: var(--c-accent-light);
   }
 }
 
-// アイコンピッカー（各設定アイテム内）
 .settings-item__picker {
   padding: 8px 4px 4px;
-
-  &[hidden] {
-    display: none;
-  }
+  &[hidden] { display: none; }
 }
 
 .icon-picker__grid {
@@ -354,22 +365,19 @@ html, body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid @nav-border;
-  border-radius: 4px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-xs);
   background: transparent;
   cursor: pointer;
   padding: 0;
-  color: @nav-text;
+  color: var(--c-text);
+  transition: background var(--t), border-color var(--t);
 
-  svg {
-    width: 16px;
-    height: 16px;
-    fill: currentColor;
-  }
+  svg { width: 16px; height: 16px; fill: currentColor; }
 
   &:hover {
-    background: @nav-hover-bg;
-    border-color: @nav-accent;
+    background: var(--c-accent-light);
+    border-color: var(--c-accent);
   }
 }
 
@@ -381,13 +389,14 @@ html, body {
   min-width: 0;
   cursor: pointer;
   font-size: 13px;
-  color: @nav-text;
+  color: var(--c-text);
 
   input[type="checkbox"] {
     cursor: pointer;
     width: 14px;
     height: 14px;
     flex-shrink: 0;
+    accent-color: var(--c-accent);
   }
 
   > span:not(.settings-item__custom-badge) {
@@ -399,11 +408,11 @@ html, body {
 
 .settings-item__custom-badge {
   font-size: 11px;
-  color: @nav-text-muted;
-  background: @nav-hover-bg;
-  border: 1px solid @nav-border;
-  border-radius: 10px;
-  padding: 1px 6px;
+  color: var(--c-text-3);
+  background: var(--c-bg-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-full);
+  padding: 1px 7px;
 }
 
 .settings-move-btn {
@@ -413,137 +422,128 @@ html, body {
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid @nav-border;
-  border-radius: 4px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: @nav-text;
+  color: var(--c-text);
   cursor: pointer;
   font-size: 13px;
   flex-shrink: 0;
+  transition: background var(--t), border-color var(--t);
 
   &:hover:not(:disabled) {
-    background: @nav-hover-bg;
+    background: var(--c-bg-2);
+    border-color: var(--c-border-2);
   }
 
-  &:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
+  &:disabled { opacity: 0.35; cursor: default; }
 }
 
 .settings-delete-btn {
   padding: 4px 10px;
-  border: 1px solid #cf222e;
-  border-radius: 4px;
+  height: 28px;
+  border: 1px solid var(--c-danger);
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: #cf222e;
+  color: var(--c-danger);
   cursor: pointer;
   font-size: 12px;
+  font-family: var(--font);
   flex-shrink: 0;
   white-space: nowrap;
+  transition: background var(--t);
 
-  &:hover {
-    background: #fff1f0;
-  }
+  &:hover { background: var(--c-danger-bg); }
 }
 
 .settings-rename-btn {
   padding: 4px 8px;
-  border: 1px solid @nav-border;
-  border-radius: 4px;
+  height: 28px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: @nav-text;
+  color: var(--c-text);
   cursor: pointer;
   font-size: 13px;
+  font-family: var(--font);
   flex-shrink: 0;
   white-space: nowrap;
+  transition: background var(--t), border-color var(--t);
 
   &:hover {
-    background: #f6f8fa;
-    border-color: @nav-text;
+    background: var(--c-bg-2);
+    border-color: var(--c-border-2);
   }
 }
 
 .settings-configure-btn {
   padding: 4px 10px;
-  border: 1px solid @nav-accent;
-  border-radius: 4px;
+  height: 28px;
+  border: 1px solid var(--c-accent);
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: @nav-accent;
+  color: var(--c-accent);
   cursor: pointer;
   font-size: 12px;
+  font-family: var(--font);
   flex-shrink: 0;
   white-space: nowrap;
+  transition: background var(--t);
 
-  &:hover {
-    background: rgba(9, 105, 218, .08);
-  }
+  &:hover { background: var(--c-accent-dim); }
 }
 
 .settings-add-form {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid @nav-border;
+  border-top: 1px solid var(--c-border);
 
   h3 {
     margin: 0 0 10px;
     font-size: 13px;
     font-weight: 600;
-    color: @nav-text;
+    color: var(--c-text);
   }
 
-  input[type="text"] {
-    display: block;
-    width: 100%;
-    margin-bottom: 8px;
-    padding: 6px 10px;
-    border: 1px solid @nav-border;
-    border-radius: 6px;
-    font-size: 13px;
-    font-family: @font-stack;
-    color: @nav-text;
-    background: #fff;
-    outline: none;
-    box-sizing: border-box;
-
-    &:focus {
-      border-color: @nav-accent;
-      box-shadow: 0 0 0 3px rgba(9, 105, 218, .12);
-    }
-
-    &[hidden] {
-      display: none;
-    }
-  }
-
+  input[type="text"],
   select {
     display: block;
     width: 100%;
     margin-bottom: 8px;
-    padding: 6px 10px;
-    border: 1px solid @nav-border;
-    border-radius: 6px;
+    padding: 7px 10px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
     font-size: 13px;
-    font-family: @font-stack;
-    color: @nav-text;
-    background: #fff;
+    font-family: var(--font);
+    color: var(--c-text);
+    background: var(--c-surface);
     outline: none;
     box-sizing: border-box;
-    cursor: pointer;
+    transition: border-color var(--t), box-shadow var(--t);
+
+    &:focus {
+      border-color: var(--c-accent);
+      box-shadow: 0 0 0 3px var(--c-accent-dim);
+    }
+
+    &[hidden] { display: none; }
   }
 
   .settings-add-btn {
-    padding: 6px 14px;
-    border: 1px solid @nav-border;
-    border-radius: 6px;
-    background: @nav-accent;
+    padding: 7px 16px;
+    border: 1px solid var(--c-accent);
+    border-radius: var(--radius-sm);
+    background: var(--c-accent);
     color: #fff;
     font-size: 13px;
-    font-family: @font-stack;
+    font-family: var(--font);
+    font-weight: 500;
     cursor: pointer;
+    transition: background var(--t), border-color var(--t);
 
     &:hover {
-      background: darken(@nav-accent, 8%);
+      background: var(--c-accent-hover);
+      border-color: var(--c-accent-hover);
     }
   }
 }
@@ -551,13 +551,13 @@ html, body {
 .settings-io-form {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid @nav-border;
+  border-top: 1px solid var(--c-border);
 
   h3 {
     margin: 0 0 10px;
     font-size: 13px;
     font-weight: 600;
-    color: @nav-text;
+    color: var(--c-text);
   }
 }
 
@@ -570,19 +570,20 @@ html, body {
 .settings-io-import-btn {
   flex: 1;
   padding: 7px 12px;
-  border: 1px solid @nav-border;
-  border-radius: 6px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: @nav-text;
+  color: var(--c-text);
   font-size: 12px;
-  font-family: @font-stack;
+  font-family: var(--font);
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition: background var(--t), border-color var(--t), color var(--t);
 
   &:hover {
-    background: @nav-hover-bg;
-    border-color: @nav-accent;
-    color: @nav-accent;
+    background: var(--c-bg-2);
+    border-color: var(--c-accent);
+    color: var(--c-accent);
   }
 }

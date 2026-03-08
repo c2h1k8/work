@@ -5,6 +5,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MyTools</title>
+    <!-- テーマ初期化（フラッシュ防止のため defer なし） -->
+    <script>
+      (function() {
+        var t = localStorage.getItem('mytools_theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <link rel="stylesheet" href="./css/base/tokens.css" />
     <link rel="stylesheet" href="./css/base/tab_style.css" />
     <script defer src="./js/base/local_storage.js"></script>
     <script defer src="./js/index.js"></script>

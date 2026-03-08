@@ -2137,10 +2137,16 @@ const App = {
       EventHandlers.openSettings();
     });
 
-    // 親フレームからの設定パネル開封要求を受信（タブ設定の「ページを設定」ボタン用）
+    // 親フレームからのメッセージを受信
     window.addEventListener('message', (e) => {
+      // 設定パネル開封要求（タブ設定の「ページを設定」ボタン用）
       if (e.data?.type === 'dashboard:open-settings') {
         EventHandlers.openSettings();
+      }
+      // テーマ変更を受け取る
+      if (e.data?.type === 'theme-change') {
+        document.documentElement.setAttribute('data-theme', e.data.theme);
+        localStorage.setItem('mytools_theme', e.data.theme);
       }
     });
 

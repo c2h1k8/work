@@ -1,0 +1,105 @@
+// ==================================================
+// MyTools Design System – Design Tokens
+// ==================================================
+
+:root {
+  // ── Accent (Indigo) ──────────────────────────────
+  --c-accent:        #6366f1;
+  --c-accent-hover:  #4f46e5;
+  --c-accent-light:  #eef2ff;
+  --c-accent-dim:    rgba(99, 102, 241, 0.12);
+  --c-accent-text:   #ffffff;
+
+  // ── Background layers ────────────────────────────
+  --c-bg:            #f4f5fd;
+  --c-bg-2:          #eef0fa;
+  --c-surface:       #ffffff;
+  --c-surface-raised:#fafbff;
+
+  // ── Text ─────────────────────────────────────────
+  --c-text:          #1a1d2e;
+  --c-text-2:        #4a5270;
+  --c-text-3:        #8b95b8;
+
+  // ── Border ───────────────────────────────────────
+  --c-border:        #e2e6f3;
+  --c-border-2:      #d3d8ef;
+
+  // ── Status ───────────────────────────────────────
+  --c-success:       #10b981;
+  --c-success-bg:    #ecfdf5;
+  --c-warning:       #f59e0b;
+  --c-warning-bg:    #fffbeb;
+  --c-danger:        #ef4444;
+  --c-danger-bg:     #fef2f2;
+  --c-info:          #3b82f6;
+  --c-info-bg:       #eff6ff;
+
+  // ── Shadows ──────────────────────────────────────
+  --shadow-xs:  0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.06), 0 2px 8px rgba(20,28,80,.06);
+  --shadow:     0 2px 6px rgba(0,0,0,.06), 0 6px 20px rgba(20,28,80,.08);
+  --shadow-md:  0 4px 10px rgba(0,0,0,.07), 0 12px 32px rgba(20,28,80,.10);
+  --shadow-lg:  0 8px 20px rgba(0,0,0,.08), 0 24px 64px rgba(20,28,80,.14);
+
+  // ── Radius ───────────────────────────────────────
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  // ── Transition ───────────────────────────────────
+  --t:      0.15s ease;
+  --t-slow: 0.25s cubic-bezier(0.16,1,0.3,1);
+
+  // ── Font ─────────────────────────────────────────
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
+          "Noto Sans JP", Helvetica, Arial, sans-serif;
+
+  // ── Spacing ──────────────────────────────────────
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+}
+
+// ── Dark Mode ────────────────────────────────────────
+[data-theme="dark"] {
+  --c-accent:        #818cf8;
+  --c-accent-hover:  #6366f1;
+  --c-accent-light:  #1e2040;
+  --c-accent-dim:    rgba(129,140,248,0.15);
+  --c-accent-text:   #ffffff;
+
+  --c-bg:            #0e1018;
+  --c-bg-2:          #131620;
+  --c-surface:       #1a1d2e;
+  --c-surface-raised:#212438;
+
+  --c-text:          #e2e5f4;
+  --c-text-2:        #8892b8;
+  --c-text-3:        #4e5570;
+
+  --c-border:        #252840;
+  --c-border-2:      #2f3350;
+
+  --c-success:       #34d399;
+  --c-success-bg:    #0a2318;
+  --c-warning:       #fbbf24;
+  --c-warning-bg:    #1f1400;
+  --c-danger:        #f87171;
+  --c-danger-bg:     #1f0a0a;
+  --c-info:          #60a5fa;
+  --c-info-bg:       #0c1e3a;
+
+  --shadow-xs:  0 1px 2px rgba(0,0,0,.3);
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.25);
+  --shadow:     0 2px 6px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+  --shadow-md:  0 4px 10px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.4);
+  --shadow-lg:  0 8px 20px rgba(0,0,0,.4), 0 24px 64px rgba(0,0,0,.5);
+}

@@ -64,6 +64,33 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - 共通スタイルは `css/base/` 配下に配置する
 - ページ固有スタイルは `css/<page>.{less,css}` に配置する
 
+### デザインシステム（2026-03現在）
+
+- **デザイントークン**: `css/base/tokens.less` / `css/base/tokens.css` — 全ページ共通の CSS カスタムプロパティ（色・シャドウ・ラジウス・フォント・スペーシング）
+- **共通 UI コンポーネント**: `css/base/ui.less` / `css/base/ui.css` — `.btn`, `.form-input`, `.badge`, `.card` などの汎用クラス
+- **ダークモード**: `[data-theme="dark"]` を `<html>` に付与することで tokens.css のダーク用変数が有効になる
+  - ライトモード時: `icon-moon` 表示、`icon-sun` 非表示
+  - ダークモード時: `icon-sun` 表示、`icon-moon` 非表示
+- **テーマ切替フロー**:
+  1. `index.html` 内インラインスクリプトで `localStorage('mytools_theme')` を読みフラッシュ防止
+  2. ナビバーのテーマトグルボタン (`#theme-toggle-btn`) クリックで `_applyTheme()` が呼ばれる
+  3. `_applyTheme()` は全 iframe に `postMessage({ type: 'theme-change', theme })` を送信
+  4. 各ページ JS は `window.addEventListener('message', ...)` で受け取り `data-theme` を更新
+- **トークン命名規則**: `--c-*` （カラー）、`--shadow-*`（シャドウ）、`--radius-*`（角丸）、`--t`（トランジション）、`--font`（フォント）、`--space-*`（スペーシング）
+- **ページ側エイリアス**: 各ページ LESS の `:root` で `--color-*` を `var(--c-*)` にマッピング（後方互換）
+- **LESS で CSS 変数をLESS変数に代入した場合**: `darken()`, `lighten()`, `fade()` 等の LESS 色関数は使用不可。`var(--c-bg-2)`, `var(--c-accent-dim)`, `var(--c-border-2)` 等の CSS 変数で代替すること
+- **テーマ初期化スクリプト**: 全 HTML ページの `<head>` 先頭（defer なし）に追加必須:
+  ```html
+  <script>
+    (function() {
+      var t = localStorage.getItem('mytools_theme') ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <link rel="stylesheet" href="./css/base/tokens.css" />
+  ```
+
 ### HTML
 
 - `lang="ja"` を指定する

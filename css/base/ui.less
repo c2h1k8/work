@@ -1,0 +1,203 @@
+// ==================================================
+// MyTools Design System – Common UI Components
+// ==================================================
+
+// ── Buttons ──────────────────────────────────────────
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 32px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 13px;
+  font-family: var(--font);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background var(--t), border-color var(--t), color var(--t), box-shadow var(--t);
+  user-select: none;
+  flex-shrink: 0;
+
+  svg { width: 14px; height: 14px; fill: currentColor; flex-shrink: 0; }
+
+  &:hover {
+    background: var(--c-bg-2);
+    border-color: var(--c-border-2);
+  }
+
+  &:active { transform: translateY(1px); }
+  &:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+  // variants
+  &--primary {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: var(--c-accent-text);
+    &:hover {
+      background: var(--c-accent-hover);
+      border-color: var(--c-accent-hover);
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--c-text-2);
+    &:hover {
+      background: var(--c-bg-2);
+      border-color: var(--c-border);
+      color: var(--c-text);
+    }
+  }
+
+  &--danger {
+    color: var(--c-danger);
+    border-color: var(--c-danger);
+    background: transparent;
+    &:hover {
+      background: var(--c-danger-bg);
+    }
+  }
+
+  &--accent-outline {
+    color: var(--c-accent);
+    border-color: var(--c-accent);
+    background: transparent;
+    &:hover {
+      background: var(--c-accent-dim);
+    }
+  }
+
+  // sizes
+  &--sm {
+    height: 26px;
+    padding: 0 10px;
+    font-size: 12px;
+    gap: 4px;
+    svg { width: 12px; height: 12px; }
+  }
+
+  &--lg {
+    height: 38px;
+    padding: 0 18px;
+    font-size: 14px;
+  }
+
+  &--icon {
+    width: 32px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+  }
+
+  &--icon-sm {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+  }
+}
+
+// ── Form inputs ──────────────────────────────────────
+.form-input,
+.form-textarea,
+.form-select {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 13px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color var(--t), box-shadow var(--t);
+
+  &::placeholder { color: var(--c-text-3); }
+
+  &:focus {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
+  }
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+  padding: 8px 10px;
+  line-height: 1.6;
+}
+
+.form-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%238b95b8'%3E%3Cpath d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+// ── Badges ───────────────────────────────────────────
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+
+  &--accent {
+    background: var(--c-accent-dim);
+    color: var(--c-accent);
+  }
+  &--success {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+  }
+  &--warning {
+    background: var(--c-warning-bg);
+    color: var(--c-warning);
+  }
+  &--danger {
+    background: var(--c-danger-bg);
+    color: var(--c-danger);
+  }
+  &--neutral {
+    background: var(--c-bg-2);
+    color: var(--c-text-2);
+    border: 1px solid var(--c-border);
+  }
+}
+
+// ── Card ─────────────────────────────────────────────
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow var(--t), border-color var(--t);
+}
+
+// ── Divider ──────────────────────────────────────────
+.divider {
+  border: none;
+  border-top: 1px solid var(--c-border);
+  margin: 12px 0;
+}
+
+// ── Overlay backdrop ─────────────────────────────────
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,12,25,0.6);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}

@@ -2,25 +2,26 @@
 // GitHub インスパイア カンバンボード スタイル
 // ==================================================
 
-// カラーパレット（テーマカラーを一元管理）
+// カラーパレット → tokens.css で一元管理
+// ページ固有のエイリアス（他コンポーネントとの互換性のため）
 :root {
-  --color-bg:           #f6f8fa;
-  --color-card:         #ffffff;
-  --color-border:       #d0d7de;
-  --color-text:         #24292f;
-  --color-text-muted:   #656d76;
-  --color-accent:       #0969da;
-  --color-accent-hover: #0550ae;
-  --color-danger:       #d1242f;
-  --color-danger-bg:    #ffebe9;
-  --color-amber:        #bf8700;
-  --color-amber-bg:     #fff8c5;
-  --color-done:         #1a7f37;
-  --color-column-bg:    #f6f8fa;
-  --color-shadow:       rgba(31, 35, 40, 0.12);
-  --radius-sm:          4px;
-  --radius-md:          6px;
-  --radius-lg:          12px;
+  --color-bg:           var(--c-bg);
+  --color-card:         var(--c-surface);
+  --color-border:       var(--c-border);
+  --color-text:         var(--c-text);
+  --color-text-muted:   var(--c-text-3);
+  --color-accent:       var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-danger:       var(--c-danger);
+  --color-danger-bg:    var(--c-danger-bg);
+  --color-amber:        var(--c-warning);
+  --color-amber-bg:     var(--c-warning-bg);
+  --color-done:         var(--c-success);
+  --color-column-bg:    var(--c-bg-2);
+  --color-shadow:       rgba(20,28,80,.1);
+  --radius-sm:          var(--radius-xs);
+  --radius-md:          var(--radius-sm);
+  --radius-lg:          var(--radius-md);
 }
 
 // リセット
@@ -30,11 +31,11 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
-  color: var(--color-text);
-  background: var(--color-bg);
+  color: var(--c-text);
+  background: var(--c-bg);
   display: flex;
   flex-direction: column;
   height: 100vh;

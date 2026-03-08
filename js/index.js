@@ -26,6 +26,33 @@ const TAB_ITEMS = [
 const STORAGE_KEY_ACTIVE_TAB_ID = "ACTIVE_TAB_ID";
 
 // ==================================================
+// ダークモード
+// ==================================================
+const THEME_KEY = 'mytools_theme';
+
+/** テーマを適用して全 iframe に伝播する */
+function _applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem(THEME_KEY, theme);
+  // 全 iframe にテーマを伝播
+  document.querySelectorAll('.tab-frame').forEach(iframe => {
+    try {
+      iframe.contentWindow.postMessage({ type: 'theme-change', theme }, '*');
+    } catch(e) {}
+  });
+}
+
+/** テーマトグルボタンのクリックイベントを初期化する */
+function _initThemeToggle() {
+  const btn = document.getElementById('theme-toggle-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
+    _applyTheme(current === 'dark' ? 'light' : 'dark');
+  });
+}
+
+// ==================================================
 // IndexedDB（app_db）: タブ設定の永続化
 // ==================================================
 const AppDB = {
@@ -167,6 +194,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const config = await loadTabConfig();
   buildShell(config);
   buildSettingsPanel();
+  _initThemeToggle();
 
   // 前回のアクティブタブを復元（なければデフォルト）
   const savedId = loadFromStorage(STORAGE_KEY_ACTIVE_TAB_ID);
@@ -221,16 +249,34 @@ function buildHeader(config) {
     _createTabElements(label, icon).forEach(el => tabsNav.appendChild(el));
   });
 
-  // ギアアイコンボタン（右端）
+  // アクションボタン群（右端）
+  const actions = document.createElement("div");
+  actions.className = "top-nav__actions";
+
+  // ダークモードトグルボタン
+  const themeBtn = document.createElement("button");
+  themeBtn.className = "nav-icon-btn";
+  themeBtn.id = "theme-toggle-btn";
+  themeBtn.title = "ダークモード切替";
+  themeBtn.setAttribute("aria-label", "テーマ切替");
+  themeBtn.innerHTML = `
+    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 5a7 7 0 1 0 0 14A7 7 0 0 0 12 5z"/></svg>
+  `;
+
+  // ギアアイコンボタン
   const settingsBtn = document.createElement("button");
-  settingsBtn.className = "settings-btn";
+  settingsBtn.className = "nav-icon-btn";
   settingsBtn.setAttribute("aria-label", "タブ設定");
   settingsBtn.innerHTML = GEAR_ICON;
   settingsBtn.addEventListener("click", openSettings);
 
+  actions.appendChild(themeBtn);
+  actions.appendChild(settingsBtn);
+
   inner.appendChild(brand);
   inner.appendChild(tabsNav);
-  inner.appendChild(settingsBtn);
+  inner.appendChild(actions);
   header.appendChild(inner);
   return header;
 }

@@ -15,20 +15,19 @@
 ## 技術スタック
 
 - **フロントエンド**: Vanilla JS（全ページ統一。）
-- **スタイル**: LESS → CSS（手動コンパイル）
+- **スタイル**: LESS → CSS（手動コンパイル）。デザイントークンは `css/base/tokens.less` に一元管理
+- **デザインシステム**: インディゴ/バイオレット系カラーパレット。ライト/ダークモード対応（`[data-theme]` 属性）
 - **外部ライブラリ**: SortableJS（todo.html のみ、CDN）
-- **データ永続化**: IndexedDB（todo.html・home.html）/ localStorage（その他ページのUI状態）
+- **データ永続化**: IndexedDB（todo.html・dashboard.html・note.html）/ localStorage（UI状態・テーマ設定）
   - IndexedDB はブラウザネイティブの構造化 DB。`file://` でも動作しインストール不要。
   - todo.html はヘッダーのエクスポート／インポートボタンで JSON バックアップを手動管理できる。
-  - todo.html IndexedDB スキーマ: v5（tasks / comments / labels / task_labels / columns / activities / task_relations）。
-  - home.html IndexedDB スキーマ: `home_db` v1（sections / items）。
 
 ## ディレクトリ構成
 
 ```
 work/
 ├── index.html          # エントリポイント（タブ UI）
-├── home.html           # ホームダッシュボード
+├── dashboard.html      # カスタムダッシュボード
 ├── todo.html           # TODO管理
 ├── sql.html            # SQLリファレンス
 ├── note.html           # ノート管理
@@ -36,22 +35,24 @@ work/
 │   ├── base/
 │   │   ├── local_storage.js  # localStorage ユーティリティ
 │   │   ├── common.js         # 共通ユーティリティ
-│   │   └── date_picker.js    # カスタムカレンダー部品（再利用可能）
-│   ├── index.js        # タブ生成・切り替えロジック
-│   ├── home.js         # ホーム機能
+│   │   ├── date_picker.js    # カスタムカレンダー部品（再利用可能）
+│   │   ├── label_manager.js  # ラベル管理ダイアログ（共通部品）
+│   │   └── label_filter.js   # ラベルフィルタードロップダウン
+│   ├── index.js        # タブ生成・切り替えロジック・テーマ管理
+│   ├── dashboard.js    # カスタムダッシュボード（IndexedDB）
 │   ├── todo.js         # Vanilla JS Kanban ロジック（IndexedDB）
 │   ├── sql.js          # SQL コマンド生成
 │   └── note.js         # ノート管理（IndexedDB）
 └── css/
     ├── base/
-    │   ├── common.{less,css}          # 共通スタイル
-    │   ├── tab_style.{less,css}       # タブ UI
-    │   ├── accordion_style.{less,css} # アコーディオン（標準）
-    │   ├── accordion_style2.{less,css}# アコーディオン（バリエーション）
-    │   ├── radio_style.{less,css}     # ラジオボタン
-    │   ├── select_style.{less,css}    # セレクトボックス
-    │   └── date_picker.{less,css}     # カスタムカレンダー部品
-    ├── home.{less,css}
+    │   ├── tokens.{less,css}          # デザイントークン（カラー・シャドウ・ラジウス等）★
+    │   ├── ui.{less,css}              # 共通 UI コンポーネント（btn/badge/card等）★
+    │   ├── tab_style.{less,css}       # タブ UI・ナビゲーション
+    │   ├── date_picker.{less,css}     # カスタムカレンダー部品
+    │   ├── label_manager.{less,css}   # ラベル管理ダイアログ
+    │   ├── label_filter.{less,css}    # ラベルフィルタードロップダウン
+    │   └── common.{less,css}          # その他共通スタイル
+    ├── dashboard.{less,css}
     ├── todo.{less,css}
     ├── sql.{less,css}
     └── note.{less,css}

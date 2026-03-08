@@ -2,23 +2,23 @@
 // カラー・デザイントークン（todo.css と統一）
 // ==================================================
 :root {
-  --color-bg:           #f6f8fa;
-  --color-card:         #ffffff;
-  --color-border:       #d0d7de;
-  --color-text:         #24292f;
-  --color-text-muted:   #656d76;
-  --color-accent:       #0969da;
-  --color-accent-hover: #0550ae;
-  --color-danger:       #d1242f;
-  --color-danger-bg:    #ffebe9;
-  --color-warning:      #bf8700;
-  --color-warning-bg:   #fff8c5;
-  --color-done:         #1a7f37;
-  --color-done-bg:      #dafbe1;
-  --color-shadow:       rgba(31, 35, 40, 0.12);
-  --radius-sm:          4px;
-  --radius-md:          6px;
-  --radius-lg:          12px;
+  --color-bg:           var(--c-bg);
+  --color-card:         var(--c-surface);
+  --color-border:       var(--c-border);
+  --color-text:         var(--c-text);
+  --color-text-muted:   var(--c-text-3);
+  --color-accent:       var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-danger:       var(--c-danger);
+  --color-danger-bg:    var(--c-danger-bg);
+  --color-warning:      var(--c-warning);
+  --color-warning-bg:   var(--c-warning-bg);
+  --color-done:         var(--c-success);
+  --color-done-bg:      var(--c-success-bg);
+  --color-shadow:       rgba(20,28,80,.1);
+  --radius-sm:          var(--radius-xs);
+  --radius-md:          var(--radius-sm);
+  --radius-lg:          var(--radius-md);
 }
 
 // ==================================================
@@ -28,8 +28,7 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
-               Helvetica, Arial, sans-serif;
+  font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
   color: var(--color-text);

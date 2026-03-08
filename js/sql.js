@@ -929,6 +929,14 @@ function buildParamText() {
   return text;
 }
 
+// テーマ変更を受け取る（親フレームからの postMessage）
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'theme-change') {
+    document.documentElement.setAttribute('data-theme', e.data.theme);
+    localStorage.setItem('mytools_theme', e.data.theme);
+  }
+});
+
 // ==================================================
 // トースト通知
 // ==================================================

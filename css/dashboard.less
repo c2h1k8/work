@@ -1,16 +1,29 @@
-// ── 変数 ────────────────────────────────────────────────────
-@bg:           #eef1f8;
-@card-bg:      #ffffff;
-@text:         #1e2130;
-@text-sub:     #5c6680;
-@text-muted:   #9aa3bf;
-@accent:       #5048e5;
-@accent-d:     #4338ca;
-@accent-l:     #eef2ff;
-@green:        #059669;
-@green-l:      #ecfdf5;
-@border:       #e3e7f1;
-@border-l:     #edf0f8;
+// カラーパレット → tokens.css で一元管理
+:root {
+  --color-card:       var(--c-surface);
+  --color-bg:         var(--c-bg);
+  --color-border:     var(--c-border);
+  --color-text:       var(--c-text);
+  --color-text-muted: var(--c-text-3);
+  --color-accent:     var(--c-accent);
+  --color-danger:     var(--c-danger);
+  --radius-sm:        var(--radius-xs);
+  --radius-md:        var(--radius-sm);
+  --radius-lg:        var(--radius-md);
+}
+// LESS vars（以下のスタイルで使用）
+@bg:          var(--c-bg);
+@card-bg:     var(--c-surface);
+@text:        var(--c-text);
+@text-sub:    var(--c-text-2);
+@text-muted:  var(--c-text-3);
+@accent:      var(--c-accent);
+@border:      var(--c-border);
+@border-l:    var(--c-border);
+@accent-d:    var(--c-accent-hover);
+@accent-l:    var(--c-accent-light);
+@green:       var(--c-success);
+@green-l:     var(--c-success-bg);
 @radius-lg:    14px;
 @radius-md:    10px;
 @radius-sm:    6px;
@@ -28,9 +41,8 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  // 対角グラデーションで奥行きを演出
-  background: linear-gradient(150deg, #e9ecf7 0%, #eef1f8 50%, #f0f3fa 100%);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: var(--c-bg);
+  font-family: var(--font);
   color: @text;
   font-size: 14px;
   line-height: 1.5;
@@ -72,7 +84,7 @@ body {
 
   &:hover {
     box-shadow: @shadow-hover;
-    border-color: darken(@border, 5%);
+    border-color: var(--c-border-2);
   }
 }
 
@@ -137,7 +149,7 @@ body {
     .row__cta { opacity: 1; }
   }
 
-  &:active { background: darken(@accent-l, 3%); }
+  &:active { background: var(--c-accent-dim); }
 }
 
 .row__label {
@@ -187,7 +199,7 @@ body {
   &:hover {
     background: @accent-l;
     border-color: @accent;
-    box-shadow: 0 0 0 3px fade(@accent, 10%);
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
 
     .sheet-card__arrow {
       opacity: 1;
@@ -253,7 +265,7 @@ body {
   &:focus {
     border-color: @accent;
     background: #fff;
-    box-shadow: 0 0 0 3px fade(@accent, 10%);
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
   }
 
   &::placeholder { color: @text-muted; }
@@ -283,7 +295,7 @@ body {
 
   &:hover {
     background: @accent-d;
-    box-shadow: 0 2px 8px fade(@accent, 35%);
+    box-shadow: 0 2px 8px rgba(99,102,241,0.35);
   }
   &:active { opacity: .85; }
 }
@@ -480,7 +492,7 @@ body {
 
   &:focus {
     border-color: @accent;
-    box-shadow: 0 0 0 2px fade(@accent, 18%);
+    box-shadow: 0 0 0 2px var(--c-accent-dim);
   }
   &::placeholder { color: @text-muted; }
 }
@@ -567,7 +579,7 @@ body {
     background: @accent;
     color: #fff;
     border-color: @accent;
-    box-shadow: 0 4px 20px fade(@accent, 35%);
+    box-shadow: 0 4px 20px rgba(99,102,241,0.35);
   }
 }
 
@@ -677,7 +689,7 @@ body {
   cursor: pointer;
   transition: background @t;
 
-  &:hover { background: darken(@accent-l, 4%); }
+  &:hover { background: var(--c-accent-dim); }
 
   &--sm {
     padding: 4px 10px;
@@ -838,7 +850,7 @@ body {
   &:focus {
     border-color: @accent;
     background: #fff;
-    box-shadow: 0 0 0 3px fade(@accent, 10%);
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
   }
   &::placeholder { color: @text-muted; }
 
@@ -960,7 +972,7 @@ body {
   gap: 8px;
   padding: 10px 12px;
   background: @accent-l;
-  border: 1.5px solid lighten(@accent, 20%);
+  border: 1.5px solid var(--c-accent-light);
   border-radius: @radius-sm;
   color: @accent;
   font-size: 13px;
@@ -970,7 +982,7 @@ body {
   text-align: left;
   transition: background @t;
 
-  &:hover { background: darken(@accent-l, 4%); }
+  &:hover { background: var(--c-accent-dim); }
 
   svg { flex-shrink: 0; }
 }
@@ -1116,7 +1128,7 @@ body {
   line-height: 1.6;
 
   code {
-    background: darken(@bg, 3%);
+    background: var(--c-bg-2);
     border-radius: 3px;
     padding: 1px 5px;
     font-family: "SF Mono", "Consolas", monospace;
@@ -1126,8 +1138,8 @@ body {
 }
 
 .bind-var-badge {
-  background: darken(@accent-l, 2%);
-  border: 1px solid lighten(@accent, 25%);
+  background: var(--c-accent-dim);
+  border: 1px solid var(--c-accent-light);
   border-radius: 4px;
   padding: 2px 8px;
   font-family: "SF Mono", "Consolas", monospace;
@@ -1244,7 +1256,7 @@ body {
 
   &:focus {
     border-color: @accent;
-    box-shadow: 0 0 0 2px fade(@accent, 15%);
+    box-shadow: 0 0 0 2px var(--c-accent-dim);
   }
   &::placeholder { color: @text-muted; }
 }
@@ -1291,7 +1303,7 @@ body {
   em { font-style: italic; color: @text-sub; }
 
   .memo-inline-code {
-    background: darken(@bg, 3%);
+    background: var(--c-bg-2);
     border: 1px solid @border;
     border-radius: 3px;
     padding: 1px 5px;
@@ -1330,7 +1342,7 @@ body {
   &:focus {
     border-color: @accent;
     background: #fff;
-    box-shadow: 0 0 0 3px fade(@accent, 10%);
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
   }
   &::placeholder { color: @text-muted; }
 }
@@ -1377,7 +1389,7 @@ body {
 
   & + & { border-top: 1px solid @border-l; }
   &:hover { background: @accent-l; }
-  &:active { background: darken(@accent-l, 3%); }
+  &:active { background: var(--c-accent-dim); }
 
   input[type=checkbox] { display: none; }
 }
@@ -1440,7 +1452,7 @@ body {
     background: @accent;
     color: #fff;
     border-color: @accent;
-    box-shadow: 0 4px 16px fade(@accent, 30%);
+    box-shadow: 0 4px 16px rgba(99,102,241,0.3);
   }
 }
 
