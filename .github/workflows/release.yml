@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CSS from LESS
+        run: |
+          npx lessc css/base/tokens.less    css/base/tokens.css
+          npx lessc css/base/ui.less        css/base/ui.css
+          npx lessc css/base/tab_style.less css/base/tab_style.css
+          npx lessc css/base/toast.less     css/base/toast.css
+          npx lessc css/base/date_picker.less  css/base/date_picker.css
+          npx lessc css/base/label_manager.less css/base/label_manager.css
+          npx lessc css/base/label_filter.less  css/base/label_filter.css
+          npx lessc css/base/custom_select.less css/base/custom_select.css
+          npx lessc css/todo.less      css/todo.css
+          npx lessc css/note.less      css/note.css
+          npx lessc css/sql.less       css/sql.css
+          npx lessc css/dashboard.less css/dashboard.css
+
+      - name: Create release ZIP
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          ZIP_NAME="mytools-${TAG}.zip"
+
+          zip -r "${ZIP_NAME}" \
+            index.html \
+            todo.html \
+            note.html \
+            sql.html \
+            dashboard.html \
+            js/ \
+            css/ \
+            -x "css/**/*.less" \
+            -x "js/base/.gitkeep"
+
+          echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: ${{ env.ZIP_NAME }}
