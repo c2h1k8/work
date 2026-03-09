@@ -279,12 +279,10 @@ function _formatDate(dateStr) {
 }
 
 // トースト通知: js/base/toast.js の Toast.show() を使用
-const showToast = (msg) => Toast.show(msg);
+const showToast = (msg, type) => Toast.show(msg, type);
 
 // 削除アイコン SVG
-const DEL_SVG = `<svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
-  <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
-</svg>`;
+
 
 // ── Renderer ────────────────────────────────────────────────────
 const Renderer = {
@@ -607,7 +605,7 @@ const Renderer = {
               <path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z"/>
             </svg>
             <span class="note-date-text">${_esc(displayStr)}</span>
-            <button class="note-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="クリア">${DEL_SVG}</button>
+            <button class="note-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="クリア">${Icons.close}</button>
           </div>
         `;
       } else {
@@ -716,7 +714,9 @@ const Renderer = {
         </svg>
         <span class="note-entry__link-text">${_esc(display)}</span>
       </a>
-      <button class="note-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="削除">${DEL_SVG}</button>
+      <button class="note-entry__action" data-action="copy-entry-url" data-entry-id="${entry.id}" data-url="${_esc(entry.value)}" title="URLをコピー">${Icons.copyFill}</button>
+      <button class="note-entry__action" data-action="edit-entry" data-entry-id="${entry.id}" title="編集">${Icons.edit}</button>
+      <button class="note-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="削除">${Icons.close}</button>
     </div>`;
   },
 
@@ -954,6 +954,10 @@ const EventHandlers = {
       case 'cancel-entry':     this._onCancelEntryForm(btn); break;
       case 'save-entry':       await this._onSaveEntry(btn, db); break;
       case 'delete-entry':     await this._onDeleteEntry(btn, db); break;
+      case 'copy-entry-url':   await this._onCopyEntryUrl(btn); break;
+      case 'edit-entry':       this._onEditEntry(btn); break;
+      case 'save-edit-entry':  await this._onSaveEditEntry(btn, db); break;
+      case 'cancel-edit-entry': await Renderer.renderDetail(); break;
       case 'open-datepicker':  this._onOpenDatePicker(btn, db); break;
       case 'toggle-select':    await this._onToggleSelect(btn, db); break;
       case 'toggle-label':     await this._onToggleLabel(btn, db); break;
@@ -1059,6 +1063,57 @@ const EventHandlers = {
     await db.deleteEntry(entryId);
     State.entries = State.entries.filter(e => e.id !== entryId);
     State.allEntries = State.allEntries.filter(e => e.id !== entryId);
+    await this._touchTask(db);
+    await Renderer.renderDetail();
+  },
+
+  // リンクURLをクリップボードにコピー
+  async _onCopyEntryUrl(btn) {
+    const url = btn.dataset.url;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('URLをコピーしました', 'success');
+    } catch {
+      showToast('コピーに失敗しました');
+    }
+  },
+
+  // リンクエントリのインライン編集フォームを表示
+  _onEditEntry(btn) {
+    const entryId = Number(btn.dataset.entryId);
+    const entry = State.entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const entryEl = btn.closest('.note-entry');
+    if (!entryEl) return;
+    entryEl.innerHTML = `
+      <div class="note-entry-inline-edit">
+        <div class="note-entry-form__row">
+          <input type="text" class="note-input" placeholder="表示名（省略可）" data-edit-label value="${_esc(entry.label || '')}">
+          <input type="url" class="note-input" placeholder="URL" data-edit-value value="${_esc(entry.value || '')}">
+        </div>
+        <div class="note-entry-form__actions">
+          <button class="btn btn--primary btn--sm" data-action="save-edit-entry" data-entry-id="${entry.id}">保存</button>
+          <button class="btn btn--secondary btn--sm" data-action="cancel-edit-entry">キャンセル</button>
+        </div>
+      </div>`;
+    entryEl.querySelector('[data-edit-label]').focus();
+  },
+
+  // リンクエントリの編集を保存
+  async _onSaveEditEntry(btn, db) {
+    const entryId = Number(btn.dataset.entryId);
+    const entryEl = btn.closest('.note-entry');
+    if (!entryEl) return;
+    const label = (entryEl.querySelector('[data-edit-label]')?.value || '').trim();
+    const value = (entryEl.querySelector('[data-edit-value]')?.value || '').trim();
+    if (!value) { showToast('URLを入力してください'); return; }
+    const entry = State.entries.find(e => e.id === entryId);
+    if (!entry) return;
+    entry.label = label;
+    entry.value = value;
+    await db.updateEntry(entry);
+    const cached = State.allEntries.find(e => e.id === entryId);
+    if (cached) { cached.label = label; cached.value = value; }
     await this._touchTask(db);
     await Renderer.renderDetail();
   },
@@ -1638,15 +1693,15 @@ const App = {
 
     // 親フレームからの navigate:note 指示を受信してタスクを選択・表示
     window.addEventListener('message', async (e) => {
-      const { type, knTaskId } = e.data || {};
-      if (type !== 'navigate:note' || !knTaskId) return;
-      const task = State.tasks.find(t => t.id === knTaskId);
+      const { type, noteTaskId } = e.data || {};
+      if (type !== 'navigate:note' || !noteTaskId) return;
+      const task = State.tasks.find(t => t.id === noteTaskId);
       if (!task) return;
-      State.selectedTaskId = knTaskId;
-      State.entries = await NoteDB.getEntriesByTask(knTaskId);
+      State.selectedTaskId = noteTaskId;
+      State.entries = await NoteDB.getEntriesByTask(noteTaskId);
       Renderer.renderTaskList();
       await Renderer.renderDetail();
-      document.querySelector(`[data-task-id="${knTaskId}"]`)?.scrollIntoView({ block: 'nearest' });
+      document.querySelector(`[data-task-id="${noteTaskId}"]`)?.scrollIntoView({ block: 'nearest' });
     });
 
     // CustomSelect: ソートセレクトをカスタム UI に置き換え

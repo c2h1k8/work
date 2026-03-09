@@ -45,7 +45,7 @@ const isValidUrl = (url) => {
 };
 
 // トースト通知: js/base/toast.js の Toast.show() を使用
-const showToast = (msg = 'コピーしました') => Toast.show(msg);
+const showToast = (msg = 'コピーしました', type) => Toast.show(msg, type);
 
 // URLパラメータから instance ID を取得（複数ホームタブ対応）
 const _instanceId = new URLSearchParams(location.search).get('instance') || '';
@@ -313,6 +313,81 @@ const resolveBindVars = (str) => {
 };
 
 // ==============================
+// テンプレート日付変数の解決
+// ==============================
+
+/**
+ * テンプレート内の日付プレースホルダーを現在日時で解決する
+ *
+ * 書式:
+ *   {TODAY}                    → 今日の日付 (YYYY/MM/DD)
+ *   {TODAY:YYYY年MM月DD日(ddd)} → フォーマット指定（曜日含む）
+ *   {NOW}                      → 現在日時 (YYYY/MM/DD HH:mm)
+ *   {NOW:HH:mm}                → フォーマット指定
+ *   {DATE:+1d}                 → 明日 (YYYY/MM/DD)
+ *   {DATE:+1d:MM/DD(ddd)}      → 明日の日付＋曜日
+ *   {DATE:-2h:HH:mm}           → 2時間前の時刻
+ *   {DATE:+30m:HH:mm}          → 30分後の時刻
+ *   単位: d=日 w=週 M=月 y=年 h=時間 m=分
+ *
+ * フォーマットトークン:
+ *   YYYY MM DD HH mm ss
+ *   ddd  → 曜日短縮形（日,月,火,水,木,金,土）
+ *   dddd → 曜日長形（日曜日〜土曜日）
+ */
+const resolveDateVars = (str) => {
+  if (!str) return str || '';
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const DAY_SHORT = ['日', '月', '火', '水', '木', '金', '土'];
+  const DAY_LONG  = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
+
+  const formatDate = (d, fmt) => {
+    // dddd（長形）を先に置換してから ddd（短縮形）を置換する
+    return (fmt || 'YYYY/MM/DD')
+      .replace('dddd', DAY_LONG[d.getDay()])
+      .replace('ddd',  DAY_SHORT[d.getDay()])
+      .replace('YYYY', d.getFullYear())
+      .replace('MM',   pad(d.getMonth() + 1))
+      .replace('DD',   pad(d.getDate()))
+      .replace('HH',   pad(d.getHours()))
+      .replace('mm',   pad(d.getMinutes()))
+      .replace('ss',   pad(d.getSeconds()));
+  };
+
+  const applyOffset = (date, offset) => {
+    // 単位: d=日 w=週 M=月 y=年 h=時間 m=分
+    const match = offset.match(/^([+-])(\d+)([dwMyhm])$/);
+    if (!match) return date;
+    const sign = match[1] === '+' ? 1 : -1;
+    const n = parseInt(match[2], 10) * sign;
+    const unit = match[3];
+    const d = new Date(date);
+    if      (unit === 'd') d.setDate(d.getDate() + n);
+    else if (unit === 'w') d.setDate(d.getDate() + n * 7);
+    else if (unit === 'M') d.setMonth(d.getMonth() + n);
+    else if (unit === 'y') d.setFullYear(d.getFullYear() + n);
+    else if (unit === 'h') d.setHours(d.getHours() + n);
+    else if (unit === 'm') d.setMinutes(d.getMinutes() + n);
+    return d;
+  };
+
+  const now = new Date();
+  return str.replace(/\{(TODAY|NOW|DATE)(?::([^:}]*))?(?::([^}]*))?\}/g, (m, type, arg1, arg2) => {
+    if (type === 'TODAY') {
+      return formatDate(now, arg1 || 'YYYY/MM/DD');
+    } else if (type === 'NOW') {
+      return formatDate(now, arg1 || 'YYYY/MM/DD HH:mm');
+    } else if (type === 'DATE') {
+      const offset = arg1 || '+0d';
+      const fmt = arg2 || 'YYYY/MM/DD';
+      return formatDate(applyOffset(now, offset), fmt);
+    }
+    return m;
+  });
+};
+
+// ==============================
 // Renderer
 // ==============================
 
@@ -376,9 +451,10 @@ const Renderer = {
       return;
     }
 
-    // フィルター入力（5件以上の場合に表示）
+    // フィルター入力（filter_limit > 0 かつアイテム数がしきい値を超えた場合に表示）
+    const filterLimit = section.filter_limit ?? 5;
     let listFilterInput = null;
-    if (items.length >= 5) {
+    if (filterLimit > 0 && items.length > filterLimit) {
       const filterWrap = document.createElement('div');
       filterWrap.className = 'list-filter-wrap';
       listFilterInput = document.createElement('input');
@@ -426,14 +502,24 @@ const Renderer = {
     grid.className = 'sheet-grid';
     items.forEach(item => {
       const isCopy = item.item_type === 'copy';
+      const isTemplate = item.item_type === 'template';
       const card = document.createElement('a');
-      card.className = `sheet-card ${isCopy ? 'js-copy sheet-card--copy' : 'js-link'}`;
+      let cardClass = 'sheet-card ';
+      if (isCopy) cardClass += 'js-copy sheet-card--copy';
+      else if (isTemplate) cardClass += 'js-template sheet-card--template';
+      else cardClass += 'js-link';
+      card.className = cardClass;
       card.href = 'javascript:void(0);';
       card.dataset.value = item.value || '';
+      let arrowIcon;
+      if (isCopy) arrowIcon = Icons.clipboard.replace('<svg ', '<svg class="sheet-card__arrow" ');
+      else if (isTemplate) arrowIcon = Icons.templateDoc.replace('<svg ', '<svg class="sheet-card__arrow" ');
+      else arrowIcon = Icons.arrow;
+      const defaultEmoji = isCopy ? '📋' : isTemplate ? '📝' : '🔗';
       card.innerHTML = `
-        <span class="sheet-card__emoji">${escapeHtml(item.emoji || (isCopy ? '📋' : '🔗'))}</span>
+        <span class="sheet-card__emoji">${escapeHtml(item.emoji || defaultEmoji)}</span>
         <span class="sheet-card__name">${escapeHtml(resolveBindVars(item.label || ''))}</span>
-        ${isCopy ? Icons.clipboard : Icons.arrow}
+        ${arrowIcon}
       `;
       grid.appendChild(card);
     });
@@ -721,10 +807,10 @@ const Renderer = {
       <div class="settings-form-row">
         <label class="settings-label">タイプ</label>
         <select class="cs-target" id="new-section-type">
-          <option value="list">リスト（コピー・リンク行）</option>
-          <option value="grid">グリッド（カード型）</option>
+          <option value="list">リスト</option>
+          <option value="grid">グリッド</option>
           <option value="command_builder">コマンドビルダー</option>
-          <option value="table">テーブル（自由列）</option>
+          <option value="table">テーブル</option>
           <option value="memo">メモ（フリーテキスト）</option>
           <option value="checklist">チェックリスト</option>
         </select>
@@ -791,6 +877,11 @@ const Renderer = {
             <input type="checkbox" id="edit-section-new-row"${section.newRow ? ' checked' : ''}> 新しい行から開始する
           </label>
         </div>
+        ${section.type === 'list' ? `
+        <div class="settings-form-row">
+          <label class="settings-label">絞り込み表示のしきい値（0 で無効、それ以外は指定件数を超えたら絞り込み欄を表示）</label>
+          <input class="settings-input settings-input--xs" id="edit-section-filter-limit" type="number" min="0" max="1000" value="${section.filter_limit ?? 5}" />
+        </div>` : ''}
         <div class="settings-form-row">
           <button class="settings-btn settings-btn--primary" data-action="save-section-meta" data-section-id="${section.id}">保存</button>
         </div>`;
@@ -925,7 +1016,7 @@ const Renderer = {
       const rd = item.row_data || {};
       labelText = columns.map(c => rd[c.id] || '').filter(v => v).join(' | ') || '（空）';
     } else if (section.type === 'grid') {
-      const typeTag = item.item_type === 'copy' ? '[コピー]' : '[リンク]';
+      const typeTag = item.item_type === 'copy' ? '[コピー]' : item.item_type === 'template' ? '[テンプレート]' : '[リンク]';
       labelText = `${typeTag} ${item.emoji || ''} ${item.label || ''}`.trim();
     } else {
       const typeTag = item.item_type === 'copy' ? '[コピー]' : '[リンク]';
@@ -953,18 +1044,38 @@ const Renderer = {
     let html = '';
 
     if (isGrid) {
+      const isTemplateItem = item?.item_type === 'template';
       html += `
         <div class="settings-form-row">
           <label class="settings-label">アクション</label>
           <select class="cs-target" id="item-type">
             <option value="link" ${(!item || item.item_type === 'link' || item.item_type === 'card') ? 'selected' : ''}>リンク（クリックで URL を開く）</option>
             <option value="copy" ${item?.item_type === 'copy' ? 'selected' : ''}>コピー（クリックでクリップボードにコピー）</option>
+            <option value="template" ${isTemplateItem ? 'selected' : ''}>テンプレートコピー（日付等を埋め込んでコピー）</option>
           </select>
         </div>
         <div class="settings-form-row settings-form-row--inline">
           <input class="settings-input settings-input--xs" id="item-emoji" type="text" value="${escapeAttr(item?.emoji || '')}" placeholder="🔗" maxlength="4" />
           <input class="settings-input" id="item-label" type="text" value="${escapeAttr(item?.label || '')}" placeholder="カード名" />
-          <input class="settings-input" id="item-value" type="text" value="${escapeAttr(item?.value || '')}" placeholder="URL またはコピーするテキスト" />
+        </div>
+        <div class="settings-form-row" id="item-value-row"${isTemplateItem ? ' hidden' : ''}>
+          <input class="settings-input" id="item-value" type="text" value="${escapeAttr(isTemplateItem ? '' : (item?.value || ''))}" placeholder="URL またはコピーするテキスト" />
+        </div>
+        <div class="settings-form-row" id="template-value-row"${isTemplateItem ? '' : ' hidden'}>
+          <label class="settings-label">テンプレート本文</label>
+          <textarea class="settings-textarea" id="item-template-value" rows="8" placeholder="例:&#10;件名: ご連絡 {TODAY:YYYY/MM/DD}&#10;&#10;お世話になっております。&#10;本日 {TODAY:MM月DD日} のご連絡です。">${escapeHtml(isTemplateItem ? (item?.value || '') : '')}</textarea>
+          <p class="settings-help">日付プレースホルダー:<br>
+            <code>{TODAY}</code> 今日 &nbsp;
+            <code>{NOW}</code> 現在日時 &nbsp;
+            <code>{DATE:+1d}</code> 明日 &nbsp;
+            <code>{DATE:-2h}</code> 2時間前 &nbsp;
+            <code>{DATE:+30m}</code> 30分後<br>
+            単位: d=日 w=週 M=月 y=年 h=時間 m=分<br>
+            フォーマット指定例: <code>{TODAY:YYYY年MM月DD日(ddd)}</code> / <code>{DATE:+1d:MM/DD(ddd)}</code><br>
+            曜日: <code>ddd</code>=月 <code>dddd</code>=月曜日 &nbsp;
+            時刻: <code>HH:mm</code> &nbsp;
+            例: <code>{NOW:MM/DD(ddd) HH:mm}</code>
+          </p>
         </div>`;
     } else if (isTable) {
       columns.forEach(col => {
@@ -1380,6 +1491,17 @@ const EventHandlers = {
     if (actionRow) actionRow.hidden = !isCmdBuilder;
   },
 
+  // グリッドアイテムフォームのアクションタイプ変更時（link/copy/template の切り替え）
+  onItemTypeChange() {
+    const type = document.getElementById('item-type')?.value;
+    const valueRow = document.getElementById('item-value-row');
+    const templateRow = document.getElementById('template-value-row');
+    if (!valueRow || !templateRow) return;
+    const isTemplate = type === 'template';
+    valueRow.hidden = isTemplate;
+    templateRow.hidden = !isTemplate;
+  },
+
   async saveAddSection() {
     const icon = document.getElementById('new-section-icon')?.value.trim() || '📋';
     const title = document.getElementById('new-section-title')?.value.trim();
@@ -1404,6 +1526,7 @@ const EventHandlers = {
     };
     const newId = await State.db.addSection(data);
     data.id = newId;
+    data.instance_id = State.db.instanceId;  // updateSection 時に instance_id が消えないよう保持
     State.sections.push(data);
     State.itemsMap[newId] = [];
 
@@ -1468,10 +1591,14 @@ const EventHandlers = {
     section.title = title;
     section.width = document.getElementById('edit-section-width')?.value || 'auto';
     section.newRow = document.getElementById('edit-section-new-row')?.checked || false;
+    if (section.type === 'list') {
+      const limitVal = parseInt(document.getElementById('edit-section-filter-limit')?.value, 10);
+      section.filter_limit = (!isNaN(limitVal) && limitVal >= 0) ? limitVal : 5;
+    }
     await State.db.updateSection(section);
     document.getElementById('settings-title').textContent = `${section.icon || ''} ${section.title}`;
     Renderer.renderDashboard();
-    showToast('保存しました');
+    showToast('保存しました', 'success');
   },
 
   async saveSectionCmd(sectionId) {
@@ -1495,7 +1622,7 @@ const EventHandlers = {
     }
 
     Renderer.renderDashboard();
-    showToast('保存しました');
+    showToast('保存しました', 'success');
   },
 
   // ── 列操作（テーブル） ────────────────
@@ -1604,7 +1731,12 @@ const EventHandlers = {
       data.item_type = document.getElementById('item-type')?.value || 'link';
       data.emoji = document.getElementById('item-emoji')?.value.trim() || '';
       data.label = document.getElementById('item-label')?.value.trim() || '';
-      data.value = document.getElementById('item-value')?.value.trim() || '';
+      // テンプレートの場合は textarea から取得
+      if (data.item_type === 'template') {
+        data.value = document.getElementById('item-template-value')?.value.trim() || '';
+      } else {
+        data.value = document.getElementById('item-value')?.value.trim() || '';
+      }
       data.hint = null; data.row_data = null;
     } else if (section.type === 'table') {
       data.item_type = 'row';
@@ -1639,6 +1771,8 @@ const EventHandlers = {
     // フォーム表示のため flex を解除
     row.className = 'settings-item-edit-form';
     row.innerHTML = Renderer.buildItemFields(item, section);
+    // cs-target を CustomSelect に置き換え
+    CustomSelect.replaceAll(row);
   },
 
   async saveEditItem(itemId, sectionId) {
@@ -1650,7 +1784,12 @@ const EventHandlers = {
       item.item_type = document.getElementById('item-type')?.value || item.item_type || 'link';
       item.emoji = document.getElementById('item-emoji')?.value.trim() || '';
       item.label = document.getElementById('item-label')?.value.trim() || '';
-      item.value = document.getElementById('item-value')?.value.trim() || '';
+      // テンプレートの場合は textarea から取得
+      if (item.item_type === 'template') {
+        item.value = document.getElementById('item-template-value')?.value.trim() || '';
+      } else {
+        item.value = document.getElementById('item-value')?.value.trim() || '';
+      }
     } else if (section.type === 'table') {
       const row_data = {};
       (section.columns || []).forEach(col => {
@@ -1760,7 +1899,7 @@ const EventHandlers = {
       if (result) window.open(result, '_blank', 'noopener,noreferrer');
     } else {
       navigator.clipboard.writeText(result);
-      showToast('コピーしました');
+      showToast('コピーしました', 'success');
     }
 
     if (inputVal) {
@@ -1851,7 +1990,7 @@ const EventHandlers = {
     Renderer.renderEnvBar();
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
-    showToast('保存しました');
+    showToast('保存しました', 'success');
   },
 
   async deletePreset(presetId) {
@@ -1894,7 +2033,7 @@ const EventHandlers = {
     await State.db.setAppConfig('bind_config', State.bindConfig);
     Renderer.renderEnvBar();
     Renderer.renderSettingsView();
-    showToast('保存しました');
+    showToast('保存しました', 'success');
   },
 
   async addBindVar() {
@@ -1908,7 +2047,7 @@ const EventHandlers = {
     await State.db.setAppConfig('bind_config', State.bindConfig);
     if (input) input.value = '';
     Renderer.renderSettingsView();
-    showToast(`{${varName}} を追加しました`);
+    showToast(`{${varName}} を追加しました`, 'success');
   },
 
   async removeBindVar(varName) {
@@ -1960,7 +2099,7 @@ const EventHandlers = {
         Renderer.renderEnvBar();
         Renderer.renderDashboard();
         Renderer.renderSettingsView();
-        showToast('インポートしました');
+        showToast('インポートしました', 'success');
       } catch (err) {
         console.error(err);
         alert('インポートに失敗しました');
@@ -2017,7 +2156,7 @@ const EventHandlers = {
     section.memo_content = document.getElementById('edit-section-memo')?.value || '';
     await State.db.updateSection(section);
     Renderer.renderDashboard();
-    showToast('保存しました');
+    showToast('保存しました', 'success');
   },
 
   // ── チェックリスト設定保存 ───────────────────────────
@@ -2028,7 +2167,7 @@ const EventHandlers = {
     section.checklist_reset = document.getElementById('edit-section-checklist-reset')?.value || 'never';
     await State.db.updateSection(section);
     Renderer.renderDashboard();
-    showToast('保存しました');
+    showToast('保存しました', 'success');
   },
 
   // ── テーブルソート ────────────────────────────────────
@@ -2126,7 +2265,7 @@ const App = {
       const copyEl = e.target.closest('.js-copy');
       if (copyEl && !copyEl.closest('.home-settings')) {
         navigator.clipboard.writeText(resolveBindVars(copyEl.dataset.value || ''));
-        showToast('コピーしました');
+        showToast('コピーしました', 'success');
         return;
       }
       // ダッシュボードのリンク行（共通バインド変数を解決してリンクを開く）
@@ -2134,6 +2273,14 @@ const App = {
       if (linkEl && !linkEl.closest('.home-settings')) {
         const url = resolveBindVars(linkEl.dataset.value || '');
         if (url) window.open(url, '_blank');
+        return;
+      }
+      // ダッシュボードのテンプレートカード（日付変数・バインド変数を解決してコピー）
+      const templateEl = e.target.closest('.js-template');
+      if (templateEl && !templateEl.closest('.home-settings')) {
+        const resolved = resolveDateVars(resolveBindVars(templateEl.dataset.value || ''));
+        navigator.clipboard.writeText(resolved);
+        showToast('コピーしました', 'success');
         return;
       }
       // URLコマンドコピーボタン
@@ -2226,6 +2373,7 @@ const App = {
         EventHandlers.onChecklistChange(e.target); return;
       }
       if (e.target.id === 'new-section-type') EventHandlers.onNewSectionTypeChange();
+      if (e.target.id === 'item-type') EventHandlers.onItemTypeChange();
     });
   },
 };

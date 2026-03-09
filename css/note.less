@@ -532,6 +532,7 @@ body {
 
   &:hover {
     background: var(--c-bg-2);
+    .note-entry__action { opacity: 1; }
     .note-entry__delete { opacity: 1; }
   }
 }
@@ -565,6 +566,27 @@ body {
   line-height: 1.5;
 }
 
+// コピー・編集ボタン（ホバー時に表示）
+.note-entry__action {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: @text-muted;
+  padding: 2px 3px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity @t, color @t, background @t;
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+
+  &:hover {
+    color: var(--c-accent);
+    background: var(--c-accent-dim);
+  }
+}
+
 .note-entry__delete {
   flex-shrink: 0;
   background: none;
@@ -582,6 +604,18 @@ body {
   &:hover {
     color: #ef4444;
     background: #fee2e2;
+  }
+}
+
+// インライン編集フォーム
+.note-entry-inline-edit {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .note-entry-form__row {
+    margin: 0;
   }
 }
 

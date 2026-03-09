@@ -39,8 +39,8 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - その他ページの localStorage 操作は `js/base/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
 - `js/base/common.js` の共通ユーティリティを活用する（dashboard.html は不使用）
 - `js/base/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` — HTML エスケープと position 昇順ソート
-- `js/base/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` — 統一トースト通知（自己挿入型）。CSS は `css/base/toast.{less,css}`
-- `js/base/icons.js` を `index.html` / `dashboard.html` で読み込む: `Icons.export` / `Icons.import` — JS生成HTML内で使う共通SVGアイコン定数
+- `js/base/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` — 統一トースト通知（自己挿入型）。CSS は `css/base/toast.{less,css}`。各ページに `showToast` ラッパーを定義する場合は `type` を必ず透過すること: `const showToast = (msg, type) => Toast.show(msg, type);`
+- `js/base/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` など
 - コメントは日本語で記載する
 - `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `App` の単一ファイル構成（Toast は `js/base/toast.js` に移動）
 - `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
@@ -172,7 +172,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `EventHandlers.closeSettings()` は設定パネルを閉じた後、親フレームに `dashboard:settings-closed` を postMessage
 - ストア: `sections`（id/instance_id/title/icon/position/type/command_template/**action_mode**/columns/**width**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data）
 - セクションタイプ: `list` | `grid` | `command_builder` | `table`
-- アイテムタイプ: `copy` | `link`（list）/ `link` | `copy`（grid、旧 `card` は `link` 互換）/ `row`（table）
+- アイテムタイプ: `copy` | `link`（list）/ `link` | `copy` | `template`（grid、旧 `card` は `link` 互換）/ `row`（table）
 - 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉
 - 設定ビュー: `'sections'`（一覧）/ `'edit-section'`（セクション編集）/ `'bind-settings'`（共通バインド変数）/ `'edit-preset'`（プリセット編集）→ `State.settings.view` で管理
 - テーブルセクションの列定義は `section.columns: [{id, label, type: 'text'|'copy'|'link'}]` で保持
@@ -198,6 +198,13 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - バインド変数バー `#bind-bar` をダッシュボード上部に表示（presets が 0 件なら hidden）
   - 設定ビュー「共通バインド変数」→ 変数名定義・UIタイプ切替・プリセット一覧の管理
   - コピー・リンク・コマンドビルダー実行時と表示時（テキスト・コピー型テーブルセル）に変数を解決
+- **テンプレートコピー** (grid の `item_type: 'template'`):
+  - `value` フィールドに複数行のテンプレートテキストを保存
+  - クリック時に `resolveDateVars(resolveBindVars(value))` で日付変数・バインド変数を解決してコピー
+  - 日付プレースホルダー: `{TODAY}` / `{TODAY:Fmt}` / `{NOW}` / `{DATE:±N単位}` / `{DATE:±N単位:Fmt}`
+  - 相対指定単位: `d`=日 `w`=週 `M`=月 `y`=年 `h`=時間 `m`=分
+  - フォーマットトークン: `YYYY` `MM` `DD` `HH` `mm` `ss` `ddd`（月）`dddd`（月曜日）
+  - `resolveDateVars(str)`: テンプレート内の日付変数を解決するユーティリティ関数（dashboard.js）
 
 
 ## note.js アーキテクチャ（2026-03現在）

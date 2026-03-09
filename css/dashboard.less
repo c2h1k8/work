@@ -227,6 +227,15 @@ body {
   transform: none;
 }
 
+// テンプレートカードはドキュメントアイコンを常時薄く表示
+.sheet-card--template .sheet-card__arrow {
+  opacity: 0.35;
+}
+.sheet-card--template:hover .sheet-card__arrow {
+  opacity: 1;
+  transform: none;
+}
+
 // ── URL フォーム ─────────────────────────────────────────────
 .url-form {
   display: flex;

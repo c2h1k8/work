@@ -935,7 +935,11 @@ async function addTabFromForm() {
   if (labelInput) labelInput.value = "";
   if (urlInput) { urlInput.value = ""; urlInput.hidden = false; }
   const typeSelect = document.getElementById("new-tab-type");
-  if (typeSelect) typeSelect.value = "url";
+  if (typeSelect) {
+    typeSelect.value = "url";
+    // CustomSelect の表示も更新（render() を呼ばないと UI が「ダッシュボード」のまま残る）
+    typeSelect._csInst?.render();
+  }
 }
 
 /** ホームタブのページ設定パネルを開く */
