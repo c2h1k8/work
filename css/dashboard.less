@@ -40,20 +40,25 @@ body {
   margin: 0 auto;
   padding: 40px 32px 80px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 20px;
   align-items: start;
 }
 
 // セクションカードの幅指定（data-width 属性で制御）
-.home > .card[data-width="wide"] { grid-column: span 2; }
-.home > .card[data-width="full"] { grid-column: 1 / -1; }
+// narrow(1/6) = span 1, auto(1/3) = span 2, wide(2/3) = span 4, full = 1/-1
+.home > .card[data-width="narrow"] { grid-column: span 1; }
+.home > .card[data-width="auto"]   { grid-column: span 2; }
+.home > .card[data-width="wide"]   { grid-column: span 4; }
+.home > .card[data-width="full"]   { grid-column: 1 / -1; }
 // 行頭開始（data-new-row 属性で制御）
 .home > .card[data-new-row="true"] { grid-column-start: 1; }
-// wide + new-row の組み合わせ: 行頭から2列分
-.home > .card[data-new-row="true"][data-width="wide"] { grid-column: 1 / span 2; }
+// new-row の組み合わせ: 行頭から指定列数分
+.home > .card[data-new-row="true"][data-width="narrow"] { grid-column: 1 / span 1; }
+.home > .card[data-new-row="true"][data-width="auto"]   { grid-column: 1 / span 2; }
+.home > .card[data-new-row="true"][data-width="wide"]   { grid-column: 1 / span 4; }
 
-// 狭い画面では span を解除して 1 列に収める
+// 狭い画面では wide・full を全幅に収める
 @media (max-width: 840px) {
   .home > .card[data-width="wide"],
   .home > .card[data-width="full"] {

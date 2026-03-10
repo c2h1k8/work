@@ -740,6 +740,7 @@ const Renderer = {
               <span class="note-field-item__name note-field-item__name--editable" data-action="edit-field-name" data-field-id="${f.id}" title="クリックしてフィールド名を変更">${_esc(f.name)}</span>
               <span class="note-field-item__type" data-type="${f.type}">${typeLabels[f.type] || f.type}</span>
               <select class="cs-target kn-select--sm" data-field-width="${f.id}" title="表示幅">
+                <option value="narrow" ${displayWidth === 'narrow' ? 'selected' : ''}>スリム</option>
                 <option value="auto" ${displayWidth === 'auto' ? 'selected' : ''}>標準</option>
                 <option value="wide" ${displayWidth === 'wide' ? 'selected' : ''}>広幅</option>
                 <option value="full" ${displayWidth === 'full' ? 'selected' : ''}>全幅</option>
@@ -841,6 +842,9 @@ const EventHandlers = {
           document.getElementById('new-field-options-row').hidden = true;
           document.getElementById('new-field-options').value = '';
           document.getElementById('new-field-type').value = 'link';
+          if (document.getElementById('new-field-type')._csInst) {
+            document.getElementById('new-field-type')._csInst.render();
+          }
           break;
         case 'export': this._onExport(db).catch(console.error); break;
         case 'import': document.getElementById('import-file').click(); break;
@@ -1704,8 +1708,9 @@ const App = {
       document.querySelector(`[data-task-id="${noteTaskId}"]`)?.scrollIntoView({ block: 'nearest' });
     });
 
-    // CustomSelect: ソートセレクトをカスタム UI に置き換え
+    // CustomSelect: ソートセレクトとフィールド追加フォームのタイプセレクトをカスタム UI に置き換え
     CustomSelect.replaceAll(document.getElementById('note-sidebar-controls'));
+    CustomSelect.replaceAll(document.querySelector('.note-modal__ft'));
   },
 };
 

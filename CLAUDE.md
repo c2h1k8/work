@@ -171,7 +171,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `sections` ストアに `instance_id` フィールド（インデックス付き）を持ち、このIDでフィルタリング
 - `window.addEventListener('message', ...)` で親フレームからの `dashboard:open-settings` を受信して設定パネルを開く
 - `EventHandlers.closeSettings()` は設定パネルを閉じた後、親フレームに `dashboard:settings-closed` を postMessage
-- ストア: `sections`（id/instance_id/title/icon/position/type/command_template/**action_mode**/columns/**width**/**page_size**/**table_bind_vars**/**table_presets**/**table_vars_ui_type**/**table_vars_bar_label**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data）
+- ストア: `sections`（id/instance_id/title/icon/position/type/command_template/**action_mode**/columns/**width**/**page_size**/**table_bind_vars**/**table_presets**/**table_vars_ui_type**/**table_vars_bar_label**/**list_bind_vars**/**list_presets**/**list_vars_ui_type**/**list_vars_bar_label**/**grid_bind_vars**/**grid_presets**/**grid_vars_ui_type**/**grid_vars_bar_label**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data）
 - セクションタイプ: `list` | `grid` | `command_builder` | `table`
 - アイテムタイプ: `copy` | `link` | `template`（list）/ `link` | `copy` | `template`（grid、旧 `card` は `link` 互換）/ `row`（table）
 - 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉
@@ -180,10 +180,16 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - テーブル行の値は `item.row_data: {[col_id]: string}` で保持
 - `command_builder` セクションは `command_template` に `{INPUT}` プレースホルダーを使う。`action_mode: 'copy'`（デフォルト）はクリップボードにコピー、`action_mode: 'open'` はブラウザで URL を開く
 - URL コマンド履歴: `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
-- **テーブルセクション独自バインド変数（プリセット方式）**: 共通バインド変数と同様の UI。`section.table_bind_vars: string[]` で変数名を定義。`section.table_presets: [{id, name, values: {[varName]: string}}]` でプリセットを管理（IndexedDB にセクションデータとして保存）。アクティブプリセットIDは `localStorage("dashboard_table_active_preset_<sectionId>")` に保存（ブラウザ固有）。`section.table_vars_ui_type: 'tabs'|'select'|'segment'`（デフォルト: `'tabs'`）、`section.table_vars_bar_label` でラベル設定。`resolveTableVars(str, sectionId)` で解決（グローバルバインド変数より先に適用）。プリセットが存在する場合のみテーブル上部にプリセットバーを表示。設定画面から変数定義・選択UI設定・プリセット追加/編集/削除が可能。設定ビュー `'edit-table-preset'` でプリセット値を編集（back で `'edit-section'` に戻る）。
+- **セクション独自バインド変数（プリセット方式）**: table/list/grid セクションで共通の仕組み。各セクションタイプ毎に変数名・プリセットを保持し `resolveSectionVars(str, sectionId)` で解決（グローバルバインド変数より先に適用）。`resolveTableVars` は後方互換 alias。
+  - **テーブル**: `section.table_bind_vars`, `section.table_presets`, `section.table_vars_ui_type`, `section.table_vars_bar_label`。アクティブプリセット: `localStorage("dashboard_table_active_preset_<sectionId>")`
+  - **リスト**: `section.list_bind_vars`, `section.list_presets`, `section.list_vars_ui_type`, `section.list_vars_bar_label`。アクティブプリセット: `localStorage("dashboard_list_active_preset_<sectionId>")`。ラベル・ヒントで `{変数名}` を使って置換
+  - **グリッド**: `section.grid_bind_vars`, `section.grid_presets`, `section.grid_vars_ui_type`, `section.grid_vars_bar_label`。アクティブプリセット: `localStorage("dashboard_grid_active_preset_<sectionId>")`。カード名で `{変数名}` を使って置換
+  - プリセットが存在する場合のみ各セクション上部にプリセットバー（`.table-preset-bar`）を表示
+  - 設定画面から `open-list-bind-var-modal` / `open-grid-bind-var-modal` で BindVarModal を開く
+  - `switchListPreset(sectionId, presetId)` / `switchGridPreset(sectionId, presetId)` でプリセット切替・再レンダリング
 - モジュール構成: `HomeDB` / `State` / `Renderer` / `EventHandlers` / `App` の単一ファイル構成
-- レイアウト: `max-width: 1440px` + CSS Grid（`auto-fill, minmax(380px, 1fr)`）でセクションカードを複数列配置
-- セクションの表示幅: `section.width = 'auto' | 'wide' | 'full'`。カードに `data-width` 属性を付与し CSS でスパン制御（wide=span 2 / full=1/-1 / ≤840px は全幅）。セクション編集画面の「表示幅」セレクターで設定・保存
+- レイアウト: `max-width: 1440px` + CSS Grid（`auto-fill, minmax(190px, 1fr)`）でセクションカードを複数列配置
+- セクションの表示幅: `section.width = 'narrow' | 'auto' | 'wide' | 'full'`。カードに `data-width` 属性を付与し CSS でスパン制御（narrow=span 1 / auto=span 2 / wide=span 4 / full=1/-1 / ≤840px で wide・full は全幅）。セクション編集画面の「表示幅」セレクターで設定・保存
 - `.settings-col-row`: `flex-wrap: nowrap` で通常表示。`:has(input)` セレクターで列編集展開時のみ `flex-wrap: wrap`
 - `.data-table`: `width: auto; min-width: 100%` で列が多い時は `.data-table-wrap`（`overflow-x: auto`）で横スクロール
 - **エクスポート/インポート**:

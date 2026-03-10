@@ -30,6 +30,12 @@ const TABLE_COL_HIDDEN_PREFIX = "dashboard_table_hidden_cols_";
 /** テーブルセクション独自バインド変数のアクティブプリセット保存用 localStorage キープレフィックス（ブラウザ固有） */
 const TABLE_ACTIVE_PRESET_PREFIX = "dashboard_table_active_preset_";
 
+/** リストセクション独自バインド変数のアクティブプリセット保存用 localStorage キープレフィックス（ブラウザ固有） */
+const LIST_ACTIVE_PRESET_PREFIX = "dashboard_list_active_preset_";
+
+/** グリッドセクション独自バインド変数のアクティブプリセット保存用 localStorage キープレフィックス（ブラウザ固有） */
+const GRID_ACTIVE_PRESET_PREFIX = "dashboard_grid_active_preset_";
+
 /** 選択中のプリセットID の localStorage キー（ブラウザ固有の UI 状態） */
 const ACTIVE_PRESET_KEY_PREFIX = "dashboard_active_preset_";
 
@@ -371,20 +377,34 @@ const resolveBindVars = (str) => {
   });
 };
 
-/** テーブルセクション独自バインド変数を解決する（{変数名} → 値に置換） */
-const resolveTableVars = (str, sectionId) => {
+/** セクション独自バインド変数を解決する（table/list/grid セクションに対応） */
+const resolveSectionVars = (str, sectionId) => {
   if (!str) return str || "";
   const section = State.sections.find((s) => s.id === sectionId);
   if (!section) return str;
-  const presets = section.table_presets || [];
+  let presets, activePrefix;
+  if (section.type === "table") {
+    presets = section.table_presets || [];
+    activePrefix = TABLE_ACTIVE_PRESET_PREFIX;
+  } else if (section.type === "list") {
+    presets = section.list_presets || [];
+    activePrefix = LIST_ACTIVE_PRESET_PREFIX;
+  } else if (section.type === "grid") {
+    presets = section.grid_presets || [];
+    activePrefix = GRID_ACTIVE_PRESET_PREFIX;
+  } else {
+    return str;
+  }
   if (presets.length === 0) return str;
-  const activeId = loadJsonFromStorage(TABLE_ACTIVE_PRESET_PREFIX + sectionId);
+  const activeId = loadJsonFromStorage(activePrefix + sectionId);
   const preset = activeId != null ? presets.find((p) => p.id === activeId) : null;
   if (!preset) return str;
   const vals = preset.values || {};
   if (Object.keys(vals).length === 0) return str;
   return str.replace(/\{([^}]+)\}/g, (m, key) => (key in vals ? vals[key] : m));
 };
+/** テーブルセクション独自バインド変数を解決する（後方互換 alias） */
+const resolveTableVars = (str, sectionId) => resolveSectionVars(str, sectionId);
 
 // ==============================
 // テンプレート日付変数の解決
@@ -548,6 +568,30 @@ const Renderer = {
       return;
     }
 
+    // リスト独自バインド変数プリセットバー（プリセットがある場合のみ表示）
+    const listPresets = section.list_presets || [];
+    if (listPresets.length > 0) {
+      const presetBarEl = document.createElement("div");
+      presetBarEl.className = "table-preset-bar";
+      presetBarEl.dataset.sectionId = section.id;
+      presetBarEl.innerHTML = Renderer.buildListPresetBarInner(section, listPresets);
+      // セグメントコントロールのラジオイベントを直接バインド
+      presetBarEl.querySelectorAll("input[type=radio]").forEach((radio) => {
+        radio.addEventListener("change", () => {
+          EventHandlers.switchListPreset(section.id, Number(radio.value));
+        });
+      });
+      // select の change イベントを直接バインド
+      const sel = presetBarEl.querySelector(".list-preset-select");
+      if (sel) {
+        sel.addEventListener("change", () => {
+          EventHandlers.switchListPreset(section.id, sel.value ? Number(sel.value) : null);
+        });
+        CustomSelect.create(sel);
+      }
+      bd.appendChild(presetBarEl);
+    }
+
     // フィルター入力（filter_limit > 0 かつアイテム数がしきい値を超えた場合に表示）
     const filterLimit = section.filter_limit ?? 5;
     let listFilterInput = null;
@@ -562,6 +606,9 @@ const Renderer = {
       bd.appendChild(filterWrap);
     }
 
+    // ローカル変数解決（セクション独自 + グローバルバインド変数）
+    const localResolve = (v) => resolveBindVars(resolveSectionVars(v, section.id));
+
     const rowsWrap = document.createElement("div");
     rowsWrap.className = "list-rows";
     items.forEach((item) => {
@@ -575,8 +622,8 @@ const Renderer = {
       else if (isTemplate) cta = Icons.templateDoc;
       else cta = Icons.external;
       row.innerHTML = `
-        <span class="row__label">${escapeHtml(resolveBindVars(item.label || ""))}</span>
-        ${item.hint ? `<span class="row__hint">${escapeHtml(resolveBindVars(item.hint))}</span>` : ""}
+        <span class="row__label">${escapeHtml(localResolve(item.label || ""))}</span>
+        ${item.hint ? `<span class="row__hint">${escapeHtml(localResolve(item.hint))}</span>` : ""}
         <span class="row__cta">${cta}</span>
       `;
       rowsWrap.appendChild(row);
@@ -601,6 +648,34 @@ const Renderer = {
       bd.innerHTML = `<p class="section-empty">カードがありません。設定から追加してください。</p>`;
       return;
     }
+
+    // グリッド独自バインド変数プリセットバー（プリセットがある場合のみ表示）
+    const gridPresets = section.grid_presets || [];
+    if (gridPresets.length > 0) {
+      const presetBarEl = document.createElement("div");
+      presetBarEl.className = "table-preset-bar";
+      presetBarEl.dataset.sectionId = section.id;
+      presetBarEl.innerHTML = Renderer.buildGridPresetBarInner(section, gridPresets);
+      // セグメントコントロールのラジオイベントを直接バインド
+      presetBarEl.querySelectorAll("input[type=radio]").forEach((radio) => {
+        radio.addEventListener("change", () => {
+          EventHandlers.switchGridPreset(section.id, Number(radio.value));
+        });
+      });
+      // select の change イベントを直接バインド
+      const sel = presetBarEl.querySelector(".grid-preset-select");
+      if (sel) {
+        sel.addEventListener("change", () => {
+          EventHandlers.switchGridPreset(section.id, sel.value ? Number(sel.value) : null);
+        });
+        CustomSelect.create(sel);
+      }
+      bd.appendChild(presetBarEl);
+    }
+
+    // ローカル変数解決（セクション独自 + グローバルバインド変数）
+    const localResolve = (v) => resolveBindVars(resolveSectionVars(v, section.id));
+
     const grid = document.createElement("div");
     grid.className = "sheet-grid";
     items.forEach((item) => {
@@ -629,7 +704,7 @@ const Renderer = {
       const defaultEmoji = isCopy ? "📋" : isTemplate ? "📝" : "🔗";
       card.innerHTML = `
         <span class="sheet-card__emoji">${escapeHtml(item.emoji || defaultEmoji)}</span>
-        <span class="sheet-card__name">${escapeHtml(resolveBindVars(item.label || ""))}</span>
+        <span class="sheet-card__name">${escapeHtml(localResolve(item.label || ""))}</span>
         ${arrowIcon}
       `;
       grid.appendChild(card);
@@ -1016,8 +1091,9 @@ const Renderer = {
       <div class="settings-form-row">
         <label class="settings-label">表示幅</label>
         <select class="cs-target" id="new-section-width">
-          <option value="auto">自動（グリッド列幅）</option>
-          <option value="wide">ワイド（2列分）</option>
+          <option value="narrow">スリム（1/6幅）</option>
+          <option value="auto" selected>標準（1/3幅）</option>
+          <option value="wide">ワイド（2/3幅）</option>
           <option value="full">全幅</option>
         </select>
       </div>
@@ -1086,6 +1162,110 @@ const Renderer = {
     }
   },
 
+  buildListPresetBarInner(section, presets) {
+    const uiType = section.list_vars_ui_type || "tabs";
+    const activeId = loadJsonFromStorage(LIST_ACTIVE_PRESET_PREFIX + section.id);
+    const labelHtml = section.list_vars_bar_label
+      ? `<span class="table-preset-bar__label">${escapeHtml(section.list_vars_bar_label)}</span>`
+      : "";
+
+    if (uiType === "tabs") {
+      const tabs = presets
+        .map(
+          (p) =>
+            `<button class="bind-tab${p.id === activeId ? " is-active" : ""}"
+                 data-action="switch-list-preset" data-section-id="${section.id}" data-preset-id="${p.id}">
+              ${escapeHtml(p.name)}
+            </button>`,
+        )
+        .join("");
+      return `<div class="table-preset-bar__inner table-preset-bar__inner--tabs">
+        ${labelHtml}
+        <div class="bind-tabs">${tabs}</div>
+      </div>`;
+    } else if (uiType === "segment") {
+      const items = presets
+        .map(
+          (p) =>
+            `<label class="bind-segment__item">
+              <input type="radio" name="list-preset-radio-${section.id}" value="${p.id}" ${p.id === activeId ? "checked" : ""} />
+              ${escapeHtml(p.name)}
+            </label>`,
+        )
+        .join("");
+      return `<div class="table-preset-bar__inner table-preset-bar__inner--segment">
+        ${labelHtml}
+        <div class="bind-segment">${items}</div>
+      </div>`;
+    } else {
+      // select
+      const options =
+        `<option value="">-- 選択なし --</option>` +
+        presets
+          .map(
+            (p) =>
+              `<option value="${p.id}" ${p.id === activeId ? "selected" : ""}>${escapeHtml(p.name)}</option>`,
+          )
+          .join("");
+      return `<div class="table-preset-bar__inner">
+        ${labelHtml}
+        <select class="cs-target kn-select--grow list-preset-select">${options}</select>
+      </div>`;
+    }
+  },
+
+  buildGridPresetBarInner(section, presets) {
+    const uiType = section.grid_vars_ui_type || "tabs";
+    const activeId = loadJsonFromStorage(GRID_ACTIVE_PRESET_PREFIX + section.id);
+    const labelHtml = section.grid_vars_bar_label
+      ? `<span class="table-preset-bar__label">${escapeHtml(section.grid_vars_bar_label)}</span>`
+      : "";
+
+    if (uiType === "tabs") {
+      const tabs = presets
+        .map(
+          (p) =>
+            `<button class="bind-tab${p.id === activeId ? " is-active" : ""}"
+                 data-action="switch-grid-preset" data-section-id="${section.id}" data-preset-id="${p.id}">
+              ${escapeHtml(p.name)}
+            </button>`,
+        )
+        .join("");
+      return `<div class="table-preset-bar__inner table-preset-bar__inner--tabs">
+        ${labelHtml}
+        <div class="bind-tabs">${tabs}</div>
+      </div>`;
+    } else if (uiType === "segment") {
+      const items = presets
+        .map(
+          (p) =>
+            `<label class="bind-segment__item">
+              <input type="radio" name="grid-preset-radio-${section.id}" value="${p.id}" ${p.id === activeId ? "checked" : ""} />
+              ${escapeHtml(p.name)}
+            </label>`,
+        )
+        .join("");
+      return `<div class="table-preset-bar__inner table-preset-bar__inner--segment">
+        ${labelHtml}
+        <div class="bind-segment">${items}</div>
+      </div>`;
+    } else {
+      // select
+      const options =
+        `<option value="">-- 選択なし --</option>` +
+        presets
+          .map(
+            (p) =>
+              `<option value="${p.id}" ${p.id === activeId ? "selected" : ""}>${escapeHtml(p.name)}</option>`,
+          )
+          .join("");
+      return `<div class="table-preset-bar__inner">
+        ${labelHtml}
+        <select class="cs-target kn-select--grow grid-preset-select">${options}</select>
+      </div>`;
+    }
+  },
+
   buildEditSectionView(section) {
     if (!section)
       return '<p class="section-empty">セクションが見つかりません</p>';
@@ -1107,8 +1287,9 @@ const Renderer = {
         <div class="settings-form-row">
           <label class="settings-label">表示幅</label>
           <select class="cs-target" id="edit-section-width">
-            <option value="auto" ${curWidth === "auto" ? "selected" : ""}>自動（グリッド列幅）</option>
-            <option value="wide" ${curWidth === "wide" ? "selected" : ""}>ワイド（2列分）</option>
+            <option value="narrow" ${curWidth === "narrow" ? "selected" : ""}>スリム（1/6幅）</option>
+            <option value="auto" ${curWidth === "auto" ? "selected" : ""}>標準（1/3幅）</option>
+            <option value="wide" ${curWidth === "wide" ? "selected" : ""}>ワイド（2/3幅）</option>
             <option value="full" ${curWidth === "full" ? "selected" : ""}>全幅</option>
           </select>
         </div>
@@ -1243,7 +1424,35 @@ const Renderer = {
         </div>
         <p class="settings-help">テーブル内のセル値で <code>{変数名}</code> を使うと、プリセット選択に応じて置換されます。</p>
         <button class="settings-btn settings-btn--primary" data-action="open-table-bind-var-modal" data-section-id="${section.id}">
-          バインド変数設定を開く ${ (section.table_bind_vars || []).length > 0 ? `<span style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:100px;padding:1px 6px;font-size:10px;">${section.table_bind_vars.length}</span>` : '' }
+          バインド変数設定を開く ${ (section.table_bind_vars || []).length > 0 ? `<span class="settings-row__badge" style="margin-left:4px">${section.table_bind_vars.length} 変数</span>` : '' }
+        </button>
+      </div>`;
+    }
+
+    // リスト: バインド変数設定ボタン
+    if (section.type === "list") {
+      html += `
+      <div class="settings-subsection">
+        <div class="settings-subsection-hd">
+          <h3 class="settings-subsection-title">バインド変数 / プリセット</h3>
+        </div>
+        <p class="settings-help">ラベル・ヒントで <code>{変数名}</code> を使うと、プリセット選択に応じて置換されます。</p>
+        <button class="settings-btn settings-btn--primary" data-action="open-list-bind-var-modal" data-section-id="${section.id}">
+          バインド変数設定を開く ${ (section.list_bind_vars || []).length > 0 ? `<span class="settings-row__badge" style="margin-left:4px">${section.list_bind_vars.length} 変数</span>` : '' }
+        </button>
+      </div>`;
+    }
+
+    // グリッド: バインド変数設定ボタン
+    if (section.type === "grid") {
+      html += `
+      <div class="settings-subsection">
+        <div class="settings-subsection-hd">
+          <h3 class="settings-subsection-title">バインド変数 / プリセット</h3>
+        </div>
+        <p class="settings-help">カード名で <code>{変数名}</code> を使うと、プリセット選択に応じて置換されます。</p>
+        <button class="settings-btn settings-btn--primary" data-action="open-grid-bind-var-modal" data-section-id="${section.id}">
+          バインド変数設定を開く ${ (section.grid_bind_vars || []).length > 0 ? `<span class="settings-row__badge" style="margin-left:4px">${section.grid_bind_vars.length} 変数</span>` : '' }
         </button>
       </div>`;
     }
@@ -1686,14 +1895,8 @@ const EventHandlers = {
   },
 
   backInSettings() {
-    const view = State.settings.view;
-    if (view === "edit-section") {
-      State.settings.view = "sections";
-      State.settings.editingSectionId = null;
-    } else {
-      State.settings.view = "sections";
-      State.settings.editingSectionId = null;
-    }
+    State.settings.view = "sections";
+    State.settings.editingSectionId = null;
     Renderer.renderSettingsView();
   },
 
@@ -2402,6 +2605,134 @@ const EventHandlers = {
     });
   },
 
+  // ── リストバインド変数モーダルを開く ─────────────────────────
+  openListBindVarModal(sectionId) {
+    const section = State.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    BindVarModal.open({
+      title: `${section.icon || ''} ${section.title} — バインド変数設定`,
+      varNames: [...(section.list_bind_vars || [])],
+      presets: (section.list_presets || []).map(p => ({ ...p, values: { ...(p.values || {}) } })),
+      showBarConfig: true,
+      uiType: section.list_vars_ui_type || 'tabs',
+      barLabel: section.list_vars_bar_label || '',
+      onAddVar: async (varName) => {
+        if (!section.list_bind_vars) section.list_bind_vars = [];
+        section.list_bind_vars.push(varName);
+        await State.db.updateSection(section);
+      },
+      onRemoveVar: async (varName) => {
+        section.list_bind_vars = (section.list_bind_vars || []).filter(v => v !== varName);
+        await State.db.updateSection(section);
+      },
+      onSaveBarConfig: async ({ uiType, barLabel }) => {
+        section.list_vars_ui_type = uiType;
+        section.list_vars_bar_label = barLabel;
+        await State.db.updateSection(section);
+      },
+      onAddPreset: async (name) => {
+        if (!section.list_presets) section.list_presets = [];
+        const newPreset = { id: Date.now(), name, values: {} };
+        section.list_presets.push(newPreset);
+        await State.db.updateSection(section);
+        return { ...newPreset };
+      },
+      onUpdatePreset: async (preset) => {
+        const p = (section.list_presets || []).find(p => p.id === preset.id);
+        if (p) { p.name = preset.name; p.values = preset.values; }
+        await State.db.updateSection(section);
+      },
+      onDeletePreset: async (id) => {
+        section.list_presets = (section.list_presets || []).filter(p => p.id !== id);
+        const activeKey = LIST_ACTIVE_PRESET_PREFIX + sectionId;
+        const activeId = loadJsonFromStorage(activeKey);
+        if (activeId === id) localStorage.removeItem(activeKey);
+        await State.db.updateSection(section);
+      },
+      onMovePresetUp: async (presetId) => {
+        const presets = section.list_presets || [];
+        const idx = presets.findIndex(p => p.id === presetId);
+        if (idx <= 0) return;
+        [presets[idx - 1], presets[idx]] = [presets[idx], presets[idx - 1]];
+        await State.db.updateSection(section);
+      },
+      onMovePresetDown: async (presetId) => {
+        const presets = section.list_presets || [];
+        const idx = presets.findIndex(p => p.id === presetId);
+        if (idx < 0 || idx >= presets.length - 1) return;
+        [presets[idx], presets[idx + 1]] = [presets[idx + 1], presets[idx]];
+        await State.db.updateSection(section);
+      },
+      onChange: () => {
+        Renderer.renderDashboard();
+      },
+    });
+  },
+
+  // ── グリッドバインド変数モーダルを開く ─────────────────────────
+  openGridBindVarModal(sectionId) {
+    const section = State.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    BindVarModal.open({
+      title: `${section.icon || ''} ${section.title} — バインド変数設定`,
+      varNames: [...(section.grid_bind_vars || [])],
+      presets: (section.grid_presets || []).map(p => ({ ...p, values: { ...(p.values || {}) } })),
+      showBarConfig: true,
+      uiType: section.grid_vars_ui_type || 'tabs',
+      barLabel: section.grid_vars_bar_label || '',
+      onAddVar: async (varName) => {
+        if (!section.grid_bind_vars) section.grid_bind_vars = [];
+        section.grid_bind_vars.push(varName);
+        await State.db.updateSection(section);
+      },
+      onRemoveVar: async (varName) => {
+        section.grid_bind_vars = (section.grid_bind_vars || []).filter(v => v !== varName);
+        await State.db.updateSection(section);
+      },
+      onSaveBarConfig: async ({ uiType, barLabel }) => {
+        section.grid_vars_ui_type = uiType;
+        section.grid_vars_bar_label = barLabel;
+        await State.db.updateSection(section);
+      },
+      onAddPreset: async (name) => {
+        if (!section.grid_presets) section.grid_presets = [];
+        const newPreset = { id: Date.now(), name, values: {} };
+        section.grid_presets.push(newPreset);
+        await State.db.updateSection(section);
+        return { ...newPreset };
+      },
+      onUpdatePreset: async (preset) => {
+        const p = (section.grid_presets || []).find(p => p.id === preset.id);
+        if (p) { p.name = preset.name; p.values = preset.values; }
+        await State.db.updateSection(section);
+      },
+      onDeletePreset: async (id) => {
+        section.grid_presets = (section.grid_presets || []).filter(p => p.id !== id);
+        const activeKey = GRID_ACTIVE_PRESET_PREFIX + sectionId;
+        const activeId = loadJsonFromStorage(activeKey);
+        if (activeId === id) localStorage.removeItem(activeKey);
+        await State.db.updateSection(section);
+      },
+      onMovePresetUp: async (presetId) => {
+        const presets = section.grid_presets || [];
+        const idx = presets.findIndex(p => p.id === presetId);
+        if (idx <= 0) return;
+        [presets[idx - 1], presets[idx]] = [presets[idx], presets[idx - 1]];
+        await State.db.updateSection(section);
+      },
+      onMovePresetDown: async (presetId) => {
+        const presets = section.grid_presets || [];
+        const idx = presets.findIndex(p => p.id === presetId);
+        if (idx < 0 || idx >= presets.length - 1) return;
+        [presets[idx], presets[idx + 1]] = [presets[idx + 1], presets[idx]];
+        await State.db.updateSection(section);
+      },
+      onChange: () => {
+        Renderer.renderDashboard();
+      },
+    });
+  },
+
   switchPreset(presetId) {
     State.activePresetId = presetId || null;
     if (State.activePresetId) {
@@ -2436,6 +2767,44 @@ const EventHandlers = {
       bar.querySelectorAll(".bind-tab").forEach((btn) => {
         btn.classList.toggle("is-active", Number(btn.dataset.presetId) === presetId);
       });
+    }
+  },
+
+  switchListPreset(sectionId, presetId) {
+    if (presetId) {
+      saveToStorage(LIST_ACTIVE_PRESET_PREFIX + sectionId, presetId);
+    } else {
+      localStorage.removeItem(LIST_ACTIVE_PRESET_PREFIX + sectionId);
+    }
+    // リストカードのみ再レンダリング
+    const section = State.sections.find((s) => s.id === sectionId);
+    const items = State.itemsMap[sectionId] || [];
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (card && section) {
+      const bd = card.querySelector(".card__bd");
+      if (bd) {
+        bd.innerHTML = "";
+        Renderer.buildListSection(section, items, bd);
+      }
+    }
+  },
+
+  switchGridPreset(sectionId, presetId) {
+    if (presetId) {
+      saveToStorage(GRID_ACTIVE_PRESET_PREFIX + sectionId, presetId);
+    } else {
+      localStorage.removeItem(GRID_ACTIVE_PRESET_PREFIX + sectionId);
+    }
+    // グリッドカードのみ再レンダリング
+    const section = State.sections.find((s) => s.id === sectionId);
+    const items = State.itemsMap[sectionId] || [];
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (card && section) {
+      const bd = card.querySelector(".card__bd");
+      if (bd) {
+        bd.innerHTML = "";
+        Renderer.buildGridSection(section, items, bd);
+      }
     }
   },
 
@@ -2698,8 +3067,11 @@ const App = {
       // ダッシュボードのテンプレートカード（日付変数・バインド変数を解決してコピー）
       const templateEl = e.target.closest(".js-template");
       if (templateEl && !templateEl.closest(".home-settings")) {
+        const tplCard = templateEl.closest(".card[data-section-id]");
+        const tplSecId = tplCard ? Number(tplCard.dataset.sectionId) : null;
+        const rawTplVal = templateEl.dataset.value || "";
         const resolved = resolveDateVars(
-          resolveBindVars(templateEl.dataset.value || ""),
+          resolveBindVars(tplSecId ? resolveSectionVars(rawTplVal, tplSecId) : rawTplVal),
         );
         navigator.clipboard.writeText(resolved);
         showToast("コピーしました", "success");
@@ -2866,11 +3238,23 @@ const App = {
         case "open-table-bind-var-modal":
           eh.openTableBindVarModal(sectionId);
           break;
+        case "open-list-bind-var-modal":
+          eh.openListBindVarModal(sectionId);
+          break;
+        case "open-grid-bind-var-modal":
+          eh.openGridBindVarModal(sectionId);
+          break;
         case "switch-preset":
           eh.switchPreset(presetId);
           break;
         case "switch-table-preset":
           eh.switchTablePreset(sectionId, presetId);
+          break;
+        case "switch-list-preset":
+          eh.switchListPreset(sectionId, presetId);
+          break;
+        case "switch-grid-preset":
+          eh.switchGridPreset(sectionId, presetId);
           break;
       }
     });
