@@ -346,7 +346,7 @@ const State = {
   tablePageState: {}, // sectionId → 現在のページ番号（0始まり）
   settings: {
     open: false,
-    view: "sections", // 'sections' | 'edit-section' | 'bind-settings' | 'edit-preset' | 'edit-table-preset'
+    view: "sections", // 'sections' | 'edit-section'
     editingSectionId: null,
     editingPresetId: null,
     editingTablePresetId: null,
@@ -932,25 +932,6 @@ const Renderer = {
         : "セクション編集";
       backBtn.hidden = false;
       body.innerHTML = Renderer.buildEditSectionView(section);
-    } else if (view === "bind-settings") {
-      titleEl.textContent = "共通バインド変数";
-      backBtn.hidden = false;
-      body.innerHTML = Renderer.buildBindSettingsView();
-    } else if (view === "edit-preset") {
-      const preset = State.presets.find(
-        (p) => p.id === State.settings.editingPresetId,
-      );
-      titleEl.textContent = preset ? preset.name : "プリセット編集";
-      backBtn.hidden = false;
-      body.innerHTML = Renderer.buildEditPresetView(preset);
-    } else if (view === "edit-table-preset") {
-      const section = State.sections.find((s) => s.id === State.settings.editingSectionId);
-      const preset = (section?.table_presets || []).find(
-        (p) => p.id === State.settings.editingTablePresetId,
-      );
-      titleEl.textContent = preset ? preset.name : "プリセット編集";
-      backBtn.hidden = false;
-      body.innerHTML = Renderer.buildEditTablePresetView(section, preset);
     }
     // カスタムセレクトに置き換え
     CustomSelect.replaceAll(body);
@@ -963,7 +944,7 @@ const Renderer = {
         ? `<span class="settings-nav-badge">${State.presets.length}</span>`
         : "";
     let html = `<div class="settings-nav-row">
-      <button class="settings-nav-btn" data-action="show-bind-settings">
+      <button class="settings-nav-btn" data-action="open-bind-var-modal">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32 2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
         共通バインド変数
         ${presetBadge}
@@ -1254,97 +1235,16 @@ const Renderer = {
         </div>
       </div>`;
 
-      // テーブル: 独自バインド変数 + プリセット管理
-      const tableVarNames = section.table_bind_vars || [];
-      const tablePresets2 = section.table_presets || [];
-      const tableUiType = section.table_vars_ui_type || "tabs";
-      const tableBarLabel = section.table_vars_bar_label || "";
-
-      // 変数定義サブセクション
+      // テーブル: バインド変数設定ボタン
       html += `
       <div class="settings-subsection">
         <div class="settings-subsection-hd">
-          <h3 class="settings-subsection-title">テーブル変数の定義</h3>
-          <button class="settings-add-btn settings-add-btn--sm" data-action="show-add-table-var" data-section-id="${section.id}">＋ 変数を追加</button>
+          <h3 class="settings-subsection-title">バインド変数 / プリセット</h3>
         </div>
         <p class="settings-help">テーブル内のセル値で <code>{変数名}</code> を使うと、プリセット選択に応じて置換されます。</p>
-        <div id="table-var-list">`;
-      if (tableVarNames.length === 0) {
-        html += `<p class="section-empty">変数が定義されていません</p>`;
-      }
-      tableVarNames.forEach((name) => {
-        html += `
-          <div class="settings-row settings-row--sm">
-            <code class="bind-var-badge">{${escapeHtml(name)}}</code>
-            <div class="settings-row__actions">
-              <button class="settings-btn settings-btn--danger" data-action="remove-table-var" data-section-id="${section.id}" data-var-name="${escapeAttr(name)}">削除</button>
-            </div>
-          </div>`;
-      });
-      html += `</div>
-        <div class="settings-form-panel" id="add-table-var-form" hidden>
-          <div class="settings-form-row settings-form-row--inline">
-            <input class="settings-input" id="new-table-var-name" type="text" placeholder="変数名（例: ENV）" />
-            <button class="settings-btn settings-btn--primary" data-action="save-add-table-var" data-section-id="${section.id}">追加</button>
-            <button class="settings-btn" data-action="cancel-add-table-var">✕</button>
-          </div>
-        </div>
-      </div>`;
-
-      // 選択UI設定サブセクション
-      html += `
-      <div class="settings-subsection">
-        <h3 class="settings-subsection-title">選択UI</h3>
-        <div class="settings-form-row">
-          <label class="settings-label">ラベル（空白で非表示）</label>
-          <input class="settings-input" id="table-vars-bar-label" type="text" value="${escapeAttr(tableBarLabel)}" placeholder="環境" />
-        </div>
-        <div class="settings-form-row">
-          <select class="cs-target" id="table-vars-ui-type">
-            <option value="tabs" ${tableUiType === "tabs" ? "selected" : ""}>タブ</option>
-            <option value="select" ${tableUiType === "select" ? "selected" : ""}>セレクトボックス</option>
-            <option value="segment" ${tableUiType === "segment" ? "selected" : ""}>セグメントコントロール</option>
-          </select>
-        </div>
-        <div class="settings-form-row">
-          <button class="settings-btn settings-btn--primary" data-action="save-table-vars-config" data-section-id="${section.id}">保存</button>
-        </div>
-      </div>`;
-
-      // プリセット一覧サブセクション
-      const tablePresetList =
-        tablePresets2.length > 0
-          ? tablePresets2
-              .map(
-                (p, idx) => `
-          <div class="settings-row" data-table-preset-id="${p.id}">
-            <span class="settings-row__title">${escapeHtml(p.name)}</span>
-            <div class="settings-row__actions">
-              <button class="settings-btn" data-action="move-table-preset-up" data-section-id="${section.id}" data-preset-id="${p.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
-              <button class="settings-btn" data-action="move-table-preset-down" data-section-id="${section.id}" data-preset-id="${p.id}" ${idx === tablePresets2.length - 1 ? "disabled" : ""}>↓</button>
-              <button class="settings-btn settings-btn--primary" data-action="edit-table-preset" data-section-id="${section.id}" data-preset-id="${p.id}">編集</button>
-              <button class="settings-btn settings-btn--danger" data-action="delete-table-preset" data-section-id="${section.id}" data-preset-id="${p.id}">削除</button>
-            </div>
-          </div>`,
-              )
-              .join("")
-          : '<p class="section-empty">プリセットが登録されていません</p>';
-      html += `
-      <div class="settings-subsection">
-        <div class="settings-subsection-hd">
-          <h3 class="settings-subsection-title">プリセット一覧</h3>
-          <button class="settings-add-btn settings-add-btn--sm" data-action="show-add-table-preset" data-section-id="${section.id}">＋ 追加</button>
-        </div>
-        <div id="table-preset-list">${tablePresetList}</div>
-        <div class="settings-form-panel" id="add-table-preset-form" hidden>
-          <div class="settings-form-row">
-            <input class="settings-input" id="new-table-preset-name" type="text" placeholder="プリセット名（例: 本番, 開発）" />
-          </div>
-          <div class="settings-form-actions">
-            <button class="settings-btn settings-btn--primary" data-action="save-add-table-preset" data-section-id="${section.id}">追加</button>
-            <button class="settings-btn" data-action="cancel-add-table-preset">キャンセル</button>
-          </div>
-        </div>
+        <button class="settings-btn settings-btn--primary" data-action="open-table-bind-var-modal" data-section-id="${section.id}">
+          バインド変数設定を開く ${ (section.table_bind_vars || []).length > 0 ? `<span style="margin-left:4px;background:rgba(255,255,255,.25);border-radius:100px;padding:1px 6px;font-size:10px;">${section.table_bind_vars.length}</span>` : '' }
+        </button>
       </div>`;
     }
 
@@ -1517,165 +1417,6 @@ const Renderer = {
         <button class="settings-btn" data-action="${cancelAction}"${isEdit ? ` data-item-id="${item.id}" data-section-id="${section.id}"` : ""}>キャンセル</button>
       </div>`;
     return html;
-  },
-
-  // ── 共通バインド変数 設定ビュー ────────────────
-
-  buildBindSettingsView() {
-    const { varNames, uiType, barLabel } = State.bindConfig;
-    const presets = State.presets;
-
-    const varList =
-      varNames.length > 0
-        ? varNames
-            .map(
-              (name) => `
-        <div class="settings-row settings-row--sm">
-          <code class="bind-var-badge">{${escapeHtml(name)}}</code>
-          <div class="settings-row__actions">
-            <button class="settings-btn settings-btn--danger" data-action="remove-bind-var" data-var-name="${escapeAttr(name)}">削除</button>
-          </div>
-        </div>`,
-            )
-            .join("")
-        : '<p class="section-empty">変数が定義されていません</p>';
-
-    const presetList =
-      presets.length > 0
-        ? presets
-            .map(
-              (preset, idx) => `
-        <div class="settings-row" data-preset-id="${preset.id}">
-          <span class="settings-row__title">${escapeHtml(preset.name)}</span>
-          <div class="settings-row__actions">
-            <button class="settings-btn" data-action="move-preset-up" data-preset-id="${preset.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
-            <button class="settings-btn" data-action="move-preset-down" data-preset-id="${preset.id}" ${idx === presets.length - 1 ? "disabled" : ""}>↓</button>
-            <button class="settings-btn settings-btn--primary" data-action="edit-preset" data-preset-id="${preset.id}">編集</button>
-            <button class="settings-btn settings-btn--danger" data-action="delete-preset" data-preset-id="${preset.id}">削除</button>
-          </div>
-        </div>`,
-            )
-            .join("")
-        : '<p class="section-empty">プリセットが登録されていません</p>';
-
-    return `<div class="settings-bind-view">
-      <div class="settings-subsection">
-        <h3 class="settings-subsection-title">バインド変数の定義</h3>
-        <p class="settings-help">コマンドや値に {変数名} 形式で埋め込めます。例: <code>{IP}</code>, <code>{HOST_NAME}</code></p>
-        <div id="bind-var-list">${varList}</div>
-        <div class="settings-form-row settings-form-row--inline">
-          <input class="settings-input" id="new-var-name" type="text" placeholder="変数名（例: HOST_NAME）" />
-          <button class="settings-btn settings-btn--primary" data-action="add-bind-var">追加</button>
-        </div>
-      </div>
-      <div class="settings-subsection">
-        <h3 class="settings-subsection-title">選択UI</h3>
-        <div class="settings-form-row">
-          <label class="settings-label">ラベル（空白で非表示）</label>
-          <input class="settings-input" id="bind-bar-label" type="text" value="${escapeAttr(barLabel || "")}" placeholder="プリセット" />
-        </div>
-        <div class="settings-form-row">
-          <select class="cs-target" id="bind-ui-type">
-            <option value="select" ${uiType === "select" ? "selected" : ""}>セレクトボックス</option>
-            <option value="tabs" ${uiType === "tabs" ? "selected" : ""}>タブ</option>
-            <option value="segment" ${uiType === "segment" ? "selected" : ""}>セグメントコントロール</option>
-          </select>
-        </div>
-        <div class="settings-form-row">
-          <button class="settings-btn settings-btn--primary" data-action="save-bind-config">保存</button>
-        </div>
-      </div>
-      <div class="settings-subsection">
-        <div class="settings-subsection-hd">
-          <h3 class="settings-subsection-title">プリセット一覧</h3>
-          <button class="settings-add-btn settings-add-btn--sm" data-action="show-add-preset">＋ 追加</button>
-        </div>
-        <div id="preset-list">${presetList}</div>
-        <div class="settings-form-panel" id="add-preset-form" hidden>
-          <div class="settings-form-row">
-            <input class="settings-input" id="new-preset-name" type="text" placeholder="プリセット名（例: 本番, 開発）" />
-          </div>
-          <div class="settings-form-actions">
-            <button class="settings-btn settings-btn--primary" data-action="save-add-preset">追加</button>
-            <button class="settings-btn" data-action="cancel-add-preset">キャンセル</button>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  },
-
-  buildEditPresetView(preset) {
-    if (!preset)
-      return '<p class="section-empty">プリセットが見つかりません</p>';
-    const { varNames } = State.bindConfig;
-    const values = preset.values || {};
-
-    const varFields =
-      varNames.length > 0
-        ? varNames
-            .map(
-              (name) => `
-        <div class="settings-form-row">
-          <label class="settings-label"><code class="bind-var-badge">{${escapeHtml(name)}}</code></label>
-          <input class="settings-input" id="edit-preset-var-${escapeAttr(name)}" type="text"
-                 value="${escapeAttr(values[name] || "")}" placeholder="${escapeAttr(name)} の値" />
-        </div>`,
-            )
-            .join("")
-        : '<p class="section-empty">変数が定義されていません。「共通バインド変数」設定から追加してください。</p>';
-
-    return `<div class="settings-edit-preset">
-      <div class="settings-subsection">
-        <h3 class="settings-subsection-title">プリセット名</h3>
-        <div class="settings-form-row">
-          <input class="settings-input" id="edit-preset-name" type="text" value="${escapeAttr(preset.name)}" placeholder="プリセット名" />
-        </div>
-      </div>
-      <div class="settings-subsection">
-        <h3 class="settings-subsection-title">バインド変数の値</h3>
-        ${varFields}
-        <div class="settings-form-row">
-          <button class="settings-btn settings-btn--primary" data-action="save-edit-preset" data-preset-id="${preset.id}">保存</button>
-        </div>
-      </div>
-    </div>`;
-  },
-
-  buildEditTablePresetView(section, preset) {
-    if (!section || !preset)
-      return '<p class="section-empty">プリセットが見つかりません</p>';
-    const varNames = section.table_bind_vars || [];
-    const values = preset.values || {};
-
-    const varFields =
-      varNames.length > 0
-        ? varNames
-            .map(
-              (name) => `
-      <div class="settings-form-row">
-        <label class="settings-label"><code class="bind-var-badge">{${escapeHtml(name)}}</code></label>
-        <input class="settings-input" id="edit-table-preset-var-${escapeAttr(name)}" type="text"
-               value="${escapeAttr(values[name] || "")}" placeholder="${escapeAttr(name)} の値" />
-      </div>`,
-            )
-            .join("")
-        : '<p class="section-empty">変数が定義されていません。「テーブル変数の定義」から追加してください。</p>';
-
-    return `<div class="settings-edit-preset">
-      <div class="settings-subsection">
-        <h3 class="settings-subsection-title">プリセット名</h3>
-        <div class="settings-form-row">
-          <input class="settings-input" id="edit-table-preset-name" type="text" value="${escapeAttr(preset.name)}" placeholder="プリセット名" />
-        </div>
-      </div>
-      <div class="settings-subsection">
-        <h3 class="settings-subsection-title">バインド変数の値</h3>
-        ${varFields}
-        <div class="settings-form-row">
-          <button class="settings-btn settings-btn--primary" data-action="save-edit-table-preset" data-section-id="${section.id}" data-preset-id="${preset.id}">保存</button>
-        </div>
-      </div>
-    </div>`;
   },
 
   // ── バインド変数バー ──────────────────────────────
@@ -1946,16 +1687,12 @@ const EventHandlers = {
 
   backInSettings() {
     const view = State.settings.view;
-    if (view === "edit-preset") {
-      State.settings.view = "bind-settings";
-      State.settings.editingPresetId = null;
-    } else if (view === "edit-table-preset") {
-      State.settings.view = "edit-section";
-      State.settings.editingTablePresetId = null;
+    if (view === "edit-section") {
+      State.settings.view = "sections";
+      State.settings.editingSectionId = null;
     } else {
       State.settings.view = "sections";
       State.settings.editingSectionId = null;
-      State.settings.editingPresetId = null;
     }
     Renderer.renderSettingsView();
   },
@@ -2533,148 +2270,136 @@ const EventHandlers = {
       .catch(console.error);
   },
 
-  // ── 共通バインド変数 ──────────────────────
+  // ── 共通バインド変数モーダルを開く ─────────────────────────────
 
-  showBindSettings() {
-    State.settings.view = "bind-settings";
-    State.settings.editingPresetId = null;
-    Renderer.renderSettingsView();
-  },
-
-  showAddPresetForm() {
-    const form = document.getElementById("add-preset-form");
-    if (form) form.hidden = false;
-  },
-
-  hideAddPresetForm() {
-    const form = document.getElementById("add-preset-form");
-    if (form) form.hidden = true;
-  },
-
-  async saveAddPreset() {
-    const name = document.getElementById("new-preset-name")?.value.trim();
-    if (!name) {
-      alert("プリセット名を入力してください");
-      return;
-    }
-    const maxPos =
-      State.presets.length > 0
-        ? Math.max(...State.presets.map((p) => p.position)) + 1
-        : 0;
-    const data = { name, position: maxPos, values: {} };
-    const newId = await State.db.addPreset(data);
-    data.id = newId;
-    State.presets.push(data);
-    Renderer.renderEnvBar();
-    Renderer.renderSettingsView();
-  },
-
-  editPreset(presetId) {
-    State.settings.view = "edit-preset";
-    State.settings.editingPresetId = presetId;
-    Renderer.renderSettingsView();
-  },
-
-  async saveEditPreset(presetId) {
-    const preset = State.presets.find((p) => p.id === presetId);
-    if (!preset) return;
-    const name = document.getElementById("edit-preset-name")?.value.trim();
-    if (!name) {
-      alert("プリセット名を入力してください");
-      return;
-    }
-    preset.name = name;
-    const values = {};
-    State.bindConfig.varNames.forEach((varName) => {
-      values[varName] =
-        document.getElementById(`edit-preset-var-${varName}`)?.value.trim() ||
-        "";
+  openBindVarModal() {
+    BindVarModal.open({
+      title: '共通バインド変数設定',
+      varNames: [...State.bindConfig.varNames],
+      presets: State.presets.map(p => ({ ...p, values: { ...(p.values || {}) } })),
+      showBarConfig: true,
+      uiType: State.bindConfig.uiType || 'tabs',
+      barLabel: State.bindConfig.barLabel || '',
+      onAddVar: async (varName) => {
+        State.bindConfig.varNames.push(varName);
+        await State.db.setAppConfig('bind_config', State.bindConfig);
+      },
+      onRemoveVar: async (varName) => {
+        State.bindConfig.varNames = State.bindConfig.varNames.filter(v => v !== varName);
+        await State.db.setAppConfig('bind_config', State.bindConfig);
+      },
+      onSaveBarConfig: async ({ uiType, barLabel }) => {
+        State.bindConfig = { ...State.bindConfig, uiType, barLabel };
+        await State.db.setAppConfig('bind_config', State.bindConfig);
+      },
+      onAddPreset: async (name) => {
+        const maxPos = State.presets.length > 0
+          ? Math.max(...State.presets.map(p => p.position)) + 1 : 0;
+        const data = { name, position: maxPos, values: {} };
+        const newId = await State.db.addPreset(data);
+        data.id = newId;
+        State.presets.push(data);
+        return { ...data };
+      },
+      onUpdatePreset: async (preset) => {
+        const existing = State.presets.find(p => p.id === preset.id);
+        if (existing) { existing.name = preset.name; existing.values = preset.values; }
+        await State.db.updatePreset(preset);
+      },
+      onDeletePreset: async (id) => {
+        await State.db.deletePreset(id);
+        State.presets = State.presets.filter(p => p.id !== id);
+        if (State.activePresetId === id) {
+          State.activePresetId = null;
+          localStorage.removeItem(ACTIVE_PRESET_KEY);
+        }
+      },
+      onMovePresetUp: async (presetId) => {
+        const idx = State.presets.findIndex(p => p.id === presetId);
+        if (idx <= 0) return;
+        const a = State.presets[idx], b = State.presets[idx - 1];
+        [a.position, b.position] = [b.position, a.position];
+        await Promise.all([State.db.updatePreset(a), State.db.updatePreset(b)]);
+        State.presets = sortByPosition(State.presets);
+      },
+      onMovePresetDown: async (presetId) => {
+        const idx = State.presets.findIndex(p => p.id === presetId);
+        if (idx >= State.presets.length - 1) return;
+        const a = State.presets[idx], b = State.presets[idx + 1];
+        [a.position, b.position] = [b.position, a.position];
+        await Promise.all([State.db.updatePreset(a), State.db.updatePreset(b)]);
+        State.presets = sortByPosition(State.presets);
+      },
+      onChange: () => {
+        Renderer.renderEnvBar();
+        Renderer.renderDashboard();
+      },
     });
-    preset.values = values;
-    await State.db.updatePreset(preset);
-    Renderer.renderEnvBar();
-    Renderer.renderDashboard();
-    Renderer.renderSettingsView();
-    showToast("保存しました", "success");
   },
 
-  async deletePreset(presetId) {
-    if (!confirm("このプリセットを削除しますか？")) return;
-    await State.db.deletePreset(presetId);
-    State.presets = State.presets.filter((p) => p.id !== presetId);
-    if (State.activePresetId === presetId) {
-      State.activePresetId = null;
-      localStorage.removeItem(ACTIVE_PRESET_KEY);
-    }
-    Renderer.renderEnvBar();
-    Renderer.renderDashboard();
-    Renderer.renderSettingsView();
-  },
+  // ── テーブルバインド変数モーダルを開く ─────────────────────────
 
-  async movePresetUp(presetId) {
-    const idx = State.presets.findIndex((p) => p.id === presetId);
-    if (idx <= 0) return;
-    await EventHandlers._swapPresetPos(
-      State.presets[idx],
-      State.presets[idx - 1],
-    );
-  },
-
-  async movePresetDown(presetId) {
-    const idx = State.presets.findIndex((p) => p.id === presetId);
-    if (idx >= State.presets.length - 1) return;
-    await EventHandlers._swapPresetPos(
-      State.presets[idx],
-      State.presets[idx + 1],
-    );
-  },
-
-  async _swapPresetPos(a, b) {
-    [a.position, b.position] = [b.position, a.position];
-    await Promise.all([State.db.updatePreset(a), State.db.updatePreset(b)]);
-    State.presets = sortByPosition(State.presets);
-    Renderer.renderEnvBar();
-    Renderer.renderSettingsView();
-  },
-
-  async saveBindConfig() {
-    const uiType = document.getElementById("bind-ui-type")?.value || "select";
-    const barLabel =
-      document.getElementById("bind-bar-label")?.value.trim() || "";
-    State.bindConfig = { ...State.bindConfig, uiType, barLabel };
-    await State.db.setAppConfig("bind_config", State.bindConfig);
-    Renderer.renderEnvBar();
-    Renderer.renderSettingsView();
-    showToast("保存しました", "success");
-  },
-
-  async addBindVar() {
-    const input = document.getElementById("new-var-name");
-    const raw = input?.value.trim() || "";
-    // 変数名は英大文字・数字・アンダースコアのみ許容
-    const varName = raw.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-    if (!varName) {
-      alert("変数名を入力してください");
-      return;
-    }
-    if (State.bindConfig.varNames.includes(varName)) {
-      alert("すでに存在する変数名です");
-      return;
-    }
-    State.bindConfig.varNames.push(varName);
-    await State.db.setAppConfig("bind_config", State.bindConfig);
-    if (input) input.value = "";
-    Renderer.renderSettingsView();
-    showToast(`{${varName}} を追加しました`, "success");
-  },
-
-  async removeBindVar(varName) {
-    if (!confirm(`変数 {${varName}} を削除しますか？`)) return;
-    State.bindConfig.varNames = State.bindConfig.varNames.filter(
-      (v) => v !== varName,
-    );
-    await State.db.setAppConfig("bind_config", State.bindConfig);
-    Renderer.renderSettingsView();
+  openTableBindVarModal(sectionId) {
+    const section = State.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    BindVarModal.open({
+      title: `${section.icon || ''} ${section.title} — バインド変数設定`,
+      varNames: [...(section.table_bind_vars || [])],
+      presets: (section.table_presets || []).map(p => ({ ...p, values: { ...(p.values || {}) } })),
+      showBarConfig: true,
+      uiType: section.table_vars_ui_type || 'tabs',
+      barLabel: section.table_vars_bar_label || '',
+      onAddVar: async (varName) => {
+        if (!section.table_bind_vars) section.table_bind_vars = [];
+        section.table_bind_vars.push(varName);
+        await State.db.updateSection(section);
+      },
+      onRemoveVar: async (varName) => {
+        section.table_bind_vars = (section.table_bind_vars || []).filter(v => v !== varName);
+        await State.db.updateSection(section);
+      },
+      onSaveBarConfig: async ({ uiType, barLabel }) => {
+        section.table_vars_ui_type = uiType;
+        section.table_vars_bar_label = barLabel;
+        await State.db.updateSection(section);
+      },
+      onAddPreset: async (name) => {
+        if (!section.table_presets) section.table_presets = [];
+        const newPreset = { id: Date.now(), name, values: {} };
+        section.table_presets.push(newPreset);
+        await State.db.updateSection(section);
+        return { ...newPreset };
+      },
+      onUpdatePreset: async (preset) => {
+        const p = (section.table_presets || []).find(p => p.id === preset.id);
+        if (p) { p.name = preset.name; p.values = preset.values; }
+        await State.db.updateSection(section);
+      },
+      onDeletePreset: async (id) => {
+        section.table_presets = (section.table_presets || []).filter(p => p.id !== id);
+        const activeKey = TABLE_ACTIVE_PRESET_PREFIX + sectionId;
+        const activeId = loadJsonFromStorage(activeKey);
+        if (activeId === id) localStorage.removeItem(activeKey);
+        await State.db.updateSection(section);
+      },
+      onMovePresetUp: async (presetId) => {
+        const presets = section.table_presets || [];
+        const idx = presets.findIndex(p => p.id === presetId);
+        if (idx <= 0) return;
+        [presets[idx - 1], presets[idx]] = [presets[idx], presets[idx - 1]];
+        await State.db.updateSection(section);
+      },
+      onMovePresetDown: async (presetId) => {
+        const presets = section.table_presets || [];
+        const idx = presets.findIndex(p => p.id === presetId);
+        if (idx < 0 || idx >= presets.length - 1) return;
+        [presets[idx], presets[idx + 1]] = [presets[idx + 1], presets[idx]];
+        await State.db.updateSection(section);
+      },
+      onChange: () => {
+        Renderer.renderDashboard();
+      },
+    });
   },
 
   switchPreset(presetId) {
@@ -2686,128 +2411,6 @@ const EventHandlers = {
     }
     Renderer.renderEnvBar();
     Renderer.renderDashboard();
-  },
-
-  // ── テーブルセクション独自バインド変数 ─────────────────────────────
-
-  toggleAddTableVarForm(sectionId, show) {
-    const form = document.getElementById("add-table-var-form");
-    if (form) form.hidden = !show;
-  },
-
-  async saveAddTableVar(sectionId) {
-    const section = State.sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    const input = document.getElementById("new-table-var-name");
-    const raw = input?.value.trim() || "";
-    // 変数名は英大文字・数字・アンダースコアのみ許容
-    const varName = raw.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-    if (!varName) { alert("変数名を入力してください"); return; }
-    if (!section.table_bind_vars) section.table_bind_vars = [];
-    if (section.table_bind_vars.includes(varName)) {
-      alert(`{${varName}} はすでに追加されています`);
-      return;
-    }
-    section.table_bind_vars.push(varName);
-    await State.db.updateSection(section);
-    Renderer.renderDashboard();
-    Renderer.renderSettingsView();
-    showToast(`{${varName}} を追加しました`, "success");
-  },
-
-  async removeTableVar(sectionId, varName) {
-    const section = State.sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    if (!confirm(`変数 {${varName}} を削除しますか？`)) return;
-    section.table_bind_vars = (section.table_bind_vars || []).filter((v) => v !== varName);
-    await State.db.updateSection(section);
-    Renderer.renderDashboard();
-    Renderer.renderSettingsView();
-  },
-
-  // ── テーブルプリセット管理 ─────────────────────────────
-
-  toggleAddTablePresetForm(sectionId, show) {
-    const form = document.getElementById("add-table-preset-form");
-    if (form) form.hidden = !show;
-  },
-
-  async saveAddTablePreset(sectionId) {
-    const section = State.sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    const input = document.getElementById("new-table-preset-name");
-    const name = input?.value.trim();
-    if (!name) { alert("プリセット名を入力してください"); return; }
-    if (!section.table_presets) section.table_presets = [];
-    const newPreset = { id: Date.now(), name, values: {} };
-    section.table_presets.push(newPreset);
-    await State.db.updateSection(section);
-    if (input) input.value = "";
-    Renderer.renderDashboard();
-    Renderer.renderSettingsView();
-    showToast(`「${name}」を追加しました`, "success");
-  },
-
-  editTablePreset(sectionId, presetId) {
-    State.settings.view = "edit-table-preset";
-    State.settings.editingSectionId = sectionId;
-    State.settings.editingTablePresetId = presetId;
-    Renderer.renderSettingsView();
-  },
-
-  async saveEditTablePreset(sectionId, presetId) {
-    const section = State.sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    const preset = (section.table_presets || []).find((p) => p.id === presetId);
-    if (!preset) return;
-    const name = document.getElementById("edit-table-preset-name")?.value.trim();
-    if (!name) { alert("プリセット名を入力してください"); return; }
-    preset.name = name;
-    const values = {};
-    (section.table_bind_vars || []).forEach((varName) => {
-      values[varName] =
-        document.getElementById(`edit-table-preset-var-${varName}`)?.value.trim() || "";
-    });
-    preset.values = values;
-    await State.db.updateSection(section);
-    Renderer.renderDashboard();
-    Renderer.renderSettingsView();
-    showToast("保存しました", "success");
-  },
-
-  async deleteTablePreset(sectionId, presetId) {
-    if (!confirm("このプリセットを削除しますか？")) return;
-    const section = State.sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    section.table_presets = (section.table_presets || []).filter((p) => p.id !== presetId);
-    // アクティブだった場合は解除
-    const activeId = loadJsonFromStorage(TABLE_ACTIVE_PRESET_PREFIX + sectionId);
-    if (activeId === presetId) localStorage.removeItem(TABLE_ACTIVE_PRESET_PREFIX + sectionId);
-    await State.db.updateSection(section);
-    Renderer.renderDashboard();
-    Renderer.renderSettingsView();
-  },
-
-  async moveTablePresetUp(sectionId, presetId) {
-    const section = State.sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    const presets = section.table_presets || [];
-    const idx = presets.findIndex((p) => p.id === presetId);
-    if (idx <= 0) return;
-    [presets[idx - 1], presets[idx]] = [presets[idx], presets[idx - 1]];
-    await State.db.updateSection(section);
-    Renderer.renderSettingsView();
-  },
-
-  async moveTablePresetDown(sectionId, presetId) {
-    const section = State.sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    const presets = section.table_presets || [];
-    const idx = presets.findIndex((p) => p.id === presetId);
-    if (idx < 0 || idx >= presets.length - 1) return;
-    [presets[idx], presets[idx + 1]] = [presets[idx + 1], presets[idx]];
-    await State.db.updateSection(section);
-    Renderer.renderSettingsView();
   },
 
   switchTablePreset(sectionId, presetId) {
@@ -2834,19 +2437,6 @@ const EventHandlers = {
         btn.classList.toggle("is-active", Number(btn.dataset.presetId) === presetId);
       });
     }
-  },
-
-  async saveTableVarsConfig(sectionId) {
-    const section = State.sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    const uiType = document.getElementById("table-vars-ui-type")?.value || "tabs";
-    const barLabel = document.getElementById("table-vars-bar-label")?.value.trim() || "";
-    section.table_vars_ui_type = uiType;
-    section.table_vars_bar_label = barLabel;
-    await State.db.updateSection(section);
-    Renderer.renderDashboard();
-    Renderer.renderSettingsView();
-    showToast("保存しました", "success");
   },
 
   // ── インポート ────────────────────────────
@@ -3270,86 +2860,17 @@ const App = {
         case "import-data":
           eh.importData();
           break;
-        case "show-bind-settings":
-          eh.showBindSettings();
+        case "open-bind-var-modal":
+          eh.openBindVarModal();
           break;
-        case "show-add-preset":
-          eh.showAddPresetForm();
-          break;
-        case "cancel-add-preset":
-          eh.hideAddPresetForm();
-          break;
-        case "save-add-preset":
-          eh.saveAddPreset().catch(console.error);
-          break;
-        case "edit-preset":
-          eh.editPreset(presetId);
-          break;
-        case "save-edit-preset":
-          eh.saveEditPreset(presetId).catch(console.error);
-          break;
-        case "delete-preset":
-          eh.deletePreset(presetId).catch(console.error);
-          break;
-        case "move-preset-up":
-          eh.movePresetUp(presetId).catch(console.error);
-          break;
-        case "move-preset-down":
-          eh.movePresetDown(presetId).catch(console.error);
-          break;
-        case "save-bind-config":
-          eh.saveBindConfig().catch(console.error);
-          break;
-        case "add-bind-var":
-          eh.addBindVar().catch(console.error);
-          break;
-        case "remove-bind-var":
-          eh.removeBindVar(btn.dataset.varName).catch(console.error);
+        case "open-table-bind-var-modal":
+          eh.openTableBindVarModal(sectionId);
           break;
         case "switch-preset":
           eh.switchPreset(presetId);
           break;
-        case "show-add-table-var":
-          eh.toggleAddTableVarForm(sectionId, true);
-          break;
-        case "cancel-add-table-var":
-          eh.toggleAddTableVarForm(null, false);
-          break;
-        case "save-add-table-var":
-          eh.saveAddTableVar(sectionId).catch(console.error);
-          break;
-        case "remove-table-var":
-          eh.removeTableVar(sectionId, btn.dataset.varName).catch(console.error);
-          break;
-        case "show-add-table-preset":
-          eh.toggleAddTablePresetForm(sectionId, true);
-          break;
-        case "cancel-add-table-preset":
-          eh.toggleAddTablePresetForm(null, false);
-          break;
-        case "save-add-table-preset":
-          eh.saveAddTablePreset(sectionId).catch(console.error);
-          break;
-        case "edit-table-preset":
-          eh.editTablePreset(sectionId, presetId);
-          break;
-        case "save-edit-table-preset":
-          eh.saveEditTablePreset(sectionId, presetId).catch(console.error);
-          break;
-        case "delete-table-preset":
-          eh.deleteTablePreset(sectionId, presetId).catch(console.error);
-          break;
-        case "move-table-preset-up":
-          eh.moveTablePresetUp(sectionId, presetId).catch(console.error);
-          break;
-        case "move-table-preset-down":
-          eh.moveTablePresetDown(sectionId, presetId).catch(console.error);
-          break;
         case "switch-table-preset":
           eh.switchTablePreset(sectionId, presetId);
-          break;
-        case "save-table-vars-config":
-          eh.saveTableVarsConfig(sectionId).catch(console.error);
           break;
       }
     });
