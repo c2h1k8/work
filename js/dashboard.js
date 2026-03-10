@@ -4,31 +4,34 @@
 
 /** セクションタイプのラベル */
 const TYPE_LABELS = {
-  list: 'リスト',
-  grid: 'グリッド',
-  command_builder: 'コマンドビルダー',
-  table: 'テーブル',
-  memo: 'メモ',
-  checklist: 'チェックリスト',
+  list: "リスト",
+  grid: "グリッド",
+  command_builder: "コマンドビルダー",
+  table: "テーブル",
+  memo: "メモ",
+  checklist: "チェックリスト",
 };
 
 /** コマンドビルダー履歴の localStorage キープレフィックス（ブラウザ固有の UI 状態） */
-const CMD_HISTORY_PREFIX = 'dashboard_url_history_';
+const CMD_HISTORY_PREFIX = "dashboard_url_history_";
 
 /** セクション折りたたみ状態の localStorage キープレフィックス（ブラウザ固有） */
-const COLLAPSE_PREFIX = 'dashboard_collapsed_';
+const COLLAPSE_PREFIX = "dashboard_collapsed_";
 
 /** チェックリスト状態の localStorage キープレフィックス（ブラウザ固有） */
-const CHECKLIST_STATE_PREFIX = 'dashboard_checklist_';
+const CHECKLIST_STATE_PREFIX = "dashboard_checklist_";
 
 /** チェックリスト最終リセット日の localStorage キープレフィックス（ブラウザ固有） */
-const CHECKLIST_DATE_PREFIX = 'dashboard_checklist_date_';
+const CHECKLIST_DATE_PREFIX = "dashboard_checklist_date_";
 
 /** テーブル列の非表示状態保存用 localStorage キープレフィックス（ブラウザ固有の UI 状態） */
-const TABLE_COL_HIDDEN_PREFIX = 'dashboard_table_hidden_cols_';
+const TABLE_COL_HIDDEN_PREFIX = "dashboard_table_hidden_cols_";
+
+/** テーブルセクション独自バインド変数のアクティブプリセット保存用 localStorage キープレフィックス（ブラウザ固有） */
+const TABLE_ACTIVE_PRESET_PREFIX = "dashboard_table_active_preset_";
 
 /** 選択中のプリセットID の localStorage キー（ブラウザ固有の UI 状態） */
-const ACTIVE_PRESET_KEY_PREFIX = 'dashboard_active_preset_';
+const ACTIVE_PRESET_KEY_PREFIX = "dashboard_active_preset_";
 
 // SVGアイコンは js/base/icons.js の Icons を使用
 
@@ -41,14 +44,19 @@ const escapeAttr = escapeHtml;
 
 /** URL バリデーション */
 const isValidUrl = (url) => {
-  try { new URL(url); return true; } catch { return false; }
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 // トースト通知: js/base/toast.js の Toast.show() を使用
-const showToast = (msg = 'コピーしました', type) => Toast.show(msg, type);
+const showToast = (msg = "コピーしました", type) => Toast.show(msg, type);
 
 // URLパラメータから instance ID を取得（複数ホームタブ対応）
-const _instanceId = new URLSearchParams(location.search).get('instance') || '';
+const _instanceId = new URLSearchParams(location.search).get("instance") || "";
 
 /** 選択中のプリセットID を保存する localStorage キー */
 const ACTIVE_PRESET_KEY = ACTIVE_PRESET_KEY_PREFIX + _instanceId;
@@ -60,9 +68,9 @@ const ACTIVE_PRESET_KEY = ACTIVE_PRESET_KEY_PREFIX + _instanceId;
 class HomeDB {
   constructor() {
     this.db = null;
-    this.DB_NAME = 'dashboard_db';  // 全インスタンス共有の単一DB
+    this.DB_NAME = "dashboard_db"; // 全インスタンス共有の単一DB
     this.DB_VERSION = 1;
-    this.instanceId = _instanceId;  // このインスタンスのID
+    this.instanceId = _instanceId; // このインスタンスのID
   }
 
   open() {
@@ -71,17 +79,26 @@ class HomeDB {
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
         // sections ストア（instance_id インデックス付き）
-        const ss = db.createObjectStore('sections', { keyPath: 'id', autoIncrement: true });
-        ss.createIndex('position', 'position');
-        ss.createIndex('instance_id', 'instance_id');
-        const is = db.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
-        is.createIndex('section_id', 'section_id');
-        is.createIndex('position', 'position');
+        const ss = db.createObjectStore("sections", {
+          keyPath: "id",
+          autoIncrement: true,
+        });
+        ss.createIndex("position", "position");
+        ss.createIndex("instance_id", "instance_id");
+        const is = db.createObjectStore("items", {
+          keyPath: "id",
+          autoIncrement: true,
+        });
+        is.createIndex("section_id", "section_id");
+        is.createIndex("position", "position");
         // アプリ設定ストア（varNames・uiType など）
-        db.createObjectStore('app_config', { keyPath: 'name' });
+        db.createObjectStore("app_config", { keyPath: "name" });
         // プリセットストア
-        const presetsStore = db.createObjectStore('presets', { keyPath: 'id', autoIncrement: true });
-        presetsStore.createIndex('instance_id', 'instance_id');
+        const presetsStore = db.createObjectStore("presets", {
+          keyPath: "id",
+          autoIncrement: true,
+        });
+        presetsStore.createIndex("instance_id", "instance_id");
       };
       req.onsuccess = (e) => {
         this.db = e.target.result;
@@ -110,7 +127,10 @@ class HomeDB {
 
   _add(store, data) {
     return new Promise((resolve, reject) => {
-      const req = this.db.transaction(store, 'readwrite').objectStore(store).add(data);
+      const req = this.db
+        .transaction(store, "readwrite")
+        .objectStore(store)
+        .add(data);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
@@ -118,7 +138,10 @@ class HomeDB {
 
   _put(store, data) {
     return new Promise((resolve, reject) => {
-      const req = this.db.transaction(store, 'readwrite').objectStore(store).put(data);
+      const req = this.db
+        .transaction(store, "readwrite")
+        .objectStore(store)
+        .put(data);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
@@ -126,7 +149,10 @@ class HomeDB {
 
   _delete(store, id) {
     return new Promise((resolve, reject) => {
-      const req = this.db.transaction(store, 'readwrite').objectStore(store).delete(id);
+      const req = this.db
+        .transaction(store, "readwrite")
+        .objectStore(store)
+        .delete(id);
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
@@ -144,22 +170,28 @@ class HomeDB {
 
   getAllSections() {
     return new Promise((resolve, reject) => {
-      const os = this.db.transaction('sections').objectStore('sections');
-      const req = os.index('instance_id').getAll(IDBKeyRange.only(this.instanceId));
+      const os = this.db.transaction("sections").objectStore("sections");
+      const req = os
+        .index("instance_id")
+        .getAll(IDBKeyRange.only(this.instanceId));
       req.onsuccess = () => resolve(sortByPosition(req.result));
       req.onerror = () => reject(req.error);
     });
   }
 
-  addSection(data) { return this._add('sections', { ...data, instance_id: this.instanceId }); }
-  updateSection(data) { return this._put('sections', data); }
+  addSection(data) {
+    return this._add("sections", { ...data, instance_id: this.instanceId });
+  }
+  updateSection(data) {
+    return this._put("sections", data);
+  }
 
   async deleteSection(id) {
     // アイテムもカスケード削除
     const items = await this.getItemsBySection(id);
-    const tx = this.db.transaction(['sections', 'items'], 'readwrite');
-    tx.objectStore('sections').delete(id);
-    items.forEach(item => tx.objectStore('items').delete(item.id));
+    const tx = this.db.transaction(["sections", "items"], "readwrite");
+    tx.objectStore("sections").delete(id);
+    items.forEach((item) => tx.objectStore("items").delete(item.id));
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
@@ -168,8 +200,10 @@ class HomeDB {
 
   countSections() {
     return new Promise((resolve, reject) => {
-      const os = this.db.transaction('sections').objectStore('sections');
-      const req = os.index('instance_id').count(IDBKeyRange.only(this.instanceId));
+      const os = this.db.transaction("sections").objectStore("sections");
+      const req = os
+        .index("instance_id")
+        .count(IDBKeyRange.only(this.instanceId));
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
@@ -178,44 +212,65 @@ class HomeDB {
   // ── Items ─────────────────────────────
 
   getItemsBySection(sectionId) {
-    return this._getAll('items', 'section_id', IDBKeyRange.only(sectionId))
-      .then(sortByPosition);
+    return this._getAll(
+      "items",
+      "section_id",
+      IDBKeyRange.only(sectionId),
+    ).then(sortByPosition);
   }
 
-  addItem(data) { return this._add('items', data); }
-  updateItem(data) { return this._put('items', data); }
-  deleteItem(id) { return this._delete('items', id); }
+  addItem(data) {
+    return this._add("items", data);
+  }
+  updateItem(data) {
+    return this._put("items", data);
+  }
+  deleteItem(id) {
+    return this._delete("items", id);
+  }
 
   // ── 共通バインド変数プリセット ──────────────────────────
 
   getAllPresets() {
     return new Promise((resolve, reject) => {
-      const os = this.db.transaction('presets').objectStore('presets');
-      const req = os.index('instance_id').getAll(IDBKeyRange.only(this.instanceId));
+      const os = this.db.transaction("presets").objectStore("presets");
+      const req = os
+        .index("instance_id")
+        .getAll(IDBKeyRange.only(this.instanceId));
       req.onsuccess = () => resolve(sortByPosition(req.result));
       req.onerror = () => reject(req.error);
     });
   }
 
-  addPreset(data) { return this._add('presets', { ...data, instance_id: this.instanceId }); }
-  updatePreset(data) { return this._put('presets', data); }
-  deletePreset(id) { return this._delete('presets', id); }
+  addPreset(data) {
+    return this._add("presets", { ...data, instance_id: this.instanceId });
+  }
+  updatePreset(data) {
+    return this._put("presets", data);
+  }
+  deletePreset(id) {
+    return this._delete("presets", id);
+  }
 
   // ── アプリ設定 ────────────────────────────
 
   async getAppConfig(key) {
     try {
       const fullKey = `${key}_${this.instanceId}`;
-      const record = await this._get('app_config', fullKey);
+      const record = await this._get("app_config", fullKey);
       return record?.value ?? null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 
   async setAppConfig(key, value) {
     try {
       const fullKey = `${key}_${this.instanceId}`;
-      return await this._put('app_config', { name: fullKey, value });
-    } catch { return null; }
+      return await this._put("app_config", { name: fullKey, value });
+    } catch {
+      return null;
+    }
   }
 
   // ── エクスポート/インポート ────────────
@@ -229,7 +284,7 @@ class HomeDB {
       items.push(...sectionItems);
     }
     const presets = await this.getAllPresets();
-    const bindConfig = await this.getAppConfig('bind_config');
+    const bindConfig = await this.getAppConfig("bind_config");
     return { sections, items, presets, bindConfig };
   }
 
@@ -242,28 +297,28 @@ class HomeDB {
       for (const p of existingPresets) await this.deletePreset(p.id);
     }
     const idMap = {};
-    for (const section of (data.sections || [])) {
+    for (const section of data.sections || []) {
       const oldId = section.id;
       const newSection = { ...section, instance_id: this.instanceId };
       delete newSection.id;
-      const newId = await this._add('sections', newSection);
+      const newId = await this._add("sections", newSection);
       if (oldId !== undefined) idMap[oldId] = newId;
     }
-    for (const item of (data.items || [])) {
+    for (const item of data.items || []) {
       const newItem = { ...item };
       delete newItem.id;
       if (idMap[newItem.section_id] !== undefined) {
         newItem.section_id = idMap[newItem.section_id];
-        await this._add('items', newItem);
+        await this._add("items", newItem);
       }
     }
-    for (const preset of (data.presets || [])) {
+    for (const preset of data.presets || []) {
       const newPreset = { ...preset, instance_id: this.instanceId };
       delete newPreset.id;
-      await this._add('presets', newPreset);
+      await this._add("presets", newPreset);
     }
     if (data.bindConfig) {
-      await this.setAppConfig('bind_config', data.bindConfig);
+      await this.setAppConfig("bind_config", data.bindConfig);
     }
   }
 
@@ -282,17 +337,19 @@ class HomeDB {
 
 const State = {
   db: null,
-  sections: [],    // position 昇順
-  itemsMap: {},    // sectionId → items[]
-  presets: [],       // position 昇順
+  sections: [], // position 昇順
+  itemsMap: {}, // sectionId → items[]
+  presets: [], // position 昇順
   activePresetId: null,
-  bindConfig: { varNames: ['IP', 'HOST_NAME'], uiType: 'select' },
-  tableSortState: {},  // sectionId → { colId, dir: 'asc' | 'desc' }
+  bindConfig: { varNames: ["IP", "HOST_NAME"], uiType: "select" },
+  tableSortState: {}, // sectionId → { colId, dir: 'asc' | 'desc' }
+  tablePageState: {}, // sectionId → 現在のページ番号（0始まり）
   settings: {
     open: false,
-    view: 'sections',      // 'sections' | 'edit-section' | 'bind-settings' | 'edit-preset'
+    view: "sections", // 'sections' | 'edit-section' | 'bind-settings' | 'edit-preset' | 'edit-table-preset'
     editingSectionId: null,
     editingPresetId: null,
+    editingTablePresetId: null,
   },
 };
 
@@ -302,14 +359,31 @@ const State = {
 
 /** 選択中のプリセットのバインド変数を解決する（{変数名} → 値に置換） */
 const resolveBindVars = (str) => {
-  if (!str) return str || '';
-  const preset = State.presets.find(p => p.id === State.activePresetId);
+  if (!str) return str || "";
+  const preset = State.presets.find((p) => p.id === State.activePresetId);
   if (!preset) return str;
   return str.replace(/\{([^}]+)\}/g, (m, key) => {
     // {INPUT} はコマンドビルダー専用なのでスキップ
-    if (key === 'INPUT') return m;
-    return (preset.values && preset.values[key] !== undefined) ? preset.values[key] : m;
+    if (key === "INPUT") return m;
+    return preset.values && preset.values[key] !== undefined
+      ? preset.values[key]
+      : m;
   });
+};
+
+/** テーブルセクション独自バインド変数を解決する（{変数名} → 値に置換） */
+const resolveTableVars = (str, sectionId) => {
+  if (!str) return str || "";
+  const section = State.sections.find((s) => s.id === sectionId);
+  if (!section) return str;
+  const presets = section.table_presets || [];
+  if (presets.length === 0) return str;
+  const activeId = loadJsonFromStorage(TABLE_ACTIVE_PRESET_PREFIX + sectionId);
+  const preset = activeId != null ? presets.find((p) => p.id === activeId) : null;
+  if (!preset) return str;
+  const vals = preset.values || {};
+  if (Object.keys(vals).length === 0) return str;
+  return str.replace(/\{([^}]+)\}/g, (m, key) => (key in vals ? vals[key] : m));
 };
 
 // ==============================
@@ -336,55 +410,66 @@ const resolveBindVars = (str) => {
  *   dddd → 曜日長形（日曜日〜土曜日）
  */
 const resolveDateVars = (str) => {
-  if (!str) return str || '';
+  if (!str) return str || "";
 
-  const pad = (n) => String(n).padStart(2, '0');
-  const DAY_SHORT = ['日', '月', '火', '水', '木', '金', '土'];
-  const DAY_LONG  = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
+  const pad = (n) => String(n).padStart(2, "0");
+  const DAY_SHORT = ["日", "月", "火", "水", "木", "金", "土"];
+  const DAY_LONG = [
+    "日曜日",
+    "月曜日",
+    "火曜日",
+    "水曜日",
+    "木曜日",
+    "金曜日",
+    "土曜日",
+  ];
 
   const formatDate = (d, fmt) => {
     // dddd（長形）を先に置換してから ddd（短縮形）を置換する
-    return (fmt || 'YYYY/MM/DD')
-      .replace('dddd', DAY_LONG[d.getDay()])
-      .replace('ddd',  DAY_SHORT[d.getDay()])
-      .replace('YYYY', d.getFullYear())
-      .replace('MM',   pad(d.getMonth() + 1))
-      .replace('DD',   pad(d.getDate()))
-      .replace('HH',   pad(d.getHours()))
-      .replace('mm',   pad(d.getMinutes()))
-      .replace('ss',   pad(d.getSeconds()));
+    return (fmt || "YYYY/MM/DD")
+      .replace("dddd", DAY_LONG[d.getDay()])
+      .replace("ddd", DAY_SHORT[d.getDay()])
+      .replace("YYYY", d.getFullYear())
+      .replace("MM", pad(d.getMonth() + 1))
+      .replace("DD", pad(d.getDate()))
+      .replace("HH", pad(d.getHours()))
+      .replace("mm", pad(d.getMinutes()))
+      .replace("ss", pad(d.getSeconds()));
   };
 
   const applyOffset = (date, offset) => {
     // 単位: d=日 w=週 M=月 y=年 h=時間 m=分
     const match = offset.match(/^([+-])(\d+)([dwMyhm])$/);
     if (!match) return date;
-    const sign = match[1] === '+' ? 1 : -1;
+    const sign = match[1] === "+" ? 1 : -1;
     const n = parseInt(match[2], 10) * sign;
     const unit = match[3];
     const d = new Date(date);
-    if      (unit === 'd') d.setDate(d.getDate() + n);
-    else if (unit === 'w') d.setDate(d.getDate() + n * 7);
-    else if (unit === 'M') d.setMonth(d.getMonth() + n);
-    else if (unit === 'y') d.setFullYear(d.getFullYear() + n);
-    else if (unit === 'h') d.setHours(d.getHours() + n);
-    else if (unit === 'm') d.setMinutes(d.getMinutes() + n);
+    if (unit === "d") d.setDate(d.getDate() + n);
+    else if (unit === "w") d.setDate(d.getDate() + n * 7);
+    else if (unit === "M") d.setMonth(d.getMonth() + n);
+    else if (unit === "y") d.setFullYear(d.getFullYear() + n);
+    else if (unit === "h") d.setHours(d.getHours() + n);
+    else if (unit === "m") d.setMinutes(d.getMinutes() + n);
     return d;
   };
 
   const now = new Date();
-  return str.replace(/\{(TODAY|NOW|DATE)(?::([^:}]*))?(?::([^}]*))?\}/g, (m, type, arg1, arg2) => {
-    if (type === 'TODAY') {
-      return formatDate(now, arg1 || 'YYYY/MM/DD');
-    } else if (type === 'NOW') {
-      return formatDate(now, arg1 || 'YYYY/MM/DD HH:mm');
-    } else if (type === 'DATE') {
-      const offset = arg1 || '+0d';
-      const fmt = arg2 || 'YYYY/MM/DD';
-      return formatDate(applyOffset(now, offset), fmt);
-    }
-    return m;
-  });
+  return str.replace(
+    /\{(TODAY|NOW|DATE)(?::([^:}]*))?(?::([^}]*))?\}/g,
+    (m, type, arg1, arg2) => {
+      if (type === "TODAY") {
+        return formatDate(now, arg1 || "YYYY/MM/DD");
+      } else if (type === "NOW") {
+        return formatDate(now, arg1 || "YYYY/MM/DD HH:mm");
+      } else if (type === "DATE") {
+        const offset = arg1 || "+0d";
+        const fmt = arg2 || "YYYY/MM/DD";
+        return formatDate(applyOffset(now, offset), fmt);
+      }
+      return m;
+    },
+  );
 };
 
 // ==============================
@@ -392,13 +477,12 @@ const resolveDateVars = (str) => {
 // ==============================
 
 const Renderer = {
-
   // ── ダッシュボード ────────────────────
 
   renderDashboard() {
-    const board = document.getElementById('home-board');
-    board.innerHTML = '';
-    State.sections.forEach(section => {
+    const board = document.getElementById("home-board");
+    board.innerHTML = "";
+    State.sections.forEach((section) => {
       const items = State.itemsMap[section.id] || [];
       board.appendChild(Renderer.buildSectionCard(section, items));
     });
@@ -407,39 +491,52 @@ const Renderer = {
   },
 
   buildSectionCard(section, items) {
-    const el = document.createElement('section');
-    el.className = 'card';
+    const el = document.createElement("section");
+    el.className = "card";
     el.dataset.sectionId = section.id;
-    el.dataset.width = section.width || 'auto';
-    if (section.newRow) el.dataset.newRow = 'true';
+    el.dataset.width = section.width || "auto";
+    if (section.newRow) el.dataset.newRow = "true";
 
-    const isCollapsed = localStorage.getItem(COLLAPSE_PREFIX + section.id) === '1';
+    const isCollapsed =
+      localStorage.getItem(COLLAPSE_PREFIX + section.id) === "1";
 
     // ヘッダー
-    const hd = document.createElement('div');
-    hd.className = 'card__hd';
+    const hd = document.createElement("div");
+    hd.className = "card__hd";
     hd.innerHTML = `
-      <span class="card__hd-icon">${escapeHtml(section.icon || '📋')}</span>
+      <span class="card__hd-icon">${escapeHtml(section.icon || "📋")}</span>
       <h2 class="card__hd-title">${escapeHtml(section.title)}</h2>
-      <button class="card__collapse-btn${isCollapsed ? ' is-collapsed' : ''}"
+      <button class="card__collapse-btn${isCollapsed ? " is-collapsed" : ""}"
               data-action="toggle-collapse" data-section-id="${section.id}"
-              title="${isCollapsed ? '展開' : '折りたたむ'}">
+              title="${isCollapsed ? "展開" : "折りたたむ"}">
         ${Icons.chevron}
       </button>
     `;
     el.appendChild(hd);
 
     // ボディ
-    const bd = document.createElement('div');
-    bd.className = 'card__bd';
+    const bd = document.createElement("div");
+    bd.className = "card__bd";
     if (isCollapsed) bd.hidden = true;
     switch (section.type) {
-      case 'list':        Renderer.buildListSection(section, items, bd); break;
-      case 'grid':        Renderer.buildGridSection(section, items, bd); break;
-      case 'command_builder': Renderer.buildCommandBuilderSection(section, bd); break;
-      case 'table':       Renderer.buildTableSection(section, items, bd); break;
-      case 'memo':        Renderer.buildMemoSection(section, bd); break;
-      case 'checklist':   Renderer.buildChecklistSection(section, items, bd); break;
+      case "list":
+        Renderer.buildListSection(section, items, bd);
+        break;
+      case "grid":
+        Renderer.buildGridSection(section, items, bd);
+        break;
+      case "command_builder":
+        Renderer.buildCommandBuilderSection(section, bd);
+        break;
+      case "table":
+        Renderer.buildTableSection(section, items, bd);
+        break;
+      case "memo":
+        Renderer.buildMemoSection(section, bd);
+        break;
+      case "checklist":
+        Renderer.buildChecklistSection(section, items, bd);
+        break;
     }
     el.appendChild(bd);
     return el;
@@ -455,27 +552,31 @@ const Renderer = {
     const filterLimit = section.filter_limit ?? 5;
     let listFilterInput = null;
     if (filterLimit > 0 && items.length > filterLimit) {
-      const filterWrap = document.createElement('div');
-      filterWrap.className = 'list-filter-wrap';
-      listFilterInput = document.createElement('input');
-      listFilterInput.type = 'text';
-      listFilterInput.className = 'list-filter';
-      listFilterInput.placeholder = '絞り込み...';
+      const filterWrap = document.createElement("div");
+      filterWrap.className = "list-filter-wrap";
+      listFilterInput = document.createElement("input");
+      listFilterInput.type = "text";
+      listFilterInput.className = "list-filter";
+      listFilterInput.placeholder = "絞り込み...";
       filterWrap.appendChild(listFilterInput);
       bd.appendChild(filterWrap);
     }
 
-    const rowsWrap = document.createElement('div');
-    rowsWrap.className = 'list-rows';
-    items.forEach(item => {
-      const row = document.createElement('a');
-      row.className = `row ${item.item_type === 'copy' ? 'js-copy' : 'js-link'}`;
-      row.href = 'javascript:void(0);';
-      row.dataset.value = item.value || '';
-      const cta = item.item_type === 'copy' ? Icons.clipboard : Icons.external;
+    const rowsWrap = document.createElement("div");
+    rowsWrap.className = "list-rows";
+    items.forEach((item) => {
+      const isTemplate = item.item_type === "template";
+      const row = document.createElement("a");
+      row.className = `row ${item.item_type === "copy" ? "js-copy" : isTemplate ? "js-template" : "js-link"}`;
+      row.href = "javascript:void(0);";
+      row.dataset.value = item.value || "";
+      let cta;
+      if (item.item_type === "copy") cta = Icons.clipboard;
+      else if (isTemplate) cta = Icons.templateDoc;
+      else cta = Icons.external;
       row.innerHTML = `
-        <span class="row__label">${escapeHtml(resolveBindVars(item.label || ''))}</span>
-        ${item.hint ? `<span class="row__hint">${escapeHtml(resolveBindVars(item.hint))}</span>` : ''}
+        <span class="row__label">${escapeHtml(resolveBindVars(item.label || ""))}</span>
+        ${item.hint ? `<span class="row__hint">${escapeHtml(resolveBindVars(item.hint))}</span>` : ""}
         <span class="row__cta">${cta}</span>
       `;
       rowsWrap.appendChild(row);
@@ -483,10 +584,12 @@ const Renderer = {
     bd.appendChild(rowsWrap);
 
     if (listFilterInput) {
-      listFilterInput.addEventListener('input', () => {
+      listFilterInput.addEventListener("input", () => {
         const q = listFilterInput.value.trim().toLowerCase();
-        rowsWrap.querySelectorAll('.row').forEach(row => {
-          const text = (row.querySelector('.row__label')?.textContent || '').toLowerCase();
+        rowsWrap.querySelectorAll(".row").forEach((row) => {
+          const text = (
+            row.querySelector(".row__label")?.textContent || ""
+          ).toLowerCase();
           row.hidden = q ? !text.includes(q) : false;
         });
       });
@@ -498,27 +601,35 @@ const Renderer = {
       bd.innerHTML = `<p class="section-empty">カードがありません。設定から追加してください。</p>`;
       return;
     }
-    const grid = document.createElement('div');
-    grid.className = 'sheet-grid';
-    items.forEach(item => {
-      const isCopy = item.item_type === 'copy';
-      const isTemplate = item.item_type === 'template';
-      const card = document.createElement('a');
-      let cardClass = 'sheet-card ';
-      if (isCopy) cardClass += 'js-copy sheet-card--copy';
-      else if (isTemplate) cardClass += 'js-template sheet-card--template';
-      else cardClass += 'js-link';
+    const grid = document.createElement("div");
+    grid.className = "sheet-grid";
+    items.forEach((item) => {
+      const isCopy = item.item_type === "copy";
+      const isTemplate = item.item_type === "template";
+      const card = document.createElement("a");
+      let cardClass = "sheet-card ";
+      if (isCopy) cardClass += "js-copy sheet-card--copy";
+      else if (isTemplate) cardClass += "js-template sheet-card--template";
+      else cardClass += "js-link";
       card.className = cardClass;
-      card.href = 'javascript:void(0);';
-      card.dataset.value = item.value || '';
+      card.href = "javascript:void(0);";
+      card.dataset.value = item.value || "";
       let arrowIcon;
-      if (isCopy) arrowIcon = Icons.clipboard.replace('<svg ', '<svg class="sheet-card__arrow" ');
-      else if (isTemplate) arrowIcon = Icons.templateDoc.replace('<svg ', '<svg class="sheet-card__arrow" ');
+      if (isCopy)
+        arrowIcon = Icons.clipboard.replace(
+          "<svg ",
+          '<svg class="sheet-card__arrow" ',
+        );
+      else if (isTemplate)
+        arrowIcon = Icons.templateDoc.replace(
+          "<svg ",
+          '<svg class="sheet-card__arrow" ',
+        );
       else arrowIcon = Icons.arrow;
-      const defaultEmoji = isCopy ? '📋' : isTemplate ? '📝' : '🔗';
+      const defaultEmoji = isCopy ? "📋" : isTemplate ? "📝" : "🔗";
       card.innerHTML = `
         <span class="sheet-card__emoji">${escapeHtml(item.emoji || defaultEmoji)}</span>
-        <span class="sheet-card__name">${escapeHtml(resolveBindVars(item.label || ''))}</span>
+        <span class="sheet-card__name">${escapeHtml(resolveBindVars(item.label || ""))}</span>
         ${arrowIcon}
       `;
       grid.appendChild(card);
@@ -528,21 +639,21 @@ const Renderer = {
 
   buildCommandBuilderSection(section, bd) {
     const sectionId = section.id;
-    const template = section.command_template || '';
-    const isOpen = section.action_mode === 'open';
-    const form = document.createElement('div');
-    form.className = 'url-form';
+    const template = section.command_template || "";
+    const isOpen = section.action_mode === "open";
+    const form = document.createElement("div");
+    form.className = "url-form";
     form.innerHTML = `
       <input id="url-input-${sectionId}" type="text" class="url-form__input" placeholder="入力値を入力..." />
-      <button class="url-form__btn js-copy-cmd" data-section-id="${sectionId}" data-template="${escapeAttr(template)}" data-action-mode="${isOpen ? 'open' : 'copy'}">
+      <button class="url-form__btn js-copy-cmd" data-section-id="${sectionId}" data-template="${escapeAttr(template)}" data-action-mode="${isOpen ? "open" : "copy"}">
         ${isOpen ? Icons.link : Icons.clipboard}
-        ${isOpen ? 'URLを開く' : 'コマンドをコピー'}
+        ${isOpen ? "リンク" : "コピー"}
       </button>
     `;
     bd.appendChild(form);
 
-    const historyWrap = document.createElement('div');
-    historyWrap.className = 'url-history';
+    const historyWrap = document.createElement("div");
+    historyWrap.className = "url-history";
     historyWrap.id = `url-history-${sectionId}`;
     bd.appendChild(historyWrap);
     // DOM に追加済みの要素を直接渡すことで getElementById を不要にする
@@ -552,20 +663,20 @@ const Renderer = {
   renderCmdHistory(sectionId, wrap) {
     wrap = wrap || document.getElementById(`url-history-${sectionId}`);
     if (!wrap) return;
-    wrap.innerHTML = '';
+    wrap.innerHTML = "";
     const urls = loadJsonFromStorage(CMD_HISTORY_PREFIX + sectionId);
     if (!urls || urls.length === 0) return;
 
-    const hd = document.createElement('p');
-    hd.className = 'url-history__hd';
+    const hd = document.createElement("p");
+    hd.className = "url-history__hd";
     hd.innerHTML = `${Icons.clock} 最近使ったテキスト`;
     wrap.appendChild(hd);
 
-    const list = document.createElement('div');
-    list.className = 'url-history__list';
+    const list = document.createElement("div");
+    list.className = "url-history__list";
     urls.forEach((url, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'url-history__item';
+      const btn = document.createElement("button");
+      btn.className = "url-history__item";
       btn.title = url;
       btn.innerHTML = `
         <span class="url-history__item-num">${i + 1}</span>
@@ -573,7 +684,7 @@ const Renderer = {
         <span class="url-history__item-text">${escapeHtml(url)}</span>
         <span class="url-history__item-enter">↵ 選択</span>
       `;
-      btn.addEventListener('click', () => {
+      btn.addEventListener("click", () => {
         const input = document.getElementById(`url-input-${sectionId}`);
         if (input) input.value = url;
       });
@@ -589,44 +700,70 @@ const Renderer = {
       return;
     }
 
+    // テーブル独自バインド変数プリセットバー（プリセットがある場合のみ表示）
+    const tablePresets = section.table_presets || [];
+    if (tablePresets.length > 0) {
+      const presetBarEl = document.createElement("div");
+      presetBarEl.className = "table-preset-bar";
+      presetBarEl.dataset.sectionId = section.id;
+      presetBarEl.innerHTML = Renderer.buildTablePresetBarInner(section, tablePresets);
+      // セグメントコントロールのラジオイベントを直接バインド
+      presetBarEl.querySelectorAll("input[type=radio]").forEach((radio) => {
+        radio.addEventListener("change", () => {
+          EventHandlers.switchTablePreset(section.id, Number(radio.value));
+        });
+      });
+      // select の change イベントを直接バインド
+      const sel = presetBarEl.querySelector(".table-preset-select");
+      if (sel) {
+        sel.addEventListener("change", () => {
+          EventHandlers.switchTablePreset(section.id, sel.value ? Number(sel.value) : null);
+        });
+        CustomSelect.create(sel);
+      }
+      bd.appendChild(presetBarEl);
+    }
+
     // 非表示列を localStorage から読み込む（ブラウザ固有の UI 状態）
-    const hiddenCols = new Set(loadJsonFromStorage(TABLE_COL_HIDDEN_PREFIX + section.id) || []);
+    const hiddenCols = new Set(
+      loadJsonFromStorage(TABLE_COL_HIDDEN_PREFIX + section.id) || [],
+    );
 
     // ツールバー（フィルタ入力 + 列切り替えボタン）
-    const toolbar = document.createElement('div');
-    toolbar.className = 'data-table-toolbar';
+    const toolbar = document.createElement("div");
+    toolbar.className = "data-table-toolbar";
 
-    const filterInput = document.createElement('input');
-    filterInput.type = 'text';
-    filterInput.className = 'data-table-filter';
-    filterInput.placeholder = 'フィルタ...';
+    const filterInput = document.createElement("input");
+    filterInput.type = "text";
+    filterInput.className = "data-table-filter";
+    filterInput.placeholder = "フィルタ...";
     toolbar.appendChild(filterInput);
 
     // 列切り替えドロップダウン
-    const colToggleWrap = document.createElement('div');
-    colToggleWrap.className = 'data-table-col-toggle-wrap';
+    const colToggleWrap = document.createElement("div");
+    colToggleWrap.className = "data-table-col-toggle-wrap";
 
-    const colBtn = document.createElement('button');
-    colBtn.className = 'data-table-col-btn';
-    colBtn.dataset.action = 'toggle-table-col-menu';
+    const colBtn = document.createElement("button");
+    colBtn.className = "data-table-col-btn";
+    colBtn.dataset.action = "toggle-table-col-menu";
     colBtn.dataset.sectionId = section.id;
     colBtn.innerHTML = `${Icons.columns} 列`;
     colToggleWrap.appendChild(colBtn);
 
-    const colMenu = document.createElement('div');
-    colMenu.className = 'data-table-col-menu';
+    const colMenu = document.createElement("div");
+    colMenu.className = "data-table-col-menu";
     colMenu.id = `table-col-menu-${section.id}`;
     colMenu.hidden = true;
-    columns.forEach(col => {
-      const label = document.createElement('label');
-      label.className = 'data-table-col-menu__item';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
+    columns.forEach((col) => {
+      const label = document.createElement("label");
+      label.className = "data-table-col-menu__item";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
       cb.checked = !hiddenCols.has(col.id);
       cb.dataset.colId = col.id;
       cb.dataset.sectionId = section.id;
       label.appendChild(cb);
-      label.appendChild(document.createTextNode(' ' + col.label));
+      label.appendChild(document.createTextNode(" " + col.label));
       colMenu.appendChild(label);
     });
     colToggleWrap.appendChild(colMenu);
@@ -634,70 +771,92 @@ const Renderer = {
     bd.appendChild(toolbar);
 
     if (items.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'section-empty';
-      empty.textContent = '行がありません。設定から追加してください。';
+      const empty = document.createElement("p");
+      empty.className = "section-empty";
+      empty.textContent = "行がありません。設定から追加してください。";
       bd.appendChild(empty);
       return;
     }
 
-    const wrap = document.createElement('div');
-    wrap.className = 'data-table-wrap';
-    const table = document.createElement('table');
-    table.className = 'data-table';
+    const wrap = document.createElement("div");
+    wrap.className = "data-table-wrap";
+    const table = document.createElement("table");
+    table.className = "data-table";
 
     // ヘッダー
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    columns.forEach(col => {
-      const th = document.createElement('th');
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    columns.forEach((col) => {
+      const th = document.createElement("th");
       const sort = State.tableSortState[section.id];
       const isSorted = sort?.colId === col.id;
-      const dir = isSorted ? sort.dir : '';
-      th.className = 'data-table-th--sortable';
-      th.dataset.action = 'sort-table-col';
+      const dir = isSorted ? sort.dir : "";
+      th.className = "data-table-th--sortable";
+      th.dataset.action = "sort-table-col";
       th.dataset.sectionId = section.id;
       th.dataset.colId = col.id;
-      th.innerHTML = `${escapeHtml(col.label)}<span class="sort-icon${isSorted ? ` is-${dir}` : ''}">↕</span>`;
+      th.innerHTML = `${escapeHtml(col.label)}<span class="sort-icon${isSorted ? ` is-${dir}` : ""}">↕</span>`;
       if (hiddenCols.has(col.id)) th.hidden = true;
       headerRow.appendChild(th);
     });
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // ボディ（ソート適用）
-    const tbody = document.createElement('tbody');
+    // ボディ（ソート＋ページネーション適用）
+    const tbody = document.createElement("tbody");
     const sort = State.tableSortState[section.id];
-    const sortedItems = sort ? [...items].sort((a, b) => {
-      const va = ((a.row_data || {})[sort.colId] || '').toLowerCase();
-      const vb = ((b.row_data || {})[sort.colId] || '').toLowerCase();
-      return sort.dir === 'asc' ? va.localeCompare(vb, 'ja') : vb.localeCompare(va, 'ja');
-    }) : items;
-    sortedItems.forEach(item => {
+    const sortedItems = sort
+      ? [...items].sort((a, b) => {
+          const va = ((a.row_data || {})[sort.colId] || "").toLowerCase();
+          const vb = ((b.row_data || {})[sort.colId] || "").toLowerCase();
+          return sort.dir === "asc"
+            ? va.localeCompare(vb, "ja")
+            : vb.localeCompare(va, "ja");
+        })
+      : items;
+
+    // ページネーション
+    const pageSize = section.page_size || 0;
+    let currentPage = State.tablePageState[section.id] || 0;
+    let pagedItems = sortedItems;
+    let totalPages = 1;
+    if (pageSize > 0) {
+      totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
+      currentPage = Math.min(currentPage, totalPages - 1);
+      State.tablePageState[section.id] = currentPage;
+      pagedItems = sortedItems.slice(
+        currentPage * pageSize,
+        (currentPage + 1) * pageSize,
+      );
+    }
+
+    pagedItems.forEach((item) => {
       const row_data = item.row_data || {};
-      const tr = document.createElement('tr');
-      columns.forEach(col => {
-        const td = document.createElement('td');
+      const tr = document.createElement("tr");
+      columns.forEach((col) => {
+        const td = document.createElement("td");
         td.dataset.colId = col.id;
         if (hiddenCols.has(col.id)) td.hidden = true;
-        const val = row_data[col.id] || '';
-        if (col.type === 'copy') {
-          td.className = 'data-table__td--copy js-copy';
-          td.dataset.value = val;  // コピー時に resolveBindVars で解決
-          td.innerHTML = `${escapeHtml(resolveBindVars(val))}<span class="td-copy-icon">${Icons.clipboardSm}</span>`;
-        } else if (col.type === 'link' && val) {
-          td.className = 'data-table__td--link';
-          const a = document.createElement('a');
-          a.className = 'js-link';
-          a.href = 'javascript:void(0);';
-          a.dataset.value = val;  // リンク時に resolveBindVars で解決
-          a.textContent = resolveBindVars(val);
+        const val = row_data[col.id] || "";
+        // テーブル独自バインド変数を先に解決し、次にグローバルバインド変数を解決
+        const resolveVal = (v) => resolveBindVars(resolveTableVars(v, section.id));
+        if (col.type === "copy") {
+          td.className = "data-table__td--copy js-copy";
+          td.dataset.value = val; // コピー時に resolveVal で解決（クリック時）
+          td.innerHTML = `${escapeHtml(resolveVal(val))}<span class="td-copy-icon">${Icons.clipboardSm}</span>`;
+        } else if (col.type === "link" && val) {
+          td.className = "data-table__td--link";
+          const a = document.createElement("a");
+          a.className = "js-link";
+          a.href = "javascript:void(0);";
+          a.dataset.value = val; // リンク時に resolveVal で解決（クリック時）
+          a.textContent = resolveVal(val);
           td.appendChild(a);
         } else {
-          const resolved = resolveBindVars(val);
+          const resolved = resolveVal(val);
           td.textContent = resolved;
           // 値が空の場合はプレースホルダークラスを付与（CSS ::after で — を表示）
-          if (!resolved) td.classList.add('data-table__td--empty');
+          if (!resolved) td.classList.add("data-table__td--empty");
         }
         tr.appendChild(td);
       });
@@ -707,17 +866,50 @@ const Renderer = {
     wrap.appendChild(table);
     bd.appendChild(wrap);
 
+    // ページネーションコントロール
+    if (pageSize > 0 && totalPages > 1) {
+      const pager = document.createElement("div");
+      pager.className = "data-table-pager";
+      const prevBtn = document.createElement("button");
+      prevBtn.textContent = "←";
+      prevBtn.dataset.action = "table-goto-page";
+      prevBtn.dataset.sectionId = section.id;
+      prevBtn.dataset.page = currentPage - 1;
+      prevBtn.disabled = currentPage === 0;
+      const pageInfo = document.createElement("span");
+      pageInfo.textContent = `${currentPage + 1} / ${totalPages}`;
+      const nextBtn = document.createElement("button");
+      nextBtn.textContent = "→";
+      nextBtn.dataset.action = "table-goto-page";
+      nextBtn.dataset.sectionId = section.id;
+      nextBtn.dataset.page = currentPage + 1;
+      nextBtn.disabled = currentPage >= totalPages - 1;
+      pager.appendChild(prevBtn);
+      pager.appendChild(pageInfo);
+      pager.appendChild(nextBtn);
+      bd.appendChild(pager);
+    }
+
     // フィルタ入力イベント（行全体をリアルタイムでフィルタリング）
-    filterInput.addEventListener('input', () => {
+    filterInput.addEventListener("input", () => {
       const q = filterInput.value.trim().toLowerCase();
-      tbody.querySelectorAll('tr').forEach(tr => {
-        if (!q) { tr.hidden = false; return; }
-        const matches = Array.from(tr.querySelectorAll('td')).some(td => {
-          const text = (td.dataset.value || td.textContent || '').toLowerCase();
+      tbody.querySelectorAll("tr").forEach((tr) => {
+        if (!q) {
+          tr.hidden = false;
+          return;
+        }
+        const matches = Array.from(tr.querySelectorAll("td")).some((td) => {
+          const text = (td.dataset.value || td.textContent || "").toLowerCase();
           return text.includes(q);
         });
         tr.hidden = !matches;
       });
+      // フィルタ結果が1ページ以内に収まる場合はページネーションを非表示
+      if (pageSize > 0) {
+        const visibleCount = tbody.querySelectorAll("tr:not([hidden])").length;
+        const pager = bd.querySelector(".data-table-pager");
+        if (pager) pager.hidden = visibleCount <= pageSize;
+      }
     });
   },
 
@@ -725,28 +917,40 @@ const Renderer = {
 
   renderSettingsView() {
     const { view, editingSectionId } = State.settings;
-    const body = document.getElementById('settings-body');
-    const titleEl = document.getElementById('settings-title');
-    const backBtn = document.getElementById('settings-back-btn');
+    const body = document.getElementById("settings-body");
+    const titleEl = document.getElementById("settings-title");
+    const backBtn = document.getElementById("settings-back-btn");
 
-    if (view === 'sections') {
-      titleEl.textContent = 'ホーム設定';
+    if (view === "sections") {
+      titleEl.textContent = "ホーム設定";
       backBtn.hidden = true;
       body.innerHTML = Renderer.buildSectionsView();
-    } else if (view === 'edit-section') {
-      const section = State.sections.find(s => s.id === editingSectionId);
-      titleEl.textContent = section ? `${section.icon || ''} ${section.title}` : 'セクション編集';
+    } else if (view === "edit-section") {
+      const section = State.sections.find((s) => s.id === editingSectionId);
+      titleEl.textContent = section
+        ? `${section.icon || ""} ${section.title}`
+        : "セクション編集";
       backBtn.hidden = false;
       body.innerHTML = Renderer.buildEditSectionView(section);
-    } else if (view === 'bind-settings') {
-      titleEl.textContent = '共通バインド変数';
+    } else if (view === "bind-settings") {
+      titleEl.textContent = "共通バインド変数";
       backBtn.hidden = false;
       body.innerHTML = Renderer.buildBindSettingsView();
-    } else if (view === 'edit-preset') {
-      const preset = State.presets.find(p => p.id === State.settings.editingPresetId);
-      titleEl.textContent = preset ? preset.name : 'プリセット編集';
+    } else if (view === "edit-preset") {
+      const preset = State.presets.find(
+        (p) => p.id === State.settings.editingPresetId,
+      );
+      titleEl.textContent = preset ? preset.name : "プリセット編集";
       backBtn.hidden = false;
       body.innerHTML = Renderer.buildEditPresetView(preset);
+    } else if (view === "edit-table-preset") {
+      const section = State.sections.find((s) => s.id === State.settings.editingSectionId);
+      const preset = (section?.table_presets || []).find(
+        (p) => p.id === State.settings.editingTablePresetId,
+      );
+      titleEl.textContent = preset ? preset.name : "プリセット編集";
+      backBtn.hidden = false;
+      body.innerHTML = Renderer.buildEditTablePresetView(section, preset);
     }
     // カスタムセレクトに置き換え
     CustomSelect.replaceAll(body);
@@ -754,8 +958,10 @@ const Renderer = {
 
   buildSectionsView() {
     const sections = State.sections;
-    const presetBadge = State.presets.length > 0
-      ? `<span class="settings-nav-badge">${State.presets.length}</span>` : '';
+    const presetBadge =
+      State.presets.length > 0
+        ? `<span class="settings-nav-badge">${State.presets.length}</span>`
+        : "";
     let html = `<div class="settings-nav-row">
       <button class="settings-nav-btn" data-action="show-bind-settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32 2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
@@ -775,12 +981,12 @@ const Renderer = {
     sections.forEach((section, idx) => {
       html += `
       <div class="settings-row" data-section-id="${section.id}">
-        <span class="settings-row__icon">${escapeHtml(section.icon || '📋')}</span>
+        <span class="settings-row__icon">${escapeHtml(section.icon || "📋")}</span>
         <span class="settings-row__title">${escapeHtml(section.title)}</span>
         <span class="settings-row__badge">${TYPE_LABELS[section.type] || section.type}</span>
         <div class="settings-row__actions">
-          <button class="settings-btn" data-action="move-section-up" data-section-id="${section.id}" ${idx === 0 ? 'disabled' : ''}>↑</button>
-          <button class="settings-btn" data-action="move-section-down" data-section-id="${section.id}" ${idx === sections.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="settings-btn" data-action="move-section-up" data-section-id="${section.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
+          <button class="settings-btn" data-action="move-section-down" data-section-id="${section.id}" ${idx === sections.length - 1 ? "disabled" : ""}>↓</button>
           <button class="settings-btn settings-btn--primary" data-action="edit-section" data-section-id="${section.id}">編集</button>
           <button class="settings-btn settings-btn--danger" data-action="delete-section" data-section-id="${section.id}">削除</button>
         </div>
@@ -811,15 +1017,15 @@ const Renderer = {
           <option value="grid">グリッド</option>
           <option value="command_builder">コマンドビルダー</option>
           <option value="table">テーブル</option>
-          <option value="memo">メモ（フリーテキスト）</option>
+          <option value="memo">メモ</option>
           <option value="checklist">チェックリスト</option>
         </select>
       </div>
       <div class="settings-form-row" id="new-section-action-row" hidden>
         <label class="settings-label">アクション</label>
         <select class="cs-target" id="new-section-action-mode">
-          <option value="copy">コマンドをコピー（ターミナル用）</option>
-          <option value="open">URLを開く（ブラウザ）</option>
+          <option value="copy">コピー</option>
+          <option value="open">リンク</option>
         </select>
       </div>
       <div class="settings-form-row" id="new-section-cmd-row" hidden>
@@ -847,41 +1053,107 @@ const Renderer = {
     return html;
   },
 
+  buildTablePresetBarInner(section, presets) {
+    const uiType = section.table_vars_ui_type || "tabs";
+    const activeId = loadJsonFromStorage(TABLE_ACTIVE_PRESET_PREFIX + section.id);
+    const labelHtml = section.table_vars_bar_label
+      ? `<span class="table-preset-bar__label">${escapeHtml(section.table_vars_bar_label)}</span>`
+      : "";
+
+    if (uiType === "tabs") {
+      const tabs = presets
+        .map(
+          (p) =>
+            `<button class="bind-tab${p.id === activeId ? " is-active" : ""}"
+                 data-action="switch-table-preset" data-section-id="${section.id}" data-preset-id="${p.id}">
+              ${escapeHtml(p.name)}
+            </button>`,
+        )
+        .join("");
+      return `<div class="table-preset-bar__inner table-preset-bar__inner--tabs">
+        ${labelHtml}
+        <div class="bind-tabs">${tabs}</div>
+      </div>`;
+    } else if (uiType === "segment") {
+      const items = presets
+        .map(
+          (p) =>
+            `<label class="bind-segment__item">
+              <input type="radio" name="table-preset-radio-${section.id}" value="${p.id}" ${p.id === activeId ? "checked" : ""} />
+              ${escapeHtml(p.name)}
+            </label>`,
+        )
+        .join("");
+      return `<div class="table-preset-bar__inner table-preset-bar__inner--segment">
+        ${labelHtml}
+        <div class="bind-segment">${items}</div>
+      </div>`;
+    } else {
+      // select（デフォルト）
+      const options =
+        `<option value="">-- 選択なし --</option>` +
+        presets
+          .map(
+            (p) =>
+              `<option value="${p.id}" ${p.id === activeId ? "selected" : ""}>${escapeHtml(p.name)}</option>`,
+          )
+          .join("");
+      return `<div class="table-preset-bar__inner">
+        ${labelHtml}
+        <select class="cs-target kn-select--grow table-preset-select">${options}</select>
+      </div>`;
+    }
+  },
+
   buildEditSectionView(section) {
-    if (!section) return '<p class="section-empty">セクションが見つかりません</p>';
-    const isCmdBuilder = section.type === 'command_builder';
-    const isTable = section.type === 'table';
-    const isMemo = section.type === 'memo';
-    const isChecklist = section.type === 'checklist';
+    if (!section)
+      return '<p class="section-empty">セクションが見つかりません</p>';
+    const isCmdBuilder = section.type === "command_builder";
+    const isTable = section.type === "table";
+    const isMemo = section.type === "memo";
+    const isChecklist = section.type === "checklist";
     const columns = section.columns || [];
     const items = State.itemsMap[section.id] || [];
 
-    const curWidth = section.width || 'auto';
+    const curWidth = section.width || "auto";
     let html = `<div class="settings-edit-section">
       <div class="settings-subsection">
         <h3 class="settings-subsection-title">セクション設定</h3>
         <div class="settings-form-row settings-form-row--inline">
-          <input class="settings-input settings-input--xs" id="edit-section-icon" type="text" value="${escapeAttr(section.icon || '')}" placeholder="📋" maxlength="4" />
-          <input class="settings-input" id="edit-section-title" type="text" value="${escapeAttr(section.title || '')}" placeholder="タイトル" />
+          <input class="settings-input settings-input--xs" id="edit-section-icon" type="text" value="${escapeAttr(section.icon || "")}" placeholder="📋" maxlength="4" />
+          <input class="settings-input" id="edit-section-title" type="text" value="${escapeAttr(section.title || "")}" placeholder="タイトル" />
         </div>
         <div class="settings-form-row">
           <label class="settings-label">表示幅</label>
           <select class="cs-target" id="edit-section-width">
-            <option value="auto" ${curWidth === 'auto' ? 'selected' : ''}>自動（グリッド列幅）</option>
-            <option value="wide" ${curWidth === 'wide' ? 'selected' : ''}>ワイド（2列分）</option>
-            <option value="full" ${curWidth === 'full' ? 'selected' : ''}>全幅</option>
+            <option value="auto" ${curWidth === "auto" ? "selected" : ""}>自動（グリッド列幅）</option>
+            <option value="wide" ${curWidth === "wide" ? "selected" : ""}>ワイド（2列分）</option>
+            <option value="full" ${curWidth === "full" ? "selected" : ""}>全幅</option>
           </select>
         </div>
         <div class="settings-form-row">
           <label class="settings-checkbox-label">
-            <input type="checkbox" id="edit-section-new-row"${section.newRow ? ' checked' : ''}> 新しい行から開始する
+            <input type="checkbox" id="edit-section-new-row"${section.newRow ? " checked" : ""}> 新しい行から開始する
           </label>
         </div>
-        ${section.type === 'list' ? `
+        ${
+          section.type === "list"
+            ? `
         <div class="settings-form-row">
           <label class="settings-label">絞り込み表示のしきい値（0 で無効、それ以外は指定件数を超えたら絞り込み欄を表示）</label>
           <input class="settings-input settings-input--xs" id="edit-section-filter-limit" type="number" min="0" max="1000" value="${section.filter_limit ?? 5}" />
-        </div>` : ''}
+        </div>`
+            : ""
+        }
+        ${
+          isTable
+            ? `
+        <div class="settings-form-row">
+          <label class="settings-label">1ページの表示件数（0 で無制限）</label>
+          <input class="settings-input settings-input--xs" id="edit-section-page-size" type="number" min="0" max="1000" value="${section.page_size ?? 0}" />
+        </div>`
+            : ""
+        }
         <div class="settings-form-row">
           <button class="settings-btn settings-btn--primary" data-action="save-section-meta" data-section-id="${section.id}">保存</button>
         </div>`;
@@ -890,7 +1162,7 @@ const Renderer = {
       html += `
         <div class="settings-form-row">
           <label class="settings-label">メモ内容（Markdown 対応：**太字** *斜体* \`コード\` - リスト）</label>
-          <textarea class="settings-textarea" id="edit-section-memo" rows="10" placeholder="# 見出し&#10;**太字** *斜体* \`コード\`&#10;- リスト項目">${escapeHtml(section.memo_content || '')}</textarea>
+          <textarea class="settings-textarea" id="edit-section-memo" rows="10" placeholder="# 見出し&#10;**太字** *斜体* \`コード\`&#10;- リスト項目">${escapeHtml(section.memo_content || "")}</textarea>
         </div>
         <div class="settings-form-row">
           <button class="settings-btn settings-btn--primary" data-action="save-section-memo" data-section-id="${section.id}">保存</button>
@@ -898,16 +1170,16 @@ const Renderer = {
     }
 
     if (isChecklist) {
-      const curReset = section.checklist_reset || 'never';
+      const curReset = section.checklist_reset || "never";
       html += `
         <div class="settings-form-row">
           <label class="settings-label">チェックのリセット</label>
           <select class="cs-target" id="edit-section-checklist-reset">
-            <option value="never"   ${curReset === 'never'   ? 'selected' : ''}>リセットしない</option>
-            <option value="daily"   ${curReset === 'daily'   ? 'selected' : ''}>毎日（日付が変わったら自動リセット）</option>
-            <option value="weekly"  ${curReset === 'weekly'  ? 'selected' : ''}>毎週（週が変わったら自動リセット）</option>
-            <option value="monthly" ${curReset === 'monthly' ? 'selected' : ''}>毎月（月が変わったら自動リセット）</option>
-            <option value="yearly"  ${curReset === 'yearly'  ? 'selected' : ''}>毎年（年が変わったら自動リセット）</option>
+            <option value="never"   ${curReset === "never" ? "selected" : ""}>リセットしない</option>
+            <option value="daily"   ${curReset === "daily" ? "selected" : ""}>毎日（日付が変わったら自動リセット）</option>
+            <option value="weekly"  ${curReset === "weekly" ? "selected" : ""}>毎週（週が変わったら自動リセット）</option>
+            <option value="monthly" ${curReset === "monthly" ? "selected" : ""}>毎月（月が変わったら自動リセット）</option>
+            <option value="yearly"  ${curReset === "yearly" ? "selected" : ""}>毎年（年が変わったら自動リセット）</option>
           </select>
         </div>
         <div class="settings-form-row">
@@ -916,18 +1188,18 @@ const Renderer = {
     }
 
     if (isCmdBuilder) {
-      const curMode = section.action_mode || 'copy';
+      const curMode = section.action_mode || "copy";
       html += `
         <div class="settings-form-row">
           <label class="settings-label">アクション</label>
           <select class="cs-target" id="edit-section-action-mode">
-            <option value="copy" ${curMode === 'copy' ? 'selected' : ''}>コマンドをコピー（ターミナル用）</option>
-            <option value="open" ${curMode === 'open' ? 'selected' : ''}>URLを開く（ブラウザ）</option>
+            <option value="copy" ${curMode === "copy" ? "selected" : ""}>コピー</option>
+            <option value="open" ${curMode === "open" ? "selected" : ""}>リンク</option>
           </select>
         </div>
         <div class="settings-form-row">
           <label class="settings-label">テンプレート（{INPUT} が入力値に置換されます）</label>
-          <input class="settings-input" id="edit-section-cmd" type="text" value="${escapeAttr(section.command_template || '')}" placeholder='open "https://www.google.com/search?q={INPUT}"' />
+          <input class="settings-input" id="edit-section-cmd" type="text" value="${escapeAttr(section.command_template || "")}" placeholder='open "https://www.google.com/search?q={INPUT}"' />
         </div>
         <div class="settings-form-row">
           <label class="settings-label">履歴の上限件数（0 で無効）</label>
@@ -949,14 +1221,19 @@ const Renderer = {
         </div>
         <div id="column-list">`;
       columns.forEach((col, idx) => {
-        const typeLabel = col.type === 'copy' ? 'コピー' : col.type === 'link' ? 'リンク' : 'テキスト';
+        const typeLabel =
+          col.type === "copy"
+            ? "コピー"
+            : col.type === "link"
+              ? "リンク"
+              : "テキスト";
         html += `
           <div class="settings-col-row" id="col-row-${col.id}" data-col-id="${col.id}">
             <span class="settings-col-label">${escapeHtml(col.label)}</span>
             <span class="settings-col-type">${typeLabel}</span>
             <div class="settings-row__actions">
-              <button class="settings-btn" data-action="move-col-up" data-section-id="${section.id}" data-col-id="${col.id}" ${idx === 0 ? 'disabled' : ''}>↑</button>
-              <button class="settings-btn" data-action="move-col-down" data-section-id="${section.id}" data-col-id="${col.id}" ${idx === columns.length - 1 ? 'disabled' : ''}>↓</button>
+              <button class="settings-btn" data-action="move-col-up" data-section-id="${section.id}" data-col-id="${col.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
+              <button class="settings-btn" data-action="move-col-down" data-section-id="${section.id}" data-col-id="${col.id}" ${idx === columns.length - 1 ? "disabled" : ""}>↓</button>
               <button class="settings-btn settings-btn--primary" data-action="edit-column" data-section-id="${section.id}" data-col-id="${col.id}">編集</button>
               <button class="settings-btn settings-btn--danger" data-action="delete-column" data-section-id="${section.id}" data-col-id="${col.id}">削除</button>
             </div>
@@ -976,11 +1253,108 @@ const Renderer = {
           </div>
         </div>
       </div>`;
+
+      // テーブル: 独自バインド変数 + プリセット管理
+      const tableVarNames = section.table_bind_vars || [];
+      const tablePresets2 = section.table_presets || [];
+      const tableUiType = section.table_vars_ui_type || "tabs";
+      const tableBarLabel = section.table_vars_bar_label || "";
+
+      // 変数定義サブセクション
+      html += `
+      <div class="settings-subsection">
+        <div class="settings-subsection-hd">
+          <h3 class="settings-subsection-title">テーブル変数の定義</h3>
+          <button class="settings-add-btn settings-add-btn--sm" data-action="show-add-table-var" data-section-id="${section.id}">＋ 変数を追加</button>
+        </div>
+        <p class="settings-help">テーブル内のセル値で <code>{変数名}</code> を使うと、プリセット選択に応じて置換されます。</p>
+        <div id="table-var-list">`;
+      if (tableVarNames.length === 0) {
+        html += `<p class="section-empty">変数が定義されていません</p>`;
+      }
+      tableVarNames.forEach((name) => {
+        html += `
+          <div class="settings-row settings-row--sm">
+            <code class="bind-var-badge">{${escapeHtml(name)}}</code>
+            <div class="settings-row__actions">
+              <button class="settings-btn settings-btn--danger" data-action="remove-table-var" data-section-id="${section.id}" data-var-name="${escapeAttr(name)}">削除</button>
+            </div>
+          </div>`;
+      });
+      html += `</div>
+        <div class="settings-form-panel" id="add-table-var-form" hidden>
+          <div class="settings-form-row settings-form-row--inline">
+            <input class="settings-input" id="new-table-var-name" type="text" placeholder="変数名（例: ENV）" />
+            <button class="settings-btn settings-btn--primary" data-action="save-add-table-var" data-section-id="${section.id}">追加</button>
+            <button class="settings-btn" data-action="cancel-add-table-var">✕</button>
+          </div>
+        </div>
+      </div>`;
+
+      // 選択UI設定サブセクション
+      html += `
+      <div class="settings-subsection">
+        <h3 class="settings-subsection-title">選択UI</h3>
+        <div class="settings-form-row">
+          <label class="settings-label">ラベル（空白で非表示）</label>
+          <input class="settings-input" id="table-vars-bar-label" type="text" value="${escapeAttr(tableBarLabel)}" placeholder="環境" />
+        </div>
+        <div class="settings-form-row">
+          <select class="cs-target" id="table-vars-ui-type">
+            <option value="tabs" ${tableUiType === "tabs" ? "selected" : ""}>タブ</option>
+            <option value="select" ${tableUiType === "select" ? "selected" : ""}>セレクトボックス</option>
+            <option value="segment" ${tableUiType === "segment" ? "selected" : ""}>セグメントコントロール</option>
+          </select>
+        </div>
+        <div class="settings-form-row">
+          <button class="settings-btn settings-btn--primary" data-action="save-table-vars-config" data-section-id="${section.id}">保存</button>
+        </div>
+      </div>`;
+
+      // プリセット一覧サブセクション
+      const tablePresetList =
+        tablePresets2.length > 0
+          ? tablePresets2
+              .map(
+                (p, idx) => `
+          <div class="settings-row" data-table-preset-id="${p.id}">
+            <span class="settings-row__title">${escapeHtml(p.name)}</span>
+            <div class="settings-row__actions">
+              <button class="settings-btn" data-action="move-table-preset-up" data-section-id="${section.id}" data-preset-id="${p.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
+              <button class="settings-btn" data-action="move-table-preset-down" data-section-id="${section.id}" data-preset-id="${p.id}" ${idx === tablePresets2.length - 1 ? "disabled" : ""}>↓</button>
+              <button class="settings-btn settings-btn--primary" data-action="edit-table-preset" data-section-id="${section.id}" data-preset-id="${p.id}">編集</button>
+              <button class="settings-btn settings-btn--danger" data-action="delete-table-preset" data-section-id="${section.id}" data-preset-id="${p.id}">削除</button>
+            </div>
+          </div>`,
+              )
+              .join("")
+          : '<p class="section-empty">プリセットが登録されていません</p>';
+      html += `
+      <div class="settings-subsection">
+        <div class="settings-subsection-hd">
+          <h3 class="settings-subsection-title">プリセット一覧</h3>
+          <button class="settings-add-btn settings-add-btn--sm" data-action="show-add-table-preset" data-section-id="${section.id}">＋ 追加</button>
+        </div>
+        <div id="table-preset-list">${tablePresetList}</div>
+        <div class="settings-form-panel" id="add-table-preset-form" hidden>
+          <div class="settings-form-row">
+            <input class="settings-input" id="new-table-preset-name" type="text" placeholder="プリセット名（例: 本番, 開発）" />
+          </div>
+          <div class="settings-form-actions">
+            <button class="settings-btn settings-btn--primary" data-action="save-add-table-preset" data-section-id="${section.id}">追加</button>
+            <button class="settings-btn" data-action="cancel-add-table-preset">キャンセル</button>
+          </div>
+        </div>
+      </div>`;
     }
 
     // アイテム一覧（command_builder・memo 以外）
     if (!isCmdBuilder && !isMemo) {
-      const label = isTable ? '行' : section.type === 'grid' ? 'カード' : 'アイテム';
+      const label = isTable
+        ? "行"
+        : section.type === "grid"
+          ? "カード"
+          : "アイテム";
       html += `
       <div class="settings-subsection">
         <div class="settings-subsection-hd">
@@ -1009,25 +1383,34 @@ const Renderer = {
   },
 
   buildItemRow(item, idx, total, section) {
-    const isTable = section.type === 'table';
+    const isTable = section.type === "table";
     const columns = section.columns || [];
-    let labelText = '';
+    let labelText = "";
     if (isTable) {
       const rd = item.row_data || {};
-      labelText = columns.map(c => rd[c.id] || '').filter(v => v).join(' | ') || '（空）';
-    } else if (section.type === 'grid') {
-      const typeTag = item.item_type === 'copy' ? '[コピー]' : item.item_type === 'template' ? '[テンプレート]' : '[リンク]';
-      labelText = `${typeTag} ${item.emoji || ''} ${item.label || ''}`.trim();
+      labelText =
+        columns
+          .map((c) => rd[c.id] || "")
+          .filter((v) => v)
+          .join(" | ") || "（空）";
+    } else if (section.type === "grid") {
+      const typeTag =
+        item.item_type === "copy"
+          ? "[コピー]"
+          : item.item_type === "template"
+            ? "[テンプレート]"
+            : "[リンク]";
+      labelText = `${typeTag} ${item.emoji || ""} ${item.label || ""}`.trim();
     } else {
-      const typeTag = item.item_type === 'copy' ? '[コピー]' : '[リンク]';
-      labelText = `${typeTag} ${item.label || ''}`;
+      const typeTag = item.item_type === "copy" ? "[コピー]" : item.item_type === "template" ? "[テンプレート]" : "[リンク]";
+      labelText = `${typeTag} ${item.label || ""}`;
     }
     return `
       <div class="settings-row settings-row--item" id="item-row-${item.id}" data-item-id="${item.id}">
         <span class="settings-row__title settings-row__title--sm">${escapeHtml(labelText)}</span>
         <div class="settings-row__actions">
-          <button class="settings-btn" data-action="move-item-up" data-item-id="${item.id}" data-section-id="${section.id}" ${idx === 0 ? 'disabled' : ''}>↑</button>
-          <button class="settings-btn" data-action="move-item-down" data-item-id="${item.id}" data-section-id="${section.id}" ${idx === total - 1 ? 'disabled' : ''}>↓</button>
+          <button class="settings-btn" data-action="move-item-up" data-item-id="${item.id}" data-section-id="${section.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
+          <button class="settings-btn" data-action="move-item-down" data-item-id="${item.id}" data-section-id="${section.id}" ${idx === total - 1 ? "disabled" : ""}>↓</button>
           <button class="settings-btn settings-btn--primary" data-action="edit-item" data-item-id="${item.id}" data-section-id="${section.id}">編集</button>
           <button class="settings-btn settings-btn--danger" data-action="delete-item" data-item-id="${item.id}" data-section-id="${section.id}">削除</button>
         </div>
@@ -1036,34 +1419,34 @@ const Renderer = {
 
   buildItemFields(item, section) {
     const isEdit = !!item;
-    const saveAction = isEdit ? 'save-edit-item' : 'save-add-item';
-    const cancelAction = isEdit ? 'cancel-edit-item' : 'cancel-add-item';
-    const isGrid = section.type === 'grid';
-    const isTable = section.type === 'table';
+    const saveAction = isEdit ? "save-edit-item" : "save-add-item";
+    const cancelAction = isEdit ? "cancel-edit-item" : "cancel-add-item";
+    const isGrid = section.type === "grid";
+    const isTable = section.type === "table";
     const columns = section.columns || [];
-    let html = '';
+    let html = "";
 
     if (isGrid) {
-      const isTemplateItem = item?.item_type === 'template';
+      const isTemplateItem = item?.item_type === "template";
       html += `
         <div class="settings-form-row">
           <label class="settings-label">アクション</label>
           <select class="cs-target" id="item-type">
-            <option value="link" ${(!item || item.item_type === 'link' || item.item_type === 'card') ? 'selected' : ''}>リンク（クリックで URL を開く）</option>
-            <option value="copy" ${item?.item_type === 'copy' ? 'selected' : ''}>コピー（クリックでクリップボードにコピー）</option>
-            <option value="template" ${isTemplateItem ? 'selected' : ''}>テンプレートコピー（日付等を埋め込んでコピー）</option>
+            <option value="link" ${!item || item.item_type === "link" || item.item_type === "card" ? "selected" : ""}>リンク</option>
+            <option value="copy" ${item?.item_type === "copy" ? "selected" : ""}>コピー</option>
+            <option value="template" ${isTemplateItem ? "selected" : ""}>テンプレートコピー</option>
           </select>
         </div>
         <div class="settings-form-row settings-form-row--inline">
-          <input class="settings-input settings-input--xs" id="item-emoji" type="text" value="${escapeAttr(item?.emoji || '')}" placeholder="🔗" maxlength="4" />
-          <input class="settings-input" id="item-label" type="text" value="${escapeAttr(item?.label || '')}" placeholder="カード名" />
+          <input class="settings-input settings-input--xs" id="item-emoji" type="text" value="${escapeAttr(item?.emoji || "")}" placeholder="🔗" maxlength="4" />
+          <input class="settings-input" id="item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="カード名" />
         </div>
-        <div class="settings-form-row" id="item-value-row"${isTemplateItem ? ' hidden' : ''}>
-          <input class="settings-input" id="item-value" type="text" value="${escapeAttr(isTemplateItem ? '' : (item?.value || ''))}" placeholder="URL またはコピーするテキスト" />
+        <div class="settings-form-row" id="item-value-row"${isTemplateItem ? " hidden" : ""}>
+          <input class="settings-input" id="item-value" type="text" value="${escapeAttr(isTemplateItem ? "" : item?.value || "")}" placeholder="URL またはコピーするテキスト" />
         </div>
-        <div class="settings-form-row" id="template-value-row"${isTemplateItem ? '' : ' hidden'}>
+        <div class="settings-form-row" id="template-value-row"${isTemplateItem ? "" : " hidden"}>
           <label class="settings-label">テンプレート本文</label>
-          <textarea class="settings-textarea" id="item-template-value" rows="8" placeholder="例:&#10;件名: ご連絡 {TODAY:YYYY/MM/DD}&#10;&#10;お世話になっております。&#10;本日 {TODAY:MM月DD日} のご連絡です。">${escapeHtml(isTemplateItem ? (item?.value || '') : '')}</textarea>
+          <textarea class="settings-textarea" id="item-template-value" rows="8" placeholder="例:&#10;件名: ご連絡 {TODAY:YYYY/MM/DD}&#10;&#10;お世話になっております。&#10;本日 {TODAY:MM月DD日} のご連絡です。">${escapeHtml(isTemplateItem ? item?.value || "" : "")}</textarea>
           <p class="settings-help">日付プレースホルダー:<br>
             <code>{TODAY}</code> 今日 &nbsp;
             <code>{NOW}</code> 現在日時 &nbsp;
@@ -1078,37 +1461,60 @@ const Renderer = {
           </p>
         </div>`;
     } else if (isTable) {
-      columns.forEach(col => {
-        const val = item?.row_data?.[col.id] || '';
-        const typeLabel = col.type === 'copy' ? 'コピー' : col.type === 'link' ? 'リンク' : 'テキスト';
+      columns.forEach((col) => {
+        const val = item?.row_data?.[col.id] || "";
+        const typeLabel =
+          col.type === "copy"
+            ? "コピー"
+            : col.type === "link"
+              ? "リンク"
+              : "テキスト";
         html += `
         <div class="settings-form-row">
           <label class="settings-label">${escapeHtml(col.label)} <span class="settings-col-type">${typeLabel}</span></label>
-          <input class="settings-input" id="item-col-${col.id}" type="${col.type === 'link' ? 'url' : 'text'}" value="${escapeAttr(val)}" placeholder="${col.type === 'link' ? 'https://...' : escapeAttr(col.label)}" />
+          <input class="settings-input" id="item-col-${col.id}" type="${col.type === "link" ? "url" : "text"}" value="${escapeAttr(val)}" placeholder="${col.type === "link" ? "https://..." : escapeAttr(col.label)}" />
         </div>`;
       });
     } else {
+      const isTemplateItem = item?.item_type === "template";
       html += `
         <div class="settings-form-row">
           <label class="settings-label">タイプ</label>
           <select class="cs-target" id="item-type">
-            <option value="copy" ${item?.item_type === 'copy' ? 'selected' : ''}>コピー（クリックでクリップボードにコピー）</option>
-            <option value="link" ${item?.item_type === 'link' ? 'selected' : ''}>リンク（クリックで URL を開く）</option>
+            <option value="copy" ${item?.item_type === "copy" ? "selected" : ""}>コピー</option>
+            <option value="link" ${item?.item_type === "link" ? "selected" : ""}>リンク</option>
+            <option value="template" ${isTemplateItem ? "selected" : ""}>テンプレートコピー</option>
           </select>
         </div>
         <div class="settings-form-row settings-form-row--inline">
-          <input class="settings-input" id="item-label" type="text" value="${escapeAttr(item?.label || '')}" placeholder="ラベル" />
-          <input class="settings-input settings-input--sm" id="item-hint" type="text" value="${escapeAttr(item?.hint || '')}" placeholder="補助テキスト（省略可）" />
+          <input class="settings-input" id="item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="ラベル" />
+          <input class="settings-input settings-input--sm" id="item-hint" type="text" value="${escapeAttr(item?.hint || "")}" placeholder="補助テキスト（省略可）" />
         </div>
-        <div class="settings-form-row">
-          <input class="settings-input" id="item-value" type="text" value="${escapeAttr(item?.value || '')}" placeholder="コピーするテキスト または URL" />
+        <div class="settings-form-row" id="item-value-row"${isTemplateItem ? " hidden" : ""}>
+          <input class="settings-input" id="item-value" type="text" value="${escapeAttr(isTemplateItem ? "" : (item?.value || ""))}" placeholder="コピーするテキスト または URL" />
+        </div>
+        <div class="settings-form-row" id="template-value-row"${isTemplateItem ? "" : " hidden"}>
+          <label class="settings-label">テンプレート本文</label>
+          <textarea class="settings-textarea" id="item-template-value" rows="8" placeholder="例:&#10;件名: ご連絡 {TODAY:YYYY/MM/DD}&#10;&#10;お世話になっております。&#10;本日 {TODAY:MM月DD日} のご連絡です。">${escapeHtml(isTemplateItem ? (item?.value || "") : "")}</textarea>
+          <p class="settings-help">日付プレースホルダー:<br>
+            <code>{TODAY}</code> 今日 &nbsp;
+            <code>{NOW}</code> 現在日時 &nbsp;
+            <code>{DATE:+1d}</code> 明日 &nbsp;
+            <code>{DATE:-2h}</code> 2時間前 &nbsp;
+            <code>{DATE:+30m}</code> 30分後<br>
+            単位: d=日 w=週 M=月 y=年 h=時間 m=分<br>
+            フォーマット指定例: <code>{TODAY:YYYY年MM月DD日(ddd)}</code> / <code>{DATE:+1d:MM/DD(ddd)}</code><br>
+            曜日: <code>ddd</code>=月 <code>dddd</code>=月曜日 &nbsp;
+            時刻: <code>HH:mm</code> &nbsp;
+            例: <code>{NOW:MM/DD(ddd) HH:mm}</code>
+          </p>
         </div>`;
     }
 
     html += `
       <div class="settings-form-actions">
-        <button class="settings-btn settings-btn--primary" data-action="${saveAction}" data-section-id="${section.id}"${isEdit ? ` data-item-id="${item.id}"` : ''}>保存</button>
-        <button class="settings-btn" data-action="${cancelAction}"${isEdit ? ` data-item-id="${item.id}" data-section-id="${section.id}"` : ''}>キャンセル</button>
+        <button class="settings-btn settings-btn--primary" data-action="${saveAction}" data-section-id="${section.id}"${isEdit ? ` data-item-id="${item.id}"` : ""}>保存</button>
+        <button class="settings-btn" data-action="${cancelAction}"${isEdit ? ` data-item-id="${item.id}" data-section-id="${section.id}"` : ""}>キャンセル</button>
       </div>`;
     return html;
   },
@@ -1119,28 +1525,38 @@ const Renderer = {
     const { varNames, uiType, barLabel } = State.bindConfig;
     const presets = State.presets;
 
-    const varList = varNames.length > 0
-      ? varNames.map(name => `
+    const varList =
+      varNames.length > 0
+        ? varNames
+            .map(
+              (name) => `
         <div class="settings-row settings-row--sm">
           <code class="bind-var-badge">{${escapeHtml(name)}}</code>
           <div class="settings-row__actions">
             <button class="settings-btn settings-btn--danger" data-action="remove-bind-var" data-var-name="${escapeAttr(name)}">削除</button>
           </div>
-        </div>`).join('')
-      : '<p class="section-empty">変数が定義されていません</p>';
+        </div>`,
+            )
+            .join("")
+        : '<p class="section-empty">変数が定義されていません</p>';
 
-    const presetList = presets.length > 0
-      ? presets.map((preset, idx) => `
+    const presetList =
+      presets.length > 0
+        ? presets
+            .map(
+              (preset, idx) => `
         <div class="settings-row" data-preset-id="${preset.id}">
           <span class="settings-row__title">${escapeHtml(preset.name)}</span>
           <div class="settings-row__actions">
-            <button class="settings-btn" data-action="move-preset-up" data-preset-id="${preset.id}" ${idx === 0 ? 'disabled' : ''}>↑</button>
-            <button class="settings-btn" data-action="move-preset-down" data-preset-id="${preset.id}" ${idx === presets.length - 1 ? 'disabled' : ''}>↓</button>
+            <button class="settings-btn" data-action="move-preset-up" data-preset-id="${preset.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
+            <button class="settings-btn" data-action="move-preset-down" data-preset-id="${preset.id}" ${idx === presets.length - 1 ? "disabled" : ""}>↓</button>
             <button class="settings-btn settings-btn--primary" data-action="edit-preset" data-preset-id="${preset.id}">編集</button>
             <button class="settings-btn settings-btn--danger" data-action="delete-preset" data-preset-id="${preset.id}">削除</button>
           </div>
-        </div>`).join('')
-      : '<p class="section-empty">プリセットが登録されていません</p>';
+        </div>`,
+            )
+            .join("")
+        : '<p class="section-empty">プリセットが登録されていません</p>';
 
     return `<div class="settings-bind-view">
       <div class="settings-subsection">
@@ -1156,13 +1572,13 @@ const Renderer = {
         <h3 class="settings-subsection-title">選択UI</h3>
         <div class="settings-form-row">
           <label class="settings-label">ラベル（空白で非表示）</label>
-          <input class="settings-input" id="bind-bar-label" type="text" value="${escapeAttr(barLabel || '')}" placeholder="プリセット" />
+          <input class="settings-input" id="bind-bar-label" type="text" value="${escapeAttr(barLabel || "")}" placeholder="プリセット" />
         </div>
         <div class="settings-form-row">
           <select class="cs-target" id="bind-ui-type">
-            <option value="select" ${uiType === 'select' ? 'selected' : ''}>セレクトボックス</option>
-            <option value="tabs" ${uiType === 'tabs' ? 'selected' : ''}>タブ</option>
-            <option value="segment" ${uiType === 'segment' ? 'selected' : ''}>セグメントコントロール</option>
+            <option value="select" ${uiType === "select" ? "selected" : ""}>セレクトボックス</option>
+            <option value="tabs" ${uiType === "tabs" ? "selected" : ""}>タブ</option>
+            <option value="segment" ${uiType === "segment" ? "selected" : ""}>セグメントコントロール</option>
           </select>
         </div>
         <div class="settings-form-row">
@@ -1189,18 +1605,24 @@ const Renderer = {
   },
 
   buildEditPresetView(preset) {
-    if (!preset) return '<p class="section-empty">プリセットが見つかりません</p>';
+    if (!preset)
+      return '<p class="section-empty">プリセットが見つかりません</p>';
     const { varNames } = State.bindConfig;
     const values = preset.values || {};
 
-    const varFields = varNames.length > 0
-      ? varNames.map(name => `
+    const varFields =
+      varNames.length > 0
+        ? varNames
+            .map(
+              (name) => `
         <div class="settings-form-row">
           <label class="settings-label"><code class="bind-var-badge">{${escapeHtml(name)}}</code></label>
           <input class="settings-input" id="edit-preset-var-${escapeAttr(name)}" type="text"
-                 value="${escapeAttr(values[name] || '')}" placeholder="${escapeAttr(name)} の値" />
-        </div>`).join('')
-      : '<p class="section-empty">変数が定義されていません。「共通バインド変数」設定から追加してください。</p>';
+                 value="${escapeAttr(values[name] || "")}" placeholder="${escapeAttr(name)} の値" />
+        </div>`,
+            )
+            .join("")
+        : '<p class="section-empty">変数が定義されていません。「共通バインド変数」設定から追加してください。</p>';
 
     return `<div class="settings-edit-preset">
       <div class="settings-subsection">
@@ -1219,10 +1641,47 @@ const Renderer = {
     </div>`;
   },
 
+  buildEditTablePresetView(section, preset) {
+    if (!section || !preset)
+      return '<p class="section-empty">プリセットが見つかりません</p>';
+    const varNames = section.table_bind_vars || [];
+    const values = preset.values || {};
+
+    const varFields =
+      varNames.length > 0
+        ? varNames
+            .map(
+              (name) => `
+      <div class="settings-form-row">
+        <label class="settings-label"><code class="bind-var-badge">{${escapeHtml(name)}}</code></label>
+        <input class="settings-input" id="edit-table-preset-var-${escapeAttr(name)}" type="text"
+               value="${escapeAttr(values[name] || "")}" placeholder="${escapeAttr(name)} の値" />
+      </div>`,
+            )
+            .join("")
+        : '<p class="section-empty">変数が定義されていません。「テーブル変数の定義」から追加してください。</p>';
+
+    return `<div class="settings-edit-preset">
+      <div class="settings-subsection">
+        <h3 class="settings-subsection-title">プリセット名</h3>
+        <div class="settings-form-row">
+          <input class="settings-input" id="edit-table-preset-name" type="text" value="${escapeAttr(preset.name)}" placeholder="プリセット名" />
+        </div>
+      </div>
+      <div class="settings-subsection">
+        <h3 class="settings-subsection-title">バインド変数の値</h3>
+        ${varFields}
+        <div class="settings-form-row">
+          <button class="settings-btn settings-btn--primary" data-action="save-edit-table-preset" data-section-id="${section.id}" data-preset-id="${preset.id}">保存</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
   // ── バインド変数バー ──────────────────────────────
 
   renderEnvBar() {
-    const bar = document.getElementById('bind-bar');
+    const bar = document.getElementById("bind-bar");
     if (!bar) return;
     const presets = State.presets;
     if (presets.length === 0) {
@@ -1232,49 +1691,61 @@ const Renderer = {
     bar.hidden = false;
     const { uiType, barLabel } = State.bindConfig;
     const activeId = State.activePresetId;
-    const labelHtml = barLabel ? `<span class="bind-bar__label">${escapeHtml(barLabel)}</span>` : '';
+    const labelHtml = barLabel
+      ? `<span class="bind-bar__label">${escapeHtml(barLabel)}</span>`
+      : "";
 
-    if (uiType === 'tabs') {
-      const tabs = presets.map(preset =>
-        `<button class="bind-tab${preset.id === activeId ? ' is-active' : ''}"
+    if (uiType === "tabs") {
+      const tabs = presets
+        .map(
+          (preset) =>
+            `<button class="bind-tab${preset.id === activeId ? " is-active" : ""}"
                  data-action="switch-preset" data-preset-id="${preset.id}">
           ${escapeHtml(preset.name)}
-        </button>`
-      ).join('');
+        </button>`,
+        )
+        .join("");
       bar.innerHTML = `<div class="bind-bar__inner bind-bar__inner--tabs">
         ${labelHtml}
         <div class="bind-tabs">${tabs}</div>
       </div>`;
-    } else if (uiType === 'segment') {
-      const items = presets.map(preset =>
-        `<label class="bind-segment__item">
-          <input type="radio" name="preset-radio-${_instanceId}" value="${preset.id}" ${preset.id === activeId ? 'checked' : ''} />
+    } else if (uiType === "segment") {
+      const items = presets
+        .map(
+          (preset) =>
+            `<label class="bind-segment__item">
+          <input type="radio" name="preset-radio-${_instanceId}" value="${preset.id}" ${preset.id === activeId ? "checked" : ""} />
           ${escapeHtml(preset.name)}
-        </label>`
-      ).join('');
+        </label>`,
+        )
+        .join("");
       bar.innerHTML = `<div class="bind-bar__inner bind-bar__inner--segment">
         ${labelHtml}
         <div class="bind-segment">${items}</div>
       </div>`;
       // セグメントのラジオイベントをバインド（委譲できないため直接）
-      bar.querySelectorAll('input[type=radio]').forEach(radio => {
-        radio.addEventListener('change', () => {
+      bar.querySelectorAll("input[type=radio]").forEach((radio) => {
+        radio.addEventListener("change", () => {
           EventHandlers.switchPreset(Number(radio.value));
         });
       });
     } else {
       // select（デフォルト）
-      const options = `<option value="">-- 選択なし --</option>` +
-        presets.map(preset =>
-          `<option value="${preset.id}" ${preset.id === activeId ? 'selected' : ''}>${escapeHtml(preset.name)}</option>`
-        ).join('');
+      const options =
+        `<option value="">-- 選択なし --</option>` +
+        presets
+          .map(
+            (preset) =>
+              `<option value="${preset.id}" ${preset.id === activeId ? "selected" : ""}>${escapeHtml(preset.name)}</option>`,
+          )
+          .join("");
       bar.innerHTML = `<div class="bind-bar__inner">
         ${labelHtml}
         <select class="cs-target kn-select--grow" id="preset-select">${options}</select>
       </div>`;
-      const sel = bar.querySelector('#preset-select');
+      const sel = bar.querySelector("#preset-select");
       if (sel) {
-        sel.addEventListener('change', () => {
+        sel.addEventListener("change", () => {
           EventHandlers.switchPreset(sel.value ? Number(sel.value) : null);
         });
         CustomSelect.create(sel);
@@ -1285,39 +1756,48 @@ const Renderer = {
   // ── メモセクション ────────────────────────────────────
 
   buildMemoSection(section, bd) {
-    const content = section.memo_content || '';
+    const content = section.memo_content || "";
     if (!content.trim()) {
       bd.innerHTML = `<p class="section-empty">メモが空です。設定からテキストを追加してください。</p>`;
       return;
     }
-    const div = document.createElement('div');
-    div.className = 'memo-content';
+    const div = document.createElement("div");
+    div.className = "memo-content";
     div.innerHTML = Renderer._renderMarkdown(content);
     bd.appendChild(div);
   },
 
   /** シンプルな Markdown レンダリング（行単位処理） */
   _renderMarkdown(text) {
-    if (!text) return '';
-    const lines = text.split('\n');
-    let html = '';
+    if (!text) return "";
+    const lines = text.split("\n");
+    let html = "";
     let inList = false;
     for (let i = 0; i < lines.length; i++) {
       const raw = lines[i];
       let line = escapeHtml(raw);
       // 太字・斜体・コード
-      line = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      line = line.replace(/\*(.+?)\*/g, '<em>$1</em>');
-      line = line.replace(/`(.+?)`/g, '<code class="memo-inline-code">$1</code>');
-      if (raw.startsWith('- ')) {
-        if (!inList) { html += '<ul class="memo-list">'; inList = true; }
+      line = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      line = line.replace(/\*(.+?)\*/g, "<em>$1</em>");
+      line = line.replace(
+        /`(.+?)`/g,
+        '<code class="memo-inline-code">$1</code>',
+      );
+      if (raw.startsWith("- ")) {
+        if (!inList) {
+          html += '<ul class="memo-list">';
+          inList = true;
+        }
         html += `<li>${line.slice(2)}</li>`;
       } else {
-        if (inList) { html += '</ul>'; inList = false; }
-        html += (raw === '' ? '<br>' : line + '<br>');
+        if (inList) {
+          html += "</ul>";
+          inList = false;
+        }
+        html += raw === "" ? "<br>" : line + "<br>";
       }
     }
-    if (inList) html += '</ul>';
+    if (inList) html += "</ul>";
     return html;
   },
 
@@ -1330,24 +1810,26 @@ const Renderer = {
     }
 
     // 期間リセット（日・週・月・年）
-    const reset = section.checklist_reset || 'never';
-    if (reset !== 'never') {
+    const reset = section.checklist_reset || "never";
+    if (reset !== "never") {
       const dateKey = CHECKLIST_DATE_PREFIX + section.id;
       const now = new Date();
       let periodKey;
-      if (reset === 'daily') {
+      if (reset === "daily") {
         periodKey = now.toISOString().slice(0, 10); // YYYY-MM-DD
-      } else if (reset === 'weekly') {
+      } else if (reset === "weekly") {
         // ISO週: 月曜始まりの週番号 YYYY-Www
-        const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+        const d = new Date(
+          Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+        );
         const day = d.getUTCDay() || 7; // 日=7に変換
         d.setUTCDate(d.getUTCDate() + 4 - day); // 木曜に移動
         const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
         const weekNum = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-        periodKey = `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
-      } else if (reset === 'monthly') {
-        periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
-      } else if (reset === 'yearly') {
+        periodKey = `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+      } else if (reset === "monthly") {
+        periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`; // YYYY-MM
+      } else if (reset === "yearly") {
         periodKey = String(now.getFullYear()); // YYYY
       }
       if (localStorage.getItem(dateKey) !== periodKey) {
@@ -1356,32 +1838,33 @@ const Renderer = {
       }
     }
 
-    const checked = loadJsonFromStorage(CHECKLIST_STATE_PREFIX + section.id) || {};
+    const checked =
+      loadJsonFromStorage(CHECKLIST_STATE_PREFIX + section.id) || {};
     const total = items.length;
-    const doneCount = items.filter(i => checked[i.id]).length;
+    const doneCount = items.filter((i) => checked[i.id]).length;
 
     // 進捗バー
-    const progressWrap = document.createElement('div');
-    progressWrap.className = 'checklist-progress';
+    const progressWrap = document.createElement("div");
+    progressWrap.className = "checklist-progress";
     progressWrap.innerHTML = `
       <div class="checklist-progress__bar">
-        <div class="checklist-progress__fill" style="width: ${total > 0 ? Math.round(doneCount / total * 100) : 0}%"></div>
+        <div class="checklist-progress__fill" style="width: ${total > 0 ? Math.round((doneCount / total) * 100) : 0}%"></div>
       </div>
       <span class="checklist-progress__text">${doneCount} / ${total}</span>
     `;
     bd.appendChild(progressWrap);
 
-    items.forEach(item => {
+    items.forEach((item) => {
       const isChecked = checked[item.id] === true;
-      const row = document.createElement('label');
-      row.className = `checklist-item${isChecked ? ' is-checked' : ''}`;
+      const row = document.createElement("label");
+      row.className = `checklist-item${isChecked ? " is-checked" : ""}`;
       row.innerHTML = `
         <input type="checkbox" class="checklist-cb"
                data-checklist-section-id="${section.id}"
                data-checklist-item-id="${item.id}"
-               ${isChecked ? 'checked' : ''} />
+               ${isChecked ? "checked" : ""} />
         <span class="checklist-check-icon">${Icons.checkmark}</span>
-        <span class="checklist-label">${escapeHtml(item.label || '')}</span>
+        <span class="checklist-label">${escapeHtml(item.label || "")}</span>
       `;
       bd.appendChild(row);
     });
@@ -1390,7 +1873,7 @@ const Renderer = {
   // ── セクションジャンプナビ ────────────────────────────
 
   renderJumpNav() {
-    const nav = document.getElementById('section-nav');
+    const nav = document.getElementById("section-nav");
     if (!nav) return;
     if (State.sections.length < 3) {
       nav.hidden = true;
@@ -1398,11 +1881,15 @@ const Renderer = {
     }
     nav.hidden = false;
     const itemsHtml = State.sections
-      .map(s => `<button class="section-nav__item" data-action="jump-to-section" data-section-id="${s.id}">
-        <span class="section-nav__item-icon">${escapeHtml(s.icon || '📋')}</span>
+      .map(
+        (
+          s,
+        ) => `<button class="section-nav__item" data-action="jump-to-section" data-section-id="${s.id}">
+        <span class="section-nav__item-icon">${escapeHtml(s.icon || "📋")}</span>
         ${escapeHtml(s.title)}
-      </button>`)
-      .join('');
+      </button>`,
+      )
+      .join("");
     nav.innerHTML = `
       <button class="section-nav__toggle" data-action="toggle-jump-nav" title="セクションへジャンプ">
         ${Icons.hamburger}
@@ -1419,35 +1906,39 @@ const Renderer = {
 // ==============================
 
 const EventHandlers = {
-
   // ── 設定パネル開閉 ────────────────────
 
   openSettings() {
     State.settings.open = true;
-    State.settings.view = 'sections';
+    State.settings.view = "sections";
     State.settings.editingSectionId = null;
-    const panel = document.getElementById('home-settings');
-    panel.removeAttribute('hidden');
+    const panel = document.getElementById("home-settings");
+    panel.removeAttribute("hidden");
     panel.offsetWidth; // リフロー強制
-    panel.classList.add('is-open');
+    panel.classList.add("is-open");
     Renderer.renderSettingsView();
   },
 
   closeSettings() {
-    const panel = document.getElementById('home-settings');
-    panel.classList.remove('is-open');
-    panel.addEventListener('transitionend', () => {
-      if (!panel.classList.contains('is-open')) panel.setAttribute('hidden', '');
-    }, { once: true });
+    const panel = document.getElementById("home-settings");
+    panel.classList.remove("is-open");
+    panel.addEventListener(
+      "transitionend",
+      () => {
+        if (!panel.classList.contains("is-open"))
+          panel.setAttribute("hidden", "");
+      },
+      { once: true },
+    );
     State.settings.open = false;
     // 親フレームに設定パネルが閉じたことを通知（タブ設定の「ページを設定」ボタン用）
     if (window.parent !== window) {
-      window.parent.postMessage({ type: 'dashboard:settings-closed' }, '*');
+      window.parent.postMessage({ type: "dashboard:settings-closed" }, "*");
     }
   },
 
   backToSections() {
-    State.settings.view = 'sections';
+    State.settings.view = "sections";
     State.settings.editingSectionId = null;
     State.settings.editingPresetId = null;
     Renderer.renderSettingsView();
@@ -1455,11 +1946,14 @@ const EventHandlers = {
 
   backInSettings() {
     const view = State.settings.view;
-    if (view === 'edit-preset') {
-      State.settings.view = 'bind-settings';
+    if (view === "edit-preset") {
+      State.settings.view = "bind-settings";
       State.settings.editingPresetId = null;
+    } else if (view === "edit-table-preset") {
+      State.settings.view = "edit-section";
+      State.settings.editingTablePresetId = null;
     } else {
-      State.settings.view = 'sections';
+      State.settings.view = "sections";
       State.settings.editingSectionId = null;
       State.settings.editingPresetId = null;
     }
@@ -1469,12 +1963,12 @@ const EventHandlers = {
   // ── セクション追加 ────────────────────
 
   showAddSectionForm() {
-    const form = document.getElementById('add-section-form');
-    const list = document.getElementById('settings-section-list');
+    const form = document.getElementById("add-section-form");
+    const list = document.getElementById("settings-section-list");
     if (form) form.hidden = false;
     if (list) list.hidden = true;
     // 追加ボタンも非表示
-    const addBar = document.querySelector('.settings-add-bar');
+    const addBar = document.querySelector(".settings-add-bar");
     if (addBar) addBar.hidden = true;
   },
 
@@ -1483,50 +1977,63 @@ const EventHandlers = {
   },
 
   onNewSectionTypeChange() {
-    const type = document.getElementById('new-section-type')?.value;
-    const cmdRow = document.getElementById('new-section-cmd-row');
-    const actionRow = document.getElementById('new-section-action-row');
-    const isCmdBuilder = type === 'command_builder';
+    const type = document.getElementById("new-section-type")?.value;
+    const cmdRow = document.getElementById("new-section-cmd-row");
+    const actionRow = document.getElementById("new-section-action-row");
+    const isCmdBuilder = type === "command_builder";
     if (cmdRow) cmdRow.hidden = !isCmdBuilder;
     if (actionRow) actionRow.hidden = !isCmdBuilder;
   },
 
   // グリッドアイテムフォームのアクションタイプ変更時（link/copy/template の切り替え）
   onItemTypeChange() {
-    const type = document.getElementById('item-type')?.value;
-    const valueRow = document.getElementById('item-value-row');
-    const templateRow = document.getElementById('template-value-row');
+    const type = document.getElementById("item-type")?.value;
+    const valueRow = document.getElementById("item-value-row");
+    const templateRow = document.getElementById("template-value-row");
     if (!valueRow || !templateRow) return;
-    const isTemplate = type === 'template';
+    const isTemplate = type === "template";
     valueRow.hidden = isTemplate;
     templateRow.hidden = !isTemplate;
   },
 
   async saveAddSection() {
-    const icon = document.getElementById('new-section-icon')?.value.trim() || '📋';
-    const title = document.getElementById('new-section-title')?.value.trim();
-    const type = document.getElementById('new-section-type')?.value || 'list';
-    const cmd = document.getElementById('new-section-cmd')?.value.trim() || '';
-    const actionMode = document.getElementById('new-section-action-mode')?.value || 'copy';
-    const width = document.getElementById('new-section-width')?.value || 'auto';
-    const newRow = document.getElementById('new-section-new-row')?.checked || false;
+    const icon =
+      document.getElementById("new-section-icon")?.value.trim() || "📋";
+    const title = document.getElementById("new-section-title")?.value.trim();
+    const type = document.getElementById("new-section-type")?.value || "list";
+    const cmd = document.getElementById("new-section-cmd")?.value.trim() || "";
+    const actionMode =
+      document.getElementById("new-section-action-mode")?.value || "copy";
+    const width = document.getElementById("new-section-width")?.value || "auto";
+    const newRow =
+      document.getElementById("new-section-new-row")?.checked || false;
 
-    if (!title) { alert('タイトルを入力してください'); return; }
+    if (!title) {
+      alert("タイトルを入力してください");
+      return;
+    }
 
-    const maxPos = State.sections.length > 0
-      ? Math.max(...State.sections.map(s => s.position)) + 1 : 0;
+    const maxPos =
+      State.sections.length > 0
+        ? Math.max(...State.sections.map((s) => s.position)) + 1
+        : 0;
 
     const data = {
-      title, icon, position: maxPos, type, width, newRow,
-      command_template: type === 'command_builder' ? cmd : null,
-      action_mode: type === 'command_builder' ? actionMode : null,
-      columns: type === 'table' ? [] : null,
-      memo_content: type === 'memo' ? '' : null,
-      checklist_reset: type === 'checklist' ? 'never' : null,
+      title,
+      icon,
+      position: maxPos,
+      type,
+      width,
+      newRow,
+      command_template: type === "command_builder" ? cmd : null,
+      action_mode: type === "command_builder" ? actionMode : null,
+      columns: type === "table" ? [] : null,
+      memo_content: type === "memo" ? "" : null,
+      checklist_reset: type === "checklist" ? "never" : null,
     };
     const newId = await State.db.addSection(data);
     data.id = newId;
-    data.instance_id = State.db.instanceId;  // updateSection 時に instance_id が消えないよう保持
+    data.instance_id = State.db.instanceId; // updateSection 時に instance_id が消えないよう保持
     State.sections.push(data);
     State.itemsMap[newId] = [];
 
@@ -1537,40 +2044,50 @@ const EventHandlers = {
   // ── セクション操作 ────────────────────
 
   editSection(sectionId) {
-    State.settings.view = 'edit-section';
+    State.settings.view = "edit-section";
     State.settings.editingSectionId = sectionId;
     Renderer.renderSettingsView();
   },
 
   async deleteSection(sectionId) {
     const items = State.itemsMap[sectionId] || [];
-    const msg = items.length > 0
-      ? `このセクションには ${items.length} 件のアイテムがあります。削除しますか？`
-      : 'このセクションを削除しますか？';
+    const msg =
+      items.length > 0
+        ? `このセクションには ${items.length} 件のアイテムがあります。削除しますか？`
+        : "このセクションを削除しますか？";
     if (!confirm(msg)) return;
 
     await State.db.deleteSection(sectionId);
-    State.sections = State.sections.filter(s => s.id !== sectionId);
+    State.sections = State.sections.filter((s) => s.id !== sectionId);
     delete State.itemsMap[sectionId];
 
     Renderer.renderDashboard();
-    if (State.settings.view === 'edit-section' && State.settings.editingSectionId === sectionId) {
-      State.settings.view = 'sections';
+    if (
+      State.settings.view === "edit-section" &&
+      State.settings.editingSectionId === sectionId
+    ) {
+      State.settings.view = "sections";
       State.settings.editingSectionId = null;
     }
     Renderer.renderSettingsView();
   },
 
   async moveSectionUp(sectionId) {
-    const idx = State.sections.findIndex(s => s.id === sectionId);
+    const idx = State.sections.findIndex((s) => s.id === sectionId);
     if (idx <= 0) return;
-    await EventHandlers._swapSectionPos(State.sections[idx], State.sections[idx - 1]);
+    await EventHandlers._swapSectionPos(
+      State.sections[idx],
+      State.sections[idx - 1],
+    );
   },
 
   async moveSectionDown(sectionId) {
-    const idx = State.sections.findIndex(s => s.id === sectionId);
+    const idx = State.sections.findIndex((s) => s.id === sectionId);
     if (idx >= State.sections.length - 1) return;
-    await EventHandlers._swapSectionPos(State.sections[idx], State.sections[idx + 1]);
+    await EventHandlers._swapSectionPos(
+      State.sections[idx],
+      State.sections[idx + 1],
+    );
   },
 
   async _swapSectionPos(a, b) {
@@ -1582,32 +2099,56 @@ const EventHandlers = {
   },
 
   async saveSectionMeta(sectionId) {
-    const section = State.sections.find(s => s.id === sectionId);
+    const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
-    const icon = document.getElementById('edit-section-icon')?.value.trim();
-    const title = document.getElementById('edit-section-title')?.value.trim();
-    if (!title) { alert('タイトルを入力してください'); return; }
+    const icon = document.getElementById("edit-section-icon")?.value.trim();
+    const title = document.getElementById("edit-section-title")?.value.trim();
+    if (!title) {
+      alert("タイトルを入力してください");
+      return;
+    }
     section.icon = icon || section.icon;
     section.title = title;
-    section.width = document.getElementById('edit-section-width')?.value || 'auto';
-    section.newRow = document.getElementById('edit-section-new-row')?.checked || false;
-    if (section.type === 'list') {
-      const limitVal = parseInt(document.getElementById('edit-section-filter-limit')?.value, 10);
-      section.filter_limit = (!isNaN(limitVal) && limitVal >= 0) ? limitVal : 5;
+    section.width =
+      document.getElementById("edit-section-width")?.value || "auto";
+    section.newRow =
+      document.getElementById("edit-section-new-row")?.checked || false;
+    if (section.type === "list") {
+      const limitVal = parseInt(
+        document.getElementById("edit-section-filter-limit")?.value,
+        10,
+      );
+      section.filter_limit = !isNaN(limitVal) && limitVal >= 0 ? limitVal : 5;
+    }
+    if (section.type === "table") {
+      const pageSizeVal = parseInt(
+        document.getElementById("edit-section-page-size")?.value,
+        10,
+      );
+      section.page_size =
+        !isNaN(pageSizeVal) && pageSizeVal >= 0 ? pageSizeVal : 0;
+      // 件数変更時はページを先頭にリセット
+      State.tablePageState[section.id] = 0;
     }
     await State.db.updateSection(section);
-    document.getElementById('settings-title').textContent = `${section.icon || ''} ${section.title}`;
+    document.getElementById("settings-title").textContent =
+      `${section.icon || ""} ${section.title}`;
     Renderer.renderDashboard();
-    showToast('保存しました', 'success');
+    showToast("保存しました", "success");
   },
 
   async saveSectionCmd(sectionId) {
-    const section = State.sections.find(s => s.id === sectionId);
+    const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
-    section.command_template = document.getElementById('edit-section-cmd')?.value.trim() || '';
-    section.action_mode = document.getElementById('edit-section-action-mode')?.value || 'copy';
-    const limitVal = parseInt(document.getElementById('edit-section-history-limit')?.value, 10);
-    section.history_limit = (!isNaN(limitVal) && limitVal >= 0) ? limitVal : 10;
+    section.command_template =
+      document.getElementById("edit-section-cmd")?.value.trim() || "";
+    section.action_mode =
+      document.getElementById("edit-section-action-mode")?.value || "copy";
+    const limitVal = parseInt(
+      document.getElementById("edit-section-history-limit")?.value,
+      10,
+    );
+    section.history_limit = !isNaN(limitVal) && limitVal >= 0 ? limitVal : 10;
     await State.db.updateSection(section);
 
     // 上限が変わった場合に既存履歴をトリム
@@ -1617,27 +2158,33 @@ const EventHandlers = {
     } else {
       const urls = loadJsonFromStorage(historyKey) || [];
       if (urls.length > section.history_limit) {
-        localStorage.setItem(historyKey, JSON.stringify(urls.slice(0, section.history_limit)));
+        localStorage.setItem(
+          historyKey,
+          JSON.stringify(urls.slice(0, section.history_limit)),
+        );
       }
     }
 
     Renderer.renderDashboard();
-    showToast('保存しました', 'success');
+    showToast("保存しました", "success");
   },
 
   // ── 列操作（テーブル） ────────────────
 
   toggleAddColumnForm(show) {
-    const form = document.getElementById('add-column-form');
+    const form = document.getElementById("add-column-form");
     if (form) form.hidden = !show;
   },
 
   async saveAddColumn(sectionId) {
-    const section = State.sections.find(s => s.id === sectionId);
+    const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
-    const label = document.getElementById('new-col-label')?.value.trim();
-    const type = document.getElementById('new-col-type')?.value || 'text';
-    if (!label) { alert('列名を入力してください'); return; }
+    const label = document.getElementById("new-col-label")?.value.trim();
+    const type = document.getElementById("new-col-type")?.value || "text";
+    if (!label) {
+      alert("列名を入力してください");
+      return;
+    }
 
     const cols = section.columns || [];
     cols.push({ id: `col_${Date.now()}`, label, type });
@@ -1648,52 +2195,57 @@ const EventHandlers = {
   },
 
   editColumn(sectionId, colId) {
-    const section = State.sections.find(s => s.id === sectionId);
-    const col = (section?.columns || []).find(c => c.id === colId);
+    const section = State.sections.find((s) => s.id === sectionId);
+    const col = (section?.columns || []).find((c) => c.id === colId);
     if (!col) return;
     const row = document.getElementById(`col-row-${colId}`);
     if (!row) return;
     row.innerHTML = `
       <input class="settings-input" id="edit-col-label" type="text" value="${escapeAttr(col.label)}" />
       <select class="cs-target kn-select--sm" id="edit-col-type">
-        <option value="text" ${col.type === 'text' ? 'selected' : ''}>テキスト</option>
-        <option value="copy" ${col.type === 'copy' ? 'selected' : ''}>コピー</option>
-        <option value="link" ${col.type === 'link' ? 'selected' : ''}>リンク</option>
+        <option value="text" ${col.type === "text" ? "selected" : ""}>テキスト</option>
+        <option value="copy" ${col.type === "copy" ? "selected" : ""}>コピー</option>
+        <option value="link" ${col.type === "link" ? "selected" : ""}>リンク</option>
       </select>
       <div class="settings-row__actions">
         <button class="settings-btn settings-btn--primary" data-action="save-edit-column" data-section-id="${sectionId}" data-col-id="${colId}">保存</button>
         <button class="settings-btn" data-action="cancel-edit-column">キャンセル</button>
       </div>`;
+    // cs-target を CustomSelect に置き換え
+    CustomSelect.replaceAll(row);
   },
 
   async saveEditColumn(sectionId, colId) {
-    const section = State.sections.find(s => s.id === sectionId);
-    const col = (section?.columns || []).find(c => c.id === colId);
+    const section = State.sections.find((s) => s.id === sectionId);
+    const col = (section?.columns || []).find((c) => c.id === colId);
     if (!col) return;
-    const label = document.getElementById('edit-col-label')?.value.trim();
-    if (!label) { alert('列名を入力してください'); return; }
+    const label = document.getElementById("edit-col-label")?.value.trim();
+    if (!label) {
+      alert("列名を入力してください");
+      return;
+    }
     col.label = label;
-    col.type = document.getElementById('edit-col-type')?.value || 'text';
+    col.type = document.getElementById("edit-col-type")?.value || "text";
     await State.db.updateSection(section);
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
   },
 
   async deleteColumn(sectionId, colId) {
-    if (!confirm('この列を削除しますか？')) return;
-    const section = State.sections.find(s => s.id === sectionId);
+    if (!confirm("この列を削除しますか？")) return;
+    const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
-    section.columns = (section.columns || []).filter(c => c.id !== colId);
+    section.columns = (section.columns || []).filter((c) => c.id !== colId);
     await State.db.updateSection(section);
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
   },
 
   async moveColumnUp(sectionId, colId) {
-    const section = State.sections.find(s => s.id === sectionId);
+    const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
     const cols = section.columns || [];
-    const idx = cols.findIndex(c => c.id === colId);
+    const idx = cols.findIndex((c) => c.id === colId);
     if (idx <= 0) return;
     [cols[idx - 1], cols[idx]] = [cols[idx], cols[idx - 1]];
     await State.db.updateSection(section);
@@ -1702,10 +2254,10 @@ const EventHandlers = {
   },
 
   async moveColumnDown(sectionId, colId) {
-    const section = State.sections.find(s => s.id === sectionId);
+    const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
     const cols = section.columns || [];
-    const idx = cols.findIndex(c => c.id === colId);
+    const idx = cols.findIndex((c) => c.id === colId);
     if (idx >= cols.length - 1) return;
     [cols[idx], cols[idx + 1]] = [cols[idx + 1], cols[idx]];
     await State.db.updateSection(section);
@@ -1716,42 +2268,55 @@ const EventHandlers = {
   // ── アイテム操作 ──────────────────────
 
   toggleAddItemForm(show) {
-    const form = document.getElementById('add-item-form');
+    const form = document.getElementById("add-item-form");
     if (form) form.hidden = !show;
   },
 
   async saveAddItem(sectionId) {
-    const section = State.sections.find(s => s.id === sectionId);
+    const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
     const items = State.itemsMap[sectionId] || [];
-    const maxPos = items.length > 0 ? Math.max(...items.map(i => i.position)) + 1 : 0;
+    const maxPos =
+      items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
     const data = { section_id: sectionId, position: maxPos };
 
-    if (section.type === 'grid') {
-      data.item_type = document.getElementById('item-type')?.value || 'link';
-      data.emoji = document.getElementById('item-emoji')?.value.trim() || '';
-      data.label = document.getElementById('item-label')?.value.trim() || '';
+    if (section.type === "grid") {
+      data.item_type = document.getElementById("item-type")?.value || "link";
+      data.emoji = document.getElementById("item-emoji")?.value.trim() || "";
+      data.label = document.getElementById("item-label")?.value.trim() || "";
       // テンプレートの場合は textarea から取得
-      if (data.item_type === 'template') {
-        data.value = document.getElementById('item-template-value')?.value.trim() || '';
+      if (data.item_type === "template") {
+        data.value =
+          document.getElementById("item-template-value")?.value.trim() || "";
       } else {
-        data.value = document.getElementById('item-value')?.value.trim() || '';
+        data.value = document.getElementById("item-value")?.value.trim() || "";
       }
-      data.hint = null; data.row_data = null;
-    } else if (section.type === 'table') {
-      data.item_type = 'row';
-      data.label = null; data.hint = null; data.value = null; data.emoji = null;
+      data.hint = null;
+      data.row_data = null;
+    } else if (section.type === "table") {
+      data.item_type = "row";
+      data.label = null;
+      data.hint = null;
+      data.value = null;
+      data.emoji = null;
       const row_data = {};
-      (section.columns || []).forEach(col => {
-        row_data[col.id] = document.getElementById(`item-col-${col.id}`)?.value.trim() || '';
+      (section.columns || []).forEach((col) => {
+        row_data[col.id] =
+          document.getElementById(`item-col-${col.id}`)?.value.trim() || "";
       });
       data.row_data = row_data;
     } else {
-      data.item_type = document.getElementById('item-type')?.value || 'copy';
-      data.label = document.getElementById('item-label')?.value.trim() || '';
-      data.hint = document.getElementById('item-hint')?.value.trim() || null;
-      data.value = document.getElementById('item-value')?.value.trim() || '';
-      data.emoji = null; data.row_data = null;
+      data.item_type = document.getElementById("item-type")?.value || "copy";
+      data.label = document.getElementById("item-label")?.value.trim() || "";
+      data.hint = document.getElementById("item-hint")?.value.trim() || null;
+      // テンプレートの場合は textarea から取得
+      if (data.item_type === "template") {
+        data.value = document.getElementById("item-template-value")?.value.trim() || "";
+      } else {
+        data.value = document.getElementById("item-value")?.value.trim() || "";
+      }
+      data.emoji = null;
+      data.row_data = null;
     }
 
     const newId = await State.db.addItem(data);
@@ -1763,44 +2328,53 @@ const EventHandlers = {
   },
 
   editItem(itemId, sectionId) {
-    const section = State.sections.find(s => s.id === sectionId);
-    const item = (State.itemsMap[sectionId] || []).find(i => i.id === itemId);
+    const section = State.sections.find((s) => s.id === sectionId);
+    const item = (State.itemsMap[sectionId] || []).find((i) => i.id === itemId);
     if (!section || !item) return;
     const row = document.getElementById(`item-row-${itemId}`);
     if (!row) return;
     // フォーム表示のため flex を解除
-    row.className = 'settings-item-edit-form';
+    row.className = "settings-item-edit-form";
     row.innerHTML = Renderer.buildItemFields(item, section);
     // cs-target を CustomSelect に置き換え
     CustomSelect.replaceAll(row);
   },
 
   async saveEditItem(itemId, sectionId) {
-    const section = State.sections.find(s => s.id === sectionId);
-    const item = (State.itemsMap[sectionId] || []).find(i => i.id === itemId);
+    const section = State.sections.find((s) => s.id === sectionId);
+    const item = (State.itemsMap[sectionId] || []).find((i) => i.id === itemId);
     if (!section || !item) return;
 
-    if (section.type === 'grid') {
-      item.item_type = document.getElementById('item-type')?.value || item.item_type || 'link';
-      item.emoji = document.getElementById('item-emoji')?.value.trim() || '';
-      item.label = document.getElementById('item-label')?.value.trim() || '';
+    if (section.type === "grid") {
+      item.item_type =
+        document.getElementById("item-type")?.value || item.item_type || "link";
+      item.emoji = document.getElementById("item-emoji")?.value.trim() || "";
+      item.label = document.getElementById("item-label")?.value.trim() || "";
       // テンプレートの場合は textarea から取得
-      if (item.item_type === 'template') {
-        item.value = document.getElementById('item-template-value')?.value.trim() || '';
+      if (item.item_type === "template") {
+        item.value =
+          document.getElementById("item-template-value")?.value.trim() || "";
       } else {
-        item.value = document.getElementById('item-value')?.value.trim() || '';
+        item.value = document.getElementById("item-value")?.value.trim() || "";
       }
-    } else if (section.type === 'table') {
+    } else if (section.type === "table") {
       const row_data = {};
-      (section.columns || []).forEach(col => {
-        row_data[col.id] = document.getElementById(`item-col-${col.id}`)?.value.trim() || '';
+      (section.columns || []).forEach((col) => {
+        row_data[col.id] =
+          document.getElementById(`item-col-${col.id}`)?.value.trim() || "";
       });
       item.row_data = row_data;
     } else {
-      item.item_type = document.getElementById('item-type')?.value || item.item_type;
-      item.label = document.getElementById('item-label')?.value.trim() || '';
-      item.hint = document.getElementById('item-hint')?.value.trim() || null;
-      item.value = document.getElementById('item-value')?.value.trim() || '';
+      item.item_type =
+        document.getElementById("item-type")?.value || item.item_type;
+      item.label = document.getElementById("item-label")?.value.trim() || "";
+      item.hint = document.getElementById("item-hint")?.value.trim() || null;
+      // テンプレートの場合は textarea から取得
+      if (item.item_type === "template") {
+        item.value = document.getElementById("item-template-value")?.value.trim() || "";
+      } else {
+        item.value = document.getElementById("item-value")?.value.trim() || "";
+      }
     }
     await State.db.updateItem(item);
     Renderer.renderDashboard();
@@ -1812,23 +2386,25 @@ const EventHandlers = {
   },
 
   async deleteItem(itemId, sectionId) {
-    if (!confirm('このアイテムを削除しますか？')) return;
+    if (!confirm("このアイテムを削除しますか？")) return;
     await State.db.deleteItem(itemId);
-    State.itemsMap[sectionId] = (State.itemsMap[sectionId] || []).filter(i => i.id !== itemId);
+    State.itemsMap[sectionId] = (State.itemsMap[sectionId] || []).filter(
+      (i) => i.id !== itemId,
+    );
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
   },
 
   async moveItemUp(itemId, sectionId) {
     const items = State.itemsMap[sectionId] || [];
-    const idx = items.findIndex(i => i.id === itemId);
+    const idx = items.findIndex((i) => i.id === itemId);
     if (idx <= 0) return;
     await EventHandlers._swapItemPos(items[idx], items[idx - 1], sectionId);
   },
 
   async moveItemDown(itemId, sectionId) {
     const items = State.itemsMap[sectionId] || [];
-    const idx = items.findIndex(i => i.id === itemId);
+    const idx = items.findIndex((i) => i.id === itemId);
     if (idx >= items.length - 1) return;
     await EventHandlers._swapItemPos(items[idx], items[idx + 1], sectionId);
   },
@@ -1848,15 +2424,19 @@ const EventHandlers = {
     if (!menu) return;
     const wasHidden = menu.hidden;
     // 全メニューを閉じてから対象を開閉
-    document.querySelectorAll('.data-table-col-menu').forEach(m => { m.hidden = true; });
+    document.querySelectorAll(".data-table-col-menu").forEach((m) => {
+      m.hidden = true;
+    });
     if (wasHidden) {
       // position:fixed でカードの overflow:hidden をバイパス
-      const btn = document.querySelector(`[data-action="toggle-table-col-menu"][data-section-id="${sectionId}"]`);
+      const btn = document.querySelector(
+        `[data-action="toggle-table-col-menu"][data-section-id="${sectionId}"]`,
+      );
       if (btn) {
         const rect = btn.getBoundingClientRect();
         menu.style.top = `${rect.bottom + 4}px`;
         menu.style.right = `${window.innerWidth - rect.right}px`;
-        menu.style.left = 'auto';
+        menu.style.left = "auto";
       }
       menu.hidden = false;
     }
@@ -1868,42 +2448,49 @@ const EventHandlers = {
     const isVisible = cb.checked;
 
     // カード内の対象列（th / td）を表示/非表示
-    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    const card = document.querySelector(
+      `.card[data-section-id="${sectionId}"]`,
+    );
     if (card) {
-      card.querySelectorAll(`[data-col-id="${colId}"]`).forEach(el => {
+      card.querySelectorAll(`[data-col-id="${colId}"]`).forEach((el) => {
         el.hidden = !isVisible;
       });
     }
 
     // localStorage に非表示列 ID 配列を保存
-    const colMenu = cb.closest('.data-table-col-menu');
+    const colMenu = cb.closest(".data-table-col-menu");
     if (!colMenu) return;
-    const hiddenCols = Array.from(colMenu.querySelectorAll('input[type=checkbox]'))
-      .filter(c => !c.checked)
-      .map(c => c.dataset.colId);
-    localStorage.setItem(TABLE_COL_HIDDEN_PREFIX + sectionId, JSON.stringify(hiddenCols));
+    const hiddenCols = Array.from(
+      colMenu.querySelectorAll("input[type=checkbox]"),
+    )
+      .filter((c) => !c.checked)
+      .map((c) => c.dataset.colId);
+    localStorage.setItem(
+      TABLE_COL_HIDDEN_PREFIX + sectionId,
+      JSON.stringify(hiddenCols),
+    );
   },
 
   // ── URL コマンド ──────────────────────
 
   onCopyCmd(btn) {
     const sectionId = Number(btn.dataset.sectionId);
-    const template = btn.dataset.template || '';
-    const actionMode = btn.dataset.actionMode || 'copy';
+    const template = btn.dataset.template || "";
+    const actionMode = btn.dataset.actionMode || "copy";
     const input = document.getElementById(`url-input-${sectionId}`);
-    const inputVal = input?.value.trim() || '';
+    const inputVal = input?.value.trim() || "";
     // まず {INPUT} を置換し、次に共通バインド変数を解決
-    const result = resolveBindVars(template.replace('{INPUT}', inputVal));
+    const result = resolveBindVars(template.replace("{INPUT}", inputVal));
 
-    if (actionMode === 'open') {
-      if (result) window.open(result, '_blank', 'noopener,noreferrer');
+    if (actionMode === "open") {
+      if (result) window.open(result, "_blank", "noopener,noreferrer");
     } else {
       navigator.clipboard.writeText(result);
-      showToast('コピーしました', 'success');
+      showToast("コピーしました", "success");
     }
 
     if (inputVal) {
-      const section = State.sections.find(s => s.id === sectionId);
+      const section = State.sections.find((s) => s.id === sectionId);
       const limit = section?.history_limit ?? 10;
       if (limit > 0) {
         saveToStorageWithLimit(CMD_HISTORY_PREFIX + sectionId, inputVal, limit);
@@ -1915,52 +2502,65 @@ const EventHandlers = {
   // ── エクスポート/インポート ────────────
 
   exportData() {
-    State.db.exportInstance().then(data => {
-      const json = JSON.stringify({
-        type: 'dashboard_export',
-        version: 2,
-        exportedAt: new Date().toISOString(),
-        instanceId: _instanceId,
-        sections: data.sections,
-        items: data.items,
-        presets: data.presets,
-        bindConfig: data.bindConfig,
-      }, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const _now = new Date(), _p = n => String(n).padStart(2, '0');
-      const _ts = `${_now.getFullYear()}${_p(_now.getMonth()+1)}${_p(_now.getDate())}_${_p(_now.getHours())}${_p(_now.getMinutes())}${_p(_now.getSeconds())}`;
-      a.download = `dashboard_${_instanceId || 'default'}_${_ts}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }).catch(console.error);
+    State.db
+      .exportInstance()
+      .then((data) => {
+        const json = JSON.stringify(
+          {
+            type: "dashboard_export",
+            version: 2,
+            exportedAt: new Date().toISOString(),
+            instanceId: _instanceId,
+            sections: data.sections,
+            items: data.items,
+            presets: data.presets,
+            bindConfig: data.bindConfig,
+          },
+          null,
+          2,
+        );
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const _now = new Date(),
+          _p = (n) => String(n).padStart(2, "0");
+        const _ts = `${_now.getFullYear()}${_p(_now.getMonth() + 1)}${_p(_now.getDate())}_${_p(_now.getHours())}${_p(_now.getMinutes())}${_p(_now.getSeconds())}`;
+        a.download = `dashboard_${_instanceId || "default"}_${_ts}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(console.error);
   },
 
   // ── 共通バインド変数 ──────────────────────
 
   showBindSettings() {
-    State.settings.view = 'bind-settings';
+    State.settings.view = "bind-settings";
     State.settings.editingPresetId = null;
     Renderer.renderSettingsView();
   },
 
   showAddPresetForm() {
-    const form = document.getElementById('add-preset-form');
+    const form = document.getElementById("add-preset-form");
     if (form) form.hidden = false;
   },
 
   hideAddPresetForm() {
-    const form = document.getElementById('add-preset-form');
+    const form = document.getElementById("add-preset-form");
     if (form) form.hidden = true;
   },
 
   async saveAddPreset() {
-    const name = document.getElementById('new-preset-name')?.value.trim();
-    if (!name) { alert('プリセット名を入力してください'); return; }
-    const maxPos = State.presets.length > 0
-      ? Math.max(...State.presets.map(p => p.position)) + 1 : 0;
+    const name = document.getElementById("new-preset-name")?.value.trim();
+    if (!name) {
+      alert("プリセット名を入力してください");
+      return;
+    }
+    const maxPos =
+      State.presets.length > 0
+        ? Math.max(...State.presets.map((p) => p.position)) + 1
+        : 0;
     const data = { name, position: maxPos, values: {} };
     const newId = await State.db.addPreset(data);
     data.id = newId;
@@ -1970,33 +2570,38 @@ const EventHandlers = {
   },
 
   editPreset(presetId) {
-    State.settings.view = 'edit-preset';
+    State.settings.view = "edit-preset";
     State.settings.editingPresetId = presetId;
     Renderer.renderSettingsView();
   },
 
   async saveEditPreset(presetId) {
-    const preset = State.presets.find(p => p.id === presetId);
+    const preset = State.presets.find((p) => p.id === presetId);
     if (!preset) return;
-    const name = document.getElementById('edit-preset-name')?.value.trim();
-    if (!name) { alert('プリセット名を入力してください'); return; }
+    const name = document.getElementById("edit-preset-name")?.value.trim();
+    if (!name) {
+      alert("プリセット名を入力してください");
+      return;
+    }
     preset.name = name;
     const values = {};
-    State.bindConfig.varNames.forEach(varName => {
-      values[varName] = document.getElementById(`edit-preset-var-${varName}`)?.value.trim() || '';
+    State.bindConfig.varNames.forEach((varName) => {
+      values[varName] =
+        document.getElementById(`edit-preset-var-${varName}`)?.value.trim() ||
+        "";
     });
     preset.values = values;
     await State.db.updatePreset(preset);
     Renderer.renderEnvBar();
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
-    showToast('保存しました', 'success');
+    showToast("保存しました", "success");
   },
 
   async deletePreset(presetId) {
-    if (!confirm('このプリセットを削除しますか？')) return;
+    if (!confirm("このプリセットを削除しますか？")) return;
     await State.db.deletePreset(presetId);
-    State.presets = State.presets.filter(p => p.id !== presetId);
+    State.presets = State.presets.filter((p) => p.id !== presetId);
     if (State.activePresetId === presetId) {
       State.activePresetId = null;
       localStorage.removeItem(ACTIVE_PRESET_KEY);
@@ -2007,15 +2612,21 @@ const EventHandlers = {
   },
 
   async movePresetUp(presetId) {
-    const idx = State.presets.findIndex(p => p.id === presetId);
+    const idx = State.presets.findIndex((p) => p.id === presetId);
     if (idx <= 0) return;
-    await EventHandlers._swapPresetPos(State.presets[idx], State.presets[idx - 1]);
+    await EventHandlers._swapPresetPos(
+      State.presets[idx],
+      State.presets[idx - 1],
+    );
   },
 
   async movePresetDown(presetId) {
-    const idx = State.presets.findIndex(p => p.id === presetId);
+    const idx = State.presets.findIndex((p) => p.id === presetId);
     if (idx >= State.presets.length - 1) return;
-    await EventHandlers._swapPresetPos(State.presets[idx], State.presets[idx + 1]);
+    await EventHandlers._swapPresetPos(
+      State.presets[idx],
+      State.presets[idx + 1],
+    );
   },
 
   async _swapPresetPos(a, b) {
@@ -2027,33 +2638,42 @@ const EventHandlers = {
   },
 
   async saveBindConfig() {
-    const uiType = document.getElementById('bind-ui-type')?.value || 'select';
-    const barLabel = document.getElementById('bind-bar-label')?.value.trim() || '';
+    const uiType = document.getElementById("bind-ui-type")?.value || "select";
+    const barLabel =
+      document.getElementById("bind-bar-label")?.value.trim() || "";
     State.bindConfig = { ...State.bindConfig, uiType, barLabel };
-    await State.db.setAppConfig('bind_config', State.bindConfig);
+    await State.db.setAppConfig("bind_config", State.bindConfig);
     Renderer.renderEnvBar();
     Renderer.renderSettingsView();
-    showToast('保存しました', 'success');
+    showToast("保存しました", "success");
   },
 
   async addBindVar() {
-    const input = document.getElementById('new-var-name');
-    const raw = input?.value.trim() || '';
+    const input = document.getElementById("new-var-name");
+    const raw = input?.value.trim() || "";
     // 変数名は英大文字・数字・アンダースコアのみ許容
-    const varName = raw.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-    if (!varName) { alert('変数名を入力してください'); return; }
-    if (State.bindConfig.varNames.includes(varName)) { alert('すでに存在する変数名です'); return; }
+    const varName = raw.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+    if (!varName) {
+      alert("変数名を入力してください");
+      return;
+    }
+    if (State.bindConfig.varNames.includes(varName)) {
+      alert("すでに存在する変数名です");
+      return;
+    }
     State.bindConfig.varNames.push(varName);
-    await State.db.setAppConfig('bind_config', State.bindConfig);
-    if (input) input.value = '';
+    await State.db.setAppConfig("bind_config", State.bindConfig);
+    if (input) input.value = "";
     Renderer.renderSettingsView();
-    showToast(`{${varName}} を追加しました`, 'success');
+    showToast(`{${varName}} を追加しました`, "success");
   },
 
   async removeBindVar(varName) {
     if (!confirm(`変数 {${varName}} を削除しますか？`)) return;
-    State.bindConfig.varNames = State.bindConfig.varNames.filter(v => v !== varName);
-    await State.db.setAppConfig('bind_config', State.bindConfig);
+    State.bindConfig.varNames = State.bindConfig.varNames.filter(
+      (v) => v !== varName,
+    );
+    await State.db.setAppConfig("bind_config", State.bindConfig);
     Renderer.renderSettingsView();
   },
 
@@ -2068,41 +2688,220 @@ const EventHandlers = {
     Renderer.renderDashboard();
   },
 
+  // ── テーブルセクション独自バインド変数 ─────────────────────────────
+
+  toggleAddTableVarForm(sectionId, show) {
+    const form = document.getElementById("add-table-var-form");
+    if (form) form.hidden = !show;
+  },
+
+  async saveAddTableVar(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const input = document.getElementById("new-table-var-name");
+    const raw = input?.value.trim() || "";
+    // 変数名は英大文字・数字・アンダースコアのみ許容
+    const varName = raw.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+    if (!varName) { alert("変数名を入力してください"); return; }
+    if (!section.table_bind_vars) section.table_bind_vars = [];
+    if (section.table_bind_vars.includes(varName)) {
+      alert(`{${varName}} はすでに追加されています`);
+      return;
+    }
+    section.table_bind_vars.push(varName);
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+    showToast(`{${varName}} を追加しました`, "success");
+  },
+
+  async removeTableVar(sectionId, varName) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    if (!confirm(`変数 {${varName}} を削除しますか？`)) return;
+    section.table_bind_vars = (section.table_bind_vars || []).filter((v) => v !== varName);
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+  },
+
+  // ── テーブルプリセット管理 ─────────────────────────────
+
+  toggleAddTablePresetForm(sectionId, show) {
+    const form = document.getElementById("add-table-preset-form");
+    if (form) form.hidden = !show;
+  },
+
+  async saveAddTablePreset(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const input = document.getElementById("new-table-preset-name");
+    const name = input?.value.trim();
+    if (!name) { alert("プリセット名を入力してください"); return; }
+    if (!section.table_presets) section.table_presets = [];
+    const newPreset = { id: Date.now(), name, values: {} };
+    section.table_presets.push(newPreset);
+    await State.db.updateSection(section);
+    if (input) input.value = "";
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+    showToast(`「${name}」を追加しました`, "success");
+  },
+
+  editTablePreset(sectionId, presetId) {
+    State.settings.view = "edit-table-preset";
+    State.settings.editingSectionId = sectionId;
+    State.settings.editingTablePresetId = presetId;
+    Renderer.renderSettingsView();
+  },
+
+  async saveEditTablePreset(sectionId, presetId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const preset = (section.table_presets || []).find((p) => p.id === presetId);
+    if (!preset) return;
+    const name = document.getElementById("edit-table-preset-name")?.value.trim();
+    if (!name) { alert("プリセット名を入力してください"); return; }
+    preset.name = name;
+    const values = {};
+    (section.table_bind_vars || []).forEach((varName) => {
+      values[varName] =
+        document.getElementById(`edit-table-preset-var-${varName}`)?.value.trim() || "";
+    });
+    preset.values = values;
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+    showToast("保存しました", "success");
+  },
+
+  async deleteTablePreset(sectionId, presetId) {
+    if (!confirm("このプリセットを削除しますか？")) return;
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    section.table_presets = (section.table_presets || []).filter((p) => p.id !== presetId);
+    // アクティブだった場合は解除
+    const activeId = loadJsonFromStorage(TABLE_ACTIVE_PRESET_PREFIX + sectionId);
+    if (activeId === presetId) localStorage.removeItem(TABLE_ACTIVE_PRESET_PREFIX + sectionId);
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+  },
+
+  async moveTablePresetUp(sectionId, presetId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const presets = section.table_presets || [];
+    const idx = presets.findIndex((p) => p.id === presetId);
+    if (idx <= 0) return;
+    [presets[idx - 1], presets[idx]] = [presets[idx], presets[idx - 1]];
+    await State.db.updateSection(section);
+    Renderer.renderSettingsView();
+  },
+
+  async moveTablePresetDown(sectionId, presetId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const presets = section.table_presets || [];
+    const idx = presets.findIndex((p) => p.id === presetId);
+    if (idx < 0 || idx >= presets.length - 1) return;
+    [presets[idx], presets[idx + 1]] = [presets[idx + 1], presets[idx]];
+    await State.db.updateSection(section);
+    Renderer.renderSettingsView();
+  },
+
+  switchTablePreset(sectionId, presetId) {
+    if (presetId) {
+      saveToStorage(TABLE_ACTIVE_PRESET_PREFIX + sectionId, presetId);
+    } else {
+      localStorage.removeItem(TABLE_ACTIVE_PRESET_PREFIX + sectionId);
+    }
+    // テーブルカードのみ再レンダリング
+    const section = State.sections.find((s) => s.id === sectionId);
+    const items = State.itemsMap[sectionId] || [];
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (card && section) {
+      const bd = card.querySelector(".card__bd");
+      if (bd) {
+        bd.innerHTML = "";
+        Renderer.buildTableSection(section, items, bd);
+      }
+    }
+    // プリセットバーの is-active を更新（tabs の場合）
+    const bar = card?.querySelector(".table-preset-bar");
+    if (bar) {
+      bar.querySelectorAll(".bind-tab").forEach((btn) => {
+        btn.classList.toggle("is-active", Number(btn.dataset.presetId) === presetId);
+      });
+    }
+  },
+
+  async saveTableVarsConfig(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const uiType = document.getElementById("table-vars-ui-type")?.value || "tabs";
+    const barLabel = document.getElementById("table-vars-bar-label")?.value.trim() || "";
+    section.table_vars_ui_type = uiType;
+    section.table_vars_bar_label = barLabel;
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+    showToast("保存しました", "success");
+  },
+
   // ── インポート ────────────────────────────
 
   importData() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       let data;
-      try { data = JSON.parse(await file.text()); } catch { alert('JSONの解析に失敗しました'); return; }
-      if (data.type !== 'dashboard_export') {
-        alert('ダッシュボードのエクスポートファイルではありません');
+      try {
+        data = JSON.parse(await file.text());
+      } catch {
+        alert("JSONの解析に失敗しました");
         return;
       }
-      if (!confirm(`現在のデータを削除して「${file.name}」のデータで置き換えますか？`)) return;
+      if (data.type !== "dashboard_export") {
+        alert("ダッシュボードのエクスポートファイルではありません");
+        return;
+      }
+      if (
+        !confirm(
+          `現在のデータを削除して「${file.name}」のデータで置き換えますか？`,
+        )
+      )
+        return;
       try {
-        await State.db.importInstance({ sections: data.sections, items: data.items, presets: data.presets, bindConfig: data.bindConfig }, true);
+        await State.db.importInstance(
+          {
+            sections: data.sections,
+            items: data.items,
+            presets: data.presets,
+            bindConfig: data.bindConfig,
+          },
+          true,
+        );
         State.sections = await State.db.getAllSections();
         State.itemsMap = {};
         for (const s of State.sections) {
           State.itemsMap[s.id] = await State.db.getItemsBySection(s.id);
         }
         State.presets = await State.db.getAllPresets();
-        const bindConfig = await State.db.getAppConfig('bind_config');
+        const bindConfig = await State.db.getAppConfig("bind_config");
         if (bindConfig) State.bindConfig = bindConfig;
         State.activePresetId = null;
         localStorage.removeItem(ACTIVE_PRESET_KEY);
         Renderer.renderEnvBar();
         Renderer.renderDashboard();
         Renderer.renderSettingsView();
-        showToast('インポートしました', 'success');
+        showToast("インポートしました", "success");
       } catch (err) {
         console.error(err);
-        alert('インポートに失敗しました');
+        alert("インポートに失敗しました");
       }
     };
     input.click();
@@ -2111,16 +2910,21 @@ const EventHandlers = {
   // ── 折りたたみ ────────────────────────────────────────
 
   toggleSectionCollapse(sectionId) {
-    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
-    const bd = card?.querySelector('.card__bd');
+    const card = document.querySelector(
+      `.card[data-section-id="${sectionId}"]`,
+    );
+    const bd = card?.querySelector(".card__bd");
     if (!bd) return;
     const nowCollapsed = bd.hidden;
     bd.hidden = !nowCollapsed;
-    localStorage.setItem(COLLAPSE_PREFIX + sectionId, !nowCollapsed ? '1' : '0');
-    const btn = card.querySelector('.card__collapse-btn');
+    localStorage.setItem(
+      COLLAPSE_PREFIX + sectionId,
+      !nowCollapsed ? "1" : "0",
+    );
+    const btn = card.querySelector(".card__collapse-btn");
     if (btn) {
-      btn.classList.toggle('is-collapsed', !nowCollapsed);
-      btn.title = !nowCollapsed ? '展開' : '折りたたむ';
+      btn.classList.toggle("is-collapsed", !nowCollapsed);
+      btn.title = !nowCollapsed ? "展開" : "折りたたむ";
     }
   },
 
@@ -2132,42 +2936,51 @@ const EventHandlers = {
     const isChecked = cb.checked;
     const key = CHECKLIST_STATE_PREFIX + sectionId;
     const state = loadJsonFromStorage(key) || {};
-    if (isChecked) { state[itemId] = true; } else { delete state[itemId]; }
+    if (isChecked) {
+      state[itemId] = true;
+    } else {
+      delete state[itemId];
+    }
     localStorage.setItem(key, JSON.stringify(state));
     // 行に is-checked クラスを付け外し
-    const row = cb.closest('.checklist-item');
-    if (row) row.classList.toggle('is-checked', isChecked);
+    const row = cb.closest(".checklist-item");
+    if (row) row.classList.toggle("is-checked", isChecked);
     // 進捗バーを更新
-    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    const card = document.querySelector(
+      `.card[data-section-id="${sectionId}"]`,
+    );
     const items = State.itemsMap[sectionId] || [];
     const total = items.length;
-    const doneCount = items.filter(i => state[i.id]).length;
-    const fill = card?.querySelector('.checklist-progress__fill');
-    const text = card?.querySelector('.checklist-progress__text');
-    if (fill) fill.style.width = `${total > 0 ? Math.round(doneCount / total * 100) : 0}%`;
+    const doneCount = items.filter((i) => state[i.id]).length;
+    const fill = card?.querySelector(".checklist-progress__fill");
+    const text = card?.querySelector(".checklist-progress__text");
+    if (fill)
+      fill.style.width = `${total > 0 ? Math.round((doneCount / total) * 100) : 0}%`;
     if (text) text.textContent = `${doneCount} / ${total}`;
   },
 
   // ── メモ保存 ──────────────────────────────────────────
 
   async saveSectionMemo(sectionId) {
-    const section = State.sections.find(s => s.id === sectionId);
+    const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
-    section.memo_content = document.getElementById('edit-section-memo')?.value || '';
+    section.memo_content =
+      document.getElementById("edit-section-memo")?.value || "";
     await State.db.updateSection(section);
     Renderer.renderDashboard();
-    showToast('保存しました', 'success');
+    showToast("保存しました", "success");
   },
 
   // ── チェックリスト設定保存 ───────────────────────────
 
   async saveSectionChecklist(sectionId) {
-    const section = State.sections.find(s => s.id === sectionId);
+    const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
-    section.checklist_reset = document.getElementById('edit-section-checklist-reset')?.value || 'never';
+    section.checklist_reset =
+      document.getElementById("edit-section-checklist-reset")?.value || "never";
     await State.db.updateSection(section);
     Renderer.renderDashboard();
-    showToast('保存しました', 'success');
+    showToast("保存しました", "success");
   },
 
   // ── テーブルソート ────────────────────────────────────
@@ -2175,36 +2988,45 @@ const EventHandlers = {
   sortTableCol(sectionId, colId) {
     const cur = State.tableSortState[sectionId];
     if (cur && cur.colId === colId) {
-      State.tableSortState[sectionId] = { colId, dir: cur.dir === 'asc' ? 'desc' : 'asc' };
+      State.tableSortState[sectionId] = {
+        colId,
+        dir: cur.dir === "asc" ? "desc" : "asc",
+      };
     } else {
-      State.tableSortState[sectionId] = { colId, dir: 'asc' };
+      State.tableSortState[sectionId] = { colId, dir: "asc" };
     }
+    // ソート変更時はページを先頭に戻す
+    State.tablePageState[sectionId] = 0;
     // このセクションのカードボディのみ再描画
-    const section = State.sections.find(s => s.id === sectionId);
+    const section = State.sections.find((s) => s.id === sectionId);
     const items = State.itemsMap[sectionId] || [];
-    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    const card = document.querySelector(
+      `.card[data-section-id="${sectionId}"]`,
+    );
     if (!card || !section) return;
-    const bd = card.querySelector('.card__bd');
+    const bd = card.querySelector(".card__bd");
     if (!bd) return;
-    bd.innerHTML = '';
+    bd.innerHTML = "";
     Renderer.buildTableSection(section, items, bd);
   },
 
   // ── ジャンプナビ ──────────────────────────────────────
 
   toggleJumpNav() {
-    const menu = document.getElementById('section-nav-menu');
+    const menu = document.getElementById("section-nav-menu");
     if (menu) menu.hidden = !menu.hidden;
   },
 
   jumpToSection(sectionId) {
-    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    const card = document.querySelector(
+      `.card[data-section-id="${sectionId}"]`,
+    );
     if (!card) return;
     // 折りたたまれていたら展開
-    const bd = card.querySelector('.card__bd');
+    const bd = card.querySelector(".card__bd");
     if (bd && bd.hidden) EventHandlers.toggleSectionCollapse(sectionId);
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    const menu = document.getElementById('section-nav-menu');
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+    const menu = document.getElementById("section-nav-menu");
     if (menu) menu.hidden = true;
   },
 };
@@ -2226,11 +3048,11 @@ const App = {
     }
 
     // 共通バインド変数をロード
-    const bindConfig = await db.getAppConfig('bind_config');
+    const bindConfig = await db.getAppConfig("bind_config");
     if (bindConfig) State.bindConfig = bindConfig;
     State.presets = await db.getAllPresets();
     const savedPresetId = parseInt(localStorage.getItem(ACTIVE_PRESET_KEY));
-    if (savedPresetId && State.presets.some(p => p.id === savedPresetId)) {
+    if (savedPresetId && State.presets.some((p) => p.id === savedPresetId)) {
       State.activePresetId = savedPresetId;
     }
 
@@ -2242,142 +3064,328 @@ const App = {
 
   bindEvents() {
     // ギアボタン
-    document.getElementById('home-gear-btn').addEventListener('click', () => {
+    document.getElementById("home-gear-btn").addEventListener("click", () => {
       EventHandlers.openSettings();
     });
 
     // 親フレームからのメッセージを受信
-    window.addEventListener('message', (e) => {
+    window.addEventListener("message", (e) => {
       // 設定パネル開封要求（タブ設定の「ページを設定」ボタン用）
-      if (e.data?.type === 'dashboard:open-settings') {
+      if (e.data?.type === "dashboard:open-settings") {
         EventHandlers.openSettings();
       }
       // テーマ変更を受け取る
-      if (e.data?.type === 'theme-change') {
-        document.documentElement.setAttribute('data-theme', e.data.theme);
-        localStorage.setItem('mytools_theme', e.data.theme);
+      if (e.data?.type === "theme-change") {
+        document.documentElement.setAttribute("data-theme", e.data.theme);
+        localStorage.setItem("mytools_theme", e.data.theme);
       }
     });
 
     // 全クリック（イベント委譲）
-    document.addEventListener('click', (e) => {
+    document.addEventListener("click", (e) => {
       // ダッシュボードのコピー行（共通バインド変数を解決してコピー）
-      const copyEl = e.target.closest('.js-copy');
-      if (copyEl && !copyEl.closest('.home-settings')) {
-        navigator.clipboard.writeText(resolveBindVars(copyEl.dataset.value || ''));
-        showToast('コピーしました', 'success');
+      const copyEl = e.target.closest(".js-copy");
+      if (copyEl && !copyEl.closest(".home-settings")) {
+        // テーブルセクション内のセルはセクションIDを取得してテーブル独自変数も解決
+        const card = copyEl.closest(".card[data-section-id]");
+        const secId = card ? Number(card.dataset.sectionId) : null;
+        const rawVal = copyEl.dataset.value || "";
+        const resolved = resolveBindVars(secId ? resolveTableVars(rawVal, secId) : rawVal);
+        navigator.clipboard.writeText(resolved);
+        showToast("コピーしました", "success");
         return;
       }
       // ダッシュボードのリンク行（共通バインド変数を解決してリンクを開く）
-      const linkEl = e.target.closest('.js-link');
-      if (linkEl && !linkEl.closest('.home-settings')) {
-        const url = resolveBindVars(linkEl.dataset.value || '');
-        if (url) window.open(url, '_blank');
+      const linkEl = e.target.closest(".js-link");
+      if (linkEl && !linkEl.closest(".home-settings")) {
+        const card = linkEl.closest(".card[data-section-id]");
+        const secId = card ? Number(card.dataset.sectionId) : null;
+        const rawVal = linkEl.dataset.value || "";
+        const url = resolveBindVars(secId ? resolveTableVars(rawVal, secId) : rawVal);
+        if (url) window.open(url, "_blank");
         return;
       }
       // ダッシュボードのテンプレートカード（日付変数・バインド変数を解決してコピー）
-      const templateEl = e.target.closest('.js-template');
-      if (templateEl && !templateEl.closest('.home-settings')) {
-        const resolved = resolveDateVars(resolveBindVars(templateEl.dataset.value || ''));
+      const templateEl = e.target.closest(".js-template");
+      if (templateEl && !templateEl.closest(".home-settings")) {
+        const resolved = resolveDateVars(
+          resolveBindVars(templateEl.dataset.value || ""),
+        );
         navigator.clipboard.writeText(resolved);
-        showToast('コピーしました', 'success');
+        showToast("コピーしました", "success");
         return;
       }
       // URLコマンドコピーボタン
-      const cmdBtn = e.target.closest('.js-copy-cmd');
-      if (cmdBtn) { EventHandlers.onCopyCmd(cmdBtn); return; }
+      const cmdBtn = e.target.closest(".js-copy-cmd");
+      if (cmdBtn) {
+        EventHandlers.onCopyCmd(cmdBtn);
+        return;
+      }
 
       // 設定パネルのアクション
-      const btn = e.target.closest('[data-action]');
+      const btn = e.target.closest("[data-action]");
       if (!btn) return;
       const action = btn.dataset.action;
-      const sectionId = btn.dataset.sectionId ? Number(btn.dataset.sectionId) : null;
+      const sectionId = btn.dataset.sectionId
+        ? Number(btn.dataset.sectionId)
+        : null;
       const itemId = btn.dataset.itemId ? Number(btn.dataset.itemId) : null;
       const colId = btn.dataset.colId || null;
-      const presetId = btn.dataset.presetId ? Number(btn.dataset.presetId) : null;
+      const presetId = btn.dataset.presetId
+        ? Number(btn.dataset.presetId)
+        : null;
 
       const eh = EventHandlers;
       switch (action) {
-        case 'settings-close':      eh.closeSettings(); break;
-        case 'settings-back':       eh.backInSettings(); break;
-        case 'toggle-collapse':     eh.toggleSectionCollapse(sectionId); break;
-        case 'sort-table-col':      eh.sortTableCol(sectionId, colId); break;
-        case 'save-section-memo':   eh.saveSectionMemo(sectionId).catch(console.error); break;
-        case 'save-section-checklist': eh.saveSectionChecklist(sectionId).catch(console.error); break;
-        case 'toggle-jump-nav':     eh.toggleJumpNav(); break;
-        case 'jump-to-section':     eh.jumpToSection(sectionId); break;
-        case 'show-add-section':    eh.showAddSectionForm(); break;
-        case 'cancel-add-section':  eh.hideAddSectionForm(); break;
-        case 'save-add-section':    eh.saveAddSection().catch(console.error); break;
-        case 'edit-section':        eh.editSection(sectionId); break;
-        case 'delete-section':      eh.deleteSection(sectionId).catch(console.error); break;
-        case 'move-section-up':     eh.moveSectionUp(sectionId).catch(console.error); break;
-        case 'move-section-down':   eh.moveSectionDown(sectionId).catch(console.error); break;
-        case 'save-section-meta':   eh.saveSectionMeta(sectionId).catch(console.error); break;
-        case 'save-section-cmd':    eh.saveSectionCmd(sectionId).catch(console.error); break;
-        case 'show-add-column':     eh.toggleAddColumnForm(true); break;
-        case 'cancel-add-column':   eh.toggleAddColumnForm(false); break;
-        case 'save-add-column':     eh.saveAddColumn(sectionId).catch(console.error); break;
-        case 'edit-column':         eh.editColumn(sectionId, colId); break;
-        case 'save-edit-column':    eh.saveEditColumn(sectionId, colId).catch(console.error); break;
-        case 'cancel-edit-column':  Renderer.renderSettingsView(); break;
-        case 'delete-column':       eh.deleteColumn(sectionId, colId).catch(console.error); break;
-        case 'move-col-up':         eh.moveColumnUp(sectionId, colId).catch(console.error); break;
-        case 'move-col-down':       eh.moveColumnDown(sectionId, colId).catch(console.error); break;
-        case 'show-add-item':       eh.toggleAddItemForm(true); break;
-        case 'cancel-add-item':     eh.toggleAddItemForm(false); break;
-        case 'save-add-item':       eh.saveAddItem(sectionId).catch(console.error); break;
-        case 'edit-item':           eh.editItem(itemId, sectionId); break;
-        case 'save-edit-item':      eh.saveEditItem(itemId, sectionId).catch(console.error); break;
-        case 'cancel-edit-item':    eh.cancelEditItem(itemId, sectionId); break;
-        case 'delete-item':         eh.deleteItem(itemId, sectionId).catch(console.error); break;
-        case 'move-item-up':            eh.moveItemUp(itemId, sectionId).catch(console.error); break;
-        case 'move-item-down':          eh.moveItemDown(itemId, sectionId).catch(console.error); break;
-        case 'toggle-table-col-menu':   eh.toggleTableColMenu(sectionId); break;
-        case 'export-data':             eh.exportData(); break;
-        case 'import-data':             eh.importData(); break;
-        case 'show-bind-settings':      eh.showBindSettings(); break;
-        case 'show-add-preset':         eh.showAddPresetForm(); break;
-        case 'cancel-add-preset':       eh.hideAddPresetForm(); break;
-        case 'save-add-preset':         eh.saveAddPreset().catch(console.error); break;
-        case 'edit-preset':             eh.editPreset(presetId); break;
-        case 'save-edit-preset':        eh.saveEditPreset(presetId).catch(console.error); break;
-        case 'delete-preset':           eh.deletePreset(presetId).catch(console.error); break;
-        case 'move-preset-up':          eh.movePresetUp(presetId).catch(console.error); break;
-        case 'move-preset-down':        eh.movePresetDown(presetId).catch(console.error); break;
-        case 'save-bind-config':        eh.saveBindConfig().catch(console.error); break;
-        case 'add-bind-var':            eh.addBindVar().catch(console.error); break;
-        case 'remove-bind-var':         eh.removeBindVar(btn.dataset.varName).catch(console.error); break;
-        case 'switch-preset':           eh.switchPreset(presetId); break;
+        case "settings-close":
+          eh.closeSettings();
+          break;
+        case "settings-back":
+          eh.backInSettings();
+          break;
+        case "toggle-collapse":
+          eh.toggleSectionCollapse(sectionId);
+          break;
+        case "sort-table-col":
+          eh.sortTableCol(sectionId, colId);
+          break;
+        case "table-goto-page": {
+          const page = parseInt(btn.dataset.page, 10);
+          if (!isNaN(page)) {
+            State.tablePageState[sectionId] = page;
+            const sec = State.sections.find((s) => s.id === sectionId);
+            const itms = State.itemsMap[sectionId] || [];
+            const card = document.querySelector(
+              `.card[data-section-id="${sectionId}"]`,
+            );
+            if (card && sec) {
+              const bd = card.querySelector(".card__bd");
+              if (bd) {
+                bd.innerHTML = "";
+                Renderer.buildTableSection(sec, itms, bd);
+              }
+            }
+          }
+          break;
+        }
+        case "save-section-memo":
+          eh.saveSectionMemo(sectionId).catch(console.error);
+          break;
+        case "save-section-checklist":
+          eh.saveSectionChecklist(sectionId).catch(console.error);
+          break;
+        case "toggle-jump-nav":
+          eh.toggleJumpNav();
+          break;
+        case "jump-to-section":
+          eh.jumpToSection(sectionId);
+          break;
+        case "show-add-section":
+          eh.showAddSectionForm();
+          break;
+        case "cancel-add-section":
+          eh.hideAddSectionForm();
+          break;
+        case "save-add-section":
+          eh.saveAddSection().catch(console.error);
+          break;
+        case "edit-section":
+          eh.editSection(sectionId);
+          break;
+        case "delete-section":
+          eh.deleteSection(sectionId).catch(console.error);
+          break;
+        case "move-section-up":
+          eh.moveSectionUp(sectionId).catch(console.error);
+          break;
+        case "move-section-down":
+          eh.moveSectionDown(sectionId).catch(console.error);
+          break;
+        case "save-section-meta":
+          eh.saveSectionMeta(sectionId).catch(console.error);
+          break;
+        case "save-section-cmd":
+          eh.saveSectionCmd(sectionId).catch(console.error);
+          break;
+        case "show-add-column":
+          eh.toggleAddColumnForm(true);
+          break;
+        case "cancel-add-column":
+          eh.toggleAddColumnForm(false);
+          break;
+        case "save-add-column":
+          eh.saveAddColumn(sectionId).catch(console.error);
+          break;
+        case "edit-column":
+          eh.editColumn(sectionId, colId);
+          break;
+        case "save-edit-column":
+          eh.saveEditColumn(sectionId, colId).catch(console.error);
+          break;
+        case "cancel-edit-column":
+          Renderer.renderSettingsView();
+          break;
+        case "delete-column":
+          eh.deleteColumn(sectionId, colId).catch(console.error);
+          break;
+        case "move-col-up":
+          eh.moveColumnUp(sectionId, colId).catch(console.error);
+          break;
+        case "move-col-down":
+          eh.moveColumnDown(sectionId, colId).catch(console.error);
+          break;
+        case "show-add-item":
+          eh.toggleAddItemForm(true);
+          break;
+        case "cancel-add-item":
+          eh.toggleAddItemForm(false);
+          break;
+        case "save-add-item":
+          eh.saveAddItem(sectionId).catch(console.error);
+          break;
+        case "edit-item":
+          eh.editItem(itemId, sectionId);
+          break;
+        case "save-edit-item":
+          eh.saveEditItem(itemId, sectionId).catch(console.error);
+          break;
+        case "cancel-edit-item":
+          eh.cancelEditItem(itemId, sectionId);
+          break;
+        case "delete-item":
+          eh.deleteItem(itemId, sectionId).catch(console.error);
+          break;
+        case "move-item-up":
+          eh.moveItemUp(itemId, sectionId).catch(console.error);
+          break;
+        case "move-item-down":
+          eh.moveItemDown(itemId, sectionId).catch(console.error);
+          break;
+        case "toggle-table-col-menu":
+          eh.toggleTableColMenu(sectionId);
+          break;
+        case "export-data":
+          eh.exportData();
+          break;
+        case "import-data":
+          eh.importData();
+          break;
+        case "show-bind-settings":
+          eh.showBindSettings();
+          break;
+        case "show-add-preset":
+          eh.showAddPresetForm();
+          break;
+        case "cancel-add-preset":
+          eh.hideAddPresetForm();
+          break;
+        case "save-add-preset":
+          eh.saveAddPreset().catch(console.error);
+          break;
+        case "edit-preset":
+          eh.editPreset(presetId);
+          break;
+        case "save-edit-preset":
+          eh.saveEditPreset(presetId).catch(console.error);
+          break;
+        case "delete-preset":
+          eh.deletePreset(presetId).catch(console.error);
+          break;
+        case "move-preset-up":
+          eh.movePresetUp(presetId).catch(console.error);
+          break;
+        case "move-preset-down":
+          eh.movePresetDown(presetId).catch(console.error);
+          break;
+        case "save-bind-config":
+          eh.saveBindConfig().catch(console.error);
+          break;
+        case "add-bind-var":
+          eh.addBindVar().catch(console.error);
+          break;
+        case "remove-bind-var":
+          eh.removeBindVar(btn.dataset.varName).catch(console.error);
+          break;
+        case "switch-preset":
+          eh.switchPreset(presetId);
+          break;
+        case "show-add-table-var":
+          eh.toggleAddTableVarForm(sectionId, true);
+          break;
+        case "cancel-add-table-var":
+          eh.toggleAddTableVarForm(null, false);
+          break;
+        case "save-add-table-var":
+          eh.saveAddTableVar(sectionId).catch(console.error);
+          break;
+        case "remove-table-var":
+          eh.removeTableVar(sectionId, btn.dataset.varName).catch(console.error);
+          break;
+        case "show-add-table-preset":
+          eh.toggleAddTablePresetForm(sectionId, true);
+          break;
+        case "cancel-add-table-preset":
+          eh.toggleAddTablePresetForm(null, false);
+          break;
+        case "save-add-table-preset":
+          eh.saveAddTablePreset(sectionId).catch(console.error);
+          break;
+        case "edit-table-preset":
+          eh.editTablePreset(sectionId, presetId);
+          break;
+        case "save-edit-table-preset":
+          eh.saveEditTablePreset(sectionId, presetId).catch(console.error);
+          break;
+        case "delete-table-preset":
+          eh.deleteTablePreset(sectionId, presetId).catch(console.error);
+          break;
+        case "move-table-preset-up":
+          eh.moveTablePresetUp(sectionId, presetId).catch(console.error);
+          break;
+        case "move-table-preset-down":
+          eh.moveTablePresetDown(sectionId, presetId).catch(console.error);
+          break;
+        case "switch-table-preset":
+          eh.switchTablePreset(sectionId, presetId);
+          break;
+        case "save-table-vars-config":
+          eh.saveTableVarsConfig(sectionId).catch(console.error);
+          break;
       }
     });
 
     // テーブル列メニューの外クリックで閉じる
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.data-table-col-toggle-wrap')) {
-        document.querySelectorAll('.data-table-col-menu').forEach(m => { m.hidden = true; });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".data-table-col-toggle-wrap")) {
+        document.querySelectorAll(".data-table-col-menu").forEach((m) => {
+          m.hidden = true;
+        });
       }
       // ジャンプナビ外クリックで閉じる
-      if (!e.target.closest('#section-nav')) {
-        const menu = document.getElementById('section-nav-menu');
+      if (!e.target.closest("#section-nav")) {
+        const menu = document.getElementById("section-nav-menu");
         if (menu) menu.hidden = true;
       }
     });
 
     // change イベント（テーブル列の表示切替 + セクションタイプ変更 + チェックリスト）
-    document.addEventListener('change', (e) => {
-      if (e.target.matches('.data-table-col-menu input[type=checkbox]')) {
-        EventHandlers.onTableColVisibilityChange(e.target); return;
+    document.addEventListener("change", (e) => {
+      if (e.target.matches(".data-table-col-menu input[type=checkbox]")) {
+        EventHandlers.onTableColVisibilityChange(e.target);
+        return;
       }
-      if (e.target.matches('.checklist-cb')) {
-        EventHandlers.onChecklistChange(e.target); return;
+      if (e.target.matches(".checklist-cb")) {
+        EventHandlers.onChecklistChange(e.target);
+        return;
       }
-      if (e.target.id === 'new-section-type') EventHandlers.onNewSectionTypeChange();
-      if (e.target.id === 'item-type') EventHandlers.onItemTypeChange();
+      if (e.target.id === "new-section-type")
+        EventHandlers.onNewSectionTypeChange();
+      if (e.target.id === "item-type") EventHandlers.onItemTypeChange();
     });
+
   },
 };
 
-window.addEventListener('load', () => {
+window.addEventListener("load", () => {
   App.init().catch(console.error);
 });
