@@ -165,7 +165,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ## dashboard.js アーキテクチャ（2026-03現在）
 
-- IndexedDB DB名: `dashboard_db` version **1**（全インスタンス共有の単一DB）
+- IndexedDB DB名: `dashboard_db` version **2**（全インスタンス共有の単一DB）
 - URLパラメータ `?instance=<id>` で複数ダッシュボードタブを識別（DBは共有）
 - `_instanceId = new URLSearchParams(location.search).get('instance') || ''` でファイル冒頭に定義
 - `sections` ストアに `instance_id` フィールド（インデックス付き）を持ち、このIDでフィルタリング

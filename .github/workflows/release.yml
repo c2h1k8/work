@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   release:
@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install dependencies
         run: npm ci
@@ -33,6 +33,7 @@ jobs:
           npx lessc css/base/label_manager.less css/base/label_manager.css
           npx lessc css/base/label_filter.less  css/base/label_filter.css
           npx lessc css/base/custom_select.less css/base/custom_select.css
+          npx lessc css/base/bind_bar_modal.less css/base/bind_bar_modal.css
           npx lessc css/todo.less      css/todo.css
           npx lessc css/note.less      css/note.css
           npx lessc css/sql.less       css/sql.css

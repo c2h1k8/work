@@ -75,7 +75,7 @@ class HomeDB {
   constructor() {
     this.db = null;
     this.DB_NAME = "dashboard_db"; // 全インスタンス共有の単一DB
-    this.DB_VERSION = 1;
+    this.DB_VERSION = 2;
     this.instanceId = _instanceId; // このインスタンスのID
   }
 
@@ -84,27 +84,34 @@ class HomeDB {
       const req = indexedDB.open(this.DB_NAME, this.DB_VERSION);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
-        // sections ストア（instance_id インデックス付き）
-        const ss = db.createObjectStore("sections", {
-          keyPath: "id",
-          autoIncrement: true,
-        });
-        ss.createIndex("position", "position");
-        ss.createIndex("instance_id", "instance_id");
-        const is = db.createObjectStore("items", {
-          keyPath: "id",
-          autoIncrement: true,
-        });
-        is.createIndex("section_id", "section_id");
-        is.createIndex("position", "position");
-        // アプリ設定ストア（varNames・uiType など）
-        db.createObjectStore("app_config", { keyPath: "name" });
-        // プリセットストア
-        const presetsStore = db.createObjectStore("presets", {
-          keyPath: "id",
-          autoIncrement: true,
-        });
-        presetsStore.createIndex("instance_id", "instance_id");
+        // v1: sections + items ストア（初回作成）
+        if (e.oldVersion < 1) {
+          const ss = db.createObjectStore("sections", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          ss.createIndex("position", "position");
+          ss.createIndex("instance_id", "instance_id");
+          const is = db.createObjectStore("items", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          is.createIndex("section_id", "section_id");
+          is.createIndex("position", "position");
+        }
+        // v2: app_config + presets ストアを追加（既存 v1 DB への移行対応）
+        if (e.oldVersion < 2) {
+          if (!db.objectStoreNames.contains("app_config")) {
+            db.createObjectStore("app_config", { keyPath: "name" });
+          }
+          if (!db.objectStoreNames.contains("presets")) {
+            const presetsStore = db.createObjectStore("presets", {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            presetsStore.createIndex("instance_id", "instance_id");
+          }
+        }
       };
       req.onsuccess = (e) => {
         this.db = e.target.result;
@@ -347,7 +354,7 @@ const State = {
   itemsMap: {}, // sectionId → items[]
   presets: [], // position 昇順
   activePresetId: null,
-  bindConfig: { varNames: ["IP", "HOST_NAME"], uiType: "select" },
+  bindConfig: { varNames: [], uiType: "select" },
   tableSortState: {}, // sectionId → { colId, dir: 'asc' | 'desc' }
   tablePageState: {}, // sectionId → 現在のページ番号（0始まり）
   settings: {
