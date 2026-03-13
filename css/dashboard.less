@@ -46,21 +46,27 @@ body {
 }
 
 // セクションカードの幅指定（data-width 属性で制御）
-// narrow(1/6) = span 1, auto(1/3) = span 2, wide(2/3) = span 4, full = 1/-1
+// narrow(1/6)=span 1, auto(2/6)=span 2, w3(3/6)=span 3, wide(4/6)=span 4, w5(5/6)=span 5, full(6/6)=1/-1
 .home > .card[data-width="narrow"] { grid-column: span 1; }
 .home > .card[data-width="auto"]   { grid-column: span 2; }
+.home > .card[data-width="w3"]     { grid-column: span 3; }
 .home > .card[data-width="wide"]   { grid-column: span 4; }
+.home > .card[data-width="w5"]     { grid-column: span 5; }
 .home > .card[data-width="full"]   { grid-column: 1 / -1; }
 // 行頭開始（data-new-row 属性で制御）
 .home > .card[data-new-row="true"] { grid-column-start: 1; }
 // new-row の組み合わせ: 行頭から指定列数分
 .home > .card[data-new-row="true"][data-width="narrow"] { grid-column: 1 / span 1; }
 .home > .card[data-new-row="true"][data-width="auto"]   { grid-column: 1 / span 2; }
+.home > .card[data-new-row="true"][data-width="w3"]     { grid-column: 1 / span 3; }
 .home > .card[data-new-row="true"][data-width="wide"]   { grid-column: 1 / span 4; }
+.home > .card[data-new-row="true"][data-width="w5"]     { grid-column: 1 / span 5; }
 
-// 狭い画面では wide・full を全幅に収める
+// 狭い画面では w3以上を全幅に収める
 @media (max-width: 840px) {
+  .home > .card[data-width="w3"],
   .home > .card[data-width="wide"],
+  .home > .card[data-width="w5"],
   .home > .card[data-width="full"] {
     grid-column: 1 / -1;
   }
@@ -174,6 +180,10 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 10px;
   padding: 14px 16px 16px;
+  // 先頭から配置: そのカードを行の先頭に置く
+  > [data-new-row="true"] {
+    grid-column-start: 1;
+  }
 }
 
 .sheet-card {
@@ -246,13 +256,13 @@ body {
 // ── URL フォーム ─────────────────────────────────────────────
 .url-form {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 14px 16px 10px;
 }
 
 .url-form__input {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   height: 38px;
   border: 1.5px solid @border;
   border-radius: @radius-sm;
@@ -273,11 +283,21 @@ body {
   &::placeholder { color: @text-muted; }
 }
 
+// ボタン群ラッパー
+.url-form__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .url-form__btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  height: 38px;
+  flex: 1;
+  min-width: 90px;
+  height: 36px;
   padding: 0 14px;
   border-radius: @radius-sm;
   background: @accent;
@@ -291,15 +311,44 @@ body {
   border: none;
   -webkit-user-select: none;
   user-select: none;
-  transition: background @t, box-shadow @t;
+  transition: background @t, box-shadow @t, transform @t;
 
-  svg { width: 13px; height: 13px; }
+  svg { width: 13px; height: 13px; flex-shrink: 0; }
 
   &:hover {
-    background: @accent-d;
-    box-shadow: 0 2px 8px rgba(99,102,241,0.35);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.18);
   }
-  &:active { opacity: .85; }
+  &:active {
+    transform: translateY(0);
+    opacity: .9;
+  }
+
+  // ボタンカラーパレット（インデックスでローテーション）
+  &[data-btn-index="0"] {
+    background: var(--c-accent);
+    &:hover { background: var(--c-accent-hover); box-shadow: 0 4px 12px rgba(99,102,241,.35); }
+  }
+  &[data-btn-index="1"] {
+    background: #059669;
+    &:hover { background: #047857; box-shadow: 0 4px 12px rgba(5,150,105,.35); }
+  }
+  &[data-btn-index="2"] {
+    background: #d97706;
+    &:hover { background: #b45309; box-shadow: 0 4px 12px rgba(217,119,6,.35); }
+  }
+  &[data-btn-index="3"] {
+    background: #7c3aed;
+    &:hover { background: #6d28d9; box-shadow: 0 4px 12px rgba(124,58,237,.35); }
+  }
+  &[data-btn-index="4"] {
+    background: #db2777;
+    &:hover { background: #be185d; box-shadow: 0 4px 12px rgba(219,39,119,.35); }
+  }
+  &[data-btn-index="5"] {
+    background: #0d9488;
+    &:hover { background: #0f766e; box-shadow: 0 4px 12px rgba(13,148,136,.35); }
+  }
 }
 
 // ── URL 履歴リスト ────────────────────────────────────────────
@@ -561,6 +610,13 @@ body {
     box-shadow: 0 0 0 2px var(--c-accent-dim);
   }
   &::placeholder { color: @text-muted; }
+}
+
+.data-table-filter-count {
+  font-size: 11px;
+  color: @text-muted;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .data-table-col-toggle-wrap {
@@ -1011,6 +1067,74 @@ body {
   border-top: 1px solid @border;
 }
 
+// ── コマンドビルダーボタン行 ────────────────────────────────
+.settings-cmd-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: var(--c-surface);
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  margin-bottom: 5px;
+  flex-wrap: nowrap;
+
+  &:has(.cmd-btn-edit-form) { flex-wrap: wrap; }
+}
+
+.settings-cmd-btn-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &[data-btn-index="0"] { background: var(--c-accent); }
+  &[data-btn-index="1"] { background: #059669; }
+  &[data-btn-index="2"] { background: #d97706; }
+  &[data-btn-index="3"] { background: #7c3aed; }
+  &[data-btn-index="4"] { background: #db2777; }
+  &[data-btn-index="5"] { background: #0d9488; }
+}
+
+.settings-cmd-btn-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: @text;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.settings-cmd-btn-mode {
+  font-size: 10px;
+  font-weight: 600;
+  color: @text-muted;
+  background: @border;
+  border-radius: 100px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.settings-cmd-btn-template {
+  flex: 1;
+  font-size: 11.5px;
+  color: @text-muted;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: monospace;
+  min-width: 0;
+}
+
+.cmd-btn-edit-form {
+  width: 100%;
+  margin-top: 6px;
+  background: @card-bg;
+  border: 1.5px solid @accent;
+  border-radius: @radius-sm;
+  padding: 10px;
+}
+
 // ── 設定パネルナビボタン（共通バインド変数への入口） ─────────────
 .settings-nav-row {
   margin-bottom: 12px;
@@ -1243,8 +1367,18 @@ body {
 
 // ── リストフィルター ────────────────────────────────────────
 .list-filter-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px 4px;
   border-bottom: 1px solid @border-l;
+}
+
+.list-filter-count {
+  font-size: 11px;
+  color: @text-muted;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .list-filter {

@@ -740,10 +740,12 @@ const Renderer = {
               <span class="note-field-item__name note-field-item__name--editable" data-action="edit-field-name" data-field-id="${f.id}" title="クリックしてフィールド名を変更">${_esc(f.name)}</span>
               <span class="note-field-item__type" data-type="${f.type}">${typeLabels[f.type] || f.type}</span>
               <select class="cs-target kn-select--sm" data-field-width="${f.id}" title="表示幅">
-                <option value="narrow" ${displayWidth === 'narrow' ? 'selected' : ''}>スリム</option>
-                <option value="auto" ${displayWidth === 'auto' ? 'selected' : ''}>標準</option>
-                <option value="wide" ${displayWidth === 'wide' ? 'selected' : ''}>広幅</option>
-                <option value="full" ${displayWidth === 'full' ? 'selected' : ''}>全幅</option>
+                <option value="narrow" ${displayWidth === 'narrow' ? 'selected' : ''}>1/6</option>
+                <option value="auto" ${displayWidth === 'auto' ? 'selected' : ''}>2/6</option>
+                <option value="w3" ${displayWidth === 'w3' ? 'selected' : ''}>3/6</option>
+                <option value="wide" ${displayWidth === 'wide' ? 'selected' : ''}>4/6</option>
+                <option value="w5" ${displayWidth === 'w5' ? 'selected' : ''}>5/6</option>
+                <option value="full" ${displayWidth === 'full' ? 'selected' : ''}>6/6（全幅）</option>
               </select>
               <label class="note-field-item__visible" title="新しい行から開始する">
                 <input type="checkbox" data-field-new-row="${f.id}"${f.newRow ? ' checked' : ''}>

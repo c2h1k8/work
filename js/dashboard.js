@@ -602,6 +602,7 @@ const Renderer = {
     // フィルター入力（filter_limit > 0 かつアイテム数がしきい値を超えた場合に表示）
     const filterLimit = section.filter_limit ?? 5;
     let listFilterInput = null;
+    let listFilterCount = null;
     if (filterLimit > 0 && items.length > filterLimit) {
       const filterWrap = document.createElement("div");
       filterWrap.className = "list-filter-wrap";
@@ -609,7 +610,11 @@ const Renderer = {
       listFilterInput.type = "text";
       listFilterInput.className = "list-filter";
       listFilterInput.placeholder = "絞り込み...";
+      listFilterCount = document.createElement("span");
+      listFilterCount.className = "list-filter-count";
+      listFilterCount.hidden = true;
       filterWrap.appendChild(listFilterInput);
+      filterWrap.appendChild(listFilterCount);
       bd.appendChild(filterWrap);
     }
 
@@ -640,12 +645,21 @@ const Renderer = {
     if (listFilterInput) {
       listFilterInput.addEventListener("input", () => {
         const q = listFilterInput.value.trim().toLowerCase();
+        let matchCount = 0;
         rowsWrap.querySelectorAll(".row").forEach((row) => {
-          const text = (
-            row.querySelector(".row__label")?.textContent || ""
-          ).toLowerCase();
-          row.hidden = q ? !text.includes(q) : false;
+          // ラベル・ヒント両方をバインド変数解決済みの表示値で検索
+          const labelText = (row.querySelector(".row__label")?.textContent || "").toLowerCase();
+          const hintText = (row.querySelector(".row__hint")?.textContent || "").toLowerCase();
+          const matches = q ? (labelText.includes(q) || hintText.includes(q)) : true;
+          row.hidden = !matches;
+          if (matches) matchCount++;
         });
+        if (q) {
+          listFilterCount.textContent = `${matchCount}件一致`;
+          listFilterCount.hidden = false;
+        } else {
+          listFilterCount.hidden = true;
+        }
       });
     }
   },
@@ -696,6 +710,7 @@ const Renderer = {
       card.className = cardClass;
       card.href = "javascript:void(0);";
       card.dataset.value = item.value || "";
+      if (item.new_row) card.dataset.newRow = "true";
       let arrowIcon;
       if (isCopy)
         arrowIcon = Icons.clipboard.replace(
@@ -721,17 +736,48 @@ const Renderer = {
 
   buildCommandBuilderSection(section, bd) {
     const sectionId = section.id;
-    const template = section.command_template || "";
-    const isOpen = section.action_mode === "open";
+    // cmd_buttons があればそれを使用、なければ従来の command_template/action_mode からフォールバック
+    const cmdButtons =
+      section.cmd_buttons?.length > 0
+        ? section.cmd_buttons
+        : [
+            {
+              id: "legacy",
+              label: section.action_mode === "open" ? "リンク" : "コピー",
+              template: section.command_template || "",
+              action_mode: section.action_mode || "copy",
+            },
+          ];
     const form = document.createElement("div");
     form.className = "url-form";
+    const buttonsHtml = cmdButtons
+      .map(
+        (btn, idx) =>
+          `<button class="url-form__btn js-copy-cmd"
+            data-section-id="${sectionId}"
+            data-btn-id="${escapeAttr(String(btn.id))}"
+            data-template="${escapeAttr(btn.template || "")}"
+            data-action-mode="${btn.action_mode || "copy"}"
+            data-btn-index="${idx % 6}">
+            ${btn.action_mode === "open" ? Icons.link : Icons.clipboard}
+            ${escapeHtml(btn.label || (btn.action_mode === "open" ? "リンク" : "コピー"))}
+          </button>`,
+      )
+      .join("");
     form.innerHTML = `
       <input id="url-input-${sectionId}" type="text" class="url-form__input" placeholder="入力値を入力..." />
-      <button class="url-form__btn js-copy-cmd" data-section-id="${sectionId}" data-template="${escapeAttr(template)}" data-action-mode="${isOpen ? "open" : "copy"}">
-        ${isOpen ? Icons.link : Icons.clipboard}
-        ${isOpen ? "リンク" : "コピー"}
-      </button>
+      <div class="url-form__btns">${buttonsHtml}</div>
     `;
+    // Enter キーで最初のボタンを実行
+    const inputEl = form.querySelector(".url-form__input");
+    if (inputEl) {
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const firstBtn = form.querySelector(".js-copy-cmd");
+          if (firstBtn) EventHandlers.onCopyCmd(firstBtn);
+        }
+      });
+    }
     bd.appendChild(form);
 
     const historyWrap = document.createElement("div");
@@ -900,21 +946,22 @@ const Renderer = {
     // ページネーション
     const pageSize = section.page_size || 0;
     let currentPage = State.tablePageState[section.id] || 0;
-    let pagedItems = sortedItems;
     let totalPages = 1;
     if (pageSize > 0) {
       totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
       currentPage = Math.min(currentPage, totalPages - 1);
       State.tablePageState[section.id] = currentPage;
-      pagedItems = sortedItems.slice(
-        currentPage * pageSize,
-        (currentPage + 1) * pageSize,
-      );
     }
 
-    pagedItems.forEach((item) => {
+    // 全行をレンダリング（ページネーションは hidden で制御することで、
+    // フィルタが全ページのデータを対象にできるようにする）
+    sortedItems.forEach((item, index) => {
       const row_data = item.row_data || {};
       const tr = document.createElement("tr");
+      // ページネーション: 現在ページ外の行を非表示
+      if (pageSize > 0 && Math.floor(index / pageSize) !== currentPage) {
+        tr.hidden = true;
+      }
       columns.forEach((col) => {
         const td = document.createElement("td");
         td.dataset.colId = col.id;
@@ -949,8 +996,9 @@ const Renderer = {
     bd.appendChild(wrap);
 
     // ページネーションコントロール
+    let pager = null;
     if (pageSize > 0 && totalPages > 1) {
-      const pager = document.createElement("div");
+      pager = document.createElement("div");
       pager.className = "data-table-pager";
       const prevBtn = document.createElement("button");
       prevBtn.textContent = "←";
@@ -972,25 +1020,41 @@ const Renderer = {
       bd.appendChild(pager);
     }
 
-    // フィルタ入力イベント（行全体をリアルタイムでフィルタリング）
+    // 件数表示（フィルタ中のみ表示）
+    const filterCount = document.createElement("span");
+    filterCount.className = "data-table-filter-count";
+    filterCount.hidden = true;
+    toolbar.appendChild(filterCount);
+
+    // フィルタ入力イベント（全ページの行を対象にリアルタイムフィルタリング）
     filterInput.addEventListener("input", () => {
       const q = filterInput.value.trim().toLowerCase();
-      tbody.querySelectorAll("tr").forEach((tr) => {
-        if (!q) {
-          tr.hidden = false;
-          return;
-        }
-        const matches = Array.from(tr.querySelectorAll("td")).some((td) => {
-          const text = (td.dataset.value || td.textContent || "").toLowerCase();
-          return text.includes(q);
+      const rows = Array.from(tbody.querySelectorAll("tr"));
+      if (q) {
+        // フィルタ中: ページネーション無視で全行から絞り込み（バインド変数解決後の表示値で検索）
+        let matchCount = 0;
+        rows.forEach((tr) => {
+          const matches = Array.from(tr.querySelectorAll("td")).some((td) => {
+            // textContent はバインド変数解決済みの表示値
+            return td.textContent.toLowerCase().includes(q);
+          });
+          tr.hidden = !matches;
+          if (matches) matchCount++;
         });
-        tr.hidden = !matches;
-      });
-      // フィルタ結果が1ページ以内に収まる場合はページネーションを非表示
-      if (pageSize > 0) {
-        const visibleCount = tbody.querySelectorAll("tr:not([hidden])").length;
-        const pager = bd.querySelector(".data-table-pager");
-        if (pager) pager.hidden = visibleCount <= pageSize;
+        if (pager) pager.hidden = true;
+        filterCount.textContent = `${matchCount}件一致`;
+        filterCount.hidden = false;
+      } else {
+        // クリア時: ページネーションを復元
+        rows.forEach((tr, index) => {
+          if (pageSize > 0) {
+            tr.hidden = Math.floor(index / pageSize) !== currentPage;
+          } else {
+            tr.hidden = false;
+          }
+        });
+        if (pager) pager.hidden = false;
+        filterCount.hidden = true;
       }
     });
   },
@@ -1098,10 +1162,12 @@ const Renderer = {
       <div class="settings-form-row">
         <label class="settings-label">表示幅</label>
         <select class="cs-target" id="new-section-width">
-          <option value="narrow">スリム（1/6幅）</option>
-          <option value="auto" selected>標準（1/3幅）</option>
-          <option value="wide">ワイド（2/3幅）</option>
-          <option value="full">全幅</option>
+          <option value="narrow">1/6</option>
+          <option value="auto" selected>2/6</option>
+          <option value="w3">3/6</option>
+          <option value="wide">4/6</option>
+          <option value="w5">5/6</option>
+          <option value="full">6/6（全幅）</option>
         </select>
       </div>
       <div class="settings-form-row">
@@ -1294,10 +1360,12 @@ const Renderer = {
         <div class="settings-form-row">
           <label class="settings-label">表示幅</label>
           <select class="cs-target" id="edit-section-width">
-            <option value="narrow" ${curWidth === "narrow" ? "selected" : ""}>スリム（1/6幅）</option>
-            <option value="auto" ${curWidth === "auto" ? "selected" : ""}>標準（1/3幅）</option>
-            <option value="wide" ${curWidth === "wide" ? "selected" : ""}>ワイド（2/3幅）</option>
-            <option value="full" ${curWidth === "full" ? "selected" : ""}>全幅</option>
+            <option value="narrow" ${curWidth === "narrow" ? "selected" : ""}>1/6</option>
+            <option value="auto" ${curWidth === "auto" ? "selected" : ""}>2/6</option>
+            <option value="w3" ${curWidth === "w3" ? "selected" : ""}>3/6</option>
+            <option value="wide" ${curWidth === "wide" ? "selected" : ""}>4/6</option>
+            <option value="w5" ${curWidth === "w5" ? "selected" : ""}>5/6</option>
+            <option value="full" ${curWidth === "full" ? "selected" : ""}>6/6（全幅）</option>
           </select>
         </div>
         <div class="settings-form-row">
@@ -1357,19 +1425,7 @@ const Renderer = {
     }
 
     if (isCmdBuilder) {
-      const curMode = section.action_mode || "copy";
       html += `
-        <div class="settings-form-row">
-          <label class="settings-label">アクション</label>
-          <select class="cs-target" id="edit-section-action-mode">
-            <option value="copy" ${curMode === "copy" ? "selected" : ""}>コピー</option>
-            <option value="open" ${curMode === "open" ? "selected" : ""}>リンク</option>
-          </select>
-        </div>
-        <div class="settings-form-row">
-          <label class="settings-label">テンプレート（{INPUT} が入力値に置換されます）</label>
-          <input class="settings-input" id="edit-section-cmd" type="text" value="${escapeAttr(section.command_template || "")}" placeholder='open "https://www.google.com/search?q={INPUT}"' />
-        </div>
         <div class="settings-form-row">
           <label class="settings-label">履歴の上限件数（0 で無効）</label>
           <input class="settings-input settings-input--xs" id="edit-section-history-limit" type="number" min="0" max="100" value="${section.history_limit ?? 10}" />
@@ -1379,6 +1435,66 @@ const Renderer = {
         </div>`;
     }
     html += `</div>`;
+
+    // コマンドビルダー: ボタン一覧管理サブセクション
+    if (isCmdBuilder) {
+      const buttons = section.cmd_buttons || [];
+      const showMigrationNote = buttons.length === 0 && section.command_template;
+      html += `
+      <div class="settings-subsection">
+        <div class="settings-subsection-hd">
+          <h3 class="settings-subsection-title">ボタン</h3>
+          <button class="settings-add-btn settings-add-btn--sm" data-action="show-add-cmd-button" data-section-id="${section.id}">＋ 追加</button>
+        </div>`;
+      if (showMigrationNote) {
+        html += `<p class="settings-help">既存のテンプレート設定があります。ボタンを追加すると複数ボタン方式に切り替わります。</p>`;
+      } else if (buttons.length === 0) {
+        html += `<p class="settings-help">ボタンが未設定です。「＋ 追加」からボタンを作成してください。</p>`;
+      }
+      html += `<div id="cmd-button-list">`;
+      buttons.forEach((btn, idx) => {
+        const modeLabel = btn.action_mode === "open" ? "リンク" : "コピー";
+        const colorIdx = idx % 6;
+        const templateShort =
+          (btn.template || "").length > 35
+            ? (btn.template || "").substring(0, 35) + "…"
+            : btn.template || "";
+        html += `
+          <div class="settings-cmd-btn-row" id="cmd-btn-row-${escapeAttr(String(btn.id))}" data-btn-id="${escapeAttr(String(btn.id))}">
+            <span class="settings-cmd-btn-dot" data-btn-index="${colorIdx}"></span>
+            <span class="settings-cmd-btn-label">${escapeHtml(btn.label || "")}</span>
+            <span class="settings-cmd-btn-mode">${escapeHtml(modeLabel)}</span>
+            <span class="settings-cmd-btn-template" title="${escapeAttr(btn.template || "")}">${escapeHtml(templateShort)}</span>
+            <div class="settings-row__actions">
+              <button class="settings-btn settings-btn--primary" data-action="edit-cmd-button" data-section-id="${section.id}" data-btn-id="${escapeAttr(String(btn.id))}">編集</button>
+              <button class="settings-btn settings-btn--danger" data-action="delete-cmd-button" data-section-id="${section.id}" data-btn-id="${escapeAttr(String(btn.id))}">削除</button>
+            </div>
+          </div>`;
+      });
+      html += `</div>
+        <div class="settings-form-panel" id="cmd-button-add-form" hidden>
+          <div class="settings-form-row">
+            <label class="settings-label">ボタン名</label>
+            <input class="settings-input" id="new-cmd-btn-label" type="text" placeholder="例：Google検索" />
+          </div>
+          <div class="settings-form-row settings-form-row--inline">
+            <label class="settings-label">アクション</label>
+            <select class="cs-target kn-select--sm" id="new-cmd-btn-mode">
+              <option value="copy">コピー</option>
+              <option value="open">リンク</option>
+            </select>
+          </div>
+          <div class="settings-form-row">
+            <label class="settings-label">テンプレート（{INPUT} が入力値に置換されます）</label>
+            <input class="settings-input" id="new-cmd-btn-template" type="text" placeholder="https://www.google.com/search?q={INPUT}" />
+          </div>
+          <div class="settings-form-row settings-form-row--inline">
+            <button class="settings-btn settings-btn--primary" data-action="save-add-cmd-button" data-section-id="${section.id}">追加</button>
+            <button class="settings-btn" data-action="cancel-add-cmd-button">キャンセル</button>
+          </div>
+        </div>
+      </div>`;
+    }
 
     // テーブル: 列定義エディター
     if (isTable) {
@@ -1575,6 +1691,11 @@ const Renderer = {
             時刻: <code>HH:mm</code> &nbsp;
             例: <code>{NOW:MM/DD(ddd) HH:mm}</code>
           </p>
+        </div>
+        <div class="settings-form-row">
+          <label class="settings-checkbox-label">
+            <input type="checkbox" id="item-new-row"${item?.new_row ? " checked" : ""}> 先頭から配置する（このカードを行の先頭に置く）
+          </label>
         </div>`;
     } else if (isTable) {
       columns.forEach((col) => {
@@ -2087,10 +2208,6 @@ const EventHandlers = {
   async saveSectionCmd(sectionId) {
     const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;
-    section.command_template =
-      document.getElementById("edit-section-cmd")?.value.trim() || "";
-    section.action_mode =
-      document.getElementById("edit-section-action-mode")?.value || "copy";
     const limitVal = parseInt(
       document.getElementById("edit-section-history-limit")?.value,
       10,
@@ -2114,6 +2231,113 @@ const EventHandlers = {
 
     Renderer.renderDashboard();
     showToast("保存しました", "success");
+  },
+
+  // ── コマンドビルダーボタン管理 ────────────────
+
+  toggleAddCmdButtonForm(show) {
+    const form = document.getElementById("cmd-button-add-form");
+    if (form) form.hidden = !show;
+  },
+
+  async saveAddCmdButton(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const label = document.getElementById("new-cmd-btn-label")?.value.trim();
+    const template =
+      document.getElementById("new-cmd-btn-template")?.value.trim() || "";
+    const action_mode =
+      document.getElementById("new-cmd-btn-mode")?.value || "copy";
+    if (!label) {
+      alert("ボタン名を入力してください");
+      return;
+    }
+    const buttons = section.cmd_buttons ? [...section.cmd_buttons] : [];
+    buttons.push({ id: `btn_${Date.now()}`, label, template, action_mode });
+    section.cmd_buttons = buttons;
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+  },
+
+  editCmdButton(sectionId, btnId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    const btn = (section?.cmd_buttons || []).find(
+      (b) => String(b.id) === btnId,
+    );
+    if (!btn) return;
+    const row = document.getElementById(`cmd-btn-row-${btnId}`);
+    if (!row) return;
+    // 既に開いている場合は閉じる
+    if (row.dataset.editing === "true") {
+      row.dataset.editing = "";
+      row.querySelector(".cmd-btn-edit-form")?.remove();
+      return;
+    }
+    row.dataset.editing = "true";
+    const panel = document.createElement("div");
+    panel.className = "settings-form-panel cmd-btn-edit-form";
+    panel.innerHTML = `
+      <div class="settings-form-row">
+        <label class="settings-label">ボタン名</label>
+        <input class="settings-input" id="edit-cmd-btn-label-${btnId}" type="text" value="${escapeAttr(btn.label || "")}" />
+      </div>
+      <div class="settings-form-row">
+        <label class="settings-label">アクション</label>
+        <select class="cs-target kn-select--sm" id="edit-cmd-btn-mode-${btnId}">
+          <option value="copy" ${btn.action_mode !== "open" ? "selected" : ""}>コピー</option>
+          <option value="open" ${btn.action_mode === "open" ? "selected" : ""}>リンク</option>
+        </select>
+      </div>
+      <div class="settings-form-row">
+        <label class="settings-label">テンプレート</label>
+        <input class="settings-input" id="edit-cmd-btn-template-${btnId}" type="text" value="${escapeAttr(btn.template || "")}" />
+      </div>
+      <div class="settings-form-row settings-form-row--inline">
+        <button class="settings-btn settings-btn--primary" data-action="save-edit-cmd-button" data-section-id="${sectionId}" data-btn-id="${escapeAttr(btnId)}">保存</button>
+        <button class="settings-btn" data-action="cancel-edit-cmd-button" data-btn-id="${escapeAttr(btnId)}">キャンセル</button>
+      </div>
+    `;
+    row.appendChild(panel);
+    CustomSelect.replaceAll(panel);
+  },
+
+  async saveEditCmdButton(sectionId, btnId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    const btn = (section?.cmd_buttons || []).find(
+      (b) => String(b.id) === btnId,
+    );
+    if (!btn) return;
+    btn.label =
+      document.getElementById(`edit-cmd-btn-label-${btnId}`)?.value.trim() ||
+      btn.label;
+    btn.template =
+      document.getElementById(`edit-cmd-btn-template-${btnId}`)?.value.trim() ||
+      "";
+    btn.action_mode =
+      document.getElementById(`edit-cmd-btn-mode-${btnId}`)?.value || "copy";
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+  },
+
+  cancelEditCmdButton(btnId) {
+    const row = document.getElementById(`cmd-btn-row-${btnId}`);
+    if (!row) return;
+    row.dataset.editing = "";
+    row.querySelector(".cmd-btn-edit-form")?.remove();
+  },
+
+  async deleteCmdButton(sectionId, btnId) {
+    if (!confirm("このボタンを削除しますか？")) return;
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    section.cmd_buttons = (section.cmd_buttons || []).filter(
+      (b) => String(b.id) !== btnId,
+    );
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
   },
 
   // ── 列操作（テーブル） ────────────────
@@ -2238,6 +2462,7 @@ const EventHandlers = {
       } else {
         data.value = document.getElementById("item-value")?.value.trim() || "";
       }
+      data.new_row = document.getElementById("item-new-row")?.checked || false;
       data.hint = null;
       data.row_data = null;
     } else if (section.type === "table") {
@@ -2304,6 +2529,7 @@ const EventHandlers = {
       } else {
         item.value = document.getElementById("item-value")?.value.trim() || "";
       }
+      item.new_row = document.getElementById("item-new-row")?.checked || false;
     } else if (section.type === "table") {
       const row_data = {};
       (section.columns || []).forEach((col) => {
@@ -2508,6 +2734,7 @@ const EventHandlers = {
         const data = { name, position: maxPos, values: {} };
         const newId = await State.db.addPreset(data);
         data.id = newId;
+        data.instance_id = State.db.instanceId; // updatePreset 時に instance_id が消えないよう保持
         State.presets.push(data);
         return { ...data };
       },
@@ -3175,6 +3402,27 @@ const App = {
           break;
         case "save-section-cmd":
           eh.saveSectionCmd(sectionId).catch(console.error);
+          break;
+        case "show-add-cmd-button":
+          eh.toggleAddCmdButtonForm(true);
+          break;
+        case "cancel-add-cmd-button":
+          eh.toggleAddCmdButtonForm(false);
+          break;
+        case "save-add-cmd-button":
+          eh.saveAddCmdButton(sectionId).catch(console.error);
+          break;
+        case "edit-cmd-button":
+          eh.editCmdButton(sectionId, btn.dataset.btnId);
+          break;
+        case "save-edit-cmd-button":
+          eh.saveEditCmdButton(sectionId, btn.dataset.btnId).catch(console.error);
+          break;
+        case "cancel-edit-cmd-button":
+          eh.cancelEditCmdButton(btn.dataset.btnId);
+          break;
+        case "delete-cmd-button":
+          eh.deleteCmdButton(sectionId, btn.dataset.btnId).catch(console.error);
           break;
         case "show-add-column":
           eh.toggleAddColumnForm(true);
