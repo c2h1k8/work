@@ -12,7 +12,7 @@
 //      );
 //
 //   HTML は初回 open() 時に自動生成・挿入される。
-//   カーソルキー（←→: 前後月, ↑↓: 前後年）/ ホイールで月を切り替え可能。
+//   カーソルキー（←→: 前後月, ↑↓: 前後年）/ Ctrl+カーソルキー（←→: ±1日, ↑↓: ±7日）/ ホイールで月を切り替え可能。
 //   CSSは css/base/date_picker.css を読み込む。
 // ==================================================
 
@@ -94,7 +94,33 @@ const DatePicker = {
     document.getElementById('date-picker').removeAttribute('hidden');
 
     // カーソルキーで月・年を移動（開いている間のみ有効）
+    // Ctrl+カーソルキーで選択日付を移動（←→: ±1日、↑↓: ±7日）
     this._onKeyDown = (e) => {
+      if (e.ctrlKey) {
+        const dayDelta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
+        if (dayDelta !== undefined) {
+          e.preventDefault();
+          // 未選択の場合は表示月の1日を基点にする
+          const base = this._selected
+            ? new Date(this._selected)
+            : new Date(this._year, this._month, 1);
+          base.setDate(base.getDate() + dayDelta);
+          this._selected = base;
+          // 選択日が別の月に移動した場合はカレンダービューも追従
+          if (base.getFullYear() !== this._year || base.getMonth() !== this._month) {
+            this._year  = base.getFullYear();
+            this._month = base.getMonth();
+            this._refreshHolidays();
+          }
+          this._render();
+        }
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.handleAction('confirm', null);
+        return;
+      }
       const map = {
         ArrowLeft:  'prev-month',
         ArrowRight: 'next-month',
