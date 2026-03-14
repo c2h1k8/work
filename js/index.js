@@ -449,23 +449,22 @@ async function exportAllData() {
       req.onupgradeneeded = (e) => { if (e.oldVersion === 0) e.target.transaction.abort(); };
     });
     if (db && db.objectStoreNames.contains('sections')) {
-      const sections = await new Promise((res) => {
-        const req = db.transaction('sections').objectStore('sections').getAll();
+      const _getAll = (storeName) => new Promise((res) => {
+        if (!db.objectStoreNames.contains(storeName)) { res([]); return; }
+        const req = db.transaction(storeName).objectStore(storeName).getAll();
         req.onsuccess = () => res(req.result);
         req.onerror = () => res([]);
       });
-      const items = await new Promise((res) => {
-        const req = db.transaction('items').objectStore('items').getAll();
-        req.onsuccess = () => res(req.result);
-        req.onerror = () => res([]);
-      });
+      const [sections, items, presets, appConfigs] = await Promise.all([
+        _getAll('sections'), _getAll('items'), _getAll('presets'), _getAll('app_config'),
+      ]);
       db.close();
 
       // instance_id ごとにグループ化
       const instanceMap = {};
       sections.forEach(s => {
         const id = s.instance_id ?? '';
-        if (!instanceMap[id]) instanceMap[id] = { sections: [], items: [] };
+        if (!instanceMap[id]) instanceMap[id] = { sections: [], items: [], presets: [], bindConfig: null };
         instanceMap[id].sections.push(s);
       });
       items.forEach(item => {
@@ -475,6 +474,15 @@ async function exportAllData() {
           if (instanceMap[id]) instanceMap[id].items.push(item);
         }
       });
+      presets.forEach(p => {
+        const id = p.instance_id ?? '';
+        if (instanceMap[id]) instanceMap[id].presets.push(p);
+      });
+      // app_config から bind_config_{instanceId} を取り出す
+      appConfigs.forEach(cfg => {
+        const match = cfg.name?.match(/^bind_config_(.*)$/);
+        if (match && instanceMap[match[1]]) instanceMap[match[1]].bindConfig = cfg.value;
+      });
       dashboards = Object.entries(instanceMap).map(([instanceId, data]) => ({ instanceId, ...data }));
     }
   } catch (e) {
@@ -483,7 +491,7 @@ async function exportAllData() {
 
   const exportData = {
     type: 'app_export',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     tabConfig,
     dashboards,
@@ -523,7 +531,7 @@ async function importAllData() {
       // dashboard_db を開いて全インスタンスデータを復元
       if (data.dashboards && data.dashboards.length > 0) {
         const db = await new Promise((resolve, reject) => {
-          const req = indexedDB.open('dashboard_db', 1);
+          const req = indexedDB.open('dashboard_db', 2);
           req.onsuccess = e => resolve(e.target.result);
           req.onerror = () => reject(req.error);
           req.onupgradeneeded = (ev) => {
@@ -536,21 +544,29 @@ async function importAllData() {
               is.createIndex('section_id', 'section_id');
               is.createIndex('position', 'position');
             }
+            if (!idb.objectStoreNames.contains('app_config')) {
+              idb.createObjectStore('app_config', { keyPath: 'name' });
+            }
+            if (!idb.objectStoreNames.contains('presets')) {
+              const ps = idb.createObjectStore('presets', { keyPath: 'id', autoIncrement: true });
+              ps.createIndex('instance_id', 'instance_id');
+              ps.createIndex('position', 'position');
+            }
           };
         });
 
-        // 既存データを全削除
+        // 既存データを全削除（sections/items/presets/app_config すべてクリア）
         await new Promise((res, rej) => {
-          const tx = db.transaction(['sections', 'items'], 'readwrite');
-          tx.objectStore('sections').clear();
-          tx.objectStore('items').clear();
+          const stores = ['sections', 'items', 'presets', 'app_config'];
+          const tx = db.transaction(stores, 'readwrite');
+          stores.forEach(s => tx.objectStore(s).clear());
           tx.oncomplete = res;
           tx.onerror = () => rej(tx.error);
         });
 
         // インスタンスごとにインポート
         for (const dashboard of data.dashboards) {
-          const { instanceId, sections = [], items = [] } = dashboard;
+          const { instanceId, sections = [], items = [], presets = [], bindConfig } = dashboard;
           const idMap = {};
           for (const section of sections) {
             const oldId = section.id;
@@ -574,6 +590,25 @@ async function importAllData() {
                 req.onerror = () => rej(req.error);
               });
             }
+          }
+          // presets を復元（version 2 以降のみ存在）
+          for (const preset of presets) {
+            const newPreset = { ...preset, instance_id: instanceId };
+            delete newPreset.id;
+            await new Promise((res, rej) => {
+              const req = db.transaction('presets', 'readwrite').objectStore('presets').add(newPreset);
+              req.onsuccess = () => res();
+              req.onerror = () => rej(req.error);
+            });
+          }
+          // bindConfig を復元（version 2 以降のみ存在）
+          if (bindConfig) {
+            await new Promise((res, rej) => {
+              const req = db.transaction('app_config', 'readwrite').objectStore('app_config')
+                .put({ name: `bind_config_${instanceId}`, value: bindConfig });
+              req.onsuccess = () => res();
+              req.onerror = () => rej(req.error);
+            });
           }
         }
         db.close();
@@ -835,6 +870,7 @@ async function deleteTab(label) {
   const config = await loadTabConfig();
   const tab = config.find(t => t.label === label);
   if (!tab || tab.isBuiltIn) return;
+  if (!confirm(`「${label}」タブを削除しますか？\nこの操作は元に戻せません。`)) return;
 
   const newConfig = config.filter(t => t.label !== label);
   // position を連番に詰め直す

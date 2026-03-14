@@ -42,7 +42,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `js/base/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` — 統一トースト通知（自己挿入型）。CSS は `css/base/toast.{less,css}`。各ページに `showToast` ラッパーを定義する場合は `type` を必ず透過すること: `const showToast = (msg, type) => Toast.show(msg, type);`
 - `js/base/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` など
 - コメントは日本語で記載する
-- `todo.js` のアーキテクチャ: `KanbanDB` / `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `App` の単一ファイル構成（Toast は `js/base/toast.js` に移動）
+- `todo.js` のアーキテクチャ: `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `App`（DB層は `js/db/kanban_db.js` の `KanbanDB` クラスに分離）
 - `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
 - `LabelManager` は `js/base/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/base/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`
 - `BindVarModal` は `js/base/bind_var_modal.js` に分離されたバインド変数 + プリセット管理モーダル（共通部品）。CSS は `css/base/bind_var_modal.{less,css}`。HTML は初回 `BindVarModal.open()` 時に自動生成・挿入される。API: `BindVarModal.open({ title, varNames, presets, showBarConfig, uiType, barLabel, onAddVar, onRemoveVar, onSaveBarConfig, onAddPreset, onUpdatePreset, onDeletePreset, onMovePresetUp, onMovePresetDown, onChange })` / `BindVarModal.close()`。2カラムレイアウト（左: 変数定義 + バー設定、右: プリセット一覧/編集）。dashboard.js の共通バインド変数設定・テーブルバインド変数設定で使用。
@@ -113,8 +113,23 @@ Claude Code がこのプロジェクトで作業する際の指針。
 | 新ページ       | ルートに `<name>.html`       |
 | ページ固有 JS  | `js/<name>.js`               |
 | ページ固有 CSS | `css/<name>.{less,css}`      |
+| DB層 JS        | `js/db/<name>_db.js`         |
 | 共通 JS        | `js/base/<name>.js`          |
 | 共通 CSS       | `css/base/<name>.{less,css}` |
+
+## DB層ファイル（js/db/）
+
+各ページの IndexedDB 操作クラスを分離。ファイル先頭にスキーマ定義・リレーション図をコメントで記載。
+
+| ファイル                  | クラス    | DB名          | ページ         |
+| ------------------------- | --------- | ------------- | -------------- |
+| `js/db/kanban_db.js`      | KanbanDB  | kanban_db     | todo.html      |
+| `js/db/note_db.js`        | NoteDB    | note_db       | note.html      |
+| `js/db/dashboard_db.js`   | DashboardDB    | dashboard_db  | dashboard.html |
+| `js/db/sql_db.js`         | SqlDB     | sql_db        | sql.html       |
+
+- HTML での読み込み順: `utils.js` → ... → `js/db/<name>_db.js` → `js/<name>.js`
+- DB クラスはページ JS より前に読み込む必要がある（グローバルクラスとして参照するため）
 
 ## タブの追加方法
 
@@ -160,7 +175,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - **エクスポート/インポート（全体）**: 設定パネル下部「データ管理」セクション
   - `exportAllData()` → tab_config + dashboard_db の全インスタンスデータを JSON ダウンロード
   - `importAllData()` → JSON ファイルを読み込んで全データを復元
-  - フォーマット: `{ type: 'app_export', version: 1, tabConfig, dashboards: [{ instanceId, sections, items }] }`
+  - フォーマット: `{ type: 'app_export', version: 2, tabConfig, dashboards: [{ instanceId, sections, items, presets, bindConfig }] }`（version 1 は sections/items のみ、後方互換で読み込み可）
   - `_deleteDashboardInstance(instanceId)` → タブ削除時に共有DBからそのインスタンスのデータを削除
 
 ## dashboard.js アーキテクチャ（2026-03現在）
@@ -188,14 +203,14 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - 設定画面から `open-list-bind-var-modal` / `open-grid-bind-var-modal` で BindVarModal を開く
   - `switchListPreset(sectionId, presetId)` / `switchGridPreset(sectionId, presetId)` でプリセット切替・再レンダリング
 - **アイテム管理モーダル**（全画面でアイテムを管理）: 設定パネルのアイテム一覧ヘッダーの「⤢ 全画面で管理」ボタンで開く。`State.itemMgr: { sectionId, editingId, formTab: 'add'|'bulk' }` で状態管理。2カラム（左: アイテム一覧、右: 追加/編集フォーム or コピー登録フォーム）。`EventHandlers.openItemManager(sectionId)` / `closeItemManager()` / `_refreshItemManager()` で制御。CSS: `.item-mgr`（`dashboard.less`）。z-index: 400（設定パネルの 300 より上）。Esc キーで閉じる。コピー登録タブ（`formTab: 'bulk'`）では Tab 区切りのテキストを貼り付けて一括追加（`saveBulkItems(sectionId)`）。フォーマット: list=`ラベル\tヒント\t値`、grid=`絵文字\tカード名\t値`、table=`列1\t列2\t列3`。URL はリンク、それ以外はコピーとして自動判定。`#` で始まる行はコメント。
-- モジュール構成: `HomeDB` / `State` / `Renderer` / `EventHandlers` / `App` の単一ファイル構成
+- モジュール構成: `DashboardDB` / `State` / `Renderer` / `EventHandlers` / `App` の単一ファイル構成
 - レイアウト: `max-width: 1440px` + CSS Grid（`auto-fill, minmax(190px, 1fr)`）でセクションカードを複数列配置
 - セクションの表示幅: `section.width = 'narrow' | 'auto' | 'w3' | 'wide' | 'w5' | 'full'`。カードに `data-width` 属性を付与し CSS でスパン制御（narrow=span 1 / auto=span 2 / w3=span 3 / wide=span 4 / w5=span 5 / full=1/-1 / ≤840px で w3以上は全幅）。セクション編集画面の「表示幅」セレクターで設定・保存
 - `.settings-col-row`: `flex-wrap: nowrap` で通常表示。`:has(input)` セレクターで列編集展開時のみ `flex-wrap: wrap`
 - `.data-table`: `width: auto; min-width: 100%` で列が多い時は `.data-table-wrap`（`overflow-x: auto`）で横スクロール
 - **エクスポート/インポート**:
   - ダッシュボード設定パネル下部のボタンでこのインスタンスのデータ（sections/items/presets/bindConfig）をJSON出力・読込
-  - `HomeDB.exportInstance()` / `HomeDB.importInstance(data, replace)` / `HomeDB.deleteInstance()`
+  - `DashboardDB.exportInstance()` / `DashboardDB.importInstance(data, replace)` / `DashboardDB.deleteInstance()`
   - フォーマット: `{ type: 'dashboard_export', version: 2, instanceId, sections, items, presets, bindConfig }`
   - インポート時は旧フォーマット（`environments`/`envConfig`）も後方互換で読み込む
 - **共通バインド変数**:
