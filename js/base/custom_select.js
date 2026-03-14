@@ -80,7 +80,20 @@ const CustomSelect = (() => {
     const inst = { wrapper, trigger, triggerText, dropdown, selectEl };
 
     function render() {
-      triggerText.textContent = selectEl.options[selectEl.selectedIndex]?.text ?? '';
+      const selOpt = selectEl.options[selectEl.selectedIndex];
+      // トリガーテキスト: 色付きオプションはカラーバッジチップで表示
+      triggerText.innerHTML = '';
+      if (selOpt?.dataset.color && selOpt.value) {
+        const badge = document.createElement('span');
+        badge.className = 'cs-color-badge';
+        badge.style.setProperty('--cs-badge-bg', selOpt.dataset.color);
+        badge.textContent = selOpt.text;
+        triggerText.appendChild(badge);
+      } else {
+        triggerText.appendChild(document.createTextNode(selOpt?.text ?? ''));
+      }
+
+      // ドロップダウンアイテム
       dropdown.innerHTML = '';
       for (const opt of selectEl.options) {
         const item = document.createElement('button');
@@ -88,7 +101,14 @@ const CustomSelect = (() => {
         item.className = 'cs-item' + (opt.value === selectEl.value ? ' cs-item--selected' : '');
         item.dataset.csValue = opt.value;
         item.tabIndex = -1;
-        item.textContent = opt.text;
+        // data-color 属性があれば角丸スクエアのスウォッチを挿入
+        if (opt.dataset.color && opt.value) {
+          const swatch = document.createElement('span');
+          swatch.className = 'cs-swatch';
+          swatch.style.setProperty('--cs-swatch-color', opt.dataset.color);
+          item.appendChild(swatch);
+        }
+        item.appendChild(document.createTextNode(opt.text));
         dropdown.appendChild(item);
       }
     }

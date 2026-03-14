@@ -123,7 +123,8 @@ const Renderer = {
   _renderFieldBadge(field, entries) {
     const entry = entries[0] || null;
     switch (field.type) {
-      case 'select': {
+      case 'select':
+      case 'dropdown': {
         if (!entry || !entry.value) return '';
         const selectOpts = field.options || [];
         const selectOpt = selectOpts.find(o => o.name === entry.value);
@@ -297,6 +298,9 @@ const Renderer = {
       </div>
     `;
 
+    // ドロップダウンフィールドを CustomSelect に変換（色スウォッチは custom_select.js が自動処理）
+    CustomSelect.replaceAll(content);
+
     // TODOリンクを非同期で描画（kanban_db が存在しない場合は無視）
     this.renderTodoLinks(task.id).catch(() => {});
   },
@@ -408,6 +412,23 @@ const Renderer = {
     } else if (field.type === 'label') {
       // ラベルはバッジトグル形式（自動保存）
       bodyHtml = this._renderLabelForm(field, entries);
+    } else if (field.type === 'dropdown') {
+      // ドロップダウン選択（CustomSelect 使用）
+      const opts = field.options || [];
+      if (opts.length === 0) {
+        bodyHtml = '<p class="note-empty-msg note-empty-msg--inline">選択肢が設定されていません。フィールド管理で追加してください。</p>';
+      } else {
+        const currentValue = entries.length > 0 ? entries[0].value : '';
+        const entryId = entries.length > 0 ? entries[0].id : '';
+        bodyHtml = `
+          <select class="cs-target kn-select--sm note-dropdown-field"
+                  data-dropdown-field="${field.id}"
+                  data-entry-id="${entryId}">
+            <option value="">（未選択）</option>
+            ${opts.map(opt => `<option value="${_esc(opt.name)}" data-color="${_esc(opt.color || '')}"${opt.name === currentValue ? ' selected' : ''}>${_esc(opt.name)}</option>`).join('')}
+          </select>
+        `;
+      }
     }
 
     return `
@@ -491,6 +512,10 @@ const Renderer = {
   // リンクエントリの描画（リンクタイプのみ使用）
   _renderLinkEntry(entry) {
     const display = entry.label || entry.value;
+    // 表示名が設定されている場合のみ表示名コピーボタンを表示
+    const labelCopyBtn = entry.label
+      ? `<button class="note-entry__action" data-action="copy-entry-label" data-entry-id="${entry.id}" data-label="${_esc(entry.label)}" title="表示名をコピー">${Icons.copyFill}</button>`
+      : '';
     return `<div class="note-entry" data-entry-id="${entry.id}">
       <a href="${_esc(entry.value)}" target="_blank" rel="noopener noreferrer" class="note-entry__link">
         <svg viewBox="0 0 16 16" aria-hidden="true" width="11" height="11" fill="currentColor" flex-shrink="0">
@@ -498,6 +523,7 @@ const Renderer = {
         </svg>
         <span class="note-entry__link-text">${_esc(display)}</span>
       </a>
+      ${labelCopyBtn}
       <button class="note-entry__action" data-action="copy-entry-url" data-entry-id="${entry.id}" data-url="${_esc(entry.value)}" title="URLをコピー">${Icons.copyFill}</button>
       <button class="note-entry__action" data-action="edit-entry" data-entry-id="${entry.id}" title="編集">${Icons.edit}</button>
       <button class="note-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="削除">${Icons.close}</button>
@@ -511,11 +537,11 @@ const Renderer = {
       body.innerHTML = '<p class="note-empty-msg">フィールドがありません。下のフォームから追加してください。</p>';
       return;
     }
-    const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '単一ラベル', label: 'ラベル' };
+    const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '単一ラベル', label: 'ラベル', dropdown: 'ドロップダウン' };
     body.innerHTML = `<ul class="note-field-list">
       ${State.fields.map((f, i) => {
         const hasSelectOptions = false; // 単一選択タイプも LabelManager で管理するため展開パネル不要
-        const hasLabelOptions  = f.type === 'label' || f.type === 'select';
+        const hasLabelOptions  = f.type === 'label' || f.type === 'select' || f.type === 'dropdown';
         const options = f.options || [];
         const displayWidth = f.width || 'full';
         return `
@@ -554,7 +580,7 @@ const Renderer = {
                     <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
                       <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.879a1.5 1.5 0 0 1 1.06.44l8.5 8.5a1.5 1.5 0 0 1 0 2.12l-3.878 3.879a1.5 1.5 0 0 1-2.122 0l-8.5-8.5A1.5 1.5 0 0 1 1 6.38Zm1.5 0v3.879l8.5 8.5 3.879-3.878-8.5-8.5ZM6 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/>
                     </svg>
-                    ${f.type === 'select' ? '選択肢' : 'ラベル'}
+                    ${(f.type === 'select' || f.type === 'dropdown') ? '選択肢' : 'ラベル'}
                   </button>
                 ` : ''}
                 <button class="note-icon-btn note-icon-btn--danger" data-action="delete-field" data-field-id="${f.id}" title="削除">
@@ -654,6 +680,15 @@ const EventHandlers = {
       this._onDetailAction(btn, db).catch(console.error);
     });
 
+    // ドロップダウンフィールドの変更保存
+    document.getElementById('detail-content').addEventListener('change', e => {
+      const sel = e.target.closest('[data-dropdown-field]');
+      if (!sel) return;
+      const fieldId = Number(sel.dataset.dropdownField);
+      const entryId = sel.dataset.entryId ? Number(sel.dataset.entryId) : null;
+      this._onSaveDropdownField(fieldId, entryId, sel.value, sel, db).catch(console.error);
+    });
+
     // テキストフィールドの自動保存（debounce 600ms）
     document.getElementById('detail-content').addEventListener('input', e => {
       if (!e.target.matches('[data-text-field]')) return;
@@ -693,17 +728,17 @@ const EventHandlers = {
       }
     });
 
-    // フィールド追加フォームのEnterキー
+    // フィールド追加フォームのEnterキー（IME変換中は無視）
     document.getElementById('new-field-name').addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && !e.isComposing) {
         const addBtn = document.querySelector('#field-modal [data-action="add-field"]');
         if (addBtn) addBtn.click();
       }
     });
 
-    // フィールド管理モーダルでのオプション入力Enterキー
+    // フィールド管理モーダルでのオプション入力Enterキー（IME変換中は無視）
     document.getElementById('field-modal').addEventListener('keydown', e => {
-      if (e.key !== 'Enter') return;
+      if (e.key !== 'Enter' || e.isComposing) return;
       const input = e.target.closest('[data-option-input]');
       if (!input) return;
       const fieldId = input.dataset.fieldId;
@@ -745,6 +780,7 @@ const EventHandlers = {
       case 'save-entry':       await this._onSaveEntry(btn, db); break;
       case 'delete-entry':     await this._onDeleteEntry(btn, db); break;
       case 'copy-entry-url':   await this._onCopyEntryUrl(btn); break;
+      case 'copy-entry-label': await this._onCopyEntryLabel(btn); break;
       case 'edit-entry':       this._onEditEntry(btn); break;
       case 'save-edit-entry':  await this._onSaveEditEntry(btn, db); break;
       case 'cancel-edit-entry': await Renderer.renderDetail(); break;
@@ -859,7 +895,7 @@ const EventHandlers = {
 
     const label = (form.querySelector('[data-entry-label]')?.value || '').trim();
     const value = (form.querySelector('[data-entry-value]')?.value || '').trim();
-    if (!value) { showToast('URLを入力してください'); return; }
+    if (!value) { showToast('URLを入力してください', 'error'); return; }
 
     const entry = await db.addEntry(State.selectedTaskId, fieldId, label, value);
     State.entries.push(entry);
@@ -884,7 +920,18 @@ const EventHandlers = {
       await navigator.clipboard.writeText(url);
       showToast('URLをコピーしました', 'success');
     } catch {
-      showToast('コピーに失敗しました');
+      showToast('コピーに失敗しました', 'error');
+    }
+  },
+
+  // リンク表示名をクリップボードにコピー
+  async _onCopyEntryLabel(btn) {
+    const label = btn.dataset.label;
+    try {
+      await navigator.clipboard.writeText(label);
+      showToast('表示名をコピーしました', 'success');
+    } catch {
+      showToast('コピーに失敗しました', 'error');
     }
   },
 
@@ -916,7 +963,7 @@ const EventHandlers = {
     if (!entryEl) return;
     const label = (entryEl.querySelector('[data-edit-label]')?.value || '').trim();
     const value = (entryEl.querySelector('[data-edit-value]')?.value || '').trim();
-    if (!value) { showToast('URLを入力してください'); return; }
+    if (!value) { showToast('URLを入力してください', 'error'); return; }
     const entry = State.entries.find(e => e.id === entryId);
     if (!entry) return;
     entry.label = label;
@@ -926,6 +973,34 @@ const EventHandlers = {
     if (cached) { cached.label = label; cached.value = value; }
     await this._touchTask(db);
     await Renderer.renderDetail();
+  },
+
+  // ドロップダウンフィールドの選択保存
+  async _onSaveDropdownField(fieldId, entryId, value, selectEl, db) {
+    if (value === '') {
+      // 空選択 → エントリ削除
+      if (entryId) {
+        await db.deleteEntry(entryId);
+        State.entries    = State.entries.filter(e => e.id !== entryId);
+        State.allEntries = State.allEntries.filter(e => e.id !== entryId);
+        selectEl.dataset.entryId = '';
+      }
+    } else if (entryId) {
+      const entry = State.entries.find(e => e.id === entryId);
+      if (entry) {
+        entry.value = value;
+        await db.updateEntry(entry);
+        const cached = State.allEntries.find(e => e.id === entryId);
+        if (cached) cached.value = value;
+      }
+    } else {
+      const entry = await db.addEntry(State.selectedTaskId, fieldId, '', value);
+      State.entries.push(entry);
+      State.allEntries.push(entry);
+      selectEl.dataset.entryId = entry.id;
+    }
+    await this._touchTask(db);
+    Renderer.renderTaskList();
   },
 
   // テキストフィールドの自動保存
@@ -948,7 +1023,7 @@ const EventHandlers = {
     await this._touchTask(db);
   },
 
-  // 選択フィールドのバッジトグル（単一選択・必須）
+  // 単一ラベルフィールドのバッジトグル（同じ値を再クリックで解除可能）
   async _onToggleSelect(btn, db) {
     const fieldId = Number(btn.dataset.fieldId);
     const optionValue = btn.dataset.option;
@@ -959,8 +1034,27 @@ const EventHandlers = {
     const entry = entryId ? State.entries.find(e => e.id === entryId) : null;
     const currentValue = entry ? entry.value : null;
 
-    // 既に選択済みの値はクリックしても変更しない（単一選択・必須のため解除不可）
-    if (optionValue === currentValue) return;
+    // 選択中と同じ値をクリック → 選択解除（エントリ削除）
+    if (optionValue === currentValue) {
+      if (entry) {
+        await db.deleteEntry(entry.id);
+        State.entries    = State.entries.filter(e => e.id !== entry.id);
+        State.allEntries = State.allEntries.filter(e => e.id !== entry.id);
+        form.dataset.entryId = '';
+      }
+      // 解除後は全ボタンを非選択スタイルに戻す（色は維持）
+      const selectField = State.fields.find(f => f.id === fieldId);
+      const rawOpts = selectField ? (selectField.options || []) : [];
+      form.querySelectorAll('[data-action="toggle-select"]').forEach(b => {
+        b.classList.remove('is-active');
+        const optDef = rawOpts.find(o => o.name === b.dataset.option);
+        b.style.cssText = (optDef && optDef.color)
+          ? `border-color:${optDef.color}66;color:${optDef.color};`
+          : '';
+      });
+      await this._touchTask(db);
+      return;
+    }
 
     if (entry) {
       entry.value = optionValue;
@@ -986,6 +1080,8 @@ const EventHandlers = {
         b.style.cssText = isActive
           ? `background:${optDef.color};border-color:${optDef.color};color:#fff;`
           : `border-color:${optDef.color}66;color:${optDef.color};`;
+      } else {
+        b.style.cssText = '';
       }
     });
     await this._touchTask(db);
@@ -1095,7 +1191,7 @@ const EventHandlers = {
     const field = State.fields.find(f => f.id === fieldId);
     if (!field) return;
 
-    const isSelect = field.type === 'select';
+    const isSelect = field.type === 'select' || field.type === 'dropdown';
 
     const rawOpts = field.options || [];
     const labels = rawOpts.map(o => ({ id: o.name, name: o.name, color: o.color }));
@@ -1106,7 +1202,7 @@ const EventHandlers = {
       onAdd: async (name, color) => {
         const opts = field.options || [];
         if (opts.some(o => o.name === name)) {
-          showToast('同名の選択肢がすでに存在します'); throw new Error('duplicate');
+          showToast('同名の選択肢がすでに存在します', 'error'); throw new Error('duplicate');
         }
         opts.push({ name, color });
         field.options = opts;
@@ -1215,7 +1311,7 @@ const EventHandlers = {
     const nameInput = document.getElementById('new-field-name');
     const name = nameInput.value.trim();
     const type = document.getElementById('new-field-type').value;
-    if (!name) { showToast('フィールド名を入力してください'); return; }
+    if (!name) { showToast('フィールド名を入力してください', 'error'); return; }
 
     // 選択肢は LabelManager で管理するため、新規作成時はすべて空で作成
     const options = [];
@@ -1229,7 +1325,7 @@ const EventHandlers = {
     nameInput.focus();
     Renderer.renderFieldModal();
     if (State.selectedTaskId) await Renderer.renderDetail();
-    showToast(`「${name}」を追加しました`);
+    showToast(`「${name}」を追加しました`, 'success');
   },
 
   async _onDeleteField(btn, db) {
@@ -1250,7 +1346,7 @@ const EventHandlers = {
     Renderer.renderFilterUI();
     Renderer.renderTaskList();
     if (State.selectedTaskId) await Renderer.renderDetail();
-    showToast(`「${field.name}」を削除しました`);
+    showToast(`「${field.name}」を削除しました`, 'success');
   },
 
   async _onMoveField(btn, dir, db) {
@@ -1332,14 +1428,15 @@ const EventHandlers = {
         await db.updateField(field);
         Renderer.renderFilterUI();
         if (State.selectedTaskId) await Renderer.renderDetail();
-        showToast(`フィールド名を「${newName}」に変更しました`);
+        showToast(`フィールド名を「${newName}」に変更しました`, 'success');
       }
       Renderer.renderFieldModal();
     };
 
     input.addEventListener('blur', () => save(true).catch(console.error));
     input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); save(true).catch(console.error); }
+      // IME 変換中の Enter は無視（変換確定後の Enter のみ保存）
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); save(true).catch(console.error); }
       if (e.key === 'Escape') { save(false).catch(console.error); }
     });
   },
@@ -1354,10 +1451,10 @@ const EventHandlers = {
     if (!input) return;
 
     const value = input.value.trim();
-    if (!value) { showToast('選択肢を入力してください'); return; }
+    if (!value) { showToast('選択肢を入力してください', 'error'); return; }
 
     if (!field.options) field.options = [];
-    if (field.options.includes(value)) { showToast('すでに存在する選択肢です'); return; }
+    if (field.options.includes(value)) { showToast('すでに存在する選択肢です', 'error'); return; }
 
     field.options.push(value);
     await db.updateField(field);
@@ -1369,7 +1466,7 @@ const EventHandlers = {
 
     Renderer.renderFilterUI(); // select/label の選択肢が増えた場合フィルターも更新
     if (State.selectedTaskId) await Renderer.renderDetail();
-    showToast(`「${value}」を追加しました`);
+    showToast(`「${value}」を追加しました`, 'success');
   },
 
   async _onRemoveFieldOption(btn, db) {
@@ -1387,7 +1484,7 @@ const EventHandlers = {
 
     Renderer.renderFilterUI();
     if (State.selectedTaskId) await Renderer.renderDetail();
-    showToast(`「${optionValue}」を削除しました`);
+    showToast(`「${optionValue}」を削除しました`, 'success');
   },
 
   /** TODOとの紐づけを解除 */
@@ -1405,7 +1502,7 @@ const EventHandlers = {
       kanbanDb.close();
       await Renderer.renderTodoLinks(State.selectedTaskId);
     } catch (e) {
-      showToast('紐づき解除に失敗しました');
+      showToast('紐づき解除に失敗しました', 'error');
     }
   },
 
@@ -1444,7 +1541,7 @@ const EventHandlers = {
     a.download = `note_export_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('エクスポートしました');
+    showToast('エクスポートしました', 'success');
   },
 
   async _onImport(e, db) {
@@ -1466,7 +1563,7 @@ const EventHandlers = {
       Renderer.renderTaskList();
       Renderer.renderFilterUI();
       await Renderer.renderDetail();
-      showToast('インポートしました');
+      showToast('インポートしました', 'success');
     } catch (err) {
       alert('インポートに失敗しました: ' + err.message);
     }

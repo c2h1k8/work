@@ -657,10 +657,11 @@ body {
 
 .note-entry-form__row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 
-  .note-input:first-child { flex: 0 0 200px; }
-  .note-input:last-child  { flex: 1; }
+  .note-input:first-child { flex: 1 1 120px; min-width: 0; }
+  .note-input:last-child  { flex: 2 1 160px; min-width: 0; }
 }
 
 .note-entry-form__actions {
@@ -671,6 +672,17 @@ body {
 // ── select 全幅バリアント ────────────────────────────────────
 .note-select {
   &--full { width: 100%; }
+}
+
+// ── ドロップダウンフィールド（CustomSelect）─────────────────
+// note-field 内の CustomSelect ラッパーを全幅に
+.note-field .cs-wrapper {
+  width: 100%;
+}
+.note-field .cs-trigger {
+  width: 100%;
+  justify-content: space-between;
+  box-sizing: border-box;
 }
 
 // ── ラベルタイプフォーム（バッジトグル） ────────────────────
@@ -941,11 +953,12 @@ body {
     border-radius: 99px;
 
     // タイプ別カラー
-    &[data-type="link"]   { background: #eff6ff; color: #2563eb; }
-    &[data-type="text"]   { background: @border-l; color: @text-sub; }
-    &[data-type="date"]   { background: @green-l; color: @green; }
-    &[data-type="select"] { background: #f5f3ff; color: #7c3aed; }
-    &[data-type="label"]  { background: #fff7ed; color: #c2410c; }
+    &[data-type="link"]     { background: #eff6ff; color: #2563eb; }
+    &[data-type="text"]     { background: @border-l; color: @text-sub; }
+    &[data-type="date"]     { background: @green-l; color: @green; }
+    &[data-type="select"]   { background: #f5f3ff; color: #7c3aed; }
+    &[data-type="label"]    { background: #fff7ed; color: #c2410c; }
+    &[data-type="dropdown"] { background: #ecfdf5; color: #047857; }
   }
 
   &__actions {

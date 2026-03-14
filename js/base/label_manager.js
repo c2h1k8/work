@@ -106,7 +106,8 @@ const LabelManager = (() => {
     el.querySelector('#lmgr-add-btn').addEventListener('click', () => _onAdd().catch(console.error));
     el.querySelector('#lmgr-add-name').addEventListener('input', _updateAddPreview);
     el.querySelector('#lmgr-add-name').addEventListener('keydown', e => {
-      if (e.key === 'Enter') _onAdd().catch(console.error);
+      // IME 変換中の Enter は無視
+      if (e.key === 'Enter' && !e.isComposing) _onAdd().catch(console.error);
     });
     el.querySelector('#lmgr-list').addEventListener('click', e => _onListClick(e).catch(console.error));
 
@@ -311,6 +312,14 @@ const LabelManager = (() => {
     const name = (nameInput?.value || '').trim();
     if (!name) { nameInput?.focus(); return; }
 
+    // 重複チェック（LabelManager 側でも弾く）
+    const isDuplicate = (_config.labels || []).some(l => l.name === name);
+    if (isDuplicate) {
+      if (typeof Toast !== 'undefined') Toast.show('同じ名前のラベルがすでに存在します', 'error');
+      nameInput?.select();
+      return;
+    }
+
     const label = await _config.onAdd(name, _currentColor);
     _config.labels.push(label);
     _renderList();
@@ -347,6 +356,15 @@ const LabelManager = (() => {
       done = true;
       const newName = input.value.trim();
       if (commit && newName && newName !== label.name) {
+        // 重複チェック（他のラベルと同名になる場合は保存しない）
+        const isDuplicate = (_config.labels || []).some(
+          l => String(l.id) !== String(label.id) && l.name === newName
+        );
+        if (isDuplicate) {
+          if (typeof Toast !== 'undefined') Toast.show('同じ名前のラベルがすでに存在します', 'error');
+          _renderList();
+          return;
+        }
         await _config.onUpdate(label.id, newName, label.color);
         label.name = newName;
         _config.onChange?.();
@@ -356,7 +374,8 @@ const LabelManager = (() => {
 
     input.addEventListener('blur', () => save(true).catch(console.error));
     input.addEventListener('keydown', e => {
-      if (e.key === 'Enter')  { e.preventDefault(); save(true).catch(console.error); }
+      // IME 変換中の Enter は無視
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); save(true).catch(console.error); }
       if (e.key === 'Escape') { save(false).catch(console.error); }
     });
   }

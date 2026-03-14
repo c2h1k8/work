@@ -1124,6 +1124,15 @@ const Renderer = {
         </div>`
             : ""
         }
+        ${
+          isCmdBuilder
+            ? `
+        <div class="settings-form-row">
+          <label class="settings-label">履歴の上限件数（0 で無効）</label>
+          <input class="settings-input settings-input--xs" id="edit-section-history-limit" type="number" min="0" max="100" value="${section.history_limit ?? 10}" />
+        </div>`
+            : ""
+        }
         <div class="settings-form-row">
           <button class="settings-btn settings-btn--primary" data-action="save-section-meta" data-section-id="${section.id}">保存</button>
         </div>`;
@@ -1157,16 +1166,6 @@ const Renderer = {
         </div>`;
     }
 
-    if (isCmdBuilder) {
-      html += `
-        <div class="settings-form-row">
-          <label class="settings-label">履歴の上限件数（0 で無効）</label>
-          <input class="settings-input settings-input--xs" id="edit-section-history-limit" type="number" min="0" max="100" value="${section.history_limit ?? 10}" />
-        </div>
-        <div class="settings-form-row">
-          <button class="settings-btn settings-btn--primary" data-action="save-section-cmd" data-section-id="${section.id}">保存</button>
-        </div>`;
-    }
     html += `</div>`;
 
     // コマンドビルダー: ボタン一覧管理サブセクション
@@ -2165,37 +2164,29 @@ const EventHandlers = {
       // 件数変更時はページを先頭にリセット
       State.tablePageState[section.id] = 0;
     }
+    if (section.type === "command_builder") {
+      const limitVal = parseInt(
+        document.getElementById("edit-section-history-limit")?.value,
+        10,
+      );
+      section.history_limit = !isNaN(limitVal) && limitVal >= 0 ? limitVal : 10;
+      // 上限が変わった場合に既存履歴をトリム
+      const historyKey = CMD_HISTORY_PREFIX + section.id;
+      if (section.history_limit === 0) {
+        localStorage.removeItem(historyKey);
+      } else {
+        const urls = loadJsonFromStorage(historyKey) || [];
+        if (urls.length > section.history_limit) {
+          localStorage.setItem(
+            historyKey,
+            JSON.stringify(urls.slice(0, section.history_limit)),
+          );
+        }
+      }
+    }
     await State.db.updateSection(section);
     document.getElementById("settings-title").textContent =
       `${section.icon || ""} ${section.title}`;
-    Renderer.renderDashboard();
-    showToast("保存しました", "success");
-  },
-
-  async saveSectionCmd(sectionId) {
-    const section = State.sections.find((s) => s.id === sectionId);
-    if (!section) return;
-    const limitVal = parseInt(
-      document.getElementById("edit-section-history-limit")?.value,
-      10,
-    );
-    section.history_limit = !isNaN(limitVal) && limitVal >= 0 ? limitVal : 10;
-    await State.db.updateSection(section);
-
-    // 上限が変わった場合に既存履歴をトリム
-    const historyKey = CMD_HISTORY_PREFIX + sectionId;
-    if (section.history_limit === 0) {
-      localStorage.removeItem(historyKey);
-    } else {
-      const urls = loadJsonFromStorage(historyKey) || [];
-      if (urls.length > section.history_limit) {
-        localStorage.setItem(
-          historyKey,
-          JSON.stringify(urls.slice(0, section.history_limit)),
-        );
-      }
-    }
-
     Renderer.renderDashboard();
     showToast("保存しました", "success");
   },
@@ -3760,9 +3751,6 @@ const App = {
           break;
         case "save-section-meta":
           eh.saveSectionMeta(sectionId).catch(console.error);
-          break;
-        case "save-section-cmd":
-          eh.saveSectionCmd(sectionId).catch(console.error);
           break;
         case "show-add-cmd-button":
           eh.toggleAddCmdButtonForm(true);

@@ -40,13 +40,14 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `js/base/common.js` の共通ユーティリティを活用する（dashboard.html は不使用）
 - `js/base/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` — HTML エスケープと position 昇順ソート
 - `js/base/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` — 統一トースト通知（自己挿入型）。CSS は `css/base/toast.{less,css}`。各ページに `showToast` ラッパーを定義する場合は `type` を必ず透過すること: `const showToast = (msg, type) => Toast.show(msg, type);`
+- `js/base/tooltip.js` を必要なページで読み込む: `Tooltip.init(container, selector?)` — カスタムツールチップ（自己挿入型・即時表示）。CSS は `css/base/tooltip.{less,css}`。`data-tooltip="テキスト"` 属性を持つ要素が対象。`title` 属性の代わりに使用することでブラウザ固有の遅延を回避できる。現在の使用ページ: `wbs.html`
 - `js/base/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` など
 - コメントは日本語で記載する
 - `todo.js` のアーキテクチャ: `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `App`（DB層は `js/db/kanban_db.js` の `KanbanDB` クラスに分離）
 - `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
-- `LabelManager` は `js/base/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/base/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`
+- `LabelManager` は `js/base/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/base/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`。重複名チェック（追加・リネーム両方）は LabelManager 内で処理し `Toast.show` で通知（Toast が存在する場合）。Enter キーは `isComposing` チェックで IME 変換中を無視。
 - `BindVarModal` は `js/base/bind_var_modal.js` に分離されたバインド変数 + プリセット管理モーダル（共通部品）。CSS は `css/base/bind_var_modal.{less,css}`。HTML は初回 `BindVarModal.open()` 時に自動生成・挿入される。API: `BindVarModal.open({ title, varNames, presets, showBarConfig, uiType, barLabel, onAddVar, onRemoveVar, onSaveBarConfig, onAddPreset, onUpdatePreset, onDeletePreset, onMovePresetUp, onMovePresetDown, onChange })` / `BindVarModal.close()`。2カラムレイアウト（左: 変数定義 + バー設定、右: プリセット一覧/編集）。dashboard.js の共通バインド変数設定・テーブルバインド変数設定で使用。
-- `CustomSelect` は `js/base/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/base/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。使用ページ: `index.html` / `todo.html` / `sql.html` / `note.html` / `dashboard.html`
+- `CustomSelect` は `js/base/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/base/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。**`<option data-color="#hex">` を付与すると色が自動反映される。** トリガー（選択中）: `.cs-color-badge`（カラーバッジチップ、色背景＋白文字）。ドロップダウン内アイテム: `.cs-swatch`（11px角丸スクエア、`--cs-swatch-color` CSS変数で色指定、影付き）。選択中アイテムはスウォッチにリングを付与し、既存の選択ドット（`::before`）は非表示（`:has` で制御）。 使用ページ: `index.html` / `todo.html` / `sql.html` / `note.html` / `dashboard.html`
 - `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
 - `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
 - `State.columns: []` は `{ id, key, name, position }` の配列。`getColumnKeys()` で key 一覧を取得
@@ -88,7 +89,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
   2. ナビバーのテーマトグルボタン (`#theme-toggle-btn`) クリックで `_applyTheme()` が呼ばれる
   3. `_applyTheme()` は全 iframe に `postMessage({ type: 'theme-change', theme })` を送信
   4. 各ページ JS は `window.addEventListener('message', ...)` で受け取り `data-theme` を更新
-- **トークン命名規則**: `--c-*` （カラー）、`--shadow-*`（シャドウ）、`--radius-*`（角丸）、`--t`（トランジション）、`--font`（フォント）、`--space-*`（スペーシング）
+- **トークン命名規則**: `--c-*` （カラー）、`--c-tooltip-*`（ツールチップ専用色）、`--shadow-*`（シャドウ）、`--radius-*`（角丸）、`--t`（トランジション）、`--font`（フォント）、`--space-*`（スペーシング）
 - **ページ側エイリアス**: 各ページ LESS の `:root` で `--color-*` を `var(--c-*)` にマッピング（後方互換）。`--radius-*` は tokens.css の値をそのまま使うこと（上書き禁止）
 - **ハードコード禁止**: `#fff`, `#fafbff`, `#eaecef` 等の色をページ LESS に直書きしない。`var(--c-surface)`, `var(--c-surface-raised)`, `var(--c-bg-2)` 等のトークンを使うこと（ダークモード対応のため）
 - **LESS で CSS 変数をLESS変数に代入した場合**: `darken()`, `lighten()`, `fade()` 等の LESS 色関数は使用不可。`var(--c-bg-2)`, `var(--c-accent-dim)`, `var(--c-border-2)` 等の CSS 変数で代替すること
@@ -127,10 +128,11 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 | ファイル                  | クラス    | DB名          | ページ         |
 | ------------------------- | --------- | ------------- | -------------- |
-| `js/db/kanban_db.js`      | KanbanDB  | kanban_db     | todo.html      |
-| `js/db/note_db.js`        | NoteDB    | note_db       | note.html      |
-| `js/db/dashboard_db.js`   | DashboardDB    | dashboard_db  | dashboard.html |
-| `js/db/sql_db.js`         | SqlDB     | sql_db        | sql.html       |
+| `js/db/kanban_db.js`      | KanbanDB    | kanban_db     | todo.html      |
+| `js/db/note_db.js`        | NoteDB      | note_db       | note.html      |
+| `js/db/dashboard_db.js`   | DashboardDB | dashboard_db  | dashboard.html |
+| `js/db/sql_db.js`         | SqlDB       | sql_db        | sql.html       |
+| `js/db/wbs_db.js`         | WbsDB       | wbs_db        | wbs.html       |
 
 - HTML での読み込み順: `utils.js` → ... → `js/db/<name>_db.js` → `js/<name>.js`
 - DB クラスはページ JS より前に読み込む必要がある（グローバルクラスとして参照するため）
@@ -239,11 +241,12 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 - IndexedDB DB名: `note_db` version **1**
 - ストア: `tasks`（id/title/created_at/updated_at）+ `fields`（id/name/type/options/position/**width**/**listVisible**）+ `entries`（id/task_id/field_id/label/value/created_at）
-- フィールドタイプ: `link` | `text` | `date` | `select` | `label`
-- `link`: 複数エントリ可。追加ボタンあり、表示名＋URL
+- フィールドタイプ: `link` | `text` | `date` | `select` | `label` | `dropdown`
+- `link`: 複数エントリ可。追加ボタンあり、表示名＋URL。表示名が設定されている場合は「表示名をコピー」ボタンも表示（`copy-entry-label`アクション）
 - `text`: 単一エントリ。メモ風インライン textarea（自動保存、debounce 600ms）
 - `date`: 単一エントリ。カスタム DatePicker（`js/base/date_picker.js`）で選択。クリッカブルな日付表示エリア
-- `select`: 単一エントリ。バッジトグル形式（単一選択・必須。選択済みをクリックしても解除不可）。オプションは文字列配列 `string[]` 形式。色なし。管理は LabelManager（フィールド管理モーダルの「選択肢」ボタン）。フィールドタイプ表示名は「単一選択」
+- `select`: 単一エントリ。バッジトグル形式（単一ラベル・選択済みを再クリックで解除可能）。オプションは `{name, color}[]` 形式。管理は LabelManager（フィールド管理モーダルの「選択肢」ボタン）。フィールドタイプ表示名は「単一ラベル」
+- `dropdown`: 単一エントリ。CustomSelect ドロップダウン形式（空選択可能）。オプションは `{name, color}[]` 形式。管理は LabelManager（「選択肢」ボタン）。`renderDetail` 後に `CustomSelect.replaceAll(content)` で変換。`<option data-color>` を付与することで CustomSelect が自動的に色スウォッチを表示。値は plain string。フィールドタイプ表示名は「ドロップダウン」
 - `label`: バッジトグル形式（チェックボックスなし・保存ボタンなし）。クリックで即時保存。オプションは `{name, color}[]` 形式。色はインラインスタイルで適用。管理は LabelManager（フィールド管理モーダルの「ラベル」ボタン）
 - タイプバッジは非表示（フィールド名のみ表示）
 - `field.width`: `'narrow'`(1/6) / `'auto'`(2/6) / `'w3'`(3/6) / `'wide'`(4/6) / `'w5'`(5/6) / `'full'`(6/6)。ダッシュボードと同仕様。旧 `'half'` は `'auto'` 扱い
@@ -265,9 +268,32 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - **TODOとの紐づけ**: `kanban_db` の `note_links` ストアに `{ id, todo_task_id, note_task_id }` 形式で保存。詳細パネル末尾の「紐づきTODO」セクションに表示。`Renderer.renderTodoLinks(noteTaskId)` で描画、`_openKanbanDB()` で cross-DB アクセス
 - `_openKanbanDB()`: `kanban_db` を開くモジュールレベルヘルパー（note.js 内）
 
+## wbs.js アーキテクチャ（2026-03現在）
+
+- IndexedDB DB名: `wbs_db` version **1**
+- ストア: `tasks`（id/title/level/position/plan_start/plan_days/actual_start/actual_end/progress/status/memo）
+- ステータス: `not_started` | `in_progress` | `done` | `on_hold`
+- `WbsDB.getAllTasks()` → position 昇順で全タスク取得
+- `WbsDB.addTask(task)` / `updateTask(task)` / `deleteTask(id)` / `bulkUpdate(tasks)`
+- `WbsDB.exportAll()` / `importAll(json)` → JSON バックアップ
+- 営業日計算ユーティリティ（wbs.js 内）:
+  - `addBusinessDays(startStr, days, customSet)` → 開始日から N 営業日後の日付
+  - `countBusinessDays(startStr, endStr, customSet)` → 区間の営業日数（両端含む）
+  - `isNonWorkingDay(date, customSet)` → 土日・祝日・カスタム休業日の判定
+  - `getJapaneseHolidays(year)` → 日本の祝日 Set（春分・秋分・振替休日・ハッピーマンデー含む）
+- カスタム休業日: `localStorage('wbs_custom_holidays')` に `[{ date:'YYYY-MM-DD', name:string }]` 形式で保存
+- ガントチャート:
+  - `DAY_PX = 22`（1日の横幅 px）
+  - 表示期間は `calcDisplayPeriod()` でタスクの日付から自動計算（前2週・後3週マージン、月初/月末に丸め）
+  - 予定バー（上段 `top:8px, h:11px`）と実績バー（下段 `top:21px, h:11px`）を同じ高さで表示
+  - バーのホバーは `Tooltip.init()` でカスタムツールチップ表示（`data-tooltip` 属性）
+  - 横スクロール位置は `localStorage('wbs_gantt_scroll_x')` に記憶、初回は今日を中央に表示
+  - テーブル側と縦スクロール同期。ガントヘッダーと横スクロール同期
+- モジュール構成: `WbsDB` / `State` / `Renderer` / `EventHandlers` / `App`
+
 ## 注意事項
 
-- `todo.html` は IndexedDB を使用するため `file://` でも動作する（localStorage 依存なし）
-- その他ページは localStorage を使用するため、ローカルファイルアクセスでは制限が生じる場合がある
+- 全ページ IndexedDB でデータを永続化するため `file://` でも動作する
+- localStorage はテーマ・UI状態（選択中タブ・スクロール位置・フィルター等）のみに使用するため、ローカルファイルアクセスでも制限なし
 - LESS ファイルを編集した場合は `npx lessc <src>.less <dst>.css` で必ず CSS を再生成する
 - `dashboard.html` にはアカウント情報やスプレッドシートIDが含まれる場合がある。Git にコミットする際は注意する
