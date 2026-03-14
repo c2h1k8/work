@@ -482,10 +482,9 @@ const Renderer = {
     const width = Math.round((e - s) / 86400000 + 1) * DAY_PX;
     if (width <= 0) return '';
 
-    const label = width > 40 ? shortDate(startStr) + '〜' + shortDate(endStr) : '';
-    return `<div class="gantt-bar ${cls}" style="left:${left}px;width:${width}px;" title="${escapeHtml(startStr + ' 〜 ' + endStr)}">
-      ${label ? `<span style="font-size:9px;color:#fff;padding:0 3px;white-space:nowrap;overflow:hidden;">${escapeHtml(label)}</span>` : ''}
-    </div>`;
+    // バー内には常時ラベルを表示しない。ホバー時のカスタムツールチップで日付を表示する
+    const tooltip = shortDate(startStr) + ' 〜 ' + shortDate(endStr);
+    return `<div class="gantt-bar ${cls}" style="left:${left}px;width:${width}px;" data-tooltip="${escapeHtml(tooltip)}"></div>`;
   },
 
   /** スクロール同期リスナー（初期化時に一度だけ呼ぶ） */
@@ -957,6 +956,7 @@ const App = {
     State.tasks = await _db.getAllTasks();
     Renderer.renderAll();
     Renderer.initScrollSync();
+    Tooltip.init(document.getElementById('wbs-gantt-body'));
     EventHandlers.bindAll();
   },
 };

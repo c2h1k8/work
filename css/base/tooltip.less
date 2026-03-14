@@ -1,0 +1,19 @@
+// ==========================================
+// Tooltip - カスタムツールチップ共通スタイル
+// ==========================================
+
+.tooltip-popup {
+  position: fixed;
+  z-index: 900;
+  padding: 4px 9px;
+  background: var(--c-tooltip-bg);
+  color: var(--c-tooltip-text);
+  font-size: 11px;
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+  font-variant-numeric: tabular-nums;
+  // tokens.css を後から読んでも z-index 管理できるよう最上位に
+}
