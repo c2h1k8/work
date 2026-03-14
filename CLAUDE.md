@@ -68,6 +68,10 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - 例: `npx lessc css/todo.less css/todo.css`
 - 共通スタイルは `css/base/` 配下に配置する
 - ページ固有スタイルは `css/<page>.{less,css}` に配置する
+- **`.less` ファイルを追加・削除した場合は `.github/workflows/release.yml` の「Build CSS from LESS」ステップも必ず更新すること**
+  - 追加時: `npx lessc <src>.less <dst>.css` を該当ステップに追記する
+  - 削除時: 対応する行をステップから削除する
+  - 新規ページ HTML を追加した場合は release.yml の ZIP 作成ステップ（`zip -r` コマンド）にも追記する
 
 ### デザインシステム（2026-03現在）
 

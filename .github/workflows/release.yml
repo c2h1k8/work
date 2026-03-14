@@ -38,6 +38,7 @@ jobs:
           npx lessc css/note.less      css/note.css
           npx lessc css/sql.less       css/sql.css
           npx lessc css/dashboard.less css/dashboard.css
+          npx lessc css/wbs.less       css/wbs.css
 
       - name: Create release ZIP
         run: |
@@ -50,6 +51,7 @@ jobs:
             note.html \
             sql.html \
             dashboard.html \
+            wbs.html \
             favicon.svg \
             js/ \
             css/ \
