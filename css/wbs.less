@@ -1,0 +1,816 @@
+// ==========================================
+// WBS（作業分解構造）スタイル
+// ==========================================
+
+// ページ変数マッピング（DatePicker が参照する変数も含む）
+:root {
+  --color-surface: var(--c-surface);
+  --color-border: var(--c-border);
+  --color-text: var(--c-text);
+  --color-text-2: var(--c-text-2);
+  --color-text-3: var(--c-text-3);
+  --color-bg: var(--c-bg);
+  --color-bg-2: var(--c-bg-2);
+  // DatePicker が参照する変数
+  --color-accent: var(--c-accent);
+  --color-danger: var(--c-danger);
+  --color-card: var(--c-surface);          // datepicker__dialog の背景
+  --color-text-muted: var(--c-text-3);     // dp-weekday の色
+
+  // WBS固有トークン
+  --wbs-row-h: 40px;
+  --wbs-header-h: 56px;
+  --wbs-toolbar-h: 48px;
+  --wbs-gantt-header-h: 52px;  // 月ヘッダー + 日ヘッダー
+  --wbs-day-w: 22px;           // ガントチャート 1日の幅
+
+  // バー色
+  --wbs-plan-color: var(--c-accent);
+  --wbs-actual-color: var(--c-success);
+  --wbs-today-color: var(--c-danger);
+}
+
+// ==========================================
+// レイアウト
+// ==========================================
+.wbs-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--c-bg);
+}
+
+// ヘッダー
+.wbs-header {
+  height: var(--wbs-header-h);
+  background: linear-gradient(135deg, var(--c-accent) 0%, color-mix(in srgb, var(--c-accent) 70%, #312e81) 100%);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.wbs-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 var(--space-5);
+}
+
+.wbs-header__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.02em;
+
+  svg {
+    width: 20px;
+    height: 20px;
+    fill: rgba(255, 255, 255, 0.9);
+    flex-shrink: 0;
+  }
+}
+
+.wbs-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wbs-header__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-md);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--t), border-color var(--t);
+
+  svg {
+    width: 13px;
+    height: 13px;
+    fill: currentColor;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+}
+
+// ツールバー
+.wbs-toolbar {
+  height: var(--wbs-toolbar-h);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
+}
+
+.wbs-toolbar__sep {
+  width: 1px;
+  height: 20px;
+  background: var(--c-border);
+  margin: 0 var(--space-1);
+}
+
+// ==========================================
+// メインエリア（テーブル + ガントチャート）
+// ==========================================
+.wbs-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+// ------------------------------------------
+// テーブル側（左固定）
+// ------------------------------------------
+.wbs-table-section {
+  display: flex;
+  flex-direction: column;
+  // 固定列合計(32+82×4+48×2+48+64+40=560px) + title min140 + 余裕 = 760px
+  width: 760px;
+  min-width: 640px;
+  flex-shrink: 0;
+  border-right: 2px solid var(--c-border-2);
+  background: var(--c-surface);
+}
+
+.wbs-table-head {
+  display: flex;
+  align-items: center;
+  height: var(--wbs-gantt-header-h);
+  background: var(--c-surface-raised);
+  border-bottom: 2px solid var(--c-border-2);
+  flex-shrink: 0;
+}
+
+.wbs-th {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-text-2);
+  letter-spacing: 0.04em;
+  padding: 0 var(--space-1);
+  height: 100%;
+  border-right: 1px solid var(--c-border);
+  flex-shrink: 0;
+  white-space: nowrap;   // 改行防止
+  overflow: hidden;
+  text-align: center;
+
+  &:first-child {
+    justify-content: flex-start;
+    padding-left: var(--space-2);
+  }
+
+  &.th-no     { width: 32px; }
+  &.th-title  { flex: 1; min-width: 140px; justify-content: flex-start; padding-left: var(--space-2); }
+  &.th-date   { width: 82px; }   // YYYY/M/D 表示のため幅確保
+  &.th-days   { width: 48px; }
+  &.th-pct    { width: 48px; }
+  &.th-status { width: 64px; }
+  &.th-ops    { width: 40px; border-right: none; }
+}
+
+.wbs-table-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+// 行
+.wbs-row {
+  display: flex;
+  align-items: center;
+  height: var(--wbs-row-h);
+  border-bottom: 1px solid var(--c-border);
+  transition: background var(--t);
+  position: relative;
+
+  &:hover {
+    background: var(--c-bg);
+  }
+
+  &.is-selected {
+    background: var(--c-accent-dim);
+  }
+}
+
+// レベル別左ボーダー
+@wbs-level-colors: #6366f1, #8b5cf6, #ec4899, #f59e0b, #10b981;
+.wbs-row--l0 { border-left: 3px solid #6366f1; }
+.wbs-row--l1 { border-left: 3px solid #8b5cf6; }
+.wbs-row--l2 { border-left: 3px solid #ec4899; }
+.wbs-row--l3 { border-left: 3px solid #f59e0b; }
+.wbs-row--l4 { border-left: 3px solid #10b981; }
+
+// セル基本
+.wbs-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 var(--space-2);
+  font-size: 12.5px;
+  color: var(--c-text);
+  border-right: 1px solid var(--c-border);
+  flex-shrink: 0;
+  cursor: default;
+  overflow: hidden;
+
+  &.is-clickable {
+    cursor: pointer;
+    &:hover { background: var(--c-accent-dim); }
+  }
+  // カレンダーアイコンを右端にほのめかす
+  &.is-date-picker {
+    position: relative;
+    &::after {
+      content: '';
+      position: absolute;
+      right: 4px;
+      width: 10px;
+      height: 10px;
+      opacity: 0;
+      background: var(--c-accent);
+      -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+      transition: opacity var(--t);
+      flex-shrink: 0;
+    }
+    &:hover::after { opacity: 0.5; }
+  }
+  &.is-readonly {
+    color: var(--c-text-2);
+    background: var(--c-bg);
+  }
+  &.cell-no     { width: 32px; color: var(--c-text-3); font-size: 11px; }
+  &.cell-title  {
+    flex: 1;
+    min-width: 140px;
+    justify-content: flex-start;
+    padding-left: var(--space-2);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  &.cell-date   { width: 82px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  &.cell-days   { width: 48px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  &.cell-pct    { width: 48px; padding: 0 4px; }
+  &.cell-status { width: 64px; padding: 0 4px; }
+  &.cell-ops    { width: 40px; border-right: none; gap: 2px; }
+}
+
+// タイトルセルのインデント
+.wbs-title-indent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  overflow: hidden;
+}
+
+.wbs-title-spacer {
+  flex-shrink: 0;
+}
+
+.wbs-title-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// レベル別フォントスタイル
+.wbs-row--l0 .cell-title { font-weight: 700; font-size: 13.5px; }
+.wbs-row--l1 .cell-title { font-weight: 600; }
+.wbs-row--l2 .cell-title { font-weight: 500; }
+
+// 進捗バー
+.wbs-progress-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wbs-progress-bar {
+  height: 4px;
+  background: var(--c-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.wbs-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--c-accent);
+  transition: width 0.3s ease;
+}
+
+.wbs-progress-label {
+  font-size: 10px;
+  color: var(--c-text-3);
+  text-align: center;
+}
+
+// ステータスバッジ
+.wbs-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 5px;
+  border-radius: var(--radius-full);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+
+  &.s-not-started { background: var(--c-bg-2); color: var(--c-text-3); }
+  &.s-in-progress { background: var(--c-info-bg); color: var(--c-info); }
+  &.s-done        { background: var(--c-success-bg); color: var(--c-success); }
+  &.s-on-hold     { background: var(--c-warning-bg); color: var(--c-warning); }
+}
+
+// 遅延・超過インジケーター
+.wbs-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0px 4px;
+  border-radius: var(--radius-full);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  &.wbs-badge--delay {
+    background: color-mix(in srgb, var(--c-danger) 15%, var(--c-surface));
+    color: var(--c-danger);
+    border: 1px solid color-mix(in srgb, var(--c-danger) 40%, transparent);
+  }
+  &.wbs-badge--soon {
+    background: color-mix(in srgb, var(--c-warning) 15%, var(--c-surface));
+    color: var(--c-warning);
+    border: 1px solid color-mix(in srgb, var(--c-warning) 40%, transparent);
+  }
+}
+
+// 遅延セル（予定終了日を過ぎたセル）
+.cell-date.is-overdue {
+  color: var(--c-danger);
+  font-weight: 600;
+}
+
+// 期日近セル（3日以内）
+.cell-date.is-due-soon {
+  color: var(--c-warning);
+  font-weight: 600;
+}
+
+// 超過セル（実績工数 > 予定工数）
+.cell-days.is-overrun {
+  color: var(--c-danger);
+  font-weight: 700;
+}
+
+// 進行中（実績終了未設定で実績開始あり）
+.cell-days.is-ongoing {
+  color: var(--c-warning);
+  font-style: italic;
+}
+
+// 操作ボタン（行内）
+.wbs-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text-3);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--t), color var(--t);
+
+  svg {
+    width: 13px;
+    height: 13px;
+    fill: currentColor;
+  }
+
+  &:hover {
+    background: var(--c-bg-2);
+    color: var(--c-text);
+  }
+  // 削除ボタンは常時赤色で存在を明示
+  &.danger {
+    color: var(--c-danger);
+    opacity: 0.45;
+    &:hover {
+      background: var(--c-danger-bg);
+      opacity: 1;
+    }
+  }
+}
+
+// インライン編集
+.wbs-cell-input {
+  width: 100%;
+  height: 28px;
+  padding: 0 6px;
+  border: 2px solid var(--c-accent);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 12.5px;
+  font-family: inherit;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--c-accent-dim);
+
+  // number inputのスピナーを非表示にして数字を見えやすくする
+  &[type="number"] {
+    text-align: center;
+    -moz-appearance: textfield;
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  }
+  &[type="date"] { font-size: 11.5px; }
+}
+
+// ステータス選択ポップアップ
+.wbs-status-picker {
+  position: fixed;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  min-width: 100px;
+  z-index: 600;
+}
+
+.wbs-status-option {
+  display: flex;
+  align-items: center;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: background var(--t);
+  gap: var(--space-2);
+
+  &:hover { background: var(--c-bg); }
+  &.is-selected { background: var(--c-accent-dim); }
+}
+
+.wbs-cell-select {
+  width: 100%;
+  height: 28px;
+  padding: 0 4px;
+  border: 2px solid var(--c-accent);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+// 空状態
+.wbs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  color: var(--c-text-3);
+  font-size: 13px;
+  text-align: center;
+
+  svg {
+    width: 48px;
+    height: 48px;
+    fill: var(--c-border-2);
+  }
+}
+
+// ==========================================
+// ガントチャート側（右）
+// ==========================================
+.wbs-gantt-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--c-surface);
+}
+
+.wbs-gantt-header {
+  height: var(--wbs-gantt-header-h);
+  overflow: hidden;
+  flex-shrink: 0;
+  border-bottom: 2px solid var(--c-border-2);
+  background: var(--c-surface-raised);
+}
+
+.wbs-gantt-header-inner {
+  position: relative;
+  height: 100%;
+}
+
+// 月ヘッダー行
+.gantt-months {
+  display: flex;
+  height: 24px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.gantt-month-cell {
+  display: flex;
+  align-items: center;
+  padding-left: var(--space-2);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-accent);
+  border-right: 1px solid var(--c-border);
+  white-space: nowrap;
+  overflow: hidden;
+  letter-spacing: 0.04em;
+  background: var(--c-surface-raised);
+  flex-shrink: 0;
+}
+
+// 日ヘッダー行
+.gantt-days {
+  display: flex;
+  height: 28px;
+  position: absolute;
+  top: 24px;
+  left: 0;
+}
+
+.gantt-day-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--wbs-day-w);
+  font-size: 9.5px;
+  color: var(--c-text-3);
+  border-right: 1px solid var(--c-border);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+
+  &.is-saturday { background: var(--c-bg); color: #5b9bd5; }
+  &.is-sunday   { background: var(--c-bg); color: #e05c5c; }
+  &.is-holiday  { background: var(--c-bg); color: #d97706; }
+  &.is-today {
+    background: color-mix(in srgb, var(--c-danger) 10%, transparent);
+    color: var(--c-danger);
+    font-weight: 700;
+  }
+  &.is-month-start { border-left: 1px solid var(--c-border-2); }
+}
+
+// ガントボディ
+.wbs-gantt-body {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.wbs-gantt-body-inner {
+  position: relative;
+}
+
+// ガント行
+.gantt-row {
+  height: var(--wbs-row-h);
+  display: flex;
+  position: relative;
+  border-bottom: 1px solid var(--c-border);
+
+  &:hover {
+    background: var(--c-bg);
+    .gantt-row-bg { opacity: 0.5; }
+  }
+}
+
+// 背景セル（土日・祝日ハイライト）
+.gantt-bg-cell {
+  width: var(--wbs-day-w);
+  height: 100%;
+  border-right: 1px solid var(--c-border);
+  flex-shrink: 0;
+
+  &.is-saturday { background: color-mix(in srgb, #5b9bd5 6%, transparent); }
+  &.is-sunday   { background: color-mix(in srgb, #e05c5c 6%, transparent); }
+  &.is-holiday  { background: color-mix(in srgb, #d97706 8%, transparent); }
+  &.is-today {
+    background: color-mix(in srgb, var(--c-danger) 6%, transparent);
+    border-right: 1px solid color-mix(in srgb, var(--c-danger) 40%, transparent);
+  }
+  &.is-month-start { border-left: 1px solid var(--c-border-2); }
+}
+
+// ガントバー（絶対配置）
+.gantt-bar-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.gantt-bar {
+  position: absolute;
+  border-radius: var(--radius-xs);
+  pointer-events: auto;
+  cursor: default;
+  transition: opacity var(--t);
+
+  &:hover { opacity: 0.85; }
+}
+
+.gantt-bar--plan {
+  top: 8px;
+  height: 11px;
+  background: var(--c-accent);
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.3);
+}
+
+.gantt-bar--actual {
+  top: 23px;
+  height: 9px;
+  background: var(--c-success);
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
+  opacity: 0.85;
+}
+
+// 進行中（実績終了未入力）はバー右端を点線風にして未確定を表現
+.gantt-bar--actual.is-ongoing {
+  opacity: 0.6;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--c-success) 0px,
+    var(--c-success) 6px,
+    transparent 6px,
+    transparent 9px
+  );
+  box-shadow: none;
+}
+
+// 完了ステータスはバーを薄く
+.gantt-row.is-done .gantt-bar--plan {
+  opacity: 0.5;
+}
+
+// 今日の縦線
+.gantt-today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--c-danger);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 5;
+}
+
+// ==========================================
+// 凡例
+// ==========================================
+.wbs-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  margin-left: auto;
+}
+
+.wbs-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 11px;
+  color: var(--c-text-3);
+}
+
+.wbs-legend-bar {
+  width: 20px;
+  height: 8px;
+  border-radius: var(--radius-xs);
+
+  &.plan   { background: var(--c-accent); }
+  &.actual { background: var(--c-success); }
+}
+
+// ==========================================
+// 祝日設定モーダル
+// ==========================================
+.wbs-holiday-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;  // DatePicker(250)より低くしてDatePickerを前面に表示させる
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.wbs-holiday-dialog {
+  background: var(--c-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5);
+  width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.wbs-holiday-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c-text);
+  margin: 0;
+}
+
+.wbs-holiday-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wbs-holiday-input-row {
+  display: flex;
+  gap: var(--space-2);
+
+  input {
+    flex: 1;
+    height: 34px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color var(--t);
+
+    &:focus { border-color: var(--c-accent); }
+  }
+}
+
+.wbs-holiday-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wbs-holiday-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--space-3);
+  background: var(--c-bg);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+}
+
+.wbs-holiday-item-date { color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.wbs-holiday-item-name { color: var(--c-text); flex: 1; margin: 0 var(--space-3); }
+
+.wbs-holiday-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+

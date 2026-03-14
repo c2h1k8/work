@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WBS</title>
+    <!-- テーマ初期化（フラッシュ防止のため defer なし） -->
+    <script>
+      (function() {
+        var t = localStorage.getItem('mytools_theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <link rel="stylesheet" href="./css/base/tokens.css" />
+    <link rel="stylesheet" href="./css/base/ui.css" />
+    <link rel="stylesheet" href="./css/base/toast.css" />
+    <link rel="stylesheet" href="./css/base/date_picker.css" />
+    <link rel="stylesheet" href="./css/base/custom_select.css" />
+    <link rel="stylesheet" href="./css/wbs.css" />
+    <script defer src="./js/base/utils.js"></script>
+    <script defer src="./js/base/icons.js"></script>
+    <script defer src="./js/base/toast.js"></script>
+    <script defer src="./js/base/date_picker.js"></script>
+    <script defer src="./js/base/custom_select.js"></script>
+    <script defer src="./js/db/wbs_db.js"></script>
+    <script defer src="./js/wbs.js"></script>
+  </head>
+  <body>
+    <div class="wbs-app">
+
+      <!-- ヘッダー -->
+      <header class="wbs-header">
+        <div class="wbs-header__inner">
+          <h1 class="wbs-header__title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+              <line x1="8" y1="14" x2="15" y2="14"/>
+              <line x1="8" y1="18" x2="13" y2="18"/>
+            </svg>
+            WBS
+          </h1>
+          <div class="wbs-header__actions">
+            <button class="wbs-header__btn" id="export-btn">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>
+              エクスポート
+            </button>
+            <label class="wbs-header__btn" style="cursor:pointer;">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M11.78 4.22a.749.749 0 1 1-1.06 1.06L8.75 3.311V9a.75.75 0 0 1-1.5 0V3.311L5.28 5.28a.749.749 0 1 1-1.06-1.06l3.25-3.25a.749.749 0 0 1 1.06 0l3.25 3.25Z"/></svg>
+              インポート
+              <input type="file" accept=".json" id="import-file" style="display:none;" />
+            </label>
+          </div>
+        </div>
+      </header>
+
+      <!-- ツールバー -->
+      <div class="wbs-toolbar">
+        <button class="btn btn--primary btn--sm" id="add-task-btn">
+          <svg viewBox="0 0 16 16" aria-hidden="true" style="width:13px;height:13px;fill:currentColor"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>
+          タスク追加
+        </button>
+        <div class="wbs-toolbar__sep"></div>
+        <button class="btn btn--secondary btn--sm" id="indent-in-btn" title="インデント増 (Tab)">
+          <svg viewBox="0 0 16 16" aria-hidden="true" style="width:13px;height:13px;fill:currentColor"><path d="M2 3.75A.75.75 0 0 1 2.75 3h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 3.75Zm3 4A.75.75 0 0 1 5.75 7h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 5 7.75ZM5.75 11a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5Z"/></svg>
+          子へ
+        </button>
+        <button class="btn btn--secondary btn--sm" id="indent-out-btn" title="インデント減 (Shift+Tab)">
+          <svg viewBox="0 0 16 16" aria-hidden="true" style="width:13px;height:13px;fill:currentColor"><path d="M2 3.75A.75.75 0 0 1 2.75 3h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 3.75Zm0 4A.75.75 0 0 1 2.75 7h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 7.75ZM2.75 11a.75.75 0 0 0 0 1.5h10.5a.75.75 0 0 0 0-1.5Z"/></svg>
+          親へ
+        </button>
+        <div class="wbs-toolbar__sep"></div>
+        <button class="btn btn--secondary btn--sm" id="move-up-btn" title="上へ移動">↑ 上へ</button>
+        <button class="btn btn--secondary btn--sm" id="move-down-btn" title="下へ移動">↓ 下へ</button>
+        <div class="wbs-toolbar__sep"></div>
+        <button class="btn btn--secondary btn--sm" id="today-btn">
+          <svg viewBox="0 0 16 16" aria-hidden="true" style="width:13px;height:13px;fill:currentColor"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.5-3.5H3a.5.5 0 0 0-.5.5v1.5h11V4.5a.5.5 0 0 0-.5-.5Z"/></svg>
+          今日へ
+        </button>
+        <div class="wbs-toolbar__sep"></div>
+        <button class="btn btn--secondary btn--sm" id="holiday-btn">
+          <svg viewBox="0 0 16 16" aria-hidden="true" style="width:13px;height:13px;fill:currentColor"><path d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294.016.257.016.515 0 .772-.01.147.038.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.102-.302c-.067-.019-.177-.011-.3.071a5.909 5.909 0 0 1-.668.386c-.133.066-.194.158-.211.224l-.29 1.106c-.168.646-.715 1.196-1.458 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.064-1.289-.614-1.458-1.26l-.289-1.106c-.018-.066-.079-.158-.212-.224a5.738 5.738 0 0 1-.668-.386c-.123-.082-.233-.09-.299-.071l-1.103.303c-.644.176-1.392-.021-1.82-.63a8.12 8.12 0 0 1-.704-1.218c-.315-.675-.111-1.422.363-1.891l.815-.806c.05-.048.098-.147.088-.294a6.214 6.214 0 0 1 0-.772c.01-.147-.038-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.102.302c.067.019.177.011.3-.071.214-.143.437-.272.668-.386.133-.066.194-.158.211-.224l.29-1.106C6.009.645 6.556.095 7.299.03 7.53.01 7.764 0 8 0Zm-.571 1.525c-.036.003-.108.036-.137.146l-.289 1.105c-.147.561-.549.967-.998 1.189-.173.086-.34.183-.5.29-.417.278-.97.423-1.529.27l-1.103-.303c-.109-.03-.175.016-.195.045-.22.312-.412.644-.573.99-.014.031-.021.11.059.19l.815.806c.411.406.562.957.53 1.456a4.709 4.709 0 0 0 0 .582c.032.499-.119 1.05-.53 1.456l-.815.806c-.081.08-.073.159-.059.19.162.346.353.677.573.989.02.03.085.076.195.046l1.102-.303c.56-.153 1.113-.008 1.53.27.161.107.328.204.501.29.447.222.85.629.997 1.189l.289 1.105c.029.109.101.143.137.146a6.6 6.6 0 0 0 1.142 0c.036-.003.108-.036.137-.146l.289-1.105c.147-.561.549-.967.998-1.189.173-.086.34-.183.5-.29.417-.278.97-.423 1.529-.27l1.103.303c.109.029.175-.016.195-.045.22-.313.411-.644.573-.99.014-.031.021-.11-.059-.19l-.815-.806c-.411-.406-.562-.957-.53-1.456a4.709 4.709 0 0 0 0-.582c-.032-.499.119-1.05.53-1.456l.815-.806c.081-.08.073-.159.059-.19a6.464 6.464 0 0 0-.573-.989c-.02-.03-.085-.076-.195-.046l-1.102.303c-.56.153-1.113.008-1.53-.27a4.44 4.44 0 0 0-.501-.29c-.447-.222-.85-.629-.997-1.189l-.289-1.105c-.029-.11-.101-.143-.137-.146a6.6 6.6 0 0 0-1.142 0ZM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9.5 8a1.5 1.5 0 1 0-3.001.001A1.5 1.5 0 0 0 9.5 8Z"/></svg>
+          祝日設定
+        </button>
+
+        <!-- 凡例 -->
+        <div class="wbs-legend">
+          <div class="wbs-legend-item">
+            <div class="wbs-legend-bar plan"></div>予定
+          </div>
+          <div class="wbs-legend-item">
+            <div class="wbs-legend-bar actual"></div>実績
+          </div>
+        </div>
+      </div>
+
+      <!-- メインエリア -->
+      <div class="wbs-main">
+
+        <!-- テーブル部分（左固定） -->
+        <div class="wbs-table-section" id="wbs-table-section">
+          <!-- テーブルヘッダー -->
+          <div class="wbs-table-head">
+            <div class="wbs-th th-no">No</div>
+            <div class="wbs-th th-title">タスク名</div>
+            <div class="wbs-th th-date" title="予定開始日（カレンダーで入力）">予定開始</div>
+            <div class="wbs-th th-days" title="予定工数（営業日）">予定工数</div>
+            <div class="wbs-th th-date" title="予定終了日（自動算出）">予定終了</div>
+            <div class="wbs-th th-date" title="実績開始日（カレンダーで入力）">実績開始</div>
+            <div class="wbs-th th-date" title="実績終了日（カレンダーで入力）">実績終了</div>
+            <div class="wbs-th th-days" title="実績工数（自動算出）">実績工数</div>
+            <div class="wbs-th th-pct">進捗</div>
+            <div class="wbs-th th-status">状態</div>
+            <div class="wbs-th th-ops"></div>
+          </div>
+          <!-- テーブルボディ -->
+          <div class="wbs-table-body" id="wbs-table-body">
+            <!-- JS で動的生成 -->
+          </div>
+        </div>
+
+        <!-- ガントチャート部分（右） -->
+        <div class="wbs-gantt-section" id="wbs-gantt-section">
+          <div class="wbs-gantt-header" id="wbs-gantt-header">
+            <div class="wbs-gantt-header-inner" id="wbs-gantt-header-inner">
+              <div class="gantt-months" id="gantt-months"></div>
+              <div class="gantt-days" id="gantt-days"></div>
+            </div>
+          </div>
+          <div class="wbs-gantt-body" id="wbs-gantt-body">
+            <div class="wbs-gantt-body-inner" id="wbs-gantt-body-inner">
+              <!-- JS で動的生成 -->
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.wbs-main -->
+
+      <!-- 祝日設定モーダル（JS で生成） -->
+    </div><!-- /.wbs-app -->
+  </body>
+</html>

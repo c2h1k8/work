@@ -11,6 +11,7 @@
 | `home.html`       | カスタマイズ可能なホームダッシュボード（設定画面からセクション・アイテムを自由に作成。list/grid/table でバインド変数プリセット対応） |
 | `sql.html`        | Oracle SQL\*Plusコマンド・チューニングリファレンス                                                                           |
 | `note.html`       | ノート管理（設計書・テストケース・エビデンス等のリンクや備考を可変フィールドで管理。フィールド幅 narrow/auto/wide/full・DatePicker対応） |
+| `wbs.html`        | WBS管理（タスク名・予定/実績の開始日・日数・終了日（自動算出）・進捗・ステータス。土日/祝日/カスタム休業日を考慮した営業日計算。ガントチャート表示） |
 
 ## 技術スタック
 
@@ -31,6 +32,7 @@ work/
 ├── todo.html           # TODO管理
 ├── sql.html            # SQLリファレンス
 ├── note.html           # ノート管理
+├── wbs.html            # WBS管理（ガントチャート付き）
 ├── js/
 │   ├── base/
 │   │   ├── local_storage.js  # localStorage ユーティリティ
@@ -55,7 +57,8 @@ work/
     ├── dashboard.{less,css}
     ├── todo.{less,css}
     ├── sql.{less,css}
-    └── note.{less,css}
+    ├── note.{less,css}
+    └── wbs.{less,css}
 ```
 
 ## 使い方
