@@ -364,6 +364,12 @@ const State = {
     editingPresetId: null,
     editingTablePresetId: null,
   },
+  // アイテム管理モーダルの状態
+  itemMgr: {
+    sectionId: null,
+    editingId: null,
+    formTab: "add", // 'add' | 'bulk'
+  },
 };
 
 // ==============================
@@ -1591,7 +1597,10 @@ const Renderer = {
       <div class="settings-subsection">
         <div class="settings-subsection-hd">
           <h3 class="settings-subsection-title">${label}一覧</h3>
-          <button class="settings-add-btn settings-add-btn--sm" data-action="show-add-item" data-section-id="${section.id}">＋ 追加</button>
+          <div style="display:flex;gap:4px;">
+            <button class="settings-add-btn settings-add-btn--sm" data-action="open-item-mgr" data-section-id="${section.id}">⤢ 全画面で管理</button>
+            <button class="settings-add-btn settings-add-btn--sm" data-action="show-add-item" data-section-id="${section.id}">＋ 追加</button>
+          </div>
         </div>
         <div id="item-list">`;
       items.forEach((item, idx) => {
@@ -1754,6 +1763,237 @@ const Renderer = {
         <button class="settings-btn" data-action="${cancelAction}"${isEdit ? ` data-item-id="${item.id}" data-section-id="${section.id}"` : ""}>キャンセル</button>
       </div>`;
     return html;
+  },
+
+  // ── アイテム管理モーダル ────────────────────────────
+
+  /** アイテム管理モーダル全体のHTMLを生成 */
+  buildItemManagerHTML(section, items) {
+    const label =
+      section.type === "table"
+        ? "行"
+        : section.type === "grid"
+          ? "カード"
+          : "アイテム";
+    const editingId = State.itemMgr.editingId;
+    const formTab = State.itemMgr.formTab;
+
+    // 左側: アイテム一覧
+    let listHtml = "";
+    items.forEach((item, idx) => {
+      const isEditing = item.id === editingId;
+      const labelText = this._itemMgrLabelText(item, section);
+      listHtml += `
+        <div class="item-mgr__item${isEditing ? " is-editing" : ""}" data-item-id="${item.id}">
+          <span class="item-mgr__item-label" title="${escapeAttr(labelText)}">${escapeHtml(labelText)}</span>
+          <div class="item-mgr__item-actions">
+            <button class="settings-btn" data-action="move-item-up-mgr" data-item-id="${item.id}" data-section-id="${section.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
+            <button class="settings-btn" data-action="move-item-down-mgr" data-item-id="${item.id}" data-section-id="${section.id}" ${idx === items.length - 1 ? "disabled" : ""}>↓</button>
+            <button class="settings-btn settings-btn--primary" data-action="edit-item-mgr" data-item-id="${item.id}" data-section-id="${section.id}">編集</button>
+            <button class="settings-btn settings-btn--danger" data-action="delete-item-mgr" data-item-id="${item.id}" data-section-id="${section.id}">削除</button>
+          </div>
+        </div>`;
+    });
+
+    const editingItem = editingId
+      ? items.find((i) => i.id === editingId)
+      : null;
+    const rightContent = this._buildItemMgrRight(section, editingItem, formTab);
+
+    return `
+      <div class="item-mgr__hd">
+        <h2 class="item-mgr__title">${escapeHtml(section.icon || "📋")} ${escapeHtml(section.title)} — ${label}管理</h2>
+        <button class="item-mgr__close" data-action="close-item-mgr" title="閉じる">${Icons.close}</button>
+      </div>
+      <div class="item-mgr__body">
+        <div class="item-mgr__left">
+          <div class="item-mgr__list-hd">
+            <span class="item-mgr__list-title">${label}一覧</span>
+            <span class="item-mgr__count">${items.length}件</span>
+          </div>
+          <div class="item-mgr__list">
+            ${listHtml || `<p class="section-empty">まだ${label}がありません</p>`}
+          </div>
+        </div>
+        <div class="item-mgr__right">
+          ${rightContent}
+        </div>
+      </div>`;
+  },
+
+  _itemMgrLabelText(item, section) {
+    if (section.type === "table") {
+      const rd = item.row_data || {};
+      const cols = section.columns || [];
+      return (
+        cols
+          .map((c) => rd[c.id] || "")
+          .filter((v) => v)
+          .join(" | ") || "（空）"
+      );
+    } else if (section.type === "grid") {
+      const typeTag =
+        item.item_type === "copy"
+          ? "[コピー]"
+          : item.item_type === "template"
+            ? "[テンプレート]"
+            : "[リンク]";
+      return `${typeTag} ${item.emoji || ""} ${item.label || ""}`.trim();
+    }
+    const typeTag =
+      item.item_type === "copy"
+        ? "[コピー]"
+        : item.item_type === "template"
+          ? "[テンプレート]"
+          : "[リンク]";
+    return `${typeTag} ${item.label || ""}`;
+  },
+
+  _buildItemMgrRight(section, editingItem, formTab) {
+    const isEditing = !!editingItem;
+    const label =
+      section.type === "table"
+        ? "行"
+        : section.type === "grid"
+          ? "カード"
+          : "アイテム";
+    const tabAddLabel = isEditing ? `${label}を編集` : `${label}を追加`;
+    const tabsHtml = `
+      <div class="item-mgr__tabs">
+        <button class="item-mgr__tab${formTab !== "bulk" ? " is-active" : ""}" data-action="item-mgr-tab" data-tab="add">${tabAddLabel}</button>
+        <button class="item-mgr__tab${formTab === "bulk" ? " is-active" : ""}" data-action="item-mgr-tab" data-tab="bulk">コピー登録</button>
+      </div>`;
+    const formContent =
+      formTab === "bulk"
+        ? this._buildBulkForm(section)
+        : this._buildItemMgrAddForm(section, editingItem);
+    return tabsHtml + `<div class="item-mgr__form">${formContent}</div>`;
+  },
+
+  /** アイテム管理モーダル内の追加/編集フォーム（buildItemFields のモーダル版）*/
+  _buildItemMgrAddForm(section, item) {
+    const isEdit = !!item;
+    const saveAction = isEdit ? "save-edit-item-mgr" : "save-add-item-mgr";
+    const isGrid = section.type === "grid";
+    const isTable = section.type === "table";
+    const columns = section.columns || [];
+    let html = "";
+
+    if (isGrid) {
+      const isTemplateItem = item?.item_type === "template";
+      html += `
+        <div class="settings-form-row">
+          <label class="settings-label">アクション</label>
+          <select class="cs-target" id="mgr-item-type">
+            <option value="link" ${!item || item.item_type === "link" || item.item_type === "card" ? "selected" : ""}>リンク</option>
+            <option value="copy" ${item?.item_type === "copy" ? "selected" : ""}>コピー</option>
+            <option value="template" ${isTemplateItem ? "selected" : ""}>テンプレートコピー</option>
+          </select>
+        </div>
+        <div class="settings-form-row settings-form-row--inline">
+          <input class="settings-input settings-input--xs" id="mgr-item-emoji" type="text" value="${escapeAttr(item?.emoji || "")}" placeholder="🔗" maxlength="4" />
+          <input class="settings-input" id="mgr-item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="カード名" />
+        </div>
+        <div class="settings-form-row" id="mgr-item-value-row"${isTemplateItem ? " hidden" : ""}>
+          <input class="settings-input" id="mgr-item-value" type="text" value="${escapeAttr(isTemplateItem ? "" : item?.value || "")}" placeholder="URL またはコピーするテキスト" />
+        </div>
+        <div class="settings-form-row" id="mgr-template-value-row"${isTemplateItem ? "" : " hidden"}>
+          <label class="settings-label">テンプレート本文</label>
+          <textarea class="settings-textarea" id="mgr-item-template-value" rows="8" placeholder="例:&#10;件名: ご連絡 {TODAY:YYYY/MM/DD}&#10;&#10;お世話になっております。">${escapeHtml(isTemplateItem ? item?.value || "" : "")}</textarea>
+          <p class="settings-help">日付プレースホルダー: <code>{TODAY}</code> 今日 &nbsp; <code>{NOW}</code> 現在日時 &nbsp; <code>{DATE:+1d}</code> 明日 &nbsp; 単位: d=日 w=週 M=月 y=年 h=時間 m=分<br>
+          フォーマット: <code>{TODAY:YYYY年MM月DD日(ddd)}</code> / <code>{NOW:MM/DD HH:mm}</code></p>
+        </div>
+        <div class="settings-form-row">
+          <label class="settings-checkbox-label">
+            <input type="checkbox" id="mgr-item-new-row"${item?.new_row ? " checked" : ""}> 先頭から配置する（このカードを行の先頭に置く）
+          </label>
+        </div>`;
+    } else if (isTable) {
+      columns.forEach((col) => {
+        const val = item?.row_data?.[col.id] || "";
+        const typeLabel =
+          col.type === "copy"
+            ? "コピー"
+            : col.type === "link"
+              ? "リンク"
+              : "テキスト";
+        html += `
+          <div class="settings-form-row">
+            <label class="settings-label">${escapeHtml(col.label)} <span class="settings-col-type">${typeLabel}</span></label>
+            <input class="settings-input" id="mgr-item-col-${col.id}" type="${col.type === "link" ? "url" : "text"}" value="${escapeAttr(val)}" placeholder="${col.type === "link" ? "https://..." : escapeAttr(col.label)}" />
+          </div>`;
+      });
+    } else {
+      const isTemplateItem = item?.item_type === "template";
+      html += `
+        <div class="settings-form-row">
+          <label class="settings-label">タイプ</label>
+          <select class="cs-target" id="mgr-item-type">
+            <option value="copy" ${item?.item_type === "copy" ? "selected" : ""}>コピー</option>
+            <option value="link" ${item?.item_type === "link" ? "selected" : ""}>リンク</option>
+            <option value="template" ${isTemplateItem ? "selected" : ""}>テンプレートコピー</option>
+          </select>
+        </div>
+        <div class="settings-form-row settings-form-row--inline">
+          <input class="settings-input" id="mgr-item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="ラベル" />
+          <input class="settings-input settings-input--sm" id="mgr-item-hint" type="text" value="${escapeAttr(item?.hint || "")}" placeholder="補助テキスト（省略可）" />
+        </div>
+        <div class="settings-form-row" id="mgr-item-value-row"${isTemplateItem ? " hidden" : ""}>
+          <input class="settings-input" id="mgr-item-value" type="text" value="${escapeAttr(isTemplateItem ? "" : item?.value || "")}" placeholder="コピーするテキスト または URL" />
+        </div>
+        <div class="settings-form-row" id="mgr-template-value-row"${isTemplateItem ? "" : " hidden"}>
+          <label class="settings-label">テンプレート本文</label>
+          <textarea class="settings-textarea" id="mgr-item-template-value" rows="8" placeholder="例:&#10;件名: ご連絡 {TODAY:YYYY/MM/DD}&#10;&#10;お世話になっております。">${escapeHtml(isTemplateItem ? item?.value || "" : "")}</textarea>
+          <p class="settings-help">日付プレースホルダー: <code>{TODAY}</code> 今日 &nbsp; <code>{NOW}</code> 現在日時 &nbsp; <code>{DATE:+1d}</code> 明日 &nbsp; 単位: d=日 w=週 M=月 y=年 h=時間 m=分<br>
+          フォーマット: <code>{TODAY:YYYY年MM月DD日(ddd)}</code> / <code>{NOW:MM/DD HH:mm}</code></p>
+        </div>`;
+    }
+
+    html += `
+      <div class="settings-form-actions">
+        <button class="settings-btn settings-btn--primary" data-action="${saveAction}" data-section-id="${section.id}"${isEdit ? ` data-item-id="${item.id}"` : ""}>保存</button>
+        ${isEdit ? `<button class="settings-btn" data-action="cancel-edit-item-mgr" data-section-id="${section.id}">キャンセル</button>` : ""}
+      </div>`;
+    return html;
+  },
+
+  /** コピー登録（一括インポート）フォームのHTML生成 */
+  _buildBulkForm(section) {
+    const isTable = section.type === "table";
+    const isGrid = section.type === "grid";
+    const cols = section.columns || [];
+    let hint, placeholder;
+
+    if (isTable) {
+      const colNames = cols.map((c) => c.label).join("\t");
+      hint = `1行に1件のデータを入力してください。列は <strong>Tab</strong> 区切りです。<br>
+        列の順番: <code>${escapeHtml(colNames || "列1\t列2\t列3")}</code><br>
+        <code>#</code> で始まる行はコメントとして無視されます。`;
+      placeholder = cols.map((c) => c.label).join("\t");
+    } else if (isGrid) {
+      hint = `1行に1件のデータを入力してください。列は <strong>Tab</strong> 区切りです。<br>
+        フォーマット: <code>カード名\t値（URL またはコピーするテキスト）</code><br>
+        または: <code>絵文字\tカード名\t値</code>（3列の場合は先頭を絵文字として使用）<br>
+        URL の場合はリンク、それ以外はコピーとして登録されます。<br>
+        <code>#</code> で始まる行はコメントとして無視されます。`;
+      placeholder =
+        "カード名\thttps://example.com\n📄\t書類テンプレート\thttps://example.com/doc";
+    } else {
+      hint = `1行に1件のデータを入力してください。列は <strong>Tab</strong> 区切りです。<br>
+        フォーマット: <code>ラベル\tコピーするテキスト（または URL）</code><br>
+        または: <code>ラベル\tヒント\tコピーするテキスト（または URL）</code>（3列の場合）<br>
+        URL の場合はリンク、それ以外はコピーとして登録されます。<br>
+        <code>#</code> で始まる行はコメントとして無視されます。`;
+      placeholder =
+        "ラベル1\tコピーするテキスト\nラベル2\tヒントテキスト\thttps://example.com";
+    }
+
+    return `
+      <p class="item-mgr__bulk-hint">${hint}</p>
+      <textarea class="item-mgr__bulk-textarea" id="bulk-import-text" placeholder="${escapeAttr(placeholder)}" spellcheck="false"></textarea>
+      <div class="settings-form-actions">
+        <button class="settings-btn settings-btn--primary" data-action="save-bulk-items" data-section-id="${section.id}">一括追加</button>
+      </div>`;
   },
 
   // ── バインド変数バー ──────────────────────────────
@@ -2558,6 +2798,390 @@ const EventHandlers = {
     Renderer.renderSettingsView();
   },
 
+  // ── アイテム管理モーダル ────────────────────────────
+
+  /** アイテム管理モーダルを開く */
+  openItemManager(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    State.itemMgr.sectionId = sectionId;
+    State.itemMgr.editingId = null;
+    State.itemMgr.formTab = "add";
+
+    let modal = document.getElementById("item-manager-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "item-manager-modal";
+      modal.className = "item-mgr";
+      modal.innerHTML =
+        '<div class="item-mgr__backdrop" data-action="close-item-mgr"></div>' +
+        '<div class="item-mgr__dialog" id="item-mgr-dialog"></div>';
+      document.body.appendChild(modal);
+    }
+    modal.removeAttribute("hidden");
+    document.body.style.overflow = "hidden";
+    this._refreshItemManager();
+  },
+
+  /** アイテム管理モーダルを閉じる */
+  closeItemManager() {
+    const modal = document.getElementById("item-manager-modal");
+    if (modal) modal.hidden = true;
+    document.body.style.overflow = "";
+    State.itemMgr.sectionId = null;
+    State.itemMgr.editingId = null;
+  },
+
+  /** アイテム管理モーダルの内容を再描画 */
+  _refreshItemManager() {
+    const sectionId = State.itemMgr.sectionId;
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const items = State.itemsMap[sectionId] || [];
+    const dialog = document.getElementById("item-mgr-dialog");
+    if (!dialog) return;
+    dialog.innerHTML = Renderer.buildItemManagerHTML(section, items);
+    CustomSelect.replaceAll(dialog);
+    // コピー登録テキストエリアで Tab キーをタブ文字として入力できるようにする
+    const bulkTextarea = dialog.querySelector("#bulk-import-text");
+    if (bulkTextarea) {
+      bulkTextarea.addEventListener("keydown", (e) => {
+        if (e.key === "Tab") {
+          e.preventDefault();
+          const start = bulkTextarea.selectionStart;
+          const end = bulkTextarea.selectionEnd;
+          bulkTextarea.value =
+            bulkTextarea.value.substring(0, start) +
+            "\t" +
+            bulkTextarea.value.substring(end);
+          bulkTextarea.selectionStart = bulkTextarea.selectionEnd = start + 1;
+        }
+      });
+    }
+  },
+
+  /** アイテム管理モーダルのタブ切替 */
+  switchItemMgrTab(tab) {
+    State.itemMgr.formTab = tab;
+    if (tab !== "add") State.itemMgr.editingId = null;
+    this._refreshItemManager();
+  },
+
+  /** アイテム管理モーダルで編集モードに入る */
+  editItemInManager(itemId, sectionId) {
+    State.itemMgr.editingId = itemId;
+    State.itemMgr.formTab = "add";
+    this._refreshItemManager();
+  },
+
+  /** アイテム管理モーダルで編集をキャンセル */
+  cancelEditItemInManager(sectionId) {
+    State.itemMgr.editingId = null;
+    this._refreshItemManager();
+  },
+
+  /** アイテム管理モーダルでアイテムを追加 */
+  async saveAddItemInManager(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const items = State.itemsMap[sectionId] || [];
+    const maxPos =
+      items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
+    const data = { section_id: sectionId, position: maxPos };
+
+    if (section.type === "grid") {
+      data.item_type =
+        document.getElementById("mgr-item-type")?.value || "link";
+      data.emoji =
+        document.getElementById("mgr-item-emoji")?.value.trim() || "";
+      data.label =
+        document.getElementById("mgr-item-label")?.value.trim() || "";
+      data.value =
+        data.item_type === "template"
+          ? document
+              .getElementById("mgr-item-template-value")
+              ?.value.trim() || ""
+          : document.getElementById("mgr-item-value")?.value.trim() || "";
+      data.new_row =
+        document.getElementById("mgr-item-new-row")?.checked || false;
+      data.hint = null;
+      data.row_data = null;
+    } else if (section.type === "table") {
+      data.item_type = "row";
+      data.label = null;
+      data.hint = null;
+      data.value = null;
+      data.emoji = null;
+      const row_data = {};
+      (section.columns || []).forEach((col) => {
+        row_data[col.id] =
+          document
+            .getElementById(`mgr-item-col-${col.id}`)
+            ?.value.trim() || "";
+      });
+      data.row_data = row_data;
+    } else {
+      data.item_type =
+        document.getElementById("mgr-item-type")?.value || "copy";
+      data.label =
+        document.getElementById("mgr-item-label")?.value.trim() || "";
+      data.hint =
+        document.getElementById("mgr-item-hint")?.value.trim() || null;
+      data.value =
+        data.item_type === "template"
+          ? document
+              .getElementById("mgr-item-template-value")
+              ?.value.trim() || ""
+          : document.getElementById("mgr-item-value")?.value.trim() || "";
+      data.emoji = null;
+      data.row_data = null;
+    }
+
+    const newId = await State.db.addItem(data);
+    data.id = newId;
+    if (!State.itemsMap[sectionId]) State.itemsMap[sectionId] = [];
+    State.itemsMap[sectionId].push(data);
+    Renderer.renderDashboard();
+    this._refreshItemManager();
+    if (
+      State.settings.open &&
+      State.settings.view === "edit-section" &&
+      State.settings.editingSectionId === sectionId
+    ) {
+      Renderer.renderSettingsView();
+    }
+  },
+
+  /** アイテム管理モーダルでアイテムを保存（編集） */
+  async saveEditItemInManager(itemId, sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    const item = (State.itemsMap[sectionId] || []).find(
+      (i) => i.id === itemId,
+    );
+    if (!section || !item) return;
+
+    if (section.type === "grid") {
+      item.item_type =
+        document.getElementById("mgr-item-type")?.value ||
+        item.item_type ||
+        "link";
+      item.emoji =
+        document.getElementById("mgr-item-emoji")?.value.trim() || "";
+      item.label =
+        document.getElementById("mgr-item-label")?.value.trim() || "";
+      item.value =
+        item.item_type === "template"
+          ? document
+              .getElementById("mgr-item-template-value")
+              ?.value.trim() || ""
+          : document.getElementById("mgr-item-value")?.value.trim() || "";
+      item.new_row =
+        document.getElementById("mgr-item-new-row")?.checked || false;
+    } else if (section.type === "table") {
+      const row_data = {};
+      (section.columns || []).forEach((col) => {
+        row_data[col.id] =
+          document
+            .getElementById(`mgr-item-col-${col.id}`)
+            ?.value.trim() || "";
+      });
+      item.row_data = row_data;
+    } else {
+      item.item_type =
+        document.getElementById("mgr-item-type")?.value || item.item_type;
+      item.label =
+        document.getElementById("mgr-item-label")?.value.trim() || "";
+      item.hint =
+        document.getElementById("mgr-item-hint")?.value.trim() || null;
+      item.value =
+        item.item_type === "template"
+          ? document
+              .getElementById("mgr-item-template-value")
+              ?.value.trim() || ""
+          : document.getElementById("mgr-item-value")?.value.trim() || "";
+    }
+
+    await State.db.updateItem(item);
+    State.itemMgr.editingId = null;
+    Renderer.renderDashboard();
+    this._refreshItemManager();
+    if (
+      State.settings.open &&
+      State.settings.view === "edit-section" &&
+      State.settings.editingSectionId === sectionId
+    ) {
+      Renderer.renderSettingsView();
+    }
+  },
+
+  /** アイテム管理モーダルでアイテムを削除 */
+  async deleteItemInManager(itemId, sectionId) {
+    if (!confirm("このアイテムを削除しますか？")) return;
+    await State.db.deleteItem(itemId);
+    State.itemsMap[sectionId] = (State.itemsMap[sectionId] || []).filter(
+      (i) => i.id !== itemId,
+    );
+    if (State.itemMgr.editingId === itemId) State.itemMgr.editingId = null;
+    Renderer.renderDashboard();
+    this._refreshItemManager();
+    if (
+      State.settings.open &&
+      State.settings.view === "edit-section" &&
+      State.settings.editingSectionId === sectionId
+    ) {
+      Renderer.renderSettingsView();
+    }
+  },
+
+  /** アイテム管理モーダルでアイテムを上に移動 */
+  async moveItemUpInManager(itemId, sectionId) {
+    const items = State.itemsMap[sectionId] || [];
+    const idx = items.findIndex((i) => i.id === itemId);
+    if (idx <= 0) return;
+    await EventHandlers._swapItemPosInMgr(
+      items[idx],
+      items[idx - 1],
+      sectionId,
+    );
+  },
+
+  /** アイテム管理モーダルでアイテムを下に移動 */
+  async moveItemDownInManager(itemId, sectionId) {
+    const items = State.itemsMap[sectionId] || [];
+    const idx = items.findIndex((i) => i.id === itemId);
+    if (idx >= items.length - 1) return;
+    await EventHandlers._swapItemPosInMgr(
+      items[idx],
+      items[idx + 1],
+      sectionId,
+    );
+  },
+
+  async _swapItemPosInMgr(a, b, sectionId) {
+    [a.position, b.position] = [b.position, a.position];
+    await Promise.all([State.db.updateItem(a), State.db.updateItem(b)]);
+    State.itemsMap[sectionId] = sortByPosition(State.itemsMap[sectionId]);
+    Renderer.renderDashboard();
+    this._refreshItemManager();
+    if (
+      State.settings.open &&
+      State.settings.view === "edit-section" &&
+      State.settings.editingSectionId === sectionId
+    ) {
+      Renderer.renderSettingsView();
+    }
+  },
+
+  /** コピー登録（一括インポート）処理 */
+  async saveBulkItems(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const text = document.getElementById("bulk-import-text")?.value || "";
+    const lines = text
+      .split("\n")
+      .filter((l) => l.trim() && !l.trim().startsWith("#"));
+
+    if (lines.length === 0) {
+      showToast("データが入力されていません", "error");
+      return;
+    }
+
+    const items = State.itemsMap[sectionId] || [];
+    let maxPos =
+      items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
+    const newItems = [];
+
+    for (const line of lines) {
+      const cols = line.split("\t");
+      const data = { section_id: sectionId, position: maxPos++ };
+
+      if (section.type === "table") {
+        data.item_type = "row";
+        data.label = null;
+        data.hint = null;
+        data.value = null;
+        data.emoji = null;
+        const row_data = {};
+        (section.columns || []).forEach((col, i) => {
+          row_data[col.id] = (cols[i] || "").trim();
+        });
+        data.row_data = row_data;
+      } else if (section.type === "grid") {
+        let emoji = "",
+          label = "",
+          value = "";
+        if (cols.length >= 3) {
+          emoji = cols[0].trim();
+          label = cols[1].trim();
+          value = cols[2].trim();
+        } else if (cols.length === 2) {
+          label = cols[0].trim();
+          value = cols[1].trim();
+        } else {
+          label = cols[0].trim();
+        }
+        data.item_type = value && isValidUrl(value) ? "link" : "copy";
+        data.emoji = emoji;
+        data.label = label;
+        data.value = value;
+        data.new_row = false;
+        data.hint = null;
+        data.row_data = null;
+      } else {
+        // list
+        let label = "",
+          hint = null,
+          value = "";
+        if (cols.length >= 3) {
+          label = cols[0].trim();
+          hint = cols[1].trim() || null;
+          value = cols[2].trim();
+        } else if (cols.length === 2) {
+          label = cols[0].trim();
+          value = cols[1].trim();
+        } else {
+          label = cols[0].trim();
+        }
+        data.item_type = value && isValidUrl(value) ? "link" : "copy";
+        data.label = label;
+        data.hint = hint;
+        data.value = value;
+        data.emoji = null;
+        data.row_data = null;
+      }
+
+      const newId = await State.db.addItem(data);
+      data.id = newId;
+      newItems.push(data);
+    }
+
+    if (!State.itemsMap[sectionId]) State.itemsMap[sectionId] = [];
+    State.itemsMap[sectionId].push(...newItems);
+
+    showToast(`${newItems.length}件を追加しました`);
+    Renderer.renderDashboard();
+    State.itemMgr.formTab = "add";
+    this._refreshItemManager();
+    if (
+      State.settings.open &&
+      State.settings.view === "edit-section" &&
+      State.settings.editingSectionId === sectionId
+    ) {
+      Renderer.renderSettingsView();
+    }
+  },
+
+  /** アイテム管理モーダル内のアイテムタイプ変更（link/copy/template の切り替え） */
+  onMgrItemTypeChange() {
+    const type = document.getElementById("mgr-item-type")?.value;
+    const valueRow = document.getElementById("mgr-item-value-row");
+    const templateRow = document.getElementById("mgr-template-value-row");
+    if (!valueRow || !templateRow) return;
+    const isTemplate = type === "template";
+    valueRow.hidden = isTemplate;
+    templateRow.hidden = !isTemplate;
+  },
+
   async deleteItem(itemId, sectionId) {
     if (!confirm("このアイテムを削除しますか？")) return;
     await State.db.deleteItem(itemId);
@@ -3261,6 +3885,16 @@ const App = {
       EventHandlers.openSettings();
     });
 
+    // Esc キーでアイテム管理モーダルを閉じる
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        const modal = document.getElementById("item-manager-modal");
+        if (modal && !modal.hidden) {
+          EventHandlers.closeItemManager();
+        }
+      }
+    });
+
     // 親フレームからのメッセージを受信
     window.addEventListener("message", (e) => {
       // 設定パネル開封要求（タブ設定の「ページを設定」ボタン用）
@@ -3478,6 +4112,40 @@ const App = {
         case "move-item-down":
           eh.moveItemDown(itemId, sectionId).catch(console.error);
           break;
+        // アイテム管理モーダル
+        case "open-item-mgr":
+          eh.openItemManager(sectionId);
+          break;
+        case "close-item-mgr":
+          eh.closeItemManager();
+          break;
+        case "item-mgr-tab":
+          eh.switchItemMgrTab(btn.dataset.tab);
+          break;
+        case "save-add-item-mgr":
+          eh.saveAddItemInManager(sectionId).catch(console.error);
+          break;
+        case "edit-item-mgr":
+          eh.editItemInManager(itemId, sectionId);
+          break;
+        case "save-edit-item-mgr":
+          eh.saveEditItemInManager(itemId, sectionId).catch(console.error);
+          break;
+        case "cancel-edit-item-mgr":
+          eh.cancelEditItemInManager(sectionId);
+          break;
+        case "delete-item-mgr":
+          eh.deleteItemInManager(itemId, sectionId).catch(console.error);
+          break;
+        case "move-item-up-mgr":
+          eh.moveItemUpInManager(itemId, sectionId).catch(console.error);
+          break;
+        case "move-item-down-mgr":
+          eh.moveItemDownInManager(itemId, sectionId).catch(console.error);
+          break;
+        case "save-bulk-items":
+          eh.saveBulkItems(sectionId).catch(console.error);
+          break;
         case "toggle-table-col-menu":
           eh.toggleTableColMenu(sectionId);
           break;
@@ -3541,6 +4209,7 @@ const App = {
       if (e.target.id === "new-section-type")
         EventHandlers.onNewSectionTypeChange();
       if (e.target.id === "item-type") EventHandlers.onItemTypeChange();
+      if (e.target.id === "mgr-item-type") EventHandlers.onMgrItemTypeChange();
     });
 
   },

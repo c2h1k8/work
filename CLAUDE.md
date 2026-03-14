@@ -187,6 +187,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - プリセットが存在する場合のみ各セクション上部にプリセットバー（`.table-preset-bar`）を表示
   - 設定画面から `open-list-bind-var-modal` / `open-grid-bind-var-modal` で BindVarModal を開く
   - `switchListPreset(sectionId, presetId)` / `switchGridPreset(sectionId, presetId)` でプリセット切替・再レンダリング
+- **アイテム管理モーダル**（全画面でアイテムを管理）: 設定パネルのアイテム一覧ヘッダーの「⤢ 全画面で管理」ボタンで開く。`State.itemMgr: { sectionId, editingId, formTab: 'add'|'bulk' }` で状態管理。2カラム（左: アイテム一覧、右: 追加/編集フォーム or コピー登録フォーム）。`EventHandlers.openItemManager(sectionId)` / `closeItemManager()` / `_refreshItemManager()` で制御。CSS: `.item-mgr`（`dashboard.less`）。z-index: 400（設定パネルの 300 より上）。Esc キーで閉じる。コピー登録タブ（`formTab: 'bulk'`）では Tab 区切りのテキストを貼り付けて一括追加（`saveBulkItems(sectionId)`）。フォーマット: list=`ラベル\tヒント\t値`、grid=`絵文字\tカード名\t値`、table=`列1\t列2\t列3`。URL はリンク、それ以外はコピーとして自動判定。`#` で始まる行はコメント。
 - モジュール構成: `HomeDB` / `State` / `Renderer` / `EventHandlers` / `App` の単一ファイル構成
 - レイアウト: `max-width: 1440px` + CSS Grid（`auto-fill, minmax(190px, 1fr)`）でセクションカードを複数列配置
 - セクションの表示幅: `section.width = 'narrow' | 'auto' | 'w3' | 'wide' | 'w5' | 'full'`。カードに `data-width` 属性を付与し CSS でスパン制御（narrow=span 1 / auto=span 2 / w3=span 3 / wide=span 4 / w5=span 5 / full=1/-1 / ≤840px で w3以上は全幅）。セクション編集画面の「表示幅」セレクターで設定・保存
