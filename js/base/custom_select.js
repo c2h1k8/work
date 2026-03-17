@@ -125,6 +125,11 @@ const CustomSelect = (() => {
       if (isOpen) {
         _closeInst(inst);
       } else {
+        // overflow:auto/hidden の親で切れないよう fixed で画面基準配置
+        const rect = trigger.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.minWidth = rect.width + 'px';
         dropdown.classList.add('cs-dropdown--open');
         _open = inst;
       }

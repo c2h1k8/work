@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="./css/base/label_filter.css" />
     <link rel="stylesheet" href="./css/base/custom_select.css" />
     <link rel="stylesheet" href="./css/base/label_manager.css" />
+    <link rel="stylesheet" href="./css/base/tooltip.css" />
     <link rel="stylesheet" href="./css/base/toast.css" />
     <link rel="stylesheet" href="./css/note.css" />
     <script defer src="./js/base/utils.js"></script>
@@ -27,6 +28,7 @@
     <script defer src="./js/base/date_picker.js"></script>
     <script defer src="./js/base/label_filter.js"></script>
     <script defer src="./js/base/custom_select.js"></script>
+    <script defer src="./js/base/tooltip.js"></script>
     <script defer src="./js/base/label_manager.js"></script>
     <script defer src="./js/db/note_db.js"></script>
     <script defer src="./js/note.js"></script>
@@ -77,6 +79,14 @@
               <option value="title-asc">タイトル A→Z</option>
               <option value="title-desc">タイトル Z→A</option>
             </select>
+          </div>
+          <div class="note-controls__display">
+            <span class="note-controls__label">タイトル</span>
+            <div class="note-title-lines-group" id="title-lines-group">
+              <button class="note-title-lines-btn" data-lines="1">1行</button>
+              <button class="note-title-lines-btn" data-lines="2">2行</button>
+              <button class="note-title-lines-btn" data-lines="0">全て</button>
+            </div>
           </div>
           <div id="note-filters"></div>
         </div>
@@ -129,6 +139,12 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- TODOタスクピッカー（紐づけ選択用） -->
+    <div id="todo-picker" class="task-picker" hidden>
+      <input id="todo-picker-input" type="text" placeholder="TODOタスクを検索..." class="task-picker__input" />
+      <ul id="todo-picker-list" class="task-picker__list"></ul>
     </div>
 
     <!-- インポート用 input -->

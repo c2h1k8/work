@@ -117,6 +117,12 @@ function _resetMdEditor(editor) {
 }
 
 // ==================================================
+// BroadcastChannel: ノートリンク変更をノートページに通知（非対応環境は null）
+// ==================================================
+let _noteLinksBC = null;
+try { _noteLinksBC = new BroadcastChannel('kanban-note-links'); } catch (e) {}
+
+// ==================================================
 // Helper: note_db を読み取り専用で開く
 // ==================================================
 function _openNoteDB() {
@@ -337,6 +343,16 @@ const Renderer = {
     count.dataset.count = col.key;
     count.textContent = '0';
 
+    // 完了カラムトグルボタン（期限切れ表示を抑制するフラグ）
+    const doneBtn = document.createElement('button');
+    doneBtn.className = 'column__done-btn' + (col.done ? ' is-active' : '');
+    doneBtn.dataset.action    = 'toggle-done-column';
+    doneBtn.dataset.columnId  = col.id;
+    doneBtn.dataset.columnKey = col.key;
+    doneBtn.setAttribute('aria-label', col.done ? `${col.name}: 完了カラム（クリックで解除）` : `${col.name}: 完了カラムに設定`);
+    doneBtn.setAttribute('data-tooltip', col.done ? '完了カラム（期限切れ非表示）' : '完了カラムに設定');
+    doneBtn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>';
+
     const delBtn = document.createElement('button');
     delBtn.className = 'column__delete-btn';
     delBtn.dataset.action    = 'delete-column';
@@ -346,6 +362,7 @@ const Renderer = {
     delBtn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>';
 
     actions.appendChild(count);
+    actions.appendChild(doneBtn);
     actions.appendChild(delBtn);
     header.appendChild(titleEl);
     header.appendChild(actions);
@@ -452,12 +469,18 @@ const Renderer = {
     // タイトル
     card.querySelector('.card__title').textContent = task.title;
 
-    // 期限
+    // 期限（完了カラムでは期限切れスタイルを抑制）
     const dueEl = card.querySelector('.card__due');
     if (task.due_date) {
+      const isDoneCol = State.columns.find(c => c.key === task.column)?.done;
       const { text, cls } = this._getDueInfo(task.due_date);
-      dueEl.textContent = text;
-      if (cls) dueEl.classList.add(cls);
+      // 完了カラムでは「期限切れ」ラベル・スタイルを表示しない（日付のみ表示）
+      if (isDoneCol && cls === 'card__due--overdue') {
+        dueEl.textContent = new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' }).format(new Date(task.due_date));
+      } else {
+        dueEl.textContent = text;
+        if (cls) dueEl.classList.add(cls);
+      }
     }
 
     // ラベル（task_labels は非同期なので後から補完）
@@ -1020,6 +1043,7 @@ const Renderer = {
       removeBtn.className = 'relation-chip__remove';
       removeBtn.dataset.action = 'remove-note-link';
       removeBtn.dataset.linkId = link.id;
+      removeBtn.dataset.noteTaskId = link.note_task_id;
       removeBtn.textContent = '×';
       removeBtn.setAttribute('aria-label', '紐づきを解除');
       removeBtn.title = '紐づきを解除';
@@ -1315,8 +1339,9 @@ const EventHandlers = {
       case 'edit-title':        this._onEditTitle();             break;
       case 'edit-description':  this._onEditDescription();       break;
       case 'pick-label':        this._onPickLabel(btn, db);      break;
-      case 'add-column':        this._onAddColumn(db);           break;
-      case 'delete-column':     this._onDeleteColumn(btn, db);   break;
+      case 'add-column':          this._onAddColumn(db);               break;
+      case 'delete-column':       this._onDeleteColumn(btn, db);       break;
+      case 'toggle-done-column':  this._onToggleDoneColumn(btn, db);   break;
       case 'open-datepicker':   this._onOpenDatepicker(db);           break;
       case 'timeline-filter':    this._onTimelineFilter(btn, db);  break;
       case 'toggle-time-format': this._onToggleTimeFormat();        break;
@@ -1644,6 +1669,16 @@ const EventHandlers = {
         State.labels = State.labels.filter(l => l.id !== id);
         for (const [, ids] of State.taskLabels) ids.delete(id);
         State.filter.labelIds.delete(id);
+      },
+      onReorder: (newLabels) => {
+        // 並び順を localStorage に保存し、State に反映
+        State.labels = newLabels.slice();
+        localStorage.setItem('kanban_label_order', JSON.stringify(newLabels.map(l => l.id)));
+        renderFilterLabels();
+        // モーダルが開いていればラベル一覧を即時更新
+        if (State.currentTaskId) {
+          Renderer.renderModalLabels(State.currentTaskId, db).catch(console.error);
+        }
       },
       onChange: async () => {
         markDirty();
@@ -1976,6 +2011,22 @@ const EventHandlers = {
     }
   },
 
+  /** 完了カラムフラグのトグル（期限切れ表示を抑制） */
+  async _onToggleDoneColumn(btn, db) {
+    const key = btn.dataset.columnKey;
+    const col = State.columns.find(c => c.key === key);
+    if (!col) return;
+    col.done = !col.done;
+    await db.updateColumn(col);
+    // ヘッダーボタンを更新
+    btn.classList.toggle('is-active', col.done);
+    btn.setAttribute('aria-label', col.done ? `${col.name}: 完了カラム（クリックで解除）` : `${col.name}: 完了カラムに設定`);
+    btn.setAttribute('data-tooltip', col.done ? '完了カラム（期限切れ非表示）' : '完了カラムに設定');
+    // カードを再描画して期限表示を更新
+    Renderer.renderColumn(key, State.tasks[key] ?? [], db);
+    markDirty();
+  },
+
   /** カラム追加 */
   async _onAddColumn(db) {
     const name = prompt('新しいカラム名を入力:');
@@ -2266,14 +2317,19 @@ const EventHandlers = {
     this._closeNotePicker();
     await Renderer.renderNoteLinks(todoTaskId, db);
     markDirty();
+    // ノートページにリンク変更を通知
+    _noteLinksBC?.postMessage({ type: 'note-link-changed', noteTaskId });
   },
 
   /** ノート紐づけを解除 */
   async _onRemoveNoteLink(btn, db) {
-    const linkId = parseInt(btn.dataset.linkId, 10);
+    const linkId    = parseInt(btn.dataset.linkId, 10);
+    const noteTaskId = parseInt(btn.dataset.noteTaskId, 10);
     await db.deleteNoteLink(linkId);
     await Renderer.renderNoteLinks(State.currentTaskId, db);
     markDirty();
+    // ノートページにリンク変更を通知
+    if (noteTaskId) _noteLinksBC?.postMessage({ type: 'note-link-changed', noteTaskId });
   },
 
   /** ノートページでタスクを開く（親フレームにナビゲーション要求を送信） */
@@ -2318,8 +2374,13 @@ const App = {
       } catch { /* 無視 */ }
     }
 
-    // ラベルキャッシュをロード
+    // ラベルキャッシュをロード（保存済み並び順を適用）
     State.labels = await db.getAllLabels();
+    const _savedLabelOrder = (() => { try { return JSON.parse(localStorage.getItem('kanban_label_order') || 'null'); } catch { return null; } })();
+    if (_savedLabelOrder && Array.isArray(_savedLabelOrder)) {
+      const _orderMap = new Map(_savedLabelOrder.map((id, i) => [id, i]));
+      State.labels.sort((a, b) => (_orderMap.has(a.id) ? _orderMap.get(a.id) : Infinity) - (_orderMap.has(b.id) ? _orderMap.get(b.id) : Infinity));
+    }
 
     // ボードカラムを生成してからボードを描画
     Renderer.renderBoardColumns(db);

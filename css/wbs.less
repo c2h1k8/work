@@ -299,6 +299,62 @@
   text-overflow: ellipsis;
 }
 
+// 折りたたみトグルボタン（親タスクのみ表示）
+.wbs-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--c-text-3);
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: background var(--t), color var(--t);
+
+  svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+    transform: rotate(0deg); // 展開時: 下向き（chevron-down）
+    transition: transform var(--t);
+  }
+
+  // 折りたたみ時: 右向きに回転
+  &.is-collapsed svg {
+    transform: rotate(-90deg);
+  }
+
+  &:hover {
+    background: var(--c-bg-2);
+    color: var(--c-text);
+  }
+}
+
+// 子タスクのないセルの間隔揃え用プレースホルダー
+.wbs-collapse-placeholder {
+  display: inline-block;
+  width: 16px;
+  min-width: 16px;
+  flex-shrink: 0;
+}
+
+// 集計値表示セル（子タスクから自動算出された値）
+.wbs-cell.is-agg {
+  color: var(--c-text-2);
+  font-style: italic;
+}
+
+// 親タスク（子タスクから集計）の行
+.wbs-row.is-parent-agg {
+  background: color-mix(in srgb, var(--c-accent) 3%, transparent);
+}
+
 // レベル別フォントスタイル
 .wbs-row--l0 .cell-title { font-weight: 700; font-size: 13.5px; }
 .wbs-row--l1 .cell-title { font-weight: 600; }
@@ -561,6 +617,31 @@
   letter-spacing: 0.04em;
   background: var(--c-surface-raised);
   flex-shrink: 0;
+  cursor: pointer;
+  gap: 3px;
+  transition: background var(--t);
+  user-select: none;
+
+  &:hover { background: var(--c-bg-2); }
+
+  // 折りたたんだ月: 縦向きに圧縮表示
+  &.is-collapsed {
+    justify-content: center;
+    padding-left: 0;
+    color: var(--c-text-3);
+    background: var(--c-bg);
+  }
+}
+
+.gantt-month-toggle {
+  font-size: 8px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.gantt-month-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 // 日ヘッダー行
@@ -586,12 +667,19 @@
   &.is-saturday { background: var(--c-bg); color: #5b9bd5; }
   &.is-sunday   { background: var(--c-bg); color: #e05c5c; }
   &.is-holiday  { background: var(--c-bg); color: #d97706; }
+  // 当日: アクセント（indigo）で土日・祝日と明確に区別
   &.is-today {
-    background: color-mix(in srgb, var(--c-danger) 10%, transparent);
-    color: var(--c-danger);
+    background: color-mix(in srgb, var(--c-accent) 15%, transparent);
+    color: var(--c-accent);
     font-weight: 700;
   }
   &.is-month-start { border-left: 1px solid var(--c-border-2); }
+  // 折りたたんだ月のプレースホルダー（日ヘッダー）
+  &.is-collapsed-month {
+    background: var(--c-bg);
+    border-right: 1px solid var(--c-border-2);
+    flex-shrink: 0;
+  }
 }
 
 // ガントボディ
@@ -628,11 +716,17 @@
   &.is-saturday { background: color-mix(in srgb, #5b9bd5 6%, transparent); }
   &.is-sunday   { background: color-mix(in srgb, #e05c5c 6%, transparent); }
   &.is-holiday  { background: color-mix(in srgb, #d97706 8%, transparent); }
+  // 当日: アクセント（indigo）で祝日（amber）・日曜（red）と明確に区別
   &.is-today {
-    background: color-mix(in srgb, var(--c-danger) 6%, transparent);
-    border-right: 1px solid color-mix(in srgb, var(--c-danger) 40%, transparent);
+    background: color-mix(in srgb, var(--c-accent) 10%, transparent);
   }
   &.is-month-start { border-left: 1px solid var(--c-border-2); }
+  // 折りたたんだ月のプレースホルダー（ガント背景）
+  &.is-collapsed-month {
+    background: color-mix(in srgb, var(--c-text-3) 5%, transparent);
+    border-right: 1px solid var(--c-border-2);
+    flex-shrink: 0;
+  }
 }
 
 // ガントバー（絶対配置）
@@ -651,8 +745,18 @@
   pointer-events: auto;
   cursor: default;
   transition: opacity var(--t);
+  overflow: hidden; // 非営業日オーバーレイをバー内にクリップ
 
   &:hover { opacity: 0.85; }
+}
+
+// 土日・祝日部分の暗化オーバーレイ（バー内の非営業日を視覚的に区別）
+.gantt-bar-nonwork {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.22);
+  pointer-events: none;
 }
 
 .gantt-bar--plan {

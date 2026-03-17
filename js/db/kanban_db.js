@@ -379,6 +379,15 @@ class KanbanDB {
     });
   }
 
+  async updateColumn(col) {
+    return new Promise((resolve, reject) => {
+      const tx  = this.db.transaction('columns', 'readwrite');
+      const req = tx.objectStore('columns').put(col);
+      req.onsuccess = resolve;
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
   async deleteColumn(id) {
     return new Promise((resolve, reject) => {
       const tx  = this.db.transaction('columns', 'readwrite');

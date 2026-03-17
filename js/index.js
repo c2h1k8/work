@@ -1028,7 +1028,10 @@ window.addEventListener('message', async (e) => {
     ? { type: 'navigate:note', noteTaskId }
     : { type: 'navigate:todo', todoTaskId };
   const sendMsg = () => iframe.contentWindow?.postMessage(msg, '*');
-  if (iframe.contentDocument?.readyState === 'complete') {
+  // contentDocument が null の場合（file:// でのセキュリティ制限等）も即時送信する
+  // ロード済み iframe では load イベントが再発火しないため、null を完了済み扱いにする
+  const doc = iframe.contentDocument;
+  if (!doc || doc.readyState === 'complete') {
     sendMsg();
   } else {
     iframe.addEventListener('load', sendMsg, { once: true });

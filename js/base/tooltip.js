@@ -40,6 +40,10 @@ const Tooltip = (() => {
       const text = target.dataset.tooltip;
       if (!text) { tip.hidden = true; return; }
       tip.textContent = text;
+      // data-tooltip-type="danger"|"warning" でバリアントクラスを適用
+      tip.className = 'tooltip-popup';
+      const type = target.dataset.tooltipType;
+      if (type) tip.classList.add(`tooltip-popup--${type}`);
       tip.hidden = false;
     });
 
@@ -56,5 +60,10 @@ const Tooltip = (() => {
     });
   }
 
-  return { init };
+  /** ツールチップを即時非表示にする（外部から呼び出し可能） */
+  function hide() {
+    if (_tip) _tip.hidden = true;
+  }
+
+  return { init, hide };
 })();

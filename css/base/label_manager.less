@@ -178,6 +178,45 @@
     }
   }
 
+  // 並び替えボタン（上・下）
+  &__item-move {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.12s;
+
+    .lmgr__item:hover & { opacity: 1; }
+  }
+
+  &__move-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 13px;
+    border: none;
+    border-radius: var(--radius-sm, 4px);
+    background: transparent;
+    color: var(--color-text-muted, #656d76);
+    cursor: pointer;
+    font-size: 8px;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.12s, color 0.12s;
+
+    &:hover:not(:disabled) {
+      background: var(--color-border, #d0d7de);
+      color: var(--color-text, #24292f);
+    }
+
+    &:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+  }
+
   // カラー変更ボタン（円形のカラースウォッチ）
   &__item-color-btn {
     width: 20px;

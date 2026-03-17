@@ -31,6 +31,7 @@
 //       date     日付（単一）          options: []
 //       select   単一選択バッジ        options: string[]
 //       label    複数選択バッジ        options: { name, color }[]
+//       todo     TODOリンクセクション  options: [] / visible: 表示制御
 //
 //   entries         フィールド値（タスク × フィールドの実データ）
 //     id*           AutoIncrement PK
@@ -205,10 +206,22 @@ const NoteDB = (() => {
       { name: 'エビデンス',     type: 'link',   options: [], width: 'full', listVisible: false },
       { name: 'プルリク',       type: 'link',   options: [], width: 'full', listVisible: false },
       { name: '備考',           type: 'text',   options: [], width: 'full', listVisible: false },
+      { name: 'TODO',           type: 'todo',   options: [], width: 'full', listVisible: false, visible: true },
     ];
     for (let i = 0; i < defaults.length; i++) {
       await _add('fields', { ...defaults[i], position: i });
     }
+  }
+
+  // TODOフィールドが未存在の場合に末尾へ追加（既存ユーザー向けマイグレーション）
+  async function ensureTodoField() {
+    const existing = await getAllFields();
+    if (existing.some(f => f.type === 'todo')) return;
+    const maxPos = existing.length > 0 ? Math.max(...existing.map(f => f.position)) : -1;
+    await _add('fields', {
+      name: 'TODO', type: 'todo', options: [],
+      position: maxPos + 1, width: 'full', listVisible: false, visible: true,
+    });
   }
 
   // ── エントリ操作 ────────────────────────────────────────────
@@ -269,7 +282,7 @@ const NoteDB = (() => {
   return {
     open,
     getAllTasks, addTask, updateTask, deleteTask,
-    getAllFields, addField, updateField, deleteField, initDefaultFields,
+    getAllFields, addField, updateField, deleteField, initDefaultFields, ensureTodoField,
     getAllEntries, getEntriesByTask, addEntry, updateEntry, deleteEntry,
     exportData, importData,
   };

@@ -272,8 +272,16 @@ const LabelManager = (() => {
       return;
     }
 
-    list.innerHTML = labels.map(l => `
+    list.innerHTML = labels.map((l, i) => `
       <li class="lmgr__item" data-lm-id="${l.id}">
+        <div class="lmgr__item-move">
+          <button class="lmgr__move-btn" type="button"
+                  data-action="move-label-up" data-lm-id="${_esc(String(l.id))}"
+                  title="上へ" ${i === 0 ? 'disabled' : ''}>▲</button>
+          <button class="lmgr__move-btn" type="button"
+                  data-action="move-label-down" data-lm-id="${_esc(String(l.id))}"
+                  title="下へ" ${i === labels.length - 1 ? 'disabled' : ''}>▼</button>
+        </div>
         <button class="lmgr__item-color-btn" type="button"
                 data-action="change-color" data-lm-id="${_esc(String(l.id))}"
                 style="background:${_esc(l.color)}" title="カラーを変更">
@@ -301,10 +309,24 @@ const LabelManager = (() => {
     if (!btn) return;
     const rawId = btn.dataset.lmId;
     switch (btn.dataset.action) {
-      case 'delete-label':  await _onDelete(rawId); break;
-      case 'edit-name':     _onEditName(btn, rawId); break;
-      case 'change-color':  _onChangeColorBtnClick(e, btn, rawId); break;
+      case 'delete-label':    await _onDelete(rawId); break;
+      case 'edit-name':       _onEditName(btn, rawId); break;
+      case 'change-color':    _onChangeColorBtnClick(e, btn, rawId); break;
+      case 'move-label-up':   _onMoveLabel(rawId, 'up'); break;
+      case 'move-label-down': _onMoveLabel(rawId, 'down'); break;
     }
+  }
+
+  function _onMoveLabel(rawId, dir) {
+    const labels = _config?.labels;
+    if (!labels) return;
+    const idx = labels.findIndex(l => String(l.id) === String(rawId));
+    if (idx < 0) return;
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= labels.length) return;
+    [labels[idx], labels[swapIdx]] = [labels[swapIdx], labels[idx]];
+    _config.onReorder?.(labels);
+    _renderList();
   }
 
   async function _onAdd() {

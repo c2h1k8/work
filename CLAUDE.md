@@ -50,7 +50,8 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `CustomSelect` は `js/base/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/base/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。**`<option data-color="#hex">` を付与すると色が自動反映される。** トリガー（選択中）: `.cs-color-badge`（カラーバッジチップ、色背景＋白文字）。ドロップダウン内アイテム: `.cs-swatch`（11px角丸スクエア、`--cs-swatch-color` CSS変数で色指定、影付き）。選択中アイテムはスウォッチにリングを付与し、既存の選択ドット（`::before`）は非表示（`:has` で制御）。 使用ページ: `index.html` / `todo.html` / `sql.html` / `note.html` / `dashboard.html`
 - `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
 - `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
-- `State.columns: []` は `{ id, key, name, position }` の配列。`getColumnKeys()` で key 一覧を取得
+- `State.columns: []` は `{ id, key, name, position, done? }` の配列。`getColumnKeys()` で key 一覧を取得
+- `columns.done`: `true` の場合は「完了カラム」として扱い、カード上の「期限切れ」ラベル・スタイルを抑制（日付のみ表示）。カラムヘッダーのチェックマークボタンでトグル。`KanbanDB.updateColumn(col)` で永続化
 - `State.sort: { field, dir }` でソート状態を保持。localStorage `kanban_sort` に永続化
 - `State.taskLabels: Map<taskId, Set<labelId>>` はフィルター用キャッシュ。`renderBoard()` でリビルド、ラベル追加／削除時にインクリメンタル更新
 - `State.filter: { text, labelIds }` でフィルター状態を保持。`applyFilter()` でカードの表示／非表示を制御
@@ -265,8 +266,11 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - CSS: `note.less` に `:root { --color-card, --color-border, ... }` を追加（DatePicker が参照）
 - モジュール構成: `NoteDB` / `State` / `Renderer` / `EventHandlers` / `App`
 - エクスポート/インポート: JSON形式（`type: 'note_export'`）
-- **TODOとの紐づけ**: `kanban_db` の `note_links` ストアに `{ id, todo_task_id, note_task_id }` 形式で保存。詳細パネル末尾の「紐づきTODO」セクションに表示。`Renderer.renderTodoLinks(noteTaskId)` で描画、`_openKanbanDB()` で cross-DB アクセス
+- **TODOとの紐づけ**: `kanban_db` の `note_links` ストアに `{ id, todo_task_id, note_task_id }` 形式で保存。詳細パネルの「TODO」セクションに表示。`Renderer.renderTodoLinks(noteTaskId)` で描画、`_openKanbanDB()` で cross-DB アクセス
 - `_openKanbanDB()`: `kanban_db` を開くモジュールレベルヘルパー（note.js 内）
+- **リアルタイム同期**: `BroadcastChannel('kanban-note-links')` で TODO↔Note 間のリンク変更を通知。todo.js がリンク追加・削除時に送信（`_noteLinksBC`）、note.js が受信して `renderTodoLinks` を再実行
+- **Noteページからのリンク追加**: 詳細パネルの「TODO」セクションに「＋ 追加」ボタン。`#todo-picker` ポップアップで TODO タスクを検索・選択して紐づけ
+- **TODOセクション設定**: `type: 'todo'` フィールドとして `note_db` の `fields` ストアに保存（`width` / `visible` / `position` を持つ）。フィールド管理モーダルに「TODOリンク」行（`note-field-item--builtin`）として表示し、幅・表示・並び順を設定可能。`NoteDB.ensureTodoField()` で既存ユーザー向けマイグレーション
 
 ## wbs.js アーキテクチャ（2026-03現在）
 

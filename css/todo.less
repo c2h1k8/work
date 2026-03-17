@@ -254,6 +254,40 @@ body {
     text-align: center;
   }
 
+  // 完了カラムトグルボタン（期限切れ表示を抑制）
+  &__done-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+    flex-shrink: 0;
+
+    svg {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
+    }
+
+    &:hover {
+      background: var(--c-success-bg);
+      color: var(--c-success);
+    }
+
+    // 完了カラムとしてフラグが立っている場合は常時表示
+    &.is-active {
+      opacity: 1;
+      color: var(--c-success);
+    }
+  }
+
   // カラム削除ボタン
   &__delete-btn {
     display: flex;
@@ -282,8 +316,9 @@ body {
     }
   }
 
-  // ヘッダーホバー時に削除ボタンを表示
+  // ヘッダーホバー時に削除・完了トグルボタンを表示
   &__header:hover &__delete-btn { opacity: 1; }
+  &__header:hover &__done-btn   { opacity: 1; }
 
   &__body {
     flex: 1;

@@ -3,12 +3,45 @@
 // NoteDB モジュールは js/db/note_db.js を参照
 
 // ── kanban_db アクセスヘルパー ──────────────────────────────────
+// ※ onupgradeneeded で中断: 未初期化DBを空で作成しない（KanbanDB.open() に初期化を委譲）
 async function _openKanbanDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open('kanban_db');
+    req.onupgradeneeded = (e) => { e.target.transaction.abort(); };
     req.onsuccess = e => resolve(e.target.result);
     req.onerror   = e => reject(e.target.error);
   });
+}
+
+// ── TODOピッカー ヘルパー ────────────────────────────────────────
+function _renderTodoPickerList(tasks) {
+  const list = document.getElementById('todo-picker-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (tasks.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'task-picker__empty';
+    empty.textContent = '選択可能なTODOタスクがありません';
+    list.appendChild(empty);
+    return;
+  }
+  for (const t of tasks) {
+    const item = document.createElement('li');
+    item.className = 'task-picker__item';
+    item.dataset.action = 'select-todo-task';
+    item.dataset.taskId = t.id;
+    const titleEl = document.createElement('span');
+    titleEl.className = 'task-picker__item-title';
+    titleEl.textContent = t.title;
+    item.appendChild(titleEl);
+    list.appendChild(item);
+  }
+}
+
+function _closeTodoPicker() {
+  const picker = document.getElementById('todo-picker');
+  if (picker) picker.setAttribute('hidden', '');
+  State._todoPickerCandidates = null;
 }
 
 // ── State ──────────────────────────────────────────────────────
@@ -20,8 +53,11 @@ const State = {
   allEntries: [],      // 全タスクのエントリ（タスク一覧表示用キャッシュ）
   searchText: '',
   sort: { field: 'created_at', dir: 'desc' }, // ソート状態（localStorage: note_sort）
-  listFilter: {},      // field_id → Set（select/label 共通）
-  _labelFilters: [],   // LabelFilter インスタンス（renderFilterUI で管理）
+  listFilter: {},      // field_id → Set（select/label/dropdown 共通）
+  titleLines: 1,       // タイトル表示行数: 1 | 2 | 0（制限なし）. localStorage: note_title_lines
+  _filterPopoverOpen: false, // フィルターポップオーバーの開閉状態
+  _labelFilters: [],        // LabelFilter インスタンス（後方互換用）
+  _todoPickerCandidates: null, // TODOピッカー候補キャッシュ
 };
 
 // ── フィルター状態の永続化 ──────────────────────────────────────
@@ -44,7 +80,7 @@ function _loadFilter() {
       const fieldId = Number(key);
       const field = State.fields.find(f => f.id === fieldId);
       if (!field || !field.listVisible) continue;
-      if ((field.type === 'select' || field.type === 'label') && entry.type === 'set') {
+      if ((field.type === 'select' || field.type === 'label' || field.type === 'dropdown') && entry.type === 'set') {
         State.listFilter[key] = new Set(entry.values || []);
       }
     }
@@ -97,7 +133,7 @@ const Renderer = {
       const field = State.fields.find(f => f.id === fieldId);
       if (!field) continue;
 
-      if (field.type === 'select') {
+      if (field.type === 'select' || field.type === 'dropdown') {
         if (!(filterVal instanceof Set) || filterVal.size === 0) continue;
         result = result.filter(t => {
           const entries = State.allEntries.filter(e => e.task_id === t.id && e.field_id === fieldId);
@@ -194,59 +230,117 @@ const Renderer = {
         }
       }
 
+      const linesClass = State.titleLines > 0 ? ` note-task-item__title--lines-${State.titleLines}` : '';
+      const titleTooltip = State.titleLines > 0 ? ` data-tooltip="${_esc(task.title)}"` : '';
       return `<li class="note-task-item${isSelected ? ' is-selected' : ''}" data-task-id="${task.id}">
-        <span class="note-task-item__title">${_esc(task.title)}</span>
+        <span class="note-task-item__title${linesClass}"${titleTooltip}>${_esc(task.title)}</span>
         ${fieldsHtml}
       </li>`;
     }).join('');
+
+    // タイトルが省略されている場合のカスタムツールチップを初期化
+    if (State.titleLines > 0) Tooltip.init(list, '.note-task-item__title');
   },
 
-  // フィルター UI を再描画（LabelFilter コンポーネント使用）
+  // フィルター UI を再描画（ポップオーバー方式）
   renderFilterUI() {
     const container = document.getElementById('note-filters');
-    const filterFields = State.fields.filter(f => f.listVisible && (f.type === 'select' || f.type === 'label'));
-
-    // 既存の LabelFilter インスタンスをクリーンアップ
     State._labelFilters.forEach(inst => inst.destroy());
     State._labelFilters = [];
     container.innerHTML = '';
 
+    const filterFields = State.fields.filter(f => f.listVisible && (f.type === 'select' || f.type === 'label' || f.type === 'dropdown'));
     if (filterFields.length === 0) return;
 
-    for (const f of filterFields) {
-      const row = document.createElement('div');
-      row.className = 'note-filter-row';
+    // アクティブなフィルター数
+    const totalActive = Object.values(State.listFilter)
+      .reduce((sum, s) => sum + (s instanceof Set ? s.size : 0), 0);
 
-      const labelEl = document.createElement('span');
-      labelEl.className = 'note-filter-label';
-      labelEl.textContent = f.name + ':';
-      row.appendChild(labelEl);
-      container.appendChild(row);
+    // ── フィルターバー（ボタン + アクティブチップ）──
+    const bar = document.createElement('div');
+    bar.className = 'note-filter-bar';
 
-      if (f.type === 'select' || f.type === 'label') {
-        // select / label ともに LabelFilter コンポーネントを使用
-        const opts = f.options || [];
-        const activeSet = State.listFilter[f.id] instanceof Set ? State.listFilter[f.id] : new Set();
-        const items = opts.map(o => ({ id: o.name, name: o.name, color: o.color }));
+    const filterBtn = document.createElement('button');
+    filterBtn.className = 'note-filter-btn' + (State._filterPopoverOpen ? ' is-open' : '');
+    filterBtn.dataset.action = 'toggle-filter-popover';
+    filterBtn.innerHTML = `
+      <svg viewBox="0 0 16 16" aria-hidden="true" width="11" height="11" fill="currentColor">
+        <path d="M.75 3h14.5a.75.75 0 0 0 0-1.5H.75a.75.75 0 0 0 0 1.5ZM3 7.75A.75.75 0 0 1 3.75 7h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 3 7.75Zm3 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/>
+      </svg>
+      フィルター
+      ${totalActive > 0 ? `<span class="note-filter-btn__badge">${totalActive}</span>` : ''}
+    `;
+    bar.appendChild(filterBtn);
+    container.appendChild(bar);
 
-        const lfContainer = document.createElement('div');
-        row.appendChild(lfContainer);
-
-        const fieldId = f.id;
-        const inst = LabelFilter.create(lfContainer, {
-          items,
-          selected: activeSet,
-          label: f.name,
-          onChange: selected => {
-            State.listFilter[fieldId] = selected;
-            _saveFilter();
-            Renderer.renderTaskList();
-          },
-        });
-        State._labelFilters.push(inst);
-
+    // ── アクティブチップ ──
+    if (totalActive > 0) {
+      const chipsBar = document.createElement('div');
+      chipsBar.className = 'note-filter-active-chips';
+      for (const f of filterFields) {
+        const set = State.listFilter[f.id];
+        if (!(set instanceof Set) || set.size === 0) continue;
+        for (const val of set) {
+          const chip = document.createElement('span');
+          chip.className = 'note-filter-active-chip';
+          const opt = (f.options || []).find(o => o.name === val);
+          if (opt?.color) chip.style.cssText = `background:${opt.color}22;color:${opt.color};border-color:${opt.color}55`;
+          const textSpan = document.createElement('span');
+          textSpan.className = 'note-filter-active-chip__text';
+          textSpan.textContent = val;
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'note-filter-active-chip__remove';
+          removeBtn.dataset.action = 'clear-active-filter';
+          removeBtn.dataset.fieldId = f.id;
+          removeBtn.dataset.value = val;
+          removeBtn.setAttribute('aria-label', 'フィルター解除');
+          removeBtn.textContent = '×';
+          chip.appendChild(textSpan);
+          chip.appendChild(removeBtn);
+          chipsBar.appendChild(chip);
+        }
       }
+      container.appendChild(chipsBar);
     }
+
+    // ── ポップオーバーパネル ──
+    const popover = document.createElement('div');
+    popover.className = 'note-filter-popover';
+    popover.id = 'note-filter-popover';
+    popover.hidden = !State._filterPopoverOpen;
+
+    for (const f of filterFields) {
+      const section = document.createElement('div');
+      section.className = 'note-filter-popover__section';
+
+      const label = document.createElement('div');
+      label.className = 'note-filter-popover__label';
+      label.textContent = f.name;
+      section.appendChild(label);
+
+      const chips = document.createElement('div');
+      chips.className = 'note-filter-chips';
+      const activeSet = State.listFilter[f.id] instanceof Set ? State.listFilter[f.id] : new Set();
+
+      for (const opt of (f.options || [])) {
+        const isActive = activeSet.has(opt.name);
+        const chip = document.createElement('button');
+        chip.className = 'note-filter-chip' + (isActive ? ' is-active' : '');
+        chip.dataset.action = 'toggle-filter-chip';
+        chip.dataset.fieldId = f.id;
+        chip.dataset.value = opt.name;
+        chip.textContent = opt.name;
+        if (opt.color) {
+          chip.style.cssText = isActive
+            ? `background:${opt.color};color:#fff;border-color:${opt.color}`
+            : `background:${opt.color}22;color:${opt.color};border-color:${opt.color}55`;
+        }
+        chips.appendChild(chip);
+      }
+      section.appendChild(chips);
+      popover.appendChild(section);
+    }
+    container.appendChild(popover);
   },
 
   // 詳細パネル描画
@@ -287,14 +381,20 @@ const Renderer = {
       </div>
 
       <div class="note-fields" id="detail-fields">
-        ${State.fields.map(f => this._renderField(f, entryMap[f.id] || [])).join('')}
-      </div>
-
-      <div class="note-todo-section" id="note-todo-links-section" hidden>
-        <div class="note-todo-section__header">
-          <span class="note-field-label">紐づきTODO</span>
-        </div>
-        <div id="note-todo-links" class="note-todo-links"></div>
+        ${State.fields.map(f => {
+          if (f.type === 'todo') {
+            if (f.visible === false) return '';
+            return `
+              <div class="note-todo-section" id="note-todo-links-section" data-width="${f.width || 'full'}">
+                <div class="note-todo-section__header">
+                  <span class="note-field-label">TODO</span>
+                  <button class="note-add-entry-btn" data-action="open-todo-picker">＋ 追加</button>
+                </div>
+                <div id="note-todo-links" class="note-todo-links"></div>
+              </div>`;
+          }
+          return this._renderField(f, entryMap[f.id] || []);
+        }).join('')}
       </div>
     `;
 
@@ -307,11 +407,9 @@ const Renderer = {
 
   /** 紐づきTODOタスクを描画 */
   async renderTodoLinks(knTaskId) {
-    const section   = document.getElementById('note-todo-links-section');
     const container = document.getElementById('note-todo-links');
-    if (!section || !container) return;
+    if (!container) return;
     container.innerHTML = '';
-    section.hidden = true;
 
     try {
       const kanbanDb = await _openKanbanDB();
@@ -340,7 +438,6 @@ const Renderer = {
 
       const taskMap = new Map(todoTasks.map(t => [t.id, t]));
 
-      section.hidden = false;
       container.innerHTML = links.map(link => {
         const task  = taskMap.get(link.todo_task_id);
         const title = task ? _esc(task.title) : `(ID: ${link.todo_task_id})`;
@@ -523,10 +620,12 @@ const Renderer = {
         </svg>
         <span class="note-entry__link-text">${_esc(display)}</span>
       </a>
-      ${labelCopyBtn}
-      <button class="note-entry__action" data-action="copy-entry-url" data-entry-id="${entry.id}" data-url="${_esc(entry.value)}" title="URLをコピー">${Icons.copyFill}</button>
-      <button class="note-entry__action" data-action="edit-entry" data-entry-id="${entry.id}" title="編集">${Icons.edit}</button>
-      <button class="note-entry__delete" data-action="delete-entry" data-entry-id="${entry.id}" title="削除">${Icons.close}</button>
+      <div class="note-entry__actions">
+        ${labelCopyBtn}
+        <button class="note-entry__action" data-action="copy-entry-url" data-entry-id="${entry.id}" data-url="${_esc(entry.value)}" title="URLをコピー">${Icons.copyFill}</button>
+        <button class="note-entry__action" data-action="edit-entry" data-entry-id="${entry.id}" title="編集">${Icons.edit}</button>
+        <button class="note-entry__action note-entry__action--delete" data-action="delete-entry" data-entry-id="${entry.id}" title="削除">${Icons.close}</button>
+      </div>
     </div>`;
   },
 
@@ -537,26 +636,50 @@ const Renderer = {
       body.innerHTML = '<p class="note-empty-msg">フィールドがありません。下のフォームから追加してください。</p>';
       return;
     }
-    const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '単一ラベル', label: 'ラベル', dropdown: 'ドロップダウン' };
+    const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '単一ラベル', label: 'ラベル', dropdown: 'ドロップダウン', todo: 'TODOリンク' };
     body.innerHTML = `<ul class="note-field-list">
       ${State.fields.map((f, i) => {
-        const hasSelectOptions = false; // 単一選択タイプも LabelManager で管理するため展開パネル不要
+        const displayWidth = f.width || 'full';
+        const widthSelect = `
+          <select class="cs-target kn-select--sm" data-field-width="${f.id}" title="表示幅">
+            <option value="narrow" ${displayWidth === 'narrow' ? 'selected' : ''}>1/6</option>
+            <option value="auto"   ${displayWidth === 'auto'   ? 'selected' : ''}>2/6</option>
+            <option value="w3"     ${displayWidth === 'w3'     ? 'selected' : ''}>3/6</option>
+            <option value="wide"   ${displayWidth === 'wide'   ? 'selected' : ''}>4/6</option>
+            <option value="w5"     ${displayWidth === 'w5'     ? 'selected' : ''}>5/6</option>
+            <option value="full"   ${displayWidth === 'full'   ? 'selected' : ''}>6/6（全幅）</option>
+          </select>`;
+        const moveButtons = `
+          <button class="note-icon-btn" data-action="move-field-up"   data-field-id="${f.id}" ${i === 0 ? 'disabled' : ''} title="上へ">↑</button>
+          <button class="note-icon-btn" data-action="move-field-down" data-field-id="${f.id}" ${i === State.fields.length - 1 ? 'disabled' : ''} title="下へ">↓</button>`;
+
+        // TODOフィールド専用行（削除・名前編集不可）
+        if (f.type === 'todo') {
+          return `
+            <li class="note-field-item note-field-item--builtin" data-field-id="${f.id}">
+              <div class="note-field-item__main">
+                <span class="note-field-item__name">TODO</span>
+                <span class="note-field-item__type" data-type="todo">TODOリンク</span>
+                ${widthSelect}
+                <label class="note-field-item__visible" title="詳細パネルにTODOセクションを表示する">
+                  <input type="checkbox" data-field-visible="${f.id}"${f.visible !== false ? ' checked' : ''}>
+                  表示
+                </label>
+                <div class="note-field-item__actions">${moveButtons}</div>
+              </div>
+            </li>`;
+        }
+
+        // 通常フィールド
+        const hasSelectOptions = false; // LabelManager で管理するため展開パネル不要
         const hasLabelOptions  = f.type === 'label' || f.type === 'select' || f.type === 'dropdown';
         const options = f.options || [];
-        const displayWidth = f.width || 'full';
         return `
           <li class="note-field-item" data-field-id="${f.id}">
             <div class="note-field-item__main">
               <span class="note-field-item__name note-field-item__name--editable" data-action="edit-field-name" data-field-id="${f.id}" title="クリックしてフィールド名を変更">${_esc(f.name)}</span>
               <span class="note-field-item__type" data-type="${f.type}">${typeLabels[f.type] || f.type}</span>
-              <select class="cs-target kn-select--sm" data-field-width="${f.id}" title="表示幅">
-                <option value="narrow" ${displayWidth === 'narrow' ? 'selected' : ''}>1/6</option>
-                <option value="auto" ${displayWidth === 'auto' ? 'selected' : ''}>2/6</option>
-                <option value="w3" ${displayWidth === 'w3' ? 'selected' : ''}>3/6</option>
-                <option value="wide" ${displayWidth === 'wide' ? 'selected' : ''}>4/6</option>
-                <option value="w5" ${displayWidth === 'w5' ? 'selected' : ''}>5/6</option>
-                <option value="full" ${displayWidth === 'full' ? 'selected' : ''}>6/6（全幅）</option>
-              </select>
+              ${widthSelect}
               <label class="note-field-item__visible" title="新しい行から開始する">
                 <input type="checkbox" data-field-new-row="${f.id}"${f.newRow ? ' checked' : ''}>
                 行頭開始
@@ -566,8 +689,7 @@ const Renderer = {
                 一覧表示
               </label>
               <div class="note-field-item__actions">
-                <button class="note-icon-btn" data-action="move-field-up" data-field-id="${f.id}" ${i === 0 ? 'disabled' : ''} title="上へ">↑</button>
-                <button class="note-icon-btn" data-action="move-field-down" data-field-id="${f.id}" ${i === State.fields.length - 1 ? 'disabled' : ''} title="下へ">↓</button>
+                ${moveButtons}
                 ${hasSelectOptions ? `
                   <button class="note-icon-btn" data-action="toggle-field-options" data-field-id="${f.id}" title="選択肢を管理">
                     <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
@@ -643,6 +765,75 @@ const EventHandlers = {
       Renderer.renderTaskList();
     });
 
+    // タイトル行数ボタン
+    document.getElementById('title-lines-group').addEventListener('click', e => {
+      const btn = e.target.closest('.note-title-lines-btn');
+      if (!btn) return;
+      State.titleLines = Number(btn.dataset.lines);
+      localStorage.setItem('note_title_lines', State.titleLines);
+      document.querySelectorAll('.note-title-lines-btn').forEach(b => {
+        b.classList.toggle('is-active', b === btn);
+      });
+      Renderer.renderTaskList();
+    });
+
+    // サイドバーコントロール：フィルターポップオーバー操作（イベント委譲）
+    document.getElementById('note-sidebar-controls').addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      switch (btn.dataset.action) {
+        case 'toggle-filter-popover':
+          State._filterPopoverOpen = !State._filterPopoverOpen;
+          Renderer.renderFilterUI();
+          break;
+        case 'toggle-filter-chip': {
+          const fieldId = Number(btn.dataset.fieldId);
+          const value = btn.dataset.value;
+          if (!(State.listFilter[fieldId] instanceof Set)) State.listFilter[fieldId] = new Set();
+          const set = State.listFilter[fieldId];
+          if (set.has(value)) {
+            set.delete(value);
+            if (set.size === 0) delete State.listFilter[fieldId];
+          } else {
+            set.add(value);
+          }
+          _saveFilter();
+          State._filterPopoverOpen = true; // ポップオーバーを維持
+          Renderer.renderFilterUI();
+          Renderer.renderTaskList();
+          break;
+        }
+        case 'clear-active-filter': {
+          const fieldId = Number(btn.dataset.fieldId);
+          const value = btn.dataset.value;
+          const set = State.listFilter[fieldId];
+          if (set instanceof Set) {
+            set.delete(value);
+            if (set.size === 0) delete State.listFilter[fieldId];
+            _saveFilter();
+            Renderer.renderFilterUI();
+            Renderer.renderTaskList();
+          }
+          break;
+        }
+      }
+    });
+
+    // フィルターポップオーバー外クリックで閉じる
+    document.addEventListener('click', e => {
+      if (!State._filterPopoverOpen) return;
+      // DOM再構築後にe.targetが削除されている場合は外クリックとして扱わない
+      if (!document.contains(e.target)) return;
+      const controls = document.getElementById('note-sidebar-controls');
+      if (controls && !controls.contains(e.target)) {
+        State._filterPopoverOpen = false;
+        const popover = document.getElementById('note-filter-popover');
+        if (popover) popover.hidden = true;
+        const filterBtn = document.querySelector('.note-filter-btn');
+        if (filterBtn) filterBtn.classList.remove('is-open');
+      }
+    });
+
     // ヘッダーアクション（フィールド管理・エクスポート・インポート）
     document.querySelector('.note-header__actions').addEventListener('click', e => {
       const btn = e.target.closest('[data-action]');
@@ -709,6 +900,17 @@ const EventHandlers = {
 
     // フィールド幅・一覧表示設定の変更
     document.getElementById('field-modal').addEventListener('change', e => {
+      // TODOフィールドの表示切替（data-field-visible）
+      const fv = e.target.closest('[data-field-visible]');
+      if (fv) {
+        const fieldId = Number(fv.dataset.fieldVisible);
+        const field = State.fields.find(f => f.id === fieldId);
+        if (!field) return;
+        field.visible = fv.checked;
+        db.updateField(field).catch(console.error);
+        if (State.selectedTaskId) Renderer.renderDetail().catch(console.error);
+        return;
+      }
       const sel = e.target.closest('[data-field-width]');
       if (sel) {
         const fieldId = Number(sel.dataset.fieldWidth);
@@ -750,6 +952,30 @@ const EventHandlers = {
     document.getElementById('new-field-type').addEventListener('change', () => {
       document.getElementById('new-field-options-row').hidden = true;
     });
+
+    // TODOピッカーの検索入力
+    document.getElementById('todo-picker-input').addEventListener('input', e => {
+      const q = e.target.value.toLowerCase();
+      const candidates = (State._todoPickerCandidates || []).filter(
+        t => t.title.toLowerCase().includes(q),
+      );
+      _renderTodoPickerList(candidates);
+    });
+
+    // TODOピッカーのアイテムクリック
+    document.getElementById('todo-picker-list').addEventListener('click', e => {
+      const item = e.target.closest('[data-action="select-todo-task"]');
+      if (item) this._onSelectTodoTask(item).catch(console.error);
+    });
+
+    // TODOピッカーの外クリックで閉じる
+    document.addEventListener('click', e => {
+      const picker = document.getElementById('todo-picker');
+      if (picker && !picker.hidden && !picker.contains(e.target)) {
+        const addBtn = e.target.closest('[data-action="open-todo-picker"]');
+        if (!addBtn) _closeTodoPicker();
+      }
+    });
   },
 
   async _onSelectTask(item, db) {
@@ -789,6 +1015,8 @@ const EventHandlers = {
       case 'toggle-label':     await this._onToggleLabel(btn, db); break;
       case 'remove-todo-link': await this._onRemoveTodoLink(btn); break;
       case 'open-todo-task':   this._onOpenTodoTask(btn); break;
+      case 'open-todo-picker': await this._onOpenTodoPicker(btn); break;
+      case 'select-todo-task': await this._onSelectTodoTask(btn); break;
     }
   },
 
@@ -1281,6 +1509,14 @@ const EventHandlers = {
           _saveFilter();
         }
       },
+      onReorder: async (newLabels) => {
+        // ラベル/選択肢の並び順を DB に保存し、詳細パネルを即時更新
+        field.options = newLabels.map(l => ({ name: l.name, color: l.color }));
+        await db.updateField(field);
+        if (State.selectedTaskId) {
+          await Renderer.renderDetail();
+        }
+      },
       onChange: async () => {
         State.fields = await db.getAllFields();
         State.allEntries = await db.getAllEntries();
@@ -1506,6 +1742,83 @@ const EventHandlers = {
     }
   },
 
+  /** TODOタスクピッカーを開く */
+  async _onOpenTodoPicker(btn) {
+    if (!State.selectedTaskId) return;
+
+    // 既存リンクを除外
+    let existingLinks = [];
+    try {
+      const kanbanDb = await _openKanbanDB();
+      existingLinks = await new Promise((resolve) => {
+        try {
+          const req = kanbanDb.transaction('note_links')
+            .objectStore('note_links')
+            .index('note_task_id')
+            .getAll(State.selectedTaskId);
+          req.onsuccess = e => resolve(e.target.result);
+          req.onerror   = () => resolve([]);
+        } catch (e) { resolve([]); }
+      });
+      kanbanDb.close();
+    } catch (e) {}
+
+    const excludeIds = new Set(existingLinks.map(l => l.todo_task_id));
+
+    // kanban_db からタスク一覧を取得
+    let todoTasks = [];
+    try {
+      const kanbanDb = await _openKanbanDB();
+      todoTasks = await new Promise((resolve, reject) => {
+        const req = kanbanDb.transaction('tasks').objectStore('tasks').getAll();
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror   = e => reject(e.target.error);
+      });
+      kanbanDb.close();
+    } catch (e) {
+      showToast('TODOデータを取得できませんでした', 'error');
+      return;
+    }
+
+    State._todoPickerCandidates = todoTasks.filter(t => !excludeIds.has(t.id));
+
+    const picker = document.getElementById('todo-picker');
+    const input  = document.getElementById('todo-picker-input');
+    input.value  = '';
+    _renderTodoPickerList(State._todoPickerCandidates);
+
+    const rect = btn.getBoundingClientRect();
+    picker.style.top  = (rect.bottom + 4) + 'px';
+    picker.style.left = rect.left + 'px';
+    picker.removeAttribute('hidden');
+    input.focus();
+  },
+
+  /** TODOタスクを選択して紐づけ */
+  async _onSelectTodoTask(btn) {
+    const todoTaskId = parseInt(btn.dataset.taskId, 10);
+    const noteTaskId = State.selectedTaskId;
+    if (!todoTaskId || !noteTaskId) return;
+
+    try {
+      const kanbanDb = await _openKanbanDB();
+      await new Promise((resolve, reject) => {
+        const record = { todo_task_id: todoTaskId, note_task_id: noteTaskId };
+        const tx  = kanbanDb.transaction('note_links', 'readwrite');
+        const req = tx.objectStore('note_links').add(record);
+        req.onsuccess = resolve;
+        req.onerror   = e => reject(e.target.error);
+      });
+      kanbanDb.close();
+    } catch (e) {
+      showToast('紐づけに失敗しました', 'error');
+      return;
+    }
+
+    _closeTodoPicker();
+    await Renderer.renderTodoLinks(noteTaskId);
+  },
+
   /** TODOページでタスクを開く（親フレームにナビゲーション要求を送信） */
   _onOpenTodoTask(btn) {
     const todoTaskId = parseInt(btn.dataset.todoTaskId, 10);
@@ -1575,6 +1888,7 @@ const App = {
   async init() {
     await NoteDB.open();
     await NoteDB.initDefaultFields();
+    await NoteDB.ensureTodoField();
     [State.tasks, State.fields, State.allEntries] = await Promise.all([
       NoteDB.getAllTasks(),
       NoteDB.getAllFields(),
@@ -1583,6 +1897,13 @@ const App = {
 
     // フィルター状態を localStorage から復元
     _loadFilter();
+
+    // タイトル行数を localStorage から復元
+    const savedLines = localStorage.getItem('note_title_lines');
+    if (savedLines !== null) State.titleLines = Number(savedLines);
+    document.querySelectorAll('.note-title-lines-btn').forEach(btn => {
+      btn.classList.toggle('is-active', Number(btn.dataset.lines) === State.titleLines);
+    });
 
     // ソート状態を localStorage から復元
     const savedSort = localStorage.getItem('note_sort');
@@ -1602,7 +1923,12 @@ const App = {
     window.addEventListener('message', async (e) => {
       const { type, noteTaskId } = e.data || {};
       if (type !== 'navigate:note' || !noteTaskId) return;
-      const task = State.tasks.find(t => t.id === noteTaskId);
+      let task = State.tasks.find(t => t.id === noteTaskId);
+      if (!task) {
+        // キャッシュが古い可能性があるため DB から再取得
+        State.tasks = await NoteDB.getAllTasks();
+        task = State.tasks.find(t => t.id === noteTaskId);
+      }
       if (!task) return;
       State.selectedTaskId = noteTaskId;
       State.entries = await NoteDB.getEntriesByTask(noteTaskId);
@@ -1610,6 +1936,15 @@ const App = {
       await Renderer.renderDetail();
       document.querySelector(`[data-task-id="${noteTaskId}"]`)?.scrollIntoView({ block: 'nearest' });
     });
+
+    // BroadcastChannel: TODOページからのノートリンク変更通知を受け取る
+    try {
+      new BroadcastChannel('kanban-note-links').addEventListener('message', async (e) => {
+        if (e.data.type === 'note-link-changed' && e.data.noteTaskId === State.selectedTaskId) {
+          await Renderer.renderTodoLinks(State.selectedTaskId);
+        }
+      });
+    } catch (e) { /* BroadcastChannel 非対応環境では無視 */ }
 
     // CustomSelect: ソートセレクトとフィールド追加フォームのタイプセレクトをカスタム UI に置き換え
     CustomSelect.replaceAll(document.getElementById('note-sidebar-controls'));

@@ -5,15 +5,28 @@
 .tooltip-popup {
   position: fixed;
   z-index: 900;
-  padding: 4px 9px;
+  padding: 5px 10px;
   background: var(--c-tooltip-bg);
   color: var(--c-tooltip-text);
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.6;
   border-radius: var(--radius-sm);
-  white-space: nowrap;
+  white-space: pre-line;
   pointer-events: none;
   box-shadow: var(--shadow-md);
   font-variant-numeric: tabular-nums;
+  border-left: 3px solid transparent; // バリアント用の左ボーダー確保
   // tokens.css を後から読んでも z-index 管理できるよう最上位に
+
+  // 危険・エラー系（赤）
+  &--danger {
+    border-left-color: var(--c-danger);
+    background: color-mix(in srgb, var(--c-danger) 12%, var(--c-tooltip-bg));
+  }
+
+  // 警告系（アンバー）
+  &--warning {
+    border-left-color: var(--c-warning);
+    background: color-mix(in srgb, var(--c-warning) 12%, var(--c-tooltip-bg));
+  }
 }

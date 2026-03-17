@@ -150,21 +150,25 @@ const DatePicker = {
       case 'prev-year':
         this._year--;
         this._refreshHolidays();
+        this._keepSelectedInView();
         this._render();
         break;
       case 'next-year':
         this._year++;
         this._refreshHolidays();
+        this._keepSelectedInView();
         this._render();
         break;
       case 'prev-month':
         this._month--;
         if (this._month < 0) { this._month = 11; this._year--; this._refreshHolidays(); }
+        this._keepSelectedInView();
         this._render();
         break;
       case 'next-month':
         this._month++;
         if (this._month > 11) { this._month = 0; this._year++; this._refreshHolidays(); }
+        this._keepSelectedInView();
         this._render();
         break;
       case 'pick-date':
@@ -222,6 +226,18 @@ const DatePicker = {
   // --------------------------------------------------
   // 内部メソッド
   // --------------------------------------------------
+
+  /**
+   * 月・年ナビゲーション後に選択日を新しい月の同じ日に移動する
+   * 月末を超える場合はその月の最終日にクランプ
+   */
+  _keepSelectedInView() {
+    if (!this._selected) return;
+    const selectedDay = this._selected.getDate();
+    const maxDay = new Date(this._year, this._month + 1, 0).getDate();
+    const day = Math.min(selectedDay, maxDay);
+    this._selected = new Date(this._year, this._month, day);
+  },
 
   /** 年が変わったときだけ祝日を再計算 */
   _refreshHolidays() {

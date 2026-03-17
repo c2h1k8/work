@@ -469,18 +469,20 @@ const Renderer = {
 
   buildCommandBuilderSection(section, bd) {
     const sectionId = section.id;
-    // cmd_buttons があればそれを使用、なければ従来の command_template/action_mode からフォールバック
+    // cmd_buttons があればそれを使用、command_template がある場合は後方互換フォールバック
     const cmdButtons =
       section.cmd_buttons?.length > 0
         ? section.cmd_buttons
-        : [
-            {
-              id: "legacy",
-              label: section.action_mode === "open" ? "リンク" : "コピー",
-              template: section.command_template || "",
-              action_mode: section.action_mode || "copy",
-            },
-          ];
+        : section.command_template
+          ? [
+              {
+                id: "legacy",
+                label: section.action_mode === "open" ? "リンク" : "コピー",
+                template: section.command_template,
+                action_mode: section.action_mode || "copy",
+              },
+            ]
+          : [];
     const form = document.createElement("div");
     form.className = "url-form";
     const buttonsHtml = cmdButtons
@@ -1198,6 +1200,8 @@ const Renderer = {
             <span class="settings-cmd-btn-mode">${escapeHtml(modeLabel)}</span>
             <span class="settings-cmd-btn-template" title="${escapeAttr(btn.template || "")}">${escapeHtml(templateShort)}</span>
             <div class="settings-row__actions">
+              <button class="settings-btn" data-action="move-cmd-button-up" data-section-id="${section.id}" data-btn-id="${escapeAttr(String(btn.id))}" ${idx === 0 ? "disabled" : ""}>↑</button>
+              <button class="settings-btn" data-action="move-cmd-button-down" data-section-id="${section.id}" data-btn-id="${escapeAttr(String(btn.id))}" ${idx === buttons.length - 1 ? "disabled" : ""}>↓</button>
               <button class="settings-btn settings-btn--primary" data-action="edit-cmd-button" data-section-id="${section.id}" data-btn-id="${escapeAttr(String(btn.id))}">編集</button>
               <button class="settings-btn settings-btn--danger" data-action="delete-cmd-button" data-section-id="${section.id}" data-btn-id="${escapeAttr(String(btn.id))}">削除</button>
             </div>
@@ -2298,6 +2302,30 @@ const EventHandlers = {
     Renderer.renderSettingsView();
   },
 
+  async moveCmdButtonUp(sectionId, btnId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const btns = section.cmd_buttons || [];
+    const idx = btns.findIndex((b) => String(b.id) === btnId);
+    if (idx <= 0) return;
+    [btns[idx - 1], btns[idx]] = [btns[idx], btns[idx - 1]];
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+  },
+
+  async moveCmdButtonDown(sectionId, btnId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const btns = section.cmd_buttons || [];
+    const idx = btns.findIndex((b) => String(b.id) === btnId);
+    if (idx >= btns.length - 1) return;
+    [btns[idx], btns[idx + 1]] = [btns[idx + 1], btns[idx]];
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    Renderer.renderSettingsView();
+  },
+
   // ── 列操作（テーブル） ────────────────
 
   toggleAddColumnForm(show) {
@@ -2876,7 +2904,7 @@ const EventHandlers = {
     if (!State.itemsMap[sectionId]) State.itemsMap[sectionId] = [];
     State.itemsMap[sectionId].push(...newItems);
 
-    showToast(`${newItems.length}件を追加しました`);
+    showToast(`${newItems.length}件を追加しました`, "success");
     Renderer.renderDashboard();
     State.itemMgr.formTab = "add";
     this._refreshItemManager();
@@ -2998,7 +3026,7 @@ const EventHandlers = {
     const result = resolveBindVars(template.replace("{INPUT}", inputVal));
 
     if (actionMode === "open") {
-      if (result) window.open(result, "_blank", "noopener,noreferrer");
+      if (result) window.open(result, "_blank");
     } else {
       navigator.clipboard.writeText(result);
       showToast("コピーしました", "success");
@@ -3772,6 +3800,12 @@ const App = {
           break;
         case "delete-cmd-button":
           eh.deleteCmdButton(sectionId, btn.dataset.btnId).catch(console.error);
+          break;
+        case "move-cmd-button-up":
+          eh.moveCmdButtonUp(sectionId, btn.dataset.btnId).catch(console.error);
+          break;
+        case "move-cmd-button-down":
+          eh.moveCmdButtonDown(sectionId, btn.dataset.btnId).catch(console.error);
           break;
         case "show-add-column":
           eh.toggleAddColumnForm(true);
