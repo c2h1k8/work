@@ -196,7 +196,12 @@ function applyFilter() {
         switch (due) {
           case 'has_due':  dueOk = !!taskDue; break;
           case 'no_due':   dueOk = !taskDue;  break;
-          case 'overdue':  dueOk = !!taskDue && taskDue < today; break;
+          case 'overdue': {
+            // 完了カラムは期限切れ表示を抑制しているため、フィルターからも除外する
+            const isDoneCol = State.columns.find(c => c.key === col)?.done;
+            dueOk = !!taskDue && taskDue < today && !isDoneCol;
+            break;
+          }
           case 'today':    dueOk = !!taskDue && taskDue.getTime() === today.getTime(); break;
           case 'week': {
             const endOfWeek = new Date(today);
@@ -2022,8 +2027,9 @@ const EventHandlers = {
     btn.classList.toggle('is-active', col.done);
     btn.setAttribute('aria-label', col.done ? `${col.name}: 完了カラム（クリックで解除）` : `${col.name}: 完了カラムに設定`);
     btn.setAttribute('data-tooltip', col.done ? '完了カラム（期限切れ非表示）' : '完了カラムに設定');
-    // カードを再描画して期限表示を更新
+    // カードを再描画して期限表示を更新し、アクティブなフィルターを再適用
     Renderer.renderColumn(key, State.tasks[key] ?? [], db);
+    applyFilter();
     markDirty();
   },
 
