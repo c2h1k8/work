@@ -83,64 +83,25 @@ body {
 }
 
 // ==================================================
-// アプリヘッダー
+// アプリヘッダー（基本スタイルは css/base/ui.css の共通定義を参照）
 // ==================================================
 .app-header {
-  background: var(--color-card);
-  border-bottom: 1px solid var(--color-border);
-  padding: 12px 20px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  // ── TODO 固有レイアウト（inner は ui.css 共通定義のみ使用）──
 
-  &__inner {
-    max-width: 1600px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  &__actions {
-    display: flex;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  // フィルターバー（検索テキスト + ラベルボタン + クリア）
+  // フィルターバー（TODO 固有）
   &__filter {
     display: flex;
     align-items: center;
     gap: 8px;
     flex: 1;
-    padding: 0 16px;
-    max-width: 600px;
     min-width: 0;
   }
 
-  // ソートUI
+  // ソート選択（TODO 固有）
   &__sort {
     display: flex;
     align-items: center;
     flex-shrink: 0;
-  }
-
-  &__title {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--color-text);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-  }
-
-  &__icon {
-    width: 20px;
-    height: 20px;
-    fill: var(--color-text-muted);
   }
 }
 

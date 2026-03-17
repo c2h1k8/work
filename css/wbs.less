@@ -19,7 +19,7 @@
 
   // WBS固有トークン
   --wbs-row-h: 40px;
-  --wbs-header-h: 56px;
+  --wbs-header-h: 52px;
   --wbs-toolbar-h: 48px;
   --wbs-gantt-header-h: 52px;  // 月ヘッダー + 日ヘッダー
   --wbs-day-w: 22px;           // ガントチャート 1日の幅
@@ -39,63 +39,26 @@
   height: 100vh;
   overflow: hidden;
   background: var(--c-bg);
+  background-image: radial-gradient(circle, var(--c-border) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
-// ヘッダー
-.wbs-header {
-  height: var(--wbs-header-h);
-  background: linear-gradient(135deg, var(--c-accent) 0%, color-mix(in srgb, var(--c-accent) 70%, #312e81) 100%);
-  box-shadow: var(--shadow-sm);
-  flex-shrink: 0;
-  z-index: 10;
-}
-
-.wbs-header__inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 100%;
-  padding: 0 var(--space-5);
-}
-
-.wbs-header__title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.95);
-  letter-spacing: 0.02em;
-
-  svg {
-    width: 20px;
-    height: 20px;
-    fill: rgba(255, 255, 255, 0.9);
-    flex-shrink: 0;
-  }
-}
-
-.wbs-header__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
+// ヘッダー（基本スタイルは css/base/ui.css の共通定義を参照）
 
 .wbs-header__btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 5px 12px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: var(--radius-md);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--c-text-2);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
-  transition: background var(--t), border-color var(--t);
+  transition: background var(--t), border-color var(--t), color var(--t);
 
   svg {
     width: 13px;
@@ -105,8 +68,9 @@
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.25);
-    border-color: rgba(255, 255, 255, 0.4);
+    background: var(--c-bg);
+    border-color: var(--c-accent);
+    color: var(--c-accent);
   }
 }
 

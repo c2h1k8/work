@@ -31,60 +31,19 @@
 
 // ── body ページ固有スタイル（基本は ui.css で定義）──────────────
 body {
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
 }
 
-// ── ヘッダー ─────────────────────────────────────────────────
-.note-header {
-  height: @header-h;
-  background: @card-bg;
-  border-bottom: 1px solid @border;
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 100;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06);
-}
+// ── ヘッダー（基本スタイルは css/base/ui.css の共通定義を参照）────
 
-.note-header__inner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-}
-
-.note-header__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: @text;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-
-  svg {
-    width: 18px;
-    height: 18px;
-    color: @accent;
-    flex-shrink: 0;
-  }
-}
-
-.note-header__actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-// ── レイアウト（ヘッダー分オフセット） ───────────────────────
+// ── レイアウト ───────────────────────────────────────────────
 .note-layout {
   display: flex;
-  height: 100vh;
-  padding-top: @header-h;
+  flex: 1;
+  min-height: 0;
 }
 
 // ── サイドバー（タスクリスト） ────────────────────────────────
