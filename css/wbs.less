@@ -117,7 +117,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-4);
-  background: var(--c-surface);
+  background: var(--c-surface-raised);
   border-bottom: 1px solid var(--c-border);
   flex-shrink: 0;
   box-shadow: var(--shadow-xs);
@@ -213,16 +213,18 @@
 
   &.is-selected {
     background: var(--c-accent-dim);
+    border-left-color: var(--c-accent);
+    border-left-width: 4px;
   }
 }
 
 // レベル別左ボーダー
 @wbs-level-colors: #6366f1, #8b5cf6, #ec4899, #f59e0b, #10b981;
-.wbs-row--l0 { border-left: 3px solid #6366f1; }
+.wbs-row--l0 { border-left: 3px solid var(--c-accent); }
 .wbs-row--l1 { border-left: 3px solid #8b5cf6; }
 .wbs-row--l2 { border-left: 3px solid #ec4899; }
 .wbs-row--l3 { border-left: 3px solid #f59e0b; }
-.wbs-row--l4 { border-left: 3px solid #10b981; }
+.wbs-row--l4 { border-left: 3px solid var(--c-success); }
 
 // セル基本
 .wbs-cell {
@@ -369,7 +371,7 @@
 }
 
 .wbs-progress-bar {
-  height: 4px;
+  height: 6px;
   background: var(--c-border);
   border-radius: var(--radius-full);
   overflow: hidden;
@@ -394,7 +396,7 @@
   align-items: center;
   padding: 2px 5px;
   border-radius: var(--radius-full);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -664,9 +666,9 @@
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 
-  &.is-saturday { background: var(--c-bg); color: #5b9bd5; }
-  &.is-sunday   { background: var(--c-bg); color: #e05c5c; }
-  &.is-holiday  { background: var(--c-bg); color: #d97706; }
+  &.is-saturday { background: var(--c-bg); color: var(--c-info); }
+  &.is-sunday   { background: var(--c-bg); color: var(--c-danger); }
+  &.is-holiday  { background: var(--c-bg); color: var(--c-warning); }
   // 当日: アクセント（indigo）で土日・祝日と明確に区別
   &.is-today {
     background: color-mix(in srgb, var(--c-accent) 15%, transparent);
@@ -713,9 +715,9 @@
   border-right: 1px solid var(--c-border);
   flex-shrink: 0;
 
-  &.is-saturday { background: color-mix(in srgb, #5b9bd5 6%, transparent); }
-  &.is-sunday   { background: color-mix(in srgb, #e05c5c 6%, transparent); }
-  &.is-holiday  { background: color-mix(in srgb, #d97706 8%, transparent); }
+  &.is-saturday { background: color-mix(in srgb, var(--c-info) 6%, transparent); }
+  &.is-sunday   { background: color-mix(in srgb, var(--c-danger) 6%, transparent); }
+  &.is-holiday  { background: color-mix(in srgb, var(--c-warning) 8%, transparent); }
   // 当日: アクセント（indigo）で祝日（amber）・日曜（red）と明確に区別
   &.is-today {
     background: color-mix(in srgb, var(--c-accent) 10%, transparent);
@@ -763,14 +765,14 @@
   top: 8px;
   height: 11px;
   background: var(--c-accent);
-  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 1px 3px var(--c-accent-dim);
 }
 
 .gantt-bar--actual {
   top: 21px;
   height: 11px;
   background: var(--c-success);
-  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 1px 3px var(--c-success-bg);
   opacity: 0.85;
 }
 

@@ -84,6 +84,13 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s, border-color 0.2s;
+
+  &:hover {
+    box-shadow: var(--shadow);
+    border-color: var(--c-border-2);
+  }
 
   &__header {
     display: flex;
@@ -165,6 +172,11 @@
   padding: 10px 12px;
   background: var(--color-card);
   border-left-width: 3px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+
+  &:hover {
+    box-shadow: var(--shadow-sm);
+  }
 
   &--high { border-left-color: var(--color-danger); }
   &--mid  { border-left-color: var(--color-warning); }
@@ -221,7 +233,7 @@
 
   &--danger  { background: var(--color-danger-bg);  color: var(--color-danger);  }
   &--warning { background: var(--color-warning-bg); color: var(--color-warning); }
-  &--info    { background: #ddf4ff;                 color: var(--color-accent);  }
+  &--info    { background: var(--c-info-bg);         color: var(--color-accent);  }
   &--neutral { background: var(--color-bg);         color: var(--color-text-muted); border: 1px solid var(--color-border); }
 }
 
@@ -374,7 +386,7 @@
 // ==================================================
 .cmd-preview-wrap {
   background: #0d1117;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 10px 14px;
   position: relative;
 }
@@ -402,7 +414,7 @@
     font-size: 12px;
     padding: 10px 12px;
     background: #0d1117;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     color: #e6edf3;
   }
 }
@@ -554,13 +566,20 @@
     flex-direction: column;
     align-items: stretch;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    border-left-width: 3px;
+    border-left-color: transparent;
+    border-radius: var(--radius-md);
     background: var(--color-bg);
     overflow: hidden;
+    transition: border-left-color 0.15s;
 
     // 編集モード時に編集フォームを表示
     &[data-editing="true"] .env-list__edit-form {
       display: flex;
+    }
+
+    &:hover {
+      border-left-color: var(--color-accent);
     }
   }
 

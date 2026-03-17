@@ -33,8 +33,8 @@ body {
 // マイグレーションバナー
 // ==================================================
 #migration-banner {
-  background: #ddf4ff;
-  border-bottom: 1px solid #54aeff;
+  background: var(--c-info-bg, var(--c-accent-light));
+  border-bottom: 1px solid var(--c-info, var(--c-accent));
   padding: 8px 16px;
 
 
@@ -51,12 +51,12 @@ body {
 
   .migration-banner__text {
     flex: 1;
-    color: #0969da;
+    color: var(--c-accent);
     font-size: 13px;
 
     small {
       display: block;
-      color: #656d76;
+      color: var(--c-text-3);
       font-size: 12px;
     }
   }
@@ -64,8 +64,8 @@ body {
   .migration-banner__btn {
     padding: 4px 12px;
     border-radius: var(--radius-md);
-    border: 1px solid #0969da;
-    background: #0969da;
+    border: 1px solid var(--c-accent);
+    background: var(--c-accent);
     color: #fff;
     font-size: 12px;
     cursor: pointer;
@@ -75,9 +75,9 @@ body {
 
     &--dismiss {
       background: transparent;
-      color: #0969da;
+      color: var(--c-accent);
 
-      &:hover { background: #ddf4ff; }
+      &:hover { background: var(--c-accent-dim); }
     }
   }
 }
@@ -173,6 +173,8 @@ body {
   min-height: 0;
   overflow-x: auto;
   overflow-y: hidden;
+  background-image: radial-gradient(circle, var(--c-border) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 // カラム追加ボタン（ボード末尾、自然な高さに留める）
@@ -203,7 +205,7 @@ body {
   &:hover {
     border-color: var(--color-accent);
     color: var(--color-accent);
-    background: #ddf4ff33;
+    background: var(--c-accent-dim);
   }
 }
 
@@ -215,7 +217,8 @@ body {
   min-width: 220px;  // カラムが多くなっても最低幅を確保（ボードが横スクロールに切り替わる）
   background: var(--color-column-bg);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   min-height: 200px;
@@ -224,14 +227,15 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px 8px;
+    padding: 14px 16px 10px;
     border-bottom: 1px solid var(--color-border);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   }
 
   &__title {
     font-weight: 600;
     font-size: 13px;
-    color: var(--color-text-muted);
+    color: var(--c-text-2);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -244,8 +248,8 @@ body {
   }
 
   &__count {
-    background: var(--color-border);
-    color: var(--color-text-muted);
+    background: var(--c-accent-dim);
+    color: var(--c-accent);
     font-size: 11px;
     font-weight: 600;
     padding: 1px 8px;
@@ -331,7 +335,7 @@ body {
 
     // ドラッグオーバー時
     &.drag-over {
-      background: #ddf4ff;
+      background: var(--c-accent-light);
       border-radius: var(--radius-md);
     }
   }
@@ -346,9 +350,10 @@ body {
     background: transparent;
     color: var(--color-text-muted);
     font-size: 13px;
+    font-family: inherit;
     cursor: pointer;
     border-top: 1px solid var(--color-border);
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
     transition: background 0.15s, color 0.15s;
 
     svg {
@@ -359,8 +364,8 @@ body {
     }
 
     &:hover {
-      background: var(--c-bg-2);
-      color: var(--color-text);
+      background: var(--c-accent-dim);
+      color: var(--c-accent);
     }
   }
 
@@ -380,12 +385,15 @@ body {
   // ドラッグゴースト
   .sortable-ghost {
     opacity: 0.4;
-    background: #ddf4ff;
+    background: var(--c-accent-light);
     border: 2px dashed var(--color-accent);
+    transform: rotate(2deg);
   }
 
   .sortable-chosen {
-    box-shadow: 0 4px 12px var(--color-shadow);
+    box-shadow: var(--shadow-lg);
+    transform: rotate(-1deg);
+    opacity: 0.95;
   }
 }
 
@@ -395,15 +403,19 @@ body {
 .card {
   background: var(--color-card);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
+  border-left-width: 3px;
+  border-left-color: transparent;
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
   cursor: grab;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
   user-select: none;
 
   &:hover {
-    box-shadow: 0 2px 8px var(--color-shadow);
-    border-color: #adb5bd;
+    box-shadow: var(--shadow-md);
+    border-color: var(--c-border-2);
+    border-left-color: var(--c-accent);
+    transform: translateY(-1px);
 
     .card__actions { opacity: 1; }
   }
@@ -429,8 +441,8 @@ body {
     cursor: pointer;
 
     &:hover {
-      color: var(--color-accent);
-      text-decoration: underline;
+      color: var(--c-accent);
+      text-decoration: none;
     }
   }
 
@@ -442,16 +454,25 @@ body {
   }
 
   &__due {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 11px;
     color: var(--color-text-muted);
 
     &--overdue {
-      color: var(--color-danger);
+      background: var(--c-danger-bg);
+      color: var(--c-danger);
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
       font-weight: 600;
     }
 
     &--today {
-      color: var(--color-amber);
+      background: var(--c-warning-bg);
+      color: var(--c-warning);
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
       font-weight: 600;
     }
   }
@@ -499,9 +520,9 @@ body {
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  border-radius: 20px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.6;
   white-space: nowrap;
 }
@@ -693,6 +714,7 @@ body {
     flex-direction: column;
     gap: 16px;
     overflow-y: auto;
+    background: var(--c-bg);
   }
 
   &__sidebar-item {
@@ -702,7 +724,7 @@ body {
   }
 
   &__sidebar-label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--color-text-muted);
     text-transform: uppercase;
@@ -1184,7 +1206,7 @@ body {
 
   // 絶対時刻モード時
   &.is-active {
-    background: #ddf4ff;
+    background: var(--c-accent-light);
     border-color: var(--color-accent);
     color: var(--color-accent);
   }
@@ -1363,7 +1385,7 @@ body {
   transition: background 0.15s, border-color 0.15s;
 
   &:hover {
-    background: #ddf4ff;
+    background: var(--c-accent-light);
     border-color: var(--color-accent);
   }
 
