@@ -67,8 +67,8 @@
   }
 }
 
-// 開いている状態のトリガースタイル
-.cs-wrapper:has(.cs-dropdown--open) .cs-trigger {
+// 開いている状態のトリガースタイル（ドロップダウンは body に追加されるため :has() は使わずクラスで制御）
+.cs-wrapper--open .cs-trigger {
   border-color: var(--c-accent);
   box-shadow: 0 0 0 3px rgba(80, 72, 229, 0.12);
 

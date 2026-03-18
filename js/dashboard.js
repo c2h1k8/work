@@ -1394,10 +1394,16 @@ const Renderer = {
     const cancelAction = isEdit ? "cancel-edit-item" : "cancel-add-item";
     const isGrid = section.type === "grid";
     const isTable = section.type === "table";
+    const isChecklist = section.type === "checklist";
     const columns = section.columns || [];
     let html = "";
 
-    if (isGrid) {
+    if (isChecklist) {
+      html += `
+        <div class="settings-form-row">
+          <input class="settings-input" id="item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="アイテム名" />
+        </div>`;
+    } else if (isGrid) {
       const isTemplateItem = item?.item_type === "template";
       html += `
         <div class="settings-form-row">
@@ -1606,10 +1612,16 @@ const Renderer = {
     const saveAction = isEdit ? "save-edit-item-mgr" : "save-add-item-mgr";
     const isGrid = section.type === "grid";
     const isTable = section.type === "table";
+    const isChecklist = section.type === "checklist";
     const columns = section.columns || [];
     let html = "";
 
-    if (isGrid) {
+    if (isChecklist) {
+      html += `
+        <div class="settings-form-row">
+          <input class="settings-input" id="mgr-item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="アイテム名" />
+        </div>`;
+    } else if (isGrid) {
       const isTemplateItem = item?.item_type === "template";
       html += `
         <div class="settings-form-row">
@@ -1691,10 +1703,15 @@ const Renderer = {
   _buildBulkForm(section) {
     const isTable = section.type === "table";
     const isGrid = section.type === "grid";
+    const isChecklist = section.type === "checklist";
     const cols = section.columns || [];
     let hint, placeholder;
 
-    if (isTable) {
+    if (isChecklist) {
+      hint = `1行に1件のアイテム名を入力してください。<br>
+        <code>#</code> で始まる行はコメントとして無視されます。`;
+      placeholder = "アイテム1\nアイテム2\nアイテム3";
+    } else if (isTable) {
       const colNames = cols.map((c) => c.label).join("\t");
       hint = `1行に1件のデータを入力してください。列は <strong>Tab</strong> 区切りです。<br>
         列の順番: <code>${escapeHtml(colNames || "列1\t列2\t列3")}</code><br>
@@ -2437,7 +2454,14 @@ const EventHandlers = {
       items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
     const data = { section_id: sectionId, position: maxPos };
 
-    if (section.type === "grid") {
+    if (section.type === "checklist") {
+      data.item_type = "item";
+      data.label = document.getElementById("item-label")?.value.trim() || "";
+      data.hint = null;
+      data.value = null;
+      data.emoji = null;
+      data.row_data = null;
+    } else if (section.type === "grid") {
       data.item_type = document.getElementById("item-type")?.value || "link";
       data.emoji = document.getElementById("item-emoji")?.value.trim() || "";
       data.label = document.getElementById("item-label")?.value.trim() || "";
@@ -2503,7 +2527,9 @@ const EventHandlers = {
     const item = (State.itemsMap[sectionId] || []).find((i) => i.id === itemId);
     if (!section || !item) return;
 
-    if (section.type === "grid") {
+    if (section.type === "checklist") {
+      item.label = document.getElementById("item-label")?.value.trim() || "";
+    } else if (section.type === "grid") {
       item.item_type =
         document.getElementById("item-type")?.value || item.item_type || "link";
       item.emoji = document.getElementById("item-emoji")?.value.trim() || "";
@@ -2635,7 +2661,15 @@ const EventHandlers = {
       items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
     const data = { section_id: sectionId, position: maxPos };
 
-    if (section.type === "grid") {
+    if (section.type === "checklist") {
+      data.item_type = "item";
+      data.label =
+        document.getElementById("mgr-item-label")?.value.trim() || "";
+      data.hint = null;
+      data.value = null;
+      data.emoji = null;
+      data.row_data = null;
+    } else if (section.type === "grid") {
       data.item_type =
         document.getElementById("mgr-item-type")?.value || "link";
       data.emoji =
@@ -2706,7 +2740,10 @@ const EventHandlers = {
     );
     if (!section || !item) return;
 
-    if (section.type === "grid") {
+    if (section.type === "checklist") {
+      item.label =
+        document.getElementById("mgr-item-label")?.value.trim() || "";
+    } else if (section.type === "grid") {
       item.item_type =
         document.getElementById("mgr-item-type")?.value ||
         item.item_type ||
@@ -2841,7 +2878,14 @@ const EventHandlers = {
       const cols = line.split("\t");
       const data = { section_id: sectionId, position: maxPos++ };
 
-      if (section.type === "table") {
+      if (section.type === "checklist") {
+        data.item_type = "item";
+        data.label = cols[0].trim();
+        data.hint = null;
+        data.value = null;
+        data.emoji = null;
+        data.row_data = null;
+      } else if (section.type === "table") {
         data.item_type = "row";
         data.label = null;
         data.hint = null;

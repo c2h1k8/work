@@ -1168,6 +1168,13 @@ const DragDrop = {
 
     if (fromCol !== toCol) {
       Renderer.updateCount(fromCol);
+      // done ステータスが異なるカラム間の移動は期限切れ表示が変わるため再描画
+      const fromDone = State.columns.find(c => c.key === fromCol)?.done;
+      const toDone   = State.columns.find(c => c.key === toCol)?.done;
+      if (fromDone !== toDone) {
+        Renderer.renderColumn(fromCol, State.tasks[fromCol] || [], db);
+        Renderer.renderColumn(toCol,   State.tasks[toCol]   || [], db);
+      }
       // 作業履歴（非同期、失敗しても無視）
       try {
         const fromName = State.columns.find(c => c.key === fromCol)?.name ?? fromCol;
@@ -1765,10 +1772,16 @@ const EventHandlers = {
     State.tasks[newCol].push(updated);
 
     // DOM 更新
-    const newBody = document.querySelector(`[data-column-body="${newCol}"]`);
-    const card    = document.querySelector(`.card[data-id="${taskId}"]`);
-    if (card && newBody) {
-      newBody.appendChild(card);
+    const oldDone = State.columns.find(c => c.key === oldCol)?.done;
+    const newDone = State.columns.find(c => c.key === newCol)?.done;
+    if (oldDone !== newDone) {
+      // done ステータスが変わる場合は期限切れ表示が変わるため両カラムを再描画
+      Renderer.renderColumn(oldCol, State.tasks[oldCol] || [], db);
+      Renderer.renderColumn(newCol, State.tasks[newCol] || [], db);
+    } else {
+      const newBody = document.querySelector(`[data-column-body="${newCol}"]`);
+      const card    = document.querySelector(`.card[data-id="${taskId}"]`);
+      if (card && newBody) newBody.appendChild(card);
     }
     markDirty();
     Renderer.updateCount(oldCol);

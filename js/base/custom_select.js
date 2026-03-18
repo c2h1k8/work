@@ -18,11 +18,16 @@
 
 const CustomSelect = (() => {
   let _open = null;
+  // 全インスタンスを追跡（孤立ドロップダウンのクリーンアップ用）
+  let _instances = [];
 
   function _bindDoc() {
     if (_bindDoc._done) return;
     document.addEventListener('click', e => {
-      if (_open && !_open.wrapper.contains(e.target)) _closeInst(_open);
+      // ドロップダウンは body に直接 append されているため wrapper.contains では判定できない
+      if (_open && !_open.wrapper.contains(e.target) && !_open.dropdown.contains(e.target)) {
+        _closeInst(_open);
+      }
     });
     document.addEventListener('keydown', e => {
       if (!_open) return;
@@ -43,6 +48,7 @@ const CustomSelect = (() => {
 
   function _closeInst(inst) {
     inst.dropdown.classList.remove('cs-dropdown--open');
+    inst.wrapper.classList.remove('cs-wrapper--open');
     if (_open === inst) _open = null;
   }
 
@@ -74,10 +80,22 @@ const CustomSelect = (() => {
     dropdown.className = 'cs-dropdown';
 
     // select を wrapper 内に移動（CSS で非表示化）
+    // ドロップダウンは transform 親の影響を避けるため document.body に追加
     selectEl.parentNode.insertBefore(wrapper, selectEl);
-    wrapper.append(trigger, dropdown, selectEl);
+    wrapper.append(trigger, selectEl);
+    document.body.appendChild(dropdown);
 
     const inst = { wrapper, trigger, triggerText, dropdown, selectEl };
+
+    // インスタンス破棄（body追加のドロップダウンを除去）
+    inst.destroy = function() {
+      if (dropdown.parentNode) dropdown.parentNode.removeChild(dropdown);
+      const idx = _instances.indexOf(inst);
+      if (idx >= 0) _instances.splice(idx, 1);
+      if (_open === inst) _open = null;
+    };
+
+    _instances.push(inst);
 
     function render() {
       const selOpt = selectEl.options[selectEl.selectedIndex];
@@ -126,11 +144,13 @@ const CustomSelect = (() => {
         _closeInst(inst);
       } else {
         // overflow:auto/hidden の親で切れないよう fixed で画面基準配置
+        // ドロップダウンは body に追加済みのため getBoundingClientRect() の値をそのまま使える
         const rect = trigger.getBoundingClientRect();
         dropdown.style.top = (rect.bottom + 4) + 'px';
         dropdown.style.left = rect.left + 'px';
         dropdown.style.minWidth = rect.width + 'px';
         dropdown.classList.add('cs-dropdown--open');
+        wrapper.classList.add('cs-wrapper--open');
         _open = inst;
       }
     });
@@ -154,6 +174,10 @@ const CustomSelect = (() => {
 
   // コンテナ内の全 select.cs-target を置換
   function replaceAll(container = document) {
+    // DOM から切り離された孤立インスタンスをクリーンアップ（body 上の孤立ドロップダウンを除去）
+    [..._instances].forEach(inst => {
+      if (!inst.wrapper.isConnected) inst.destroy();
+    });
     return [...container.querySelectorAll('select.cs-target')].map(el => create(el));
   }
 
