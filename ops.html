@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>運用ツール</title>
+    <!-- テーマ初期化（フラッシュ防止のため defer なし） -->
+    <script>
+      (function() {
+        var t = localStorage.getItem('mytools_theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <link rel="stylesheet" href="./css/core/tokens.css" />
+    <link rel="stylesheet" href="./css/core/ui.css" />
+    <link rel="stylesheet" href="./css/components/toast.css" />
+    <link rel="stylesheet" href="./css/ops.css" />
+    <script defer src="./js/core/utils.js"></script>
+    <script defer src="./js/core/icons.js"></script>
+    <script defer src="./js/core/local_storage.js"></script>
+    <script defer src="./js/components/toast.js"></script>
+    <script defer src="./js/ops.js"></script>
+  </head>
+  <body>
+
+    <!-- ページヘッダー -->
+    <header class="page-header">
+      <div class="page-header__inner">
+        <div class="page-header__brand">
+          <svg class="page-header__icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25ZM7.25 8a.75.75 0 0 1-.22.53l-2.25 2.25a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L5.44 8 3.72 6.28a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215l2.25 2.25c.141.14.22.331.22.53Zm1.5 1.5h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1 0-1.5Z"/>
+          </svg>
+          <h1 class="page-header__title">運用ツール</h1>
+        </div>
+      </div>
+    </header>
+
+    <!-- ツール内タブナビ -->
+    <nav class="ops-tabs" id="ops-tabs">
+      <button class="ops-tab ops-tab--active" data-tool="log-viewer">ログビューア</button>
+    </nav>
+
+    <main class="page-main">
+
+      <!-- ログビューアセクション -->
+      <section id="tool-log-viewer" class="ops-tool">
+
+        <!-- 入力エリア -->
+        <div class="log-input-wrap">
+          <textarea
+            id="log-input"
+            class="log-textarea"
+            rows="10"
+            placeholder="ログテキストを貼り付け..."
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <!-- サマリーバー -->
+        <div id="log-summary" class="log-summary" hidden>
+          <span class="log-summary__total" id="log-total-count"></span>
+          <div class="log-summary__badges" id="log-summary-badges"></div>
+        </div>
+
+        <!-- フィルターバー -->
+        <div id="log-filter-bar" class="log-filter" hidden>
+          <div class="log-filter__levels">
+            <span class="log-filter__label">表示:</span>
+            <label class="log-filter__level">
+              <input type="checkbox" data-level="ERROR" checked />
+              <span class="log-level-badge log-level-badge--error">ERROR/FATAL</span>
+            </label>
+            <label class="log-filter__level">
+              <input type="checkbox" data-level="WARN" checked />
+              <span class="log-level-badge log-level-badge--warn">WARN</span>
+            </label>
+            <label class="log-filter__level">
+              <input type="checkbox" data-level="INFO" checked />
+              <span class="log-level-badge log-level-badge--info">INFO</span>
+            </label>
+            <label class="log-filter__level">
+              <input type="checkbox" data-level="DEBUG" checked />
+              <span class="log-level-badge log-level-badge--debug">DEBUG/TRACE</span>
+            </label>
+            <label class="log-filter__level">
+              <input type="checkbox" data-level="OTHER" checked />
+              <span class="log-level-badge log-level-badge--other">その他</span>
+            </label>
+          </div>
+          <div class="log-filter__time">
+            <input type="datetime-local" id="log-time-start" class="log-filter__time-input" title="開始日時" />
+            <span class="log-filter__time-sep">〜</span>
+            <input type="datetime-local" id="log-time-end" class="log-filter__time-input" title="終了日時" />
+          </div>
+          <button class="btn btn--ghost btn--sm" id="log-filter-clear">クリア</button>
+        </div>
+
+        <!-- ログ出力エリア -->
+        <div id="log-output" class="log-output" hidden></div>
+
+      </section>
+
+    </main>
+
+  </body>
+</html>

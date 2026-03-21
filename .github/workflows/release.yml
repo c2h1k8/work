@@ -44,6 +44,7 @@ jobs:
           npx lessc css/timer.less     css/timer.css
           npx lessc css/snippet.less   css/snippet.css
           npx lessc css/diff_tool.less css/diff_tool.css
+          npx lessc css/ops.less       css/ops.css
 
       - name: Create release ZIPs
         run: |
@@ -62,6 +63,7 @@ jobs:
             timer.html
             snippet.html
             diff_tool.html
+            ops.html
             favicon.svg
             js/
             css/

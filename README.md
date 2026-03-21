@@ -15,6 +15,7 @@
 | `timer.html`      | 定型作業タイマー（ポモドーロ等のプリセット選択・作業/休憩フェーズ管理・セッションログ記録。タグ別集計で工数振り返りに対応） |
 | `snippet.html`    | コードスニペット管理（言語・タグで整理、検索・フィルタ。ワンクリックコピー・シンタックスハイライト（highlight.js）・エクスポート/インポート対応） |
 | `diff_tool.html`  | 差分比較ツール（左右のテキストをペーストするだけでdiffをハイライト表示。行単位/文字単位切替・空白無視・折りたたみ表示。永続化なし） |
+| `ops.html`        | 運用ツール（ログレベルフォーマッタ: ログテキストを貼り付けてレベル別色分け・フィルタリング。ERROR/WARN/INFO/DEBUG 自動検出・タイムスタンプ抽出・時間範囲フィルター） |
 
 ## 技術スタック
 
@@ -39,6 +40,7 @@ work/
 ├── timer.html          # 定型作業タイマー
 ├── snippet.html        # コードスニペット管理
 ├── diff_tool.html      # 差分比較ツール
+├── ops.html            # 運用ツール（ログビューア等）
 ├── js/
 │   ├── core/                  # 基盤ユーティリティ
 │   │   ├── utils.js           # escapeHtml / sortByPosition / getString / isValidUrl
@@ -82,7 +84,8 @@ work/
 │   ├── wbs.js                 # WBS・ガントチャート
 │   ├── timer.js               # 定型作業タイマー
 │   ├── snippet.js             # コードスニペット管理
-│   └── diff_tool.js           # 差分比較ツール
+│   ├── diff_tool.js           # 差分比較ツール
+│   └── ops.js                 # 運用ツール（ログビューア）
 └── css/
     ├── core/                  # 基盤スタイル
     │   ├── tokens.{less,css}  # デザイントークン ★
@@ -100,7 +103,8 @@ work/
     ├── wbs.{less,css}
     ├── timer.{less,css}
     ├── snippet.{less,css}
-    └── diff_tool.{less,css}
+    ├── diff_tool.{less,css}
+    └── ops.{less,css}
 ```
 
 ## 使い方
