@@ -41,6 +41,9 @@ jobs:
           npx lessc css/sql.less       css/sql.css
           npx lessc css/dashboard.less css/dashboard.css
           npx lessc css/wbs.less       css/wbs.css
+          npx lessc css/timer.less     css/timer.css
+          npx lessc css/snippet.less   css/snippet.css
+          npx lessc css/diff_tool.less css/diff_tool.css
 
       - name: Create release ZIPs
         run: |
@@ -56,6 +59,9 @@ jobs:
             sql.html
             dashboard.html
             wbs.html
+            timer.html
+            snippet.html
+            diff_tool.html
             favicon.svg
             js/
             css/

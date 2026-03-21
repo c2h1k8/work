@@ -151,6 +151,8 @@ Claude Code がこのプロジェクトで作業する際の指針。
 | `js/db/dashboard_db.js`   | DashboardDB | dashboard_db  | dashboard.html |
 | `js/db/sql_db.js`         | SqlDB       | sql_db        | sql.html       |
 | `js/db/wbs_db.js`         | WbsDB       | wbs_db        | wbs.html       |
+| `js/db/timer_db.js`       | TimerDB     | timer_db      | timer.html     |
+| `js/db/snippet_db.js`     | SnippetDB   | snippet_db    | snippet.html   |
 
 - HTML での読み込み順: `js/core/utils.js` → `js/core/icons.js` → `js/components/*` → `js/db/<name>_db.js` → `js/<name>/*.js`
 - DB クラスはページ JS より前に読み込む必要がある（グローバルクラスとして参照するため）

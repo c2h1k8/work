@@ -1,0 +1,686 @@
+// ==================================================
+// 定型作業タイマー スタイル
+// ==================================================
+
+// ==================================================
+// ページレイアウト
+// ==================================================
+
+body {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-header {
+  padding: 0 20px;
+  flex-shrink: 0;
+
+  &__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__icon {
+    width: 16px;
+    height: 16px;
+    fill: var(--c-accent);
+    flex-shrink: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--c-text);
+    letter-spacing: -0.01em;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.page-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+// ==================================================
+// レイアウト（2カラム）
+// ==================================================
+
+.timer-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.timer-left-col,
+.timer-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// ==================================================
+// カードスタイル
+// ==================================================
+
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--c-text);
+    flex: 1;
+  }
+}
+
+// ==================================================
+// 通知バッジ
+// ==================================================
+
+.notif-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: var(--t);
+  white-space: nowrap;
+
+  &--on {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+    border-color: rgba(16, 185, 129, 0.3);
+    cursor: default;
+  }
+
+  &--off {
+    background: var(--c-danger-bg);
+    color: var(--c-danger);
+    border-color: rgba(239, 68, 68, 0.3);
+    cursor: default;
+  }
+
+  &--pending {
+    background: var(--c-accent-dim);
+    color: var(--c-accent);
+    border-color: var(--c-accent);
+
+    &:hover { background: var(--c-accent); color: var(--c-accent-text); }
+  }
+}
+
+// ==================================================
+// 円形タイマー
+// ==================================================
+
+// タイマー終了フラッシュアニメーション
+@keyframes timer-flash {
+  0%   { box-shadow: var(--shadow-sm); }
+  20%  { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.4), 0 0 24px rgba(99, 102, 241, 0.3); }
+  40%  { box-shadow: var(--shadow-sm); }
+  60%  { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.4), 0 0 24px rgba(99, 102, 241, 0.3); }
+  80%  { box-shadow: var(--shadow-sm); }
+  100% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.4), 0 0 24px rgba(99, 102, 241, 0.3); }
+}
+
+.timer-section {
+  text-align: center;
+
+  &--flash {
+    animation: timer-flash 2s ease-in-out;
+  }
+}
+
+.timer-ring-wrap {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 20px;
+}
+
+.timer-ring {
+  width: 200px;
+  height: 200px;
+
+  &__bg {
+    stroke: var(--c-bg-2);
+  }
+
+  &__progress {
+    stroke: var(--c-accent);
+    stroke-dasharray: 565.49; // 2πr = 2 * π * 90
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.8s linear, stroke 0.4s ease;
+  }
+}
+
+.timer-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.timer-display {
+  font-size: 2.8rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.timer-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 12px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  &--work {
+    background: var(--c-accent-dim);
+    color: var(--c-accent);
+  }
+
+  &--break {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+  }
+}
+
+// ==================================================
+// タスク名・タグ入力
+// ==================================================
+
+.timer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+
+  &__input {
+    min-width: 0;
+    flex: 1 1 120px;
+    padding: 8px 12px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-size: 13px;
+    transition: border-color var(--t), box-shadow var(--t);
+
+    &:focus {
+      outline: none;
+      border-color: var(--c-accent);
+      box-shadow: 0 0 0 3px var(--c-accent-dim);
+    }
+
+    &::placeholder { color: var(--c-text-3); }
+
+    &--tag {
+      flex: 0 1 90px;
+      min-width: 70px;
+    }
+  }
+}
+
+// ==================================================
+// タイマー操作ボタン
+// ==================================================
+
+.timer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.timer-ctrl-btn {
+  min-width: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.timer-ctrl-btn--sm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+// ==================================================
+// プリセット
+// ==================================================
+
+.preset-section {
+  padding-bottom: 16px;
+}
+
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preset-empty {
+  font-size: 13px;
+  color: var(--c-text-3);
+  text-align: center;
+  padding: 16px 0;
+}
+
+.preset-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 2px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: var(--t);
+  background: var(--c-bg);
+
+  &:hover {
+    border-color: var(--c-accent);
+    background: var(--c-accent-dim);
+  }
+
+  &--active {
+    border-color: var(--c-accent);
+    background: var(--c-accent-dim);
+
+    .preset-card__name { color: var(--c-accent); }
+  }
+
+  &__name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-text);
+  }
+
+  &__times {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--c-text-3);
+  }
+
+  &__work  { color: var(--c-accent); }
+  &__break { color: var(--c-success); }
+  &__sep   { color: var(--c-border); }
+
+  &__actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity var(--t);
+  }
+
+  &:hover &__actions { opacity: 1; }
+}
+
+// ==================================================
+// ログセクション
+// ==================================================
+
+.log-section {
+  flex: 1;
+}
+
+.log-tabs {
+  display: flex;
+  gap: 4px;
+  margin-right: 8px;
+}
+
+.log-tab-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--c-text-2);
+  cursor: pointer;
+  transition: var(--t);
+
+  &:hover { background: var(--c-bg); }
+
+  &--active {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: var(--c-accent-text);
+  }
+}
+
+.log-total {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-accent);
+  white-space: nowrap;
+}
+
+// タグ集計チャート
+.tag-chart {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+
+  &__title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--c-text-3);
+    margin-bottom: 10px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+
+    &:last-child { margin-bottom: 0; }
+  }
+
+  &__label {
+    width: 80px;
+    font-size: 12px;
+    color: var(--c-text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+  }
+
+  &__bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--c-bg-2);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  &__bar {
+    height: 100%;
+    background: var(--c-accent);
+    border-radius: 100px;
+    transition: width 0.4s ease;
+  }
+
+  &__val {
+    width: 50px;
+    font-size: 12px;
+    color: var(--c-text-2);
+    text-align: right;
+    flex-shrink: 0;
+  }
+}
+
+// ログ一覧
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.log-empty {
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--c-text-3);
+}
+
+.log-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  transition: background var(--t);
+
+  &:hover { background: var(--c-bg-2); }
+
+  &__main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__task {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--c-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__tag {
+    display: inline-flex;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--c-accent-dim);
+    color: var(--c-accent);
+    flex-shrink: 0;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  &__time {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--c-accent);
+  }
+
+  &__start {
+    font-size: 11px;
+    color: var(--c-text-3);
+  }
+}
+
+// ==================================================
+// アイコンボタン
+// ==================================================
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--c-text-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--t);
+
+  &:hover { background: var(--c-bg-2); color: var(--c-text); }
+
+  svg { pointer-events: none; }
+}
+
+// ==================================================
+// モーダル
+// ==================================================
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-panel {
+  background: var(--c-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--c-text);
+}
+
+.modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--c-text-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--t);
+
+  &:hover { background: var(--c-bg-2); color: var(--c-text); }
+}
+
+.modal-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--c-border);
+}
+
+// フォーム
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  &--2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    flex-direction: unset;
+  }
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-2);
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-size: 13px;
+  transition: border-color var(--t), box-shadow var(--t);
+
+  &:focus {
+    outline: none;
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
+  }
+
+  &::placeholder { color: var(--c-text-3); }
+}
+
+// ==================================================
+// レスポンシブ
+// ==================================================
+
+@media (max-width: 720px) {
+  .timer-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .page-main {
+    padding: 12px;
+  }
+}
