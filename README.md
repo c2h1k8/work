@@ -9,7 +9,7 @@
 | `index.html`      | タブナビゲーションのエントリポイント                                                                                         |
 | `todo.html`       | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・タスク紐づけ・エクスポート／インポート付き） |
 | `dashboard.html`  | カスタマイズ可能なホームダッシュボード（設定画面からセクション・アイテムを自由に作成。list/grid/table/command_builder/markdown/iframe/countdown/formatter でバインド変数プリセット対応） |
-| `sql.html`        | Oracle SQL\*Plusコマンド・チューニングリファレンス（接続環境をIndexedDBで管理）                                              |
+| `sql.html`        | Oracle SQL\*Plusコマンド・チューニングリファレンス（接続環境管理・SQL整形・実行計画ガイド検索・テーブル定義メモをIndexedDBで管理） |
 | `note.html`       | ノート管理（設計書・テストケース・エビデンス等のリンクや備考を可変フィールドで管理。フィールド幅 narrow/auto/wide/full・DatePicker対応。リンク表示名コピー・ドロップダウンフィールド対応） |
 | `wbs.html`        | WBS管理（タスク名・予定/実績の開始日・日数・終了日（自動算出）・進捗・ステータス。土日/祝日/カスタム休業日を考慮した営業日計算。ガントチャート表示） |
 

@@ -26,9 +26,10 @@ Claude Code がこのプロジェクトで作業する際の指針。
 具体例:
 - `index.js`: タブ設定（TAB_CONFIG）→ IndexedDB (`app_db`)
 - `index.js`: アクティブタブ ID → `localStorage("ACTIVE_TAB_ID")`（ブラウザ固有）
-- `sql.js`: 接続環境データ → IndexedDB (`sql_db`)
+- `sql.js`: 接続環境・テーブル定義メモ → IndexedDB (`sql_db`)
 - `sql.js`: 選択中の接続環境キー → `localStorage("sql_selected_env")`（ブラウザ固有）
 - `sql.js`: チューニング詳細の開閉状態 → `localStorage("sql_tune_open")`（ブラウザ固有）
+- `sql.js`: テーブル定義メモパネルの開閉状態 → `localStorage("sql_memo_open")`（ブラウザ固有）
 - `dashboard.js`: セクション・アイテムデータ → IndexedDB (`dashboard_db`)
 - `dashboard.js`: URL コマンド履歴 → `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
 

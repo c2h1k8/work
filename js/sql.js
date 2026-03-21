@@ -33,21 +33,122 @@ const TYPE_DEFS = {
 };
 
 // ==================================================
-// チューニング対象定義
+// 実行計画ガイド（操作定義）
+// level: "high"=要改善（赤）/ "mid"=要注意（黄）/ "low"=参考（青）/ "ok"=良好（緑）
 // ==================================================
 const TUNE_ITEMS = [
-  { op: "TABLE ACCESS FULL",     category: "スキャン", level: "high", desc: "テーブル全件スキャン。インデックスの作成・利用を検討する。" },
-  { op: "INDEX FULL SCAN",       category: "スキャン", level: "mid",  desc: "インデックスの全エントリを走査。INDEX RANGE SCAN への改善を検討する。" },
-  { op: "INDEX FAST FULL SCAN",  category: "スキャン", level: "mid",  desc: "マルチブロック読み込みによるインデックス全走査。SELECT 列の見直しを検討する。" },
-  { op: "INDEX SKIP SCAN",       category: "スキャン", level: "mid",  desc: "複合インデックスの先頭列が条件にない場合に発生。インデックス構成の見直しを検討する。" },
-  { op: "PARTITION RANGE ALL",   category: "スキャン", level: "high", desc: "全パーティションを走査。WHERE 句にパーティションキーを含めてプルーニングを効かせる。" },
-  { op: "MERGE JOIN CARTESIAN",  category: "結合",     level: "high", desc: "デカルト積（直積）結合。結合条件の漏れを確認する。" },
-  { op: "HASH JOIN",             category: "結合",     level: "low",  desc: "大規模テーブルの等価結合で使用。PGA / hash_area_size の調整を検討する。" },
-  { op: "NESTED LOOPS",          category: "結合",     level: "low",  desc: "小テーブルが外側ループになっているか確認。内側テーブルに適切なインデックスがあるか確認する。" },
-  { op: "SORT (ORDER BY)",       category: "処理",     level: "mid",  desc: "行のソート処理。インデックスで ORDER BY を排除できないか検討する。" },
-  { op: "SORT (GROUP BY)",       category: "処理",     level: "mid",  desc: "集約のためのソート処理。HASH GROUP BY との比較検討、または不要な GROUP BY を見直す。" },
-  { op: "FILTER",                category: "処理",     level: "mid",  desc: "相関サブクエリによるフィルター。EXISTS や JOIN への書き換えを検討する。" },
-  { op: "BUFFER SORT",           category: "処理",     level: "low",  desc: "一時メモリ領域でのソート。SORT_AREA_SIZE / PGA の調整を検討する。" },
+  // ── スキャン ──────────────────────────────────────────────
+  { op: "INDEX UNIQUE SCAN",
+    category: "スキャン", level: "ok",
+    desc: "等価条件で B-tree インデックスから 1 件取得。最もコストが低い最適なアクセス方法。" },
+  { op: "INDEX RANGE SCAN",
+    category: "スキャン", level: "ok",
+    desc: "範囲条件（= / < / > / BETWEEN / LIKE 前方一致）でのインデックス走査。典型的な良好アクセスパス。" },
+  { op: "INDEX RANGE SCAN DESCENDING",
+    category: "スキャン", level: "ok",
+    desc: "INDEX RANGE SCAN の降順版。ORDER BY 列 DESC にインデックスが利用されているとき発生。" },
+  { op: "TABLE ACCESS BY INDEX ROWID",
+    category: "スキャン", level: "ok",
+    desc: "インデックスで特定した ROWID でテーブル行を取得。インデックス経由アクセスの標準的な形。" },
+  { op: "TABLE ACCESS BY INDEX ROWID BATCHED",
+    category: "スキャン", level: "ok",
+    desc: "複数 ROWID を一括取得（Oracle 12c 以降）。TABLE ACCESS BY INDEX ROWID よりブロック I/O を削減。" },
+  { op: "INDEX FULL SCAN (MIN/MAX)",
+    category: "スキャン", level: "ok",
+    desc: "MIN / MAX 取得のためにインデックスの先頭または末尾エントリのみを参照。極めて低コスト。" },
+  { op: "PARTITION RANGE SINGLE",
+    category: "スキャン", level: "ok",
+    desc: "WHERE 句にパーティションキーが含まれ、1 つのパーティションに絞り込まれた（プルーニング成功）。" },
+  { op: "TABLE ACCESS FULL",
+    category: "スキャン", level: "high",
+    desc: "テーブル全件スキャン。大テーブルで発生している場合はインデックスの作成・利用を検討する。" },
+  { op: "PARTITION RANGE ALL",
+    category: "スキャン", level: "high",
+    desc: "全パーティションを走査。WHERE 句にパーティションキーを含めてプルーニングを効かせる。" },
+  { op: "INDEX FULL SCAN",
+    category: "スキャン", level: "mid",
+    desc: "インデックスの全エントリを順に走査。INDEX RANGE SCAN に絞り込めないか条件を見直す。" },
+  { op: "INDEX FAST FULL SCAN",
+    category: "スキャン", level: "mid",
+    desc: "マルチブロック読み込みによるインデックス全走査。SELECT 列をインデックス列のみに絞れないか確認する。" },
+  { op: "INDEX SKIP SCAN",
+    category: "スキャン", level: "mid",
+    desc: "複合インデックスの先頭列が WHERE 条件にない場合に発生。インデックス構成の見直し（先頭列の選択）を検討する。" },
+  { op: "PARTITION RANGE ITERATOR",
+    category: "スキャン", level: "mid",
+    desc: "複数パーティションをスキャン。プルーニング条件をさらに絞り込めないか見直す。" },
+
+  // ── 結合 ──────────────────────────────────────────────────
+  { op: "NESTED LOOPS",
+    category: "結合", level: "low",
+    desc: "外側ループの各行に対して内側テーブルをアクセス。内側テーブルに適切なインデックスがある小〜中規模結合に有効。" },
+  { op: "NESTED LOOPS OUTER",
+    category: "結合", level: "low",
+    desc: "Nested Loops の外部結合版。内側テーブルに一致しない場合も外側の行を返す。" },
+  { op: "HASH JOIN",
+    category: "結合", level: "low",
+    desc: "小さい方のテーブルをハッシュテーブルに構築して大テーブルと等価結合。PGA / hash_area_size の調整を検討する。" },
+  { op: "HASH JOIN OUTER",
+    category: "結合", level: "low",
+    desc: "Hash Join の外部結合版。大規模テーブルの LEFT OUTER JOIN で典型的に発生。" },
+  { op: "SORT MERGE JOIN",
+    category: "結合", level: "low",
+    desc: "両テーブルを結合キーでソートしてマージ。等価・不等価結合に対応。既にソート済みの場合はコスト低。" },
+  { op: "MERGE JOIN CARTESIAN",
+    category: "結合", level: "high",
+    desc: "デカルト積（直積）結合。結合条件の漏れが原因のことが多い。WHERE 句の結合条件を確認する。" },
+
+  // ── 処理 ──────────────────────────────────────────────────
+  { op: "HASH (GROUP BY)",
+    category: "処理", level: "ok",
+    desc: "ハッシュ集計による GROUP BY。ソートが不要でメモリ効率が良い。大量データの集計に有効。" },
+  { op: "HASH UNIQUE",
+    category: "処理", level: "ok",
+    desc: "ハッシュによる重複排除（DISTINCT 相当）。SORT UNIQUE よりソートコストがない分効率的。" },
+  { op: "COUNT STOPKEY",
+    category: "処理", level: "ok",
+    desc: "ROWNUM 条件による早期終了（FETCH FIRST / LIMIT 相当）。必要な件数に達した時点で処理を停止。" },
+  { op: "SORT (ORDER BY)",
+    category: "処理", level: "mid",
+    desc: "行のソート処理。インデックスで ORDER BY を排除できないか、または SORT_AREA_SIZE の調整を検討する。" },
+  { op: "SORT (GROUP BY)",
+    category: "処理", level: "mid",
+    desc: "集約のためのソート処理。HASH GROUP BY への変換（_GBY_HASH_AGGREGATION_ENABLED）を検討する。" },
+  { op: "SORT (GROUP BY ROLLUP)",
+    category: "処理", level: "mid",
+    desc: "ROLLUP / CUBE 集計のソート処理。集計列数・行数が多い場合は PGA メモリに注意する。" },
+  { op: "SORT UNIQUE",
+    category: "処理", level: "mid",
+    desc: "DISTINCT 処理のためのソート。HASH UNIQUE に変換できないか確認する。" },
+  { op: "FILTER",
+    category: "処理", level: "mid",
+    desc: "相関サブクエリによるフィルター。外側クエリの行数分だけ実行される。EXISTS や JOIN への書き換えを検討する。" },
+  { op: "BUFFER SORT",
+    category: "処理", level: "low",
+    desc: "一時メモリ領域でのソート・バッファリング。SORT_AREA_SIZE / PGA の調整を検討する。" },
+  { op: "WINDOW SORT",
+    category: "処理", level: "low",
+    desc: "分析関数（ウィンドウ関数）のためのソート。PARTITION BY / ORDER BY の列にインデックスが利用できないか確認する。" },
+  { op: "WINDOW BUFFER",
+    category: "処理", level: "low",
+    desc: "ROWS / RANGE 指定を伴う分析関数のバッファリング。PGA に収まるサイズか確認する。" },
+
+  // ── その他 ─────────────────────────────────────────────────
+  { op: "VIEW",
+    category: "その他", level: "low",
+    desc: "ビューまたはインラインビューの評価。必要に応じてビューのマージ（View Merging）が発生しているか確認する。" },
+  { op: "UNION-ALL",
+    category: "その他", level: "low",
+    desc: "複数の結果セットを UNION ALL で連結。各ブランチが独立して実行される。" },
+  { op: "CONCATENATION",
+    category: "その他", level: "mid",
+    desc: "OR 条件を複数の実行計画に分割して結果を UNION ALL。各ブランチのコストを確認する。" },
+  { op: "CONNECT BY (WITH FILTERING)",
+    category: "その他", level: "mid",
+    desc: "START WITH フィルタリングありの階層クエリ。再帰深度が深い場合はメモリ・CPU に注意する。" },
+  { op: "REMOTE",
+    category: "その他", level: "mid",
+    desc: "DB Link 経由のリモートアクセス。ネットワーク遅延と転送データ量に注意。ローカルでの JOIN を検討する。" },
 ];
 
 // ==================================================
@@ -108,10 +209,16 @@ window.addEventListener("load", async () => {
   // チューニング対象グリッドの描画
   renderTuneGrid();
 
+  // チューニング対象: 検索初期化
+  initTuneSearch();
+
+  // テーブル定義メモ
+  await initTableMemo();
+
   // チューニング対象の開閉状態を復元
   const tuneDetails = document.getElementById("tune-details");
   const tuneStored  = localStorage.getItem("sql_tune_open");
-  if (tuneStored !== null) tuneDetails.open = tuneStored === "true";
+  tuneDetails.open = tuneStored !== null ? tuneStored === "true" : true;
   tuneDetails.addEventListener("toggle", () => {
     localStorage.setItem("sql_tune_open", tuneDetails.open);
   });
@@ -528,6 +635,7 @@ function renderTuneGrid() {
   TUNE_ITEMS.forEach(item => {
     const card   = document.createElement("div");
     card.className = `tune-card tune-card--${item.level}`;
+    card.dataset.category = item.category;
 
     const header = document.createElement("div");
     header.className = "tune-card__header";
@@ -539,10 +647,15 @@ function renderTuneGrid() {
     const badges = document.createElement("div");
     badges.className = "tune-card__badges";
 
-    const lvMap = { high: ["高", "badge--danger"], mid: ["中", "badge--warning"], low: ["低", "badge--info"] };
+    const lvMap = {
+      high: { badge: "badge--danger",  label: "要改善" },
+      mid:  { badge: "badge--warning", label: "要注意" },
+      low:  { badge: "badge--info",    label: "参考" },
+      ok:   { badge: "badge--success", label: "良好" },
+    };
     [
       { cls: "badge--neutral", text: item.category },
-      { cls: lvMap[item.level][1], text: `影響度: ${lvMap[item.level][0]}` },
+      { cls: lvMap[item.level].badge, text: lvMap[item.level].label },
     ].forEach(({ cls, text }) => {
       const b = document.createElement("span");
       b.className   = `badge ${cls}`;
@@ -868,6 +981,488 @@ window.addEventListener('message', (e) => {
     localStorage.setItem('mytools_theme', e.data.theme);
   }
 });
+
+// ==================================================
+// 実行計画ガイド: タブ + 検索フィルター
+// ==================================================
+let _tuneTab = "all";
+
+function applyTuneFilter() {
+  const q = document.getElementById("tune-search").value.trim().toLowerCase();
+  document.querySelectorAll(".tune-card").forEach(card => {
+    const op   = card.querySelector(".tune-card__op")?.textContent.toLowerCase()  ?? "";
+    const desc = card.querySelector(".tune-card__desc")?.textContent.toLowerCase() ?? "";
+    const matchSearch = !q || op.includes(q) || desc.includes(q);
+    const matchTab    = _tuneTab === "all" || card.dataset.category === _tuneTab;
+    card.hidden = !(matchSearch && matchTab);
+  });
+}
+
+function initTuneSearch() {
+  document.getElementById("tune-search").addEventListener("input", applyTuneFilter);
+
+  document.getElementById("tune-tabs").addEventListener("click", e => {
+    const btn = e.target.closest(".tune-tab");
+    if (!btn) return;
+    _tuneTab = btn.dataset.tab;
+    document.querySelectorAll(".tune-tab").forEach(b =>
+      b.classList.toggle("tune-tab--active", b === btn)
+    );
+    applyTuneFilter();
+  });
+}
+
+// ==================================================
+// テーブル定義メモ
+// ==================================================
+
+let _memoEditingId = null; // null = 追加, number = 編集対象ID
+let _memoColCount  = 0;
+let _memoIdxCount  = 0;
+
+// ── カラム行を生成 ──
+function createMemoColRow(col = {}) {
+  const id  = ++_memoColCount;
+  const row = document.createElement("div");
+  row.className = "memo-col-row";
+
+  const pkCb = document.createElement("input");
+  pkCb.type    = "checkbox";
+  pkCb.title   = "主キー";
+  pkCb.checked = col.pk ?? false;
+  pkCb.className = "memo-col-row__pk";
+
+  const nameInp = document.createElement("input");
+  nameInp.type        = "text";
+  nameInp.placeholder = "例: EMPNO";
+  nameInp.value       = col.name ?? "";
+  nameInp.className   = "memo-col-row__name";
+  nameInp.autocomplete = "off";
+  nameInp.spellcheck  = false;
+
+  const typeInp = document.createElement("input");
+  typeInp.type        = "text";
+  typeInp.placeholder = "例: NUMBER(4)";
+  typeInp.value       = col.type ?? "";
+  typeInp.className   = "memo-col-row__type";
+  typeInp.autocomplete = "off";
+  typeInp.spellcheck  = false;
+
+  const nullCb = document.createElement("input");
+  nullCb.type    = "checkbox";
+  nullCb.title   = "NULL可";
+  nullCb.checked = col.nullable ?? true;
+  nullCb.className = "memo-col-row__null";
+
+  const cmtInp = document.createElement("input");
+  cmtInp.type        = "text";
+  cmtInp.placeholder = "コメント";
+  cmtInp.value       = col.comment ?? "";
+  cmtInp.className   = "memo-col-row__cmt";
+  cmtInp.autocomplete = "off";
+
+  const delBtn = document.createElement("button");
+  delBtn.type      = "button";
+  delBtn.innerHTML = Icons.close;
+  delBtn.title     = "削除";
+  delBtn.className = "btn btn--ghost-danger btn--sm memo-row-del-btn";
+  delBtn.addEventListener("click", () => row.remove());
+
+  row.append(pkCb, nameInp, typeInp, nullCb, cmtInp, delBtn);
+  return row;
+}
+
+// ── インデックス行を生成 ──
+function createMemoIdxRow(idx = {}) {
+  ++_memoIdxCount;
+  const row = document.createElement("div");
+  row.className = "memo-idx-row";
+
+  const nameInp = document.createElement("input");
+  nameInp.type        = "text";
+  nameInp.placeholder = "例: IDX_EMP_01";
+  nameInp.value       = idx.name ?? "";
+  nameInp.className   = "memo-idx-row__name";
+  nameInp.autocomplete = "off";
+  nameInp.spellcheck  = false;
+
+  const uniqueCb = document.createElement("input");
+  uniqueCb.type    = "checkbox";
+  uniqueCb.title   = "UNIQUE";
+  uniqueCb.checked = idx.unique ?? false;
+  uniqueCb.className = "memo-idx-row__unique";
+
+  const colsInp = document.createElement("input");
+  colsInp.type        = "text";
+  colsInp.placeholder = "例: DEPTNO, SAL";
+  colsInp.value       = idx.cols ?? "";
+  colsInp.className   = "memo-idx-row__cols";
+  colsInp.autocomplete = "off";
+  colsInp.spellcheck  = false;
+
+  const cmtInp = document.createElement("input");
+  cmtInp.type        = "text";
+  cmtInp.placeholder = "コメント";
+  cmtInp.value       = idx.comment ?? "";
+  cmtInp.className   = "memo-idx-row__cmt";
+  cmtInp.autocomplete = "off";
+
+  const delBtn = document.createElement("button");
+  delBtn.type      = "button";
+  delBtn.innerHTML = Icons.close;
+  delBtn.title     = "削除";
+  delBtn.className = "btn btn--ghost-danger btn--sm memo-row-del-btn";
+  delBtn.addEventListener("click", () => row.remove());
+
+  row.append(nameInp, uniqueCb, colsInp, cmtInp, delBtn);
+  return row;
+}
+
+// ── モーダルを開く ──
+function openMemoModal(memo = null) {
+  _memoEditingId = memo ? memo.id : null;
+  document.getElementById("memo-modal-title").textContent = memo ? "テーブルを編集" : "テーブルを追加";
+  document.getElementById("memo-f-schema").value  = memo?.schema_name ?? "";
+  document.getElementById("memo-f-table").value   = memo?.table_name  ?? "";
+  document.getElementById("memo-f-comment").value = memo?.comment     ?? "";
+  document.getElementById("memo-f-memo").value    = memo?.memo        ?? "";
+
+  // カラム初期化
+  _memoColCount = 0;
+  const colBody = document.getElementById("memo-col-body");
+  colBody.innerHTML = "";
+  (memo?.columns ?? []).forEach(col => colBody.appendChild(createMemoColRow(col)));
+
+  // インデックス初期化
+  _memoIdxCount = 0;
+  const idxBody = document.getElementById("memo-idx-body");
+  idxBody.innerHTML = "";
+  (memo?.indexes ?? []).forEach(idx => idxBody.appendChild(createMemoIdxRow(idx)));
+
+  document.getElementById("memo-modal").hidden = false;
+  document.getElementById("memo-f-table").focus();
+}
+
+// ── モーダルを閉じる ──
+function closeMemoModal() {
+  document.getElementById("memo-modal").hidden = true;
+  _memoEditingId = null;
+}
+
+// ── フォームからデータを収集 ──
+function collectMemoFormData() {
+  const columns = Array.from(document.querySelectorAll("#memo-col-body .memo-col-row")).map(row => ({
+    pk:       row.querySelector(".memo-col-row__pk").checked,
+    name:     row.querySelector(".memo-col-row__name").value.trim(),
+    type:     row.querySelector(".memo-col-row__type").value.trim(),
+    nullable: row.querySelector(".memo-col-row__null").checked,
+    comment:  row.querySelector(".memo-col-row__cmt").value.trim(),
+  })).filter(c => c.name);
+
+  const indexes = Array.from(document.querySelectorAll("#memo-idx-body .memo-idx-row")).map(row => ({
+    name:    row.querySelector(".memo-idx-row__name").value.trim(),
+    unique:  row.querySelector(".memo-idx-row__unique").checked,
+    cols:    row.querySelector(".memo-idx-row__cols").value.trim(),
+    comment: row.querySelector(".memo-idx-row__cmt").value.trim(),
+  })).filter(i => i.name);
+
+  return {
+    schema_name: document.getElementById("memo-f-schema").value.trim(),
+    table_name:  document.getElementById("memo-f-table").value.trim(),
+    comment:     document.getElementById("memo-f-comment").value.trim(),
+    memo:        document.getElementById("memo-f-memo").value.trim(),
+    columns,
+    indexes,
+  };
+}
+
+// ── メモを保存 ──
+async function saveMemoForm() {
+  const data = collectMemoFormData();
+  if (!data.table_name) { showToast("テーブル名を入力してください", true); return; }
+
+  if (_memoEditingId != null) {
+    await _db.updateTableMemo(_memoEditingId, data);
+    showToast(`「${data.table_name}」を更新しました`);
+  } else {
+    await _db.addTableMemo(data);
+    showToast(`「${data.table_name}」を追加しました`);
+  }
+  closeMemoModal();
+  await refreshMemoList();
+}
+
+// ── メモを削除 ──
+async function deleteMemo(id, tableName) {
+  if (!confirm(`テーブル「${tableName}」を削除しますか？`)) return;
+  await _db.deleteTableMemo(id);
+  showToast(`「${tableName}」を削除しました`);
+  await refreshMemoList();
+}
+
+// ── リストを再描画 ──
+async function refreshMemoList() {
+  const memos = await _db.getAllTableMemos();
+  renderMemoList(memos);
+}
+
+// ── メモリスト描画 ──
+function renderMemoList(memos) {
+  const list    = document.getElementById("memo-list");
+  const query   = document.getElementById("memo-search").value.trim().toLowerCase();
+  const filtered = query
+    ? memos.filter(m => (m.table_name?.toLowerCase().includes(query) || m.schema_name?.toLowerCase().includes(query)))
+    : memos;
+
+  list.innerHTML = "";
+  if (filtered.length === 0) {
+    const empty = document.createElement("p");
+    empty.className   = "memo-list__empty";
+    empty.textContent = query ? "該当するテーブルがありません" : "テーブルが登録されていません";
+    list.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach(memo => list.appendChild(createMemoRow(memo)));
+}
+
+// ── メモ1行（<details>）を生成 ──
+function createMemoRow(memo) {
+  const details = document.createElement("details");
+  details.className = "memo-row";
+
+  // サマリー（ヘッダー）
+  const summary = document.createElement("summary");
+  summary.className = "memo-row__summary";
+
+  const nameEl = document.createElement("span");
+  nameEl.className   = "memo-row__name";
+  nameEl.textContent = memo.schema_name ? `${memo.schema_name}.${memo.table_name}` : memo.table_name;
+
+  const metaEl = document.createElement("span");
+  metaEl.className = "memo-row__meta";
+
+  if (memo.comment) {
+    const cmtEl = document.createElement("span");
+    cmtEl.className   = "memo-row__comment";
+    cmtEl.textContent = memo.comment;
+    metaEl.appendChild(cmtEl);
+  }
+
+  if (memo.columns?.length) {
+    const badge = document.createElement("span");
+    badge.className   = "memo-row__badge";
+    badge.textContent = `${memo.columns.length} 列`;
+    metaEl.appendChild(badge);
+  }
+  if (memo.indexes?.length) {
+    const badge = document.createElement("span");
+    badge.className   = "memo-row__badge";
+    badge.textContent = `${memo.indexes.length} インデックス`;
+    metaEl.appendChild(badge);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "memo-row__actions";
+
+  const editBtn = document.createElement("button");
+  editBtn.type      = "button";
+  editBtn.className = "btn btn--ghost btn--sm";
+  editBtn.innerHTML = `${Icons.edit} 編集`;
+  editBtn.addEventListener("click", (e) => { e.preventDefault(); openMemoModal(memo); });
+
+  const delBtn = document.createElement("button");
+  delBtn.type      = "button";
+  delBtn.className = "btn btn--ghost-danger btn--sm";
+  delBtn.innerHTML = `${Icons.close} 削除`;
+  delBtn.addEventListener("click", (e) => { e.preventDefault(); deleteMemo(memo.id, memo.table_name); });
+
+  actions.append(editBtn, delBtn);
+  summary.append(nameEl, metaEl, actions);
+
+  // 展開コンテンツ（カラム・インデックス・メモ）
+  const detail = document.createElement("div");
+  detail.className = "memo-row__detail";
+
+  if (memo.columns?.length) {
+    const sec = document.createElement("div");
+    sec.className = "memo-row__detail-sec";
+
+    const title = document.createElement("p");
+    title.className   = "memo-row__detail-title";
+    title.textContent = "カラム定義";
+    sec.appendChild(title);
+
+    const tbl = document.createElement("div");
+    tbl.className = "memo-detail-table";
+
+    const head = document.createElement("div");
+    head.className = "memo-detail-table__head";
+    head.innerHTML = `<span>PK</span><span>カラム名</span><span>型(桁数)</span><span>NULL可</span><span>コメント</span>`;
+    tbl.appendChild(head);
+
+    memo.columns.forEach(col => {
+      const row = document.createElement("div");
+      row.className = "memo-detail-table__row";
+      row.innerHTML = `
+        <span>${col.pk ? '<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M4 4a4 4 0 0 1 8 0v2h.25c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25v-5.5C2 6.784 2.784 6 3.75 6H4Zm8.25 3.5h-8.5a.25.25 0 0 0-.25.25v5.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25ZM10.5 6V4a2.5 2.5 0 0 0-5 0v2Z"/></svg>' : ''}</span>
+        <span class="memo-detail-table__code">${escapeHtml(col.name)}</span>
+        <span class="memo-detail-table__code">${escapeHtml(col.type)}</span>
+        <span>${col.nullable ? '○' : '✕'}</span>
+        <span>${escapeHtml(col.comment ?? '')}</span>`;
+      tbl.appendChild(row);
+    });
+    sec.appendChild(tbl);
+    detail.appendChild(sec);
+  }
+
+  if (memo.indexes?.length) {
+    const sec = document.createElement("div");
+    sec.className = "memo-row__detail-sec";
+
+    const title = document.createElement("p");
+    title.className   = "memo-row__detail-title";
+    title.textContent = "インデックス";
+    sec.appendChild(title);
+
+    const tbl = document.createElement("div");
+    tbl.className = "memo-detail-table memo-detail-table--idx";
+
+    const head = document.createElement("div");
+    head.className = "memo-detail-table__head";
+    head.innerHTML = `<span>インデックス名</span><span>UNIQUE</span><span>カラム</span><span>コメント</span>`;
+    tbl.appendChild(head);
+
+    memo.indexes.forEach(idx => {
+      const row = document.createElement("div");
+      row.className = "memo-detail-table__row";
+      row.innerHTML = `
+        <span class="memo-detail-table__code">${escapeHtml(idx.name)}</span>
+        <span>${idx.unique ? '○' : ''}</span>
+        <span class="memo-detail-table__code">${escapeHtml(idx.cols)}</span>
+        <span>${escapeHtml(idx.comment ?? '')}</span>`;
+      tbl.appendChild(row);
+    });
+    sec.appendChild(tbl);
+    detail.appendChild(sec);
+  }
+
+  if (memo.memo) {
+    const sec = document.createElement("div");
+    sec.className = "memo-row__detail-sec";
+
+    const title = document.createElement("p");
+    title.className   = "memo-row__detail-title";
+    title.textContent = "メモ";
+    sec.appendChild(title);
+
+    const pre = document.createElement("pre");
+    pre.className   = "memo-detail-memo";
+    pre.textContent = memo.memo;
+    sec.appendChild(pre);
+    detail.appendChild(sec);
+  }
+
+  details.append(summary, detail);
+  return details;
+}
+
+// ── エクスポート ──
+function exportMemos(memos) {
+  const data = JSON.stringify({ type: 'sql_table_memos_export', version: 1, memos }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  const now  = new Date();
+  const pad  = n => String(n).padStart(2, "0");
+  const ts   = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+  a.download = `sql_table_memos_${ts}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+// ── インポート ──
+async function importMemos(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.type !== 'sql_table_memos_export' || !Array.isArray(data.memos)) {
+          showToast("無効なファイル形式です", true); resolve(); return;
+        }
+        for (const m of data.memos) {
+          if (m.table_name) await _db.addTableMemo(m);
+        }
+        showToast(`${data.memos.length} 件をインポートしました`);
+        await refreshMemoList();
+      } catch {
+        showToast("インポートに失敗しました", true);
+      }
+      resolve();
+    };
+    reader.readAsText(file);
+  });
+}
+
+// ── テーブル定義メモの初期化 ──
+async function initTableMemo() {
+  // 開閉状態の復元
+  const memoDetails = document.getElementById("memo-details");
+  const stored = localStorage.getItem("sql_memo_open");
+  if (stored !== null) memoDetails.open = stored === "true";
+  memoDetails.addEventListener("toggle", () => {
+    localStorage.setItem("sql_memo_open", memoDetails.open);
+  });
+
+  // リスト描画
+  await refreshMemoList();
+
+  // 検索
+  document.getElementById("memo-search").addEventListener("input", () => refreshMemoList());
+
+  // テーブルを追加
+  document.getElementById("memo-add-btn").addEventListener("click", () => openMemoModal(null));
+
+  // エクスポート
+  document.getElementById("memo-export-btn").addEventListener("click", async () => {
+    const memos = await _db.getAllTableMemos();
+    exportMemos(memos);
+  });
+
+  // インポート
+  document.getElementById("memo-import-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (file) await importMemos(file);
+    e.target.value = "";
+  });
+
+  // モーダル: カラム追加
+  document.getElementById("memo-col-add-btn").addEventListener("click", () => {
+    document.getElementById("memo-col-body").appendChild(createMemoColRow());
+  });
+
+  // モーダル: インデックス追加
+  document.getElementById("memo-idx-add-btn").addEventListener("click", () => {
+    document.getElementById("memo-idx-body").appendChild(createMemoIdxRow());
+  });
+
+  // モーダル: 保存
+  document.getElementById("memo-save-btn").addEventListener("click", saveMemoForm);
+
+  // モーダル: キャンセル・閉じる
+  document.getElementById("memo-cancel-btn").addEventListener("click", closeMemoModal);
+  document.getElementById("memo-modal-close-btn").addEventListener("click", closeMemoModal);
+  document.getElementById("memo-modal-backdrop").addEventListener("click", closeMemoModal);
+
+  // モーダル: Esc で閉じる
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !document.getElementById("memo-modal").hidden) closeMemoModal();
+  });
+}
 
 // ==================================================
 // トースト通知

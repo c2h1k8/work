@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="./css/sql.css" />
     <link rel="stylesheet" href="./css/components/date_picker.css" />
     <script defer src="./js/core/utils.js"></script>
+    <script defer src="./js/core/icons.js"></script>
     <script defer src="./js/components/custom_select.js"></script>
     <script defer src="./js/core/local_storage.js"></script>
     <script defer src="./js/components/date_picker.js"></script>
@@ -41,16 +42,29 @@
 
     <main class="page-main">
 
-      <!-- チューニング対象 -->
+      <!-- 実行計画ガイド -->
       <section class="card">
-        <details class="tune-details" id="tune-details" open>
+        <details class="tune-details" id="tune-details">
           <summary class="card__header tune-details__summary">
             <div class="card__title">
-              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8.22 1.754a.25.25 0 0 0-.44 0L1.698 13.132a.25.25 0 0 0 .22.368h12.164a.25.25 0 0 0 .22-.368Zm-1.763-.707c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-.25-5.25a.75.75 0 0 0-1.5 0v2.5a.75.75 0 0 0 1.5 0Z"/></svg>
-              チューニング対象
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/></svg>
+              実行計画ガイド
             </div>
             <svg class="tune-details__chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.78 5.22a.749.749 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.06 0L3.22 6.28a.749.749 0 1 1 1.06-1.06L8 8.939l3.72-3.719a.749.749 0 0 1 1.06 0Z"/></svg>
           </summary>
+          <div class="tune-toolbar">
+            <div class="tune-tabs" id="tune-tabs">
+              <button class="tune-tab tune-tab--active" data-tab="all">すべて</button>
+              <button class="tune-tab" data-tab="スキャン">スキャン</button>
+              <button class="tune-tab" data-tab="結合">結合</button>
+              <button class="tune-tab" data-tab="処理">処理</button>
+              <button class="tune-tab" data-tab="その他">その他</button>
+            </div>
+            <div class="tune-search-wrap">
+              <svg class="tune-search-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+              <input type="text" id="tune-search" class="tune-search" placeholder="操作名・説明で検索..." />
+            </div>
+          </div>
           <div class="tune-grid" id="tune-grid"></div>
         </details>
       </section>
@@ -220,7 +234,130 @@ SET AUTOTRACE OFF</pre>
         </div>
       </section>
 
+
+      <!-- テーブル定義メモ -->
+      <section class="card">
+        <details class="memo-details" id="memo-details">
+          <summary class="card__header memo-details__summary">
+            <div class="card__title">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h11A1.5 1.5 0 0 1 15 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 13.5Zm1.5-.25a.25.25 0 0 0-.25.25v11c0 .138.112.25.25.25h11a.25.25 0 0 0 .25-.25v-11a.25.25 0 0 0-.25-.25ZM4.75 6.5a.75.75 0 0 1 0-1.5h6.5a.75.75 0 0 1 0 1.5Zm-.75 2.75a.75.75 0 0 1 .75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75ZM4.75 11a.75.75 0 0 1 0-1.5h4a.75.75 0 0 1 0 1.5Z"/></svg>
+              テーブル定義メモ
+            </div>
+            <svg class="memo-details__chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.78 5.22a.749.749 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.06 0L3.22 6.28a.749.749 0 1 1 1.06-1.06L8 8.939l3.72-3.719a.749.749 0 0 1 1.06 0Z"/></svg>
+          </summary>
+          <div class="memo-section-body">
+            <div class="memo-toolbar">
+              <div class="memo-search-wrap">
+                <svg class="memo-search-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+                <input type="text" id="memo-search" class="memo-search-input" placeholder="テーブル名で検索..." autocomplete="off" />
+              </div>
+              <div class="memo-toolbar__actions">
+                <button id="memo-add-btn" class="btn btn--primary btn--sm">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>
+                  テーブルを追加
+                </button>
+                <button id="memo-export-btn" class="btn btn--secondary btn--sm">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>
+                  エクスポート
+                </button>
+                <label class="btn btn--secondary btn--sm" for="memo-import-file">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M11.78 4.22a.749.749 0 1 1-1.06 1.06L8.75 3.311V9a.75.75 0 0 1-1.5 0V3.311L5.28 5.28a.749.749 0 1 1-1.06-1.06l3.25-3.25a.749.749 0 0 1 1.06 0l3.25 3.25Z"/></svg>
+                  インポート
+                </label>
+                <input type="file" id="memo-import-file" accept=".json" class="sr-only" />
+              </div>
+            </div>
+            <div id="memo-list" class="memo-list"></div>
+          </div>
+        </details>
+      </section>
+
     </main>
+
+    <!-- テーブル定義メモ: 追加/編集モーダル -->
+    <div id="memo-modal" class="memo-modal" hidden>
+      <div class="memo-modal__backdrop" id="memo-modal-backdrop"></div>
+      <div class="memo-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title">
+        <div class="memo-modal__header">
+          <h2 class="memo-modal__title" id="memo-modal-title">テーブルを追加</h2>
+          <button class="btn btn--ghost btn--sm memo-modal__close" id="memo-modal-close-btn">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+          </button>
+        </div>
+        <div class="memo-modal__body">
+          <!-- 基本情報 -->
+          <div class="memo-form__basics">
+            <div class="memo-form__row">
+              <label class="memo-form__label" for="memo-f-schema">スキーマ名</label>
+              <input type="text" id="memo-f-schema" class="form-input form-input--sm" placeholder="省略可 (例: SCOTT)" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+            </div>
+            <div class="memo-form__row">
+              <label class="memo-form__label" for="memo-f-table">テーブル名 <span class="memo-form__req">*</span></label>
+              <input type="text" id="memo-f-table" class="form-input form-input--sm" placeholder="例: EMP" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+            </div>
+            <div class="memo-form__row">
+              <label class="memo-form__label" for="memo-f-comment">コメント</label>
+              <input type="text" id="memo-f-comment" class="form-input form-input--sm" placeholder="テーブルの説明" autocomplete="off" />
+            </div>
+          </div>
+
+          <!-- カラム定義 -->
+          <div class="memo-form__section">
+            <div class="memo-form__section-hd">
+              <span class="memo-form__section-title">カラム定義</span>
+              <button type="button" id="memo-col-add-btn" class="btn btn--secondary btn--sm">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>
+                追加
+              </button>
+            </div>
+            <div class="memo-col-wrap">
+              <div class="memo-col-head">
+                <span>PK</span>
+                <span>カラム名</span>
+                <span>型(桁数)</span>
+                <span>NULL可</span>
+                <span>コメント</span>
+                <span></span>
+              </div>
+              <div id="memo-col-body"></div>
+            </div>
+          </div>
+
+          <!-- インデックス -->
+          <div class="memo-form__section">
+            <div class="memo-form__section-hd">
+              <span class="memo-form__section-title">インデックス</span>
+              <button type="button" id="memo-idx-add-btn" class="btn btn--secondary btn--sm">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>
+                追加
+              </button>
+            </div>
+            <div class="memo-idx-wrap">
+              <div class="memo-idx-head">
+                <span>インデックス名</span>
+                <span>UNIQUE</span>
+                <span>カラム (カンマ区切り)</span>
+                <span>コメント</span>
+                <span></span>
+              </div>
+              <div id="memo-idx-body"></div>
+            </div>
+          </div>
+
+          <!-- フリーメモ -->
+          <div class="memo-form__section">
+            <div class="memo-form__section-hd">
+              <span class="memo-form__section-title">メモ</span>
+            </div>
+            <textarea id="memo-f-memo" class="memo-free-textarea" rows="4" placeholder="備考・注意事項・サンプルSQLなど..."></textarea>
+          </div>
+        </div>
+        <div class="memo-modal__footer">
+          <button id="memo-save-btn" class="btn btn--primary">保存</button>
+          <button id="memo-cancel-btn" class="btn btn--secondary">キャンセル</button>
+        </div>
+      </div>
+    </div>
 
     <!-- コピー成功トースト -->
     <div id="copy-toast" class="toast" hidden>コピーしました</div>
