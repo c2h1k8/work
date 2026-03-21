@@ -10,6 +10,10 @@ const TYPE_LABELS = {
   table: "テーブル",
   memo: "メモ",
   checklist: "チェックリスト",
+  markdown: "Markdown",
+  iframe: "iframe",
+  countdown: "カウントダウン",
+  formatter: "フォーマッタ",
 };
 
 /** コマンドビルダー履歴の localStorage キープレフィックス（ブラウザ固有の UI 状態） */

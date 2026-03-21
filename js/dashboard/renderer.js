@@ -32,6 +32,14 @@ const Renderer = {
     hd.innerHTML = `
       <span class="card__hd-icon">${escapeHtml(section.icon || "📋")}</span>
       <h2 class="card__hd-title">${escapeHtml(section.title)}</h2>
+      ${section.type === "markdown" ? `
+        <button class="card__hd-btn" data-action="toggle-md-edit" data-section-id="${section.id}" title="編集">
+          ${Icons.edit}
+        </button>` : ""}
+      ${section.type === "countdown" ? `
+        <button class="card__mode-btn" data-action="toggle-countdown-mode" data-section-id="${section.id}" title="カレンダー日 / 営業日を切り替え">
+          ${section.countdown_mode === "business" ? "営業日" : "カレンダー日"}
+        </button>` : ""}
       <button class="card__collapse-btn${isCollapsed ? " is-collapsed" : ""}"
               data-action="toggle-collapse" data-section-id="${section.id}"
               title="${isCollapsed ? "展開" : "折りたたむ"}">
@@ -62,6 +70,18 @@ const Renderer = {
         break;
       case "checklist":
         Renderer.buildChecklistSection(section, items, bd);
+        break;
+      case "markdown":
+        Renderer.buildMarkdownSection(section, bd);
+        break;
+      case "iframe":
+        Renderer.buildIframeSection(section, bd);
+        break;
+      case "countdown":
+        Renderer.buildCountdownSection(section, items, bd);
+        break;
+      case "formatter":
+        Renderer.buildFormatterSection(section, bd);
         break;
     }
     el.appendChild(bd);
@@ -647,6 +667,10 @@ const Renderer = {
           <option value="table">テーブル</option>
           <option value="memo">メモ</option>
           <option value="checklist">チェックリスト</option>
+          <option value="markdown">Markdown</option>
+          <option value="iframe">iframe</option>
+          <option value="countdown">カウントダウン</option>
+          <option value="formatter">フォーマッタ</option>
         </select>
       </div>
       <div class="settings-form-row" id="new-section-action-row" hidden>
@@ -847,6 +871,10 @@ const Renderer = {
     const isTable = section.type === "table";
     const isMemo = section.type === "memo";
     const isChecklist = section.type === "checklist";
+    const isMarkdown = section.type === "markdown";
+    const isIframe = section.type === "iframe";
+    const isCountdown = section.type === "countdown";
+    const isFormatter = section.type === "formatter";
     const columns = section.columns || [];
     const items = State.itemsMap[section.id] || [];
 
@@ -901,6 +929,31 @@ const Renderer = {
         </div>`
             : ""
         }
+        ${
+          isIframe
+            ? `
+        <div class="settings-form-row">
+          <label class="settings-label">URL</label>
+          <input class="settings-input" id="edit-section-url" type="url" value="${escapeAttr(section.url || "")}" placeholder="https://example.com" />
+        </div>
+        <div class="settings-form-row">
+          <label class="settings-label">高さ（px）</label>
+          <input class="settings-input settings-input--xs" id="edit-section-iframe-height" type="number" min="100" step="50" value="${section.iframe_height ?? 400}" />
+        </div>`
+            : ""
+        }
+        ${
+          isCountdown
+            ? `
+        <div class="settings-form-row">
+          <label class="settings-label">デフォルト表示モード</label>
+          <select class="cs-target" id="edit-section-countdown-mode">
+            <option value="calendar" ${(section.countdown_mode || "calendar") === "calendar" ? "selected" : ""}>カレンダー日</option>
+            <option value="business" ${section.countdown_mode === "business" ? "selected" : ""}>営業日（土日除く）</option>
+          </select>
+        </div>`
+            : ""
+        }
         <div class="settings-form-row">
           <button class="settings-btn settings-btn--primary" data-action="save-section-meta" data-section-id="${section.id}">保存</button>
         </div>`;
@@ -913,6 +966,20 @@ const Renderer = {
         </div>
         <div class="settings-form-row">
           <button class="settings-btn settings-btn--primary" data-action="save-section-memo" data-section-id="${section.id}">保存</button>
+        </div>`;
+    }
+
+    if (isMarkdown) {
+      html += `
+        <div class="settings-subsection">
+          <h3 class="settings-subsection-title">Markdown 本文</h3>
+          <div class="settings-form-row">
+            <label class="settings-label">本文（marked.js で HTML に変換されます）</label>
+            <textarea class="settings-textarea" id="edit-section-body" rows="12" placeholder="# 見出し&#10;**太字** *斜体* \`コード\`&#10;&#10;- リスト項目&#10;- リスト項目&#10;&#10;[リンク](https://example.com)">${escapeHtml(section.body || "")}</textarea>
+          </div>
+          <div class="settings-form-row">
+            <button class="settings-btn settings-btn--primary" data-action="save-markdown-body" data-section-id="${section.id}">保存</button>
+          </div>
         </div>`;
     }
 
@@ -1082,8 +1149,8 @@ const Renderer = {
       </div>`;
     }
 
-    // アイテム一覧（command_builder・memo 以外）
-    if (!isCmdBuilder && !isMemo) {
+    // アイテム一覧（command_builder・memo・markdown・iframe・formatter 以外）
+    if (!isCmdBuilder && !isMemo && !isMarkdown && !isIframe && !isFormatter) {
       const label = isTable
         ? "行"
         : section.type === "grid"
@@ -1123,7 +1190,9 @@ const Renderer = {
     const isTable = section.type === "table";
     const columns = section.columns || [];
     let labelText = "";
-    if (isTable) {
+    if (section.type === "countdown") {
+      labelText = `${item.label || "（名前なし）"} — ${item.value || "日付未設定"}`;
+    } else if (isTable) {
       const rd = item.row_data || {};
       labelText =
         columns
@@ -1161,10 +1230,25 @@ const Renderer = {
     const isGrid = section.type === "grid";
     const isTable = section.type === "table";
     const isChecklist = section.type === "checklist";
+    const isCountdownSection = section.type === "countdown";
     const columns = section.columns || [];
     let html = "";
 
-    if (isChecklist) {
+    if (isCountdownSection) {
+      html += `
+        <div class="settings-form-row">
+          <label class="settings-label">マイルストーン名</label>
+          <input class="settings-input" id="item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="例: リリース v2.0" />
+        </div>
+        <div class="settings-form-row">
+          <label class="settings-label">目標日</label>
+          <input type="hidden" id="item-value" value="${escapeAttr(item?.value || "")}" />
+          <button type="button" class="settings-date-btn${item?.value ? "" : " settings-date-btn--empty"}" data-action="open-countdown-date" data-hidden-id="item-value">
+            ${Icons.calendar}
+            <span class="settings-date-btn__text">${item?.value || "日付を選択..."}</span>
+          </button>
+        </div>`;
+    } else if (isChecklist) {
       html += `
         <div class="settings-form-row">
           <input class="settings-input" id="item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="アイテム名" />
@@ -1324,7 +1408,9 @@ const Renderer = {
   },
 
   _itemMgrLabelText(item, section) {
-    if (section.type === "table") {
+    if (section.type === "countdown") {
+      return `${item.label || "（名前なし）"} — ${item.value || "日付未設定"}`;
+    } else if (section.type === "table") {
       const rd = item.row_data || {};
       const cols = section.columns || [];
       return (
@@ -1379,10 +1465,25 @@ const Renderer = {
     const isGrid = section.type === "grid";
     const isTable = section.type === "table";
     const isChecklist = section.type === "checklist";
+    const isCountdownSection = section.type === "countdown";
     const columns = section.columns || [];
     let html = "";
 
-    if (isChecklist) {
+    if (isCountdownSection) {
+      html += `
+        <div class="settings-form-row">
+          <label class="settings-label">マイルストーン名</label>
+          <input class="settings-input" id="mgr-item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="例: リリース v2.0" />
+        </div>
+        <div class="settings-form-row">
+          <label class="settings-label">目標日</label>
+          <input type="hidden" id="mgr-item-value" value="${escapeAttr(item?.value || "")}" />
+          <button type="button" class="settings-date-btn${item?.value ? "" : " settings-date-btn--empty"}" data-action="open-countdown-date" data-hidden-id="mgr-item-value">
+            ${Icons.calendar}
+            <span class="settings-date-btn__text">${item?.value || "日付を選択..."}</span>
+          </button>
+        </div>`;
+    } else if (isChecklist) {
       html += `
         <div class="settings-form-row">
           <input class="settings-input" id="mgr-item-label" type="text" value="${escapeAttr(item?.label || "")}" placeholder="アイテム名" />
@@ -1470,10 +1571,16 @@ const Renderer = {
     const isTable = section.type === "table";
     const isGrid = section.type === "grid";
     const isChecklist = section.type === "checklist";
+    const isCountdown = section.type === "countdown";
     const cols = section.columns || [];
     let hint, placeholder;
 
-    if (isChecklist) {
+    if (isCountdown) {
+      hint = `1行に1件のマイルストーンを入力してください。列は <strong>Tab</strong> 区切りです。<br>
+        フォーマット: <code>マイルストーン名\tYYYY-MM-DD</code><br>
+        <code>#</code> で始まる行はコメントとして無視されます。`;
+      placeholder = "リリース v1.0\t2026-04-01\nステージング\t2026-03-31";
+    } else if (isChecklist) {
       hint = `1行に1件のアイテム名を入力してください。<br>
         <code>#</code> で始まる行はコメントとして無視されます。`;
       placeholder = "アイテム1\nアイテム2\nアイテム3";
@@ -1582,6 +1689,274 @@ const Renderer = {
         CustomSelect.create(sel);
       }
     }
+  },
+
+  // ── Markdown セクション ──────────────────────────────
+
+  buildMarkdownSection(section, bd) {
+    const body = section.body || "";
+    // 表示エリア
+    const displayDiv = document.createElement("div");
+    displayDiv.className = "md-body";
+    if (body.trim()) {
+      const resolved = resolveBindVars(body);
+      let rawHtml;
+      if (typeof marked !== "undefined") {
+        rawHtml = marked.parse(resolved);
+      } else {
+        rawHtml = escapeHtml(resolved).replace(/\n/g, "<br>");
+      }
+      const sanitized = typeof DOMPurify !== "undefined"
+        ? DOMPurify.sanitize(rawHtml, { ADD_ATTR: ["target", "rel"] })
+        : rawHtml;
+      displayDiv.innerHTML = sanitized;
+      // リンクを新しいタブで開く
+      displayDiv.querySelectorAll("a").forEach((a) => {
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+      });
+      // コードブロックにコピーボタンを追加
+      displayDiv.querySelectorAll("pre code").forEach((codeEl) => {
+        const pre = codeEl.closest("pre");
+        pre.style.position = "relative";
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "md-code-copy-btn";
+        copyBtn.innerHTML = Icons.copyFill;
+        copyBtn.title = "コピー";
+        copyBtn.addEventListener("click", () => {
+          navigator.clipboard.writeText(codeEl.textContent).then(() => {
+            showToast("コピーしました");
+          });
+        });
+        pre.appendChild(copyBtn);
+      });
+    } else {
+      displayDiv.innerHTML = `<p class="section-empty">コンテンツが空です。ヘッダーの編集ボタン（✎）から追加してください。</p>`;
+    }
+    bd.appendChild(displayDiv);
+
+    // 編集パネル（hidden）
+    const editPanel = document.createElement("div");
+    editPanel.className = "md-edit-panel";
+    editPanel.hidden = true;
+    editPanel.innerHTML = `
+      <textarea class="md-edit-textarea" id="md-edit-${section.id}" rows="14">${escapeHtml(body)}</textarea>
+      <div class="md-edit-actions">
+        <button class="btn btn--primary btn--sm" data-action="save-markdown-body" data-section-id="${section.id}">保存</button>
+        <button class="btn btn--sm" data-action="cancel-md-edit" data-section-id="${section.id}">キャンセル</button>
+      </div>
+    `;
+    bd.appendChild(editPanel);
+  },
+
+  // ── iframe セクション ────────────────────────────────
+
+  buildIframeSection(section, bd) {
+    const url = section.url || "";
+    const resolvedUrl = url ? resolveBindVars(url) : "";
+    if (!resolvedUrl.trim()) {
+      bd.innerHTML = `<p class="section-empty">URLが設定されていません。設定から追加してください。</p>`;
+      return;
+    }
+    const wrap = document.createElement("div");
+    wrap.className = "iframe-wrap";
+
+    const externalLink = document.createElement("a");
+    externalLink.className = "iframe-external-link";
+    externalLink.href = resolvedUrl;
+    externalLink.target = "_blank";
+    externalLink.rel = "noopener noreferrer";
+    externalLink.title = "別タブで開く";
+    externalLink.innerHTML = `${Icons.external} 別タブで開く`;
+    wrap.appendChild(externalLink);
+
+    const iframe = document.createElement("iframe");
+    iframe.src = resolvedUrl;
+    iframe.style.height = `${section.iframe_height || 400}px`;
+    iframe.className = "section-iframe";
+    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
+    iframe.setAttribute("loading", "lazy");
+    wrap.appendChild(iframe);
+    bd.appendChild(wrap);
+  },
+
+  // ── カウントダウンセクション ──────────────────────────
+
+  buildCountdownSection(section, items, bd) {
+    bd.innerHTML = "";
+    const sId = section.id;
+    const mode = section.countdown_mode || "calendar";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // アイテムリスト
+    if (items.length === 0) {
+      const emptyEl = document.createElement("p");
+      emptyEl.className = "section-empty";
+      emptyEl.textContent = "マイルストーンがありません。";
+      bd.appendChild(emptyEl);
+    } else {
+      const listEl = document.createElement("div");
+      listEl.className = "countdown-list";
+      items.forEach((item) => {
+        const label = resolveBindVars(item.label || "");
+        const dateStr = item.value || "";
+        let days = null;
+        if (dateStr) {
+          const target = new Date(dateStr);
+          target.setHours(0, 0, 0, 0);
+          if (isNaN(target.getTime())) {
+            days = null;
+          } else if (mode === "business") {
+            days = Renderer._countBusinessDays(today, target);
+          } else {
+            days = Math.round((target - today) / 86400000);
+          }
+        }
+
+        const card = document.createElement("div");
+        card.className = "countdown-card";
+        let daysHtml = "";
+        if (days === null) {
+          daysHtml = `<span class="countdown-days countdown-days--no-date">-- 日</span>`;
+        } else if (days === 0) {
+          card.classList.add("countdown-card--today");
+          daysHtml = `<span class="countdown-days countdown-days--today">今日！</span>`;
+        } else if (days < 0) {
+          card.classList.add("countdown-card--overdue");
+          daysHtml = `<span class="countdown-days countdown-days--overdue">${Math.abs(days)}日超過</span>`;
+        } else if (days <= 7) {
+          card.classList.add("countdown-card--warning");
+          daysHtml = `<span class="countdown-days countdown-days--warning">あと ${days} 日</span>`;
+        } else {
+          daysHtml = `<span class="countdown-days">あと ${days} 日</span>`;
+        }
+        const modeLabel = mode === "business"
+          ? `<span class="countdown-mode-badge">営業日</span>` : "";
+        card.innerHTML = `
+          <div class="countdown-info">
+            <button class="countdown-label-btn" data-action="edit-countdown-label"
+                    data-item-id="${item.id}" data-section-id="${sId}" title="クリックして編集">
+              ${escapeHtml(label)}
+            </button>
+            <button class="countdown-date-btn${dateStr ? "" : " settings-date-btn--empty"}" data-action="edit-countdown-date"
+                    data-item-id="${item.id}" data-section-id="${sId}"
+                    title="日付を変更">
+              ${dateStr ? escapeHtml(dateStr) : '<span class="countdown-date-btn__placeholder">日付を設定...</span>'}
+              ${Icons.edit}
+            </button>
+          </div>
+          <div class="countdown-right">
+            ${daysHtml}
+            ${modeLabel}
+            <button class="countdown-delete-btn" data-action="delete-countdown-item"
+                    data-item-id="${item.id}" data-section-id="${sId}" title="削除">
+              ${Icons.close}
+            </button>
+          </div>
+        `;
+        listEl.appendChild(card);
+      });
+      bd.appendChild(listEl);
+    }
+
+    // インライン追加フォーム
+    const addForm = document.createElement("div");
+    addForm.className = "countdown-add-form";
+    addForm.id = `countdown-add-form-${sId}`;
+    addForm.hidden = true;
+    addForm.innerHTML = `
+      <input class="countdown-add-label" id="countdown-add-label-${sId}"
+             type="text" placeholder="マイルストーン名" />
+      <input type="hidden" id="countdown-add-date-${sId}" />
+      <button type="button" class="settings-date-btn settings-date-btn--empty countdown-add-date-btn"
+              data-action="open-countdown-date" data-hidden-id="countdown-add-date-${sId}">
+        ${Icons.calendar}
+        <span class="settings-date-btn__text">日付を選択...</span>
+      </button>
+      <div class="countdown-add-form__actions">
+        <button class="btn btn--primary btn--sm" data-action="save-countdown-add"
+                data-section-id="${sId}">追加</button>
+        <button class="btn btn--ghost btn--sm" data-action="cancel-countdown-add"
+                data-section-id="${sId}">キャンセル</button>
+      </div>
+    `;
+    bd.appendChild(addForm);
+
+    // 追加ボタン
+    const addBtn = document.createElement("button");
+    addBtn.className = "countdown-add-btn";
+    addBtn.dataset.action = "toggle-countdown-add";
+    addBtn.dataset.sectionId = String(sId);
+    addBtn.innerHTML = `${Icons.close.replace('close', 'countdown-add-icon')} マイルストーンを追加`;
+    // close アイコン流用せず専用の + を使う
+    addBtn.innerHTML = `<span class="countdown-add-icon">＋</span> マイルストーンを追加`;
+    bd.appendChild(addBtn);
+  },
+
+  /** 営業日数計算（土日を除外、start から end まで） */
+  _countBusinessDays(start, end) {
+    const sign = end >= start ? 1 : -1;
+    const from = sign === 1 ? new Date(start) : new Date(end);
+    const to = sign === 1 ? new Date(end) : new Date(start);
+    let count = 0;
+    const cur = new Date(from);
+    while (cur < to) {
+      const day = cur.getDay();
+      if (day !== 0 && day !== 6) count++;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return count * sign;
+  },
+
+  // ── フォーマッタセクション ────────────────────────────
+
+  buildFormatterSection(section, bd) {
+    const sId = section.id;
+    const wrap = document.createElement("div");
+    wrap.className = "formatter-wrap";
+    wrap.innerHTML = `
+      <div class="formatter-input-area">
+        <div class="formatter-toolbar">
+          <div class="formatter-seg">
+            <label class="formatter-seg__item">
+              <input type="radio" name="fmt-type-${sId}" value="json" checked> JSON
+            </label>
+            <label class="formatter-seg__item">
+              <input type="radio" name="fmt-type-${sId}" value="xml"> XML
+            </label>
+          </div>
+          <div class="formatter-toolbar__actions">
+            <button class="btn btn--primary btn--sm" data-action="format-code" data-section-id="${sId}">整形</button>
+            <button class="btn btn--sm btn--ghost" data-action="clear-formatter" data-section-id="${sId}">クリア</button>
+          </div>
+        </div>
+        <textarea class="formatter-input" id="formatter-input-${sId}" placeholder="JSON または XML をここにペーストしてください...
+Ctrl+Enter で整形"></textarea>
+      </div>
+      <div class="formatter-output-area" id="formatter-output-area-${sId}" hidden>
+        <button class="formatter-copy-btn" data-action="copy-formatter-output" data-section-id="${sId}" title="コピー">${Icons.copyFill}</button>
+        <pre class="formatter-output"><code id="formatter-code-${sId}"></code></pre>
+        <div class="formatter-error" id="formatter-error-${sId}" hidden></div>
+      </div>
+    `;
+    // オートデテクト: 入力変更時にフォーマットタイプを自動切替
+    const inputEl = wrap.querySelector(`#formatter-input-${sId}`);
+    const radioJson = wrap.querySelector(`input[value="json"]`);
+    const radioXml = wrap.querySelector(`input[value="xml"]`);
+    inputEl.addEventListener("input", () => {
+      const val = inputEl.value.trimStart();
+      if (val.startsWith("<") && radioXml) radioXml.checked = true;
+      else if ((val.startsWith("{") || val.startsWith("[")) && radioJson) radioJson.checked = true;
+    });
+    // Ctrl+Enter で整形
+    inputEl.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        EventHandlers.formatCode(sId);
+      }
+    });
+    bd.appendChild(wrap);
   },
 
   // ── メモセクション ────────────────────────────────────

@@ -213,7 +213,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `window.addEventListener('message', ...)` で親フレームからの `dashboard:open-settings` を受信して設定パネルを開く
 - `EventHandlers.closeSettings()` は設定パネルを閉じた後、親フレームに `dashboard:settings-closed` を postMessage
 - ストア: `sections`（id/instance_id/title/icon/position/type/command_template/**action_mode**/**cmd_buttons**/columns/**width**/**page_size**/**table_bind_vars**/**table_presets**/**table_vars_ui_type**/**table_vars_bar_label**/**list_bind_vars**/**list_presets**/**list_vars_ui_type**/**list_vars_bar_label**/**grid_bind_vars**/**grid_presets**/**grid_vars_ui_type**/**grid_vars_bar_label**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data/**new_row**）
-- セクションタイプ: `list` | `grid` | `command_builder` | `table`
+- セクションタイプ: `list` | `grid` | `command_builder` | `table` | `markdown` | `iframe` | `countdown` | `formatter`
 - アイテムタイプ: `copy` | `link` | `template`（list）/ `link` | `copy` | `template`（grid、旧 `card` は `link` 互換）/ `row`（table）
 - 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉
 - 設定ビュー: `'sections'`（一覧）/ `'edit-section'`（セクション編集）/ `'bind-settings'`（共通バインド変数）/ `'edit-preset'`（プリセット編集）→ `State.settings.view` で管理
@@ -221,6 +221,10 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - テーブル行の値は `item.row_data: {[col_id]: string}` で保持
 - `command_builder` セクションは `cmd_buttons: [{id, label, template, action_mode}]` 配列で複数ボタンを管理。各ボタンで `{INPUT}` プレースホルダーを使う。`action_mode: 'copy'`（デフォルト）はクリップボードにコピー、`action_mode: 'open'` はブラウザで URL を開く。`cmd_buttons` が空の場合は旧 `command_template` / `action_mode` にフォールバック（後方互換）。Enter キーで最初のボタンを実行。ボタンは 6 色パレットでインデックス順に色分け（indigo→green→amber→purple→pink→teal）
 - URL コマンド履歴: `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
+- **markdown セクション**: `section.body: string` フィールドに Markdown テキストを保存。marked.js + DOMPurify（CDN）でレンダリング。カードヘッダーの編集ボタン（`.card__hd-btn`、`toggle-md-edit` アクション）でカード内インライン編集モードに切替。設定パネルからも `edit-section-body` textarea で編集・保存可能（`save-markdown-body` アクション）。リンクは `target="_blank"`。コードブロックにコピーボタン（`.md-code-copy-btn`）
+- **iframe セクション**: `section.url: string`、`section.iframe_height: number（デフォルト 400）` フィールド。sandbox 付き `<iframe>` で表示。ヘッダーに「別タブで開く」リンク。URL でバインド変数解決
+- **countdown セクション**: `section.countdown_mode: 'calendar'|'business'` フィールド。items でマイルストーン管理（`label` + `value: YYYY-MM-DD`）。カードヘッダーのトグルボタン（`.card__mode-btn`）でカレンダー日/営業日を切替（`toggle-countdown-mode` アクション）。`Renderer._countBusinessDays(start, end)` で土日除外計算。超過は赤、7日以内は警告色。マイルストーン編集フォームの目標日入力は `DatePicker` カスタムピッカー（`open-countdown-date` アクション + `EventHandlers.openCountdownDatePicker(btn)`）。`dashboard.html` に `date_picker.css` / `date_picker.js` を読み込み済み
+- **formatter セクション**: データ永続化なし（揮発性）。JSON は `JSON.parse`+`JSON.stringify`、XML は `DOMParser`+`EventHandlers._serializeXml()` で整形。`format-code` / `clear-formatter` / `copy-formatter-output` アクション。Ctrl+Enter で整形実行。入力テキストの先頭文字で JSON/XML を自動判定。エラー時は行・列番号を表示し、問題箇所をテキストエリア内でハイライト（選択状態）。入力欄に `.formatter-input--error` クラスで赤ボーダー付与
 - **セクション独自バインド変数（プリセット方式）**: table/list/grid セクションで共通の仕組み。各セクションタイプ毎に変数名・プリセットを保持し `resolveSectionVars(str, sectionId)` で解決（グローバルバインド変数より先に適用）。`resolveTableVars` は後方互換 alias。
   - **テーブル**: `section.table_bind_vars`, `section.table_presets`, `section.table_vars_ui_type`, `section.table_vars_bar_label`。アクティブプリセット: `localStorage("dashboard_table_active_preset_<sectionId>")`
   - **リスト**: `section.list_bind_vars`, `section.list_presets`, `section.list_vars_ui_type`, `section.list_vars_bar_label`。アクティブプリセット: `localStorage("dashboard_list_active_preset_<sectionId>")`。ラベル・ヒントで `{変数名}` を使って置換
@@ -228,7 +232,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - プリセットが存在する場合のみ各セクション上部にプリセットバー（`.table-preset-bar`）を表示
   - 設定画面から `open-list-bind-var-modal` / `open-grid-bind-var-modal` で BindVarModal を開く
   - `switchListPreset(sectionId, presetId)` / `switchGridPreset(sectionId, presetId)` でプリセット切替・再レンダリング
-- **アイテム管理モーダル**（全画面でアイテムを管理）: 設定パネルのアイテム一覧ヘッダーの「⤢ 全画面で管理」ボタンで開く。`State.itemMgr: { sectionId, editingId, formTab: 'add'|'bulk' }` で状態管理。2カラム（左: アイテム一覧、右: 追加/編集フォーム or コピー登録フォーム）。`EventHandlers.openItemManager(sectionId)` / `closeItemManager()` / `_refreshItemManager()` で制御。CSS: `.item-mgr`（`dashboard.less`）。z-index: 400（設定パネルの 300 より上）。Esc キーで閉じる。コピー登録タブ（`formTab: 'bulk'`）では Tab 区切りのテキストを貼り付けて一括追加（`saveBulkItems(sectionId)`）。フォーマット: list=`ラベル\tヒント\t値`、grid=`絵文字\tカード名\t値`、table=`列1\t列2\t列3`。URL はリンク、それ以外はコピーとして自動判定。`#` で始まる行はコメント。
+- **アイテム管理モーダル**（全画面でアイテムを管理）: 設定パネルのアイテム一覧ヘッダーの「⤢ 全画面で管理」ボタンで開く。`State.itemMgr: { sectionId, editingId, formTab: 'add'|'bulk' }` で状態管理。2カラム（左: アイテム一覧、右: 追加/編集フォーム or コピー登録フォーム）。`EventHandlers.openItemManager(sectionId)` / `closeItemManager()` / `_refreshItemManager()` で制御。CSS: `.item-mgr`（`dashboard.less`）。z-index: 400（設定パネルの 300 より上）。Esc キーで閉じる。コピー登録タブ（`formTab: 'bulk'`）では Tab 区切りのテキストを貼り付けて一括追加（`saveBulkItems(sectionId)`）。フォーマット: list=`ラベル\tヒント\t値`、grid=`絵文字\tカード名\t値`、table=`列1\t列2\t列3`、countdown=`マイルストーン名\tYYYY-MM-DD`。URL はリンク、それ以外はコピーとして自動判定。`#` で始まる行はコメント。
 - モジュール構成: `DashboardDB`（`js/db/dashboard_db.js`）/ `constants.js` / `state.js` / `renderer.js` / `events.js` / `app.js`（`js/dashboard/` 配下に分割）
 - レイアウト: `max-width: 1440px` + CSS Grid（`auto-fill, minmax(190px, 1fr)`）でセクションカードを複数列配置
 - セクションの表示幅: `section.width = 'narrow' | 'auto' | 'w3' | 'wide' | 'w5' | 'full'`。カードに `data-width` 属性を付与し CSS でスパン制御（narrow=span 1 / auto=span 2 / w3=span 3 / wide=span 4 / w5=span 5 / full=1/-1 / ≤840px で w3以上は全幅）。セクション編集画面の「表示幅」セレクターで設定・保存

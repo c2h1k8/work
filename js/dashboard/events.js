@@ -116,6 +116,10 @@ const EventHandlers = {
       columns: type === "table" ? [] : null,
       memo_content: type === "memo" ? "" : null,
       checklist_reset: type === "checklist" ? "never" : null,
+      body: type === "markdown" ? "" : null,
+      url: type === "iframe" ? "" : null,
+      iframe_height: type === "iframe" ? 400 : null,
+      countdown_mode: type === "countdown" ? "calendar" : null,
     };
     const newId = await State.db.addSection(data);
     data.id = newId;
@@ -235,6 +239,14 @@ const EventHandlers = {
           );
         }
       }
+    }
+    if (section.type === "iframe") {
+      section.url = document.getElementById("edit-section-url")?.value.trim() || "";
+      const heightVal = parseInt(document.getElementById("edit-section-iframe-height")?.value, 10);
+      section.iframe_height = !isNaN(heightVal) && heightVal >= 100 ? heightVal : 400;
+    }
+    if (section.type === "countdown") {
+      section.countdown_mode = document.getElementById("edit-section-countdown-mode")?.value || "calendar";
     }
     await State.db.updateSection(section);
     document.getElementById("settings-title").textContent =
@@ -485,7 +497,14 @@ const EventHandlers = {
       items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
     const data = { section_id: sectionId, position: maxPos };
 
-    if (section.type === "checklist") {
+    if (section.type === "countdown") {
+      data.label = document.getElementById("item-label")?.value.trim() || "";
+      data.value = document.getElementById("item-value")?.value.trim() || "";
+      data.item_type = "milestone";
+      data.hint = null;
+      data.emoji = null;
+      data.row_data = null;
+    } else if (section.type === "checklist") {
       data.item_type = "item";
       data.label = document.getElementById("item-label")?.value.trim() || "";
       data.hint = null;
@@ -558,7 +577,10 @@ const EventHandlers = {
     const item = (State.itemsMap[sectionId] || []).find((i) => i.id === itemId);
     if (!section || !item) return;
 
-    if (section.type === "checklist") {
+    if (section.type === "countdown") {
+      item.label = document.getElementById("item-label")?.value.trim() || "";
+      item.value = document.getElementById("item-value")?.value.trim() || "";
+    } else if (section.type === "checklist") {
       item.label = document.getElementById("item-label")?.value.trim() || "";
     } else if (section.type === "grid") {
       item.item_type =
@@ -692,7 +714,14 @@ const EventHandlers = {
       items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
     const data = { section_id: sectionId, position: maxPos };
 
-    if (section.type === "checklist") {
+    if (section.type === "countdown") {
+      data.item_type = "milestone";
+      data.label = document.getElementById("mgr-item-label")?.value.trim() || "";
+      data.value = document.getElementById("mgr-item-value")?.value.trim() || "";
+      data.hint = null;
+      data.emoji = null;
+      data.row_data = null;
+    } else if (section.type === "checklist") {
       data.item_type = "item";
       data.label =
         document.getElementById("mgr-item-label")?.value.trim() || "";
@@ -771,7 +800,10 @@ const EventHandlers = {
     );
     if (!section || !item) return;
 
-    if (section.type === "checklist") {
+    if (section.type === "countdown") {
+      item.label = document.getElementById("mgr-item-label")?.value.trim() || "";
+      item.value = document.getElementById("mgr-item-value")?.value.trim() || "";
+    } else if (section.type === "checklist") {
       item.label =
         document.getElementById("mgr-item-label")?.value.trim() || "";
     } else if (section.type === "grid") {
@@ -909,7 +941,14 @@ const EventHandlers = {
       const cols = line.split("\t");
       const data = { section_id: sectionId, position: maxPos++ };
 
-      if (section.type === "checklist") {
+      if (section.type === "countdown") {
+        data.item_type = "milestone";
+        data.label = cols[0].trim();
+        data.value = (cols[1] || "").trim();
+        data.hint = null;
+        data.emoji = null;
+        data.row_data = null;
+      } else if (section.type === "checklist") {
         data.item_type = "item";
         data.label = cols[0].trim();
         data.hint = null;
@@ -1646,6 +1685,372 @@ const EventHandlers = {
     if (!bd) return;
     bd.innerHTML = "";
     Renderer.buildTableSection(section, items, bd);
+  },
+
+  // ── Markdown 編集 ─────────────────────────────────────
+
+  toggleMarkdownEdit(sectionId) {
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (!card) return;
+    const display = card.querySelector(".md-body");
+    const editPanel = card.querySelector(".md-edit-panel");
+    if (!display || !editPanel) return;
+    const isEditing = !editPanel.hidden;
+    display.hidden = !isEditing;
+    editPanel.hidden = isEditing;
+    // 編集ボタンのタイトルを更新
+    const editBtn = card.querySelector("[data-action='toggle-md-edit']");
+    if (editBtn) editBtn.title = !isEditing ? "プレビューに戻る" : "編集";
+  },
+
+  async saveMarkdownBody(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    // 設定パネルからの保存
+    const settingsBody = document.getElementById("edit-section-body");
+    // カード内の編集パネルからの保存
+    const cardTextarea = document.getElementById(`md-edit-${sectionId}`);
+    section.body = (settingsBody || cardTextarea)?.value ?? section.body ?? "";
+    await State.db.updateSection(section);
+    Renderer.renderDashboard();
+    showToast("保存しました", "success");
+  },
+
+  // ── カウントダウン カード上操作 ───────────────────────────
+
+  /** カード上でラベルをインライン編集 */
+  editCountdownLabel(btn) {
+    const itemId    = Number(btn.dataset.itemId);
+    const sectionId = Number(btn.dataset.sectionId);
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "countdown-label-input";
+    input.value = btn.textContent.trim();
+    btn.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const _redraw = () => {
+      const section = State.sections.find((s) => s.id === sectionId);
+      if (!section) return;
+      const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+      if (!card) return;
+      const bd = card.querySelector(".card__bd");
+      if (bd) Renderer.buildCountdownSection(section, State.itemsMap[sectionId] || [], bd);
+    };
+
+    const save = async () => {
+      const newLabel = input.value.trim();
+      if (!newLabel) { _redraw(); return; }
+      const item = (State.itemsMap[sectionId] || []).find((i) => i.id === itemId);
+      if (!item) return;
+      item.label = newLabel;
+      await State.db.updateItem(item);
+      _redraw();
+    };
+
+    input.addEventListener("blur", save);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+      if (e.key === "Escape") {
+        input.removeEventListener("blur", save);
+        _redraw();
+      }
+    });
+  },
+
+  /** カード上でマイルストーンを削除 */
+  async deleteCountdownItem(itemId, sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    await State.db.deleteItem(itemId);
+    State.itemsMap[sectionId] = (State.itemsMap[sectionId] || []).filter((i) => i.id !== itemId);
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (!card) return;
+    const bd = card.querySelector(".card__bd");
+    if (bd) Renderer.buildCountdownSection(section, State.itemsMap[sectionId], bd);
+  },
+
+  /** インライン追加フォームの表示切替 */
+  toggleCountdownAdd(sectionId) {
+    const form = document.getElementById(`countdown-add-form-${sectionId}`);
+    if (!form) return;
+    if (!form.hidden) { form.hidden = true; return; }
+
+    // フォームをリセットして表示
+    const labelInput = document.getElementById(`countdown-add-label-${sectionId}`);
+    const dateInput  = document.getElementById(`countdown-add-date-${sectionId}`);
+    const dateBtn    = form.querySelector(".countdown-add-date-btn");
+    if (labelInput) { labelInput.value = ""; }
+    if (dateInput)  { dateInput.value  = ""; }
+    if (dateBtn) {
+      const span = dateBtn.querySelector(".settings-date-btn__text");
+      if (span) span.textContent = "日付を選択...";
+      dateBtn.classList.add("settings-date-btn--empty");
+    }
+    form.hidden = false;
+    if (labelInput) labelInput.focus();
+  },
+
+  /** インライン追加フォームからマイルストーンを保存 */
+  async saveCountdownAdd(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const labelInput = document.getElementById(`countdown-add-label-${sectionId}`);
+    const dateInput  = document.getElementById(`countdown-add-date-${sectionId}`);
+    const label = labelInput?.value.trim() || "";
+    if (!label) { showToast("マイルストーン名を入力してください", "error"); labelInput?.focus(); return; }
+
+    const items = State.itemsMap[sectionId] || [];
+    const maxPos = items.length > 0 ? Math.max(...items.map((i) => i.position)) + 1 : 0;
+    const data = { section_id: sectionId, item_type: "milestone", label, value: dateInput?.value || "", position: maxPos };
+    const newId = await State.db.addItem(data);
+    data.id = newId;
+    State.itemsMap[sectionId] = [...items, data];
+
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (!card) return;
+    const bd = card.querySelector(".card__bd");
+    if (bd) Renderer.buildCountdownSection(section, State.itemsMap[sectionId], bd);
+  },
+
+  /** インライン追加フォームをキャンセル */
+  cancelCountdownAdd(sectionId) {
+    const form = document.getElementById(`countdown-add-form-${sectionId}`);
+    if (form) form.hidden = true;
+  },
+
+  // ── カウントダウン モード切替 ──────────────────────────
+
+  async toggleCountdownMode(sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    section.countdown_mode = section.countdown_mode === "business" ? "calendar" : "business";
+    await State.db.updateSection(section);
+    // カードボディのみ再描画
+    const items = State.itemsMap[sectionId] || [];
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (!card) return;
+    const bd = card.querySelector(".card__bd");
+    if (!bd) return;
+    bd.innerHTML = "";
+    Renderer.buildCountdownSection(section, items, bd);
+    // モードボタンのテキストを更新
+    const modeBtn = card.querySelector(".card__mode-btn");
+    if (modeBtn) modeBtn.textContent = section.countdown_mode === "business" ? "営業日" : "カレンダー日";
+  },
+
+  // ── カウントダウン カード上インライン日付編集 ──────────
+
+  async editCountdownDate(itemId, sectionId) {
+    const section = State.sections.find((s) => s.id === sectionId);
+    const items = State.itemsMap[sectionId] || [];
+    const item = items.find((i) => i.id === itemId);
+    if (!section || !item) return;
+
+    const _redraw = () => {
+      const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+      if (!card) return;
+      const bd = card.querySelector(".card__bd");
+      if (bd) Renderer.buildCountdownSection(section, State.itemsMap[sectionId] || [], bd);
+    };
+
+    DatePicker.open(
+      item.value || "",
+      async (dateStr) => {
+        item.value = dateStr;
+        await State.db.updateItem(item);
+        _redraw();
+      },
+      async () => {
+        item.value = "";
+        await State.db.updateItem(item);
+        _redraw();
+      }
+    );
+  },
+
+  // ── カウントダウン 設定フォーム内日付ピッカー ──────────
+
+  openCountdownDatePicker(btn) {
+    const hiddenId = btn.dataset.hiddenId;
+    const hiddenInput = document.getElementById(hiddenId);
+    const displaySpan = btn.querySelector(".settings-date-btn__text");
+    const current = hiddenInput?.value || "";
+    DatePicker.open(
+      current,
+      (dateStr) => {
+        if (hiddenInput) hiddenInput.value = dateStr;
+        if (displaySpan) displaySpan.textContent = dateStr;
+        btn.classList.remove("settings-date-btn--empty");
+      },
+      () => {
+        if (hiddenInput) hiddenInput.value = "";
+        if (displaySpan) displaySpan.textContent = "日付を選択...";
+        btn.classList.add("settings-date-btn--empty");
+      }
+    );
+  },
+
+  // ── フォーマッタ ──────────────────────────────────────
+
+  formatCode(sectionId) {
+    const inputEl = document.getElementById(`formatter-input-${sectionId}`);
+    const codeEl = document.getElementById(`formatter-code-${sectionId}`);
+    const errorEl = document.getElementById(`formatter-error-${sectionId}`);
+    const outputArea = document.getElementById(`formatter-output-area-${sectionId}`);
+    if (!inputEl || !codeEl) return;
+    const input = inputEl.value.trim();
+    if (!input) return;
+
+    // フォーマットタイプを取得
+    const typeRadio = document.querySelector(
+      `input[name="fmt-type-${sectionId}"]:checked`
+    );
+    const fmtType = typeRadio?.value || "json";
+
+    if (errorEl) errorEl.hidden = true;
+    codeEl.textContent = "";
+    inputEl.classList.remove("formatter-input--error");
+
+    // エラー位置をテキストエリアでハイライト（行番号＋列番号 or 文字オフセット）
+    const highlightPos = (lineNum, colNum) => {
+      if (!lineNum) return;
+      const lines = inputEl.value.split("\n");
+      const idx = Math.max(0, lineNum - 1);
+      const lineStart = lines.slice(0, idx).reduce((s, l) => s + l.length + 1, 0);
+      if (colNum != null && colNum > 0) {
+        // 列が指定されている場合: 問題のある1文字を選択
+        const col = Math.min(colNum - 1, lines[idx]?.length || 0);
+        const selPos = lineStart + col;
+        inputEl.focus();
+        inputEl.setSelectionRange(selPos, selPos + 1);
+      } else {
+        // 列が不明な場合: 行全体を選択
+        const selEnd = lineStart + (lines[idx]?.length || 0);
+        inputEl.focus();
+        inputEl.setSelectionRange(lineStart, selEnd);
+      }
+    };
+
+    try {
+      let formatted = "";
+      if (fmtType === "json") {
+        let parsed;
+        try {
+          parsed = JSON.parse(input);
+        } catch (e) {
+          // 行・列・文字位置を抽出
+          // V8新形式: "at line N column M (char P)"
+          // V8旧形式: "at position N"
+          const lineMatch = e.message.match(/line\s+(\d+)/i);
+          const colMatch  = e.message.match(/column\s+(\d+)/i);
+          const posMatch  = e.message.match(/\(char\s+(\d+)\)/) || e.message.match(/position\s+(\d+)/i);
+          let msg = e.message;
+          if (lineMatch) {
+            const ln = parseInt(lineMatch[1]);
+            const cn = colMatch ? parseInt(colMatch[1]) : null;
+            msg = `行 ${ln}${cn != null ? `、列 ${cn}` : ""}: ${e.message}`;
+            highlightPos(ln, cn);
+          } else if (posMatch) {
+            // 文字オフセットから行・列を計算
+            const pos = parseInt(posMatch[1]);
+            const before = input.substring(0, pos);
+            const ln = before.split("\n").length;
+            const cn = pos - before.lastIndexOf("\n");
+            msg = `行 ${ln}、列 ${cn}: ${e.message}`;
+            highlightPos(ln, cn);
+          }
+          throw new Error(msg);
+        }
+        formatted = JSON.stringify(parsed, null, 2);
+      } else {
+        // XML
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(input, "application/xml");
+        const parseError = doc.querySelector("parsererror");
+        if (parseError) {
+          const errText = parseError.textContent;
+          // 行・列番号を抽出
+          const lineMatch = errText.match(/line\s+(\d+)/i);
+          const colMatch  = errText.match(/column\s+(\d+)/i);
+          const lineNum = lineMatch ? parseInt(lineMatch[1]) : null;
+          const colNum  = colMatch  ? parseInt(colMatch[1])  : null;
+          // エラー説明を抽出（"error on line N at column M: <説明>" の形式）
+          const descMatch = errText.match(/:\s*(.+)$/m);
+          const desc = descMatch ? descMatch[1].trim() : errText.split("\n")[0].trim();
+          let msg = desc;
+          if (lineNum !== null) {
+            msg = `行 ${lineNum}${colNum !== null ? `、列 ${colNum}` : ""}: ${desc}`;
+            highlightPos(lineNum, colNum);
+          }
+          throw new Error(msg);
+        }
+        formatted = EventHandlers._serializeXml(doc.documentElement, 0);
+      }
+      codeEl.textContent = formatted;
+      if (outputArea) outputArea.hidden = false;
+    } catch (err) {
+      inputEl.classList.add("formatter-input--error");
+      if (errorEl) {
+        errorEl.textContent = `エラー: ${err.message}`;
+        errorEl.hidden = false;
+      }
+      if (outputArea) outputArea.hidden = true;
+    }
+  },
+
+  /** XML ノードをインデント付きで文字列化 */
+  _serializeXml(node, depth) {
+    const indent = "  ".repeat(depth);
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent.trim();
+      return text ? `${indent}${text}` : "";
+    }
+    if (node.nodeType === Node.COMMENT_NODE) {
+      return `${indent}<!--${node.textContent}-->`;
+    }
+    if (node.nodeType === Node.CDATA_SECTION_NODE) {
+      return `${indent}<![CDATA[${node.textContent}]]>`;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+    const tag = node.tagName;
+    const attrs = Array.from(node.attributes)
+      .map((a) => ` ${a.name}="${a.value}"`)
+      .join("");
+
+    const children = Array.from(node.childNodes)
+      .map((c) => EventHandlers._serializeXml(c, depth + 1))
+      .filter((s) => s !== "");
+
+    if (children.length === 0) {
+      return `${indent}<${tag}${attrs}/>`;
+    }
+    if (children.length === 1 && !children[0].startsWith(indent + "  ")) {
+      // 単一テキストノード: インライン表示
+      return `${indent}<${tag}${attrs}>${children[0].trim()}</${tag}>`;
+    }
+    return `${indent}<${tag}${attrs}>\n${children.join("\n")}\n${indent}</${tag}>`;
+  },
+
+  clearFormatter(sectionId) {
+    const inputEl = document.getElementById(`formatter-input-${sectionId}`);
+    const codeEl = document.getElementById(`formatter-code-${sectionId}`);
+    const errorEl = document.getElementById(`formatter-error-${sectionId}`);
+    const outputArea = document.getElementById(`formatter-output-area-${sectionId}`);
+    if (inputEl) { inputEl.value = ""; inputEl.classList.remove("formatter-input--error"); }
+    if (codeEl) codeEl.textContent = "";
+    if (errorEl) errorEl.hidden = true;
+    if (outputArea) outputArea.hidden = true;
+  },
+
+  copyFormatterOutput(sectionId) {
+    const codeEl = document.getElementById(`formatter-code-${sectionId}`);
+    const text = codeEl?.textContent || "";
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => showToast("コピーしました"));
   },
 
   // ── ジャンプナビ ──────────────────────────────────────

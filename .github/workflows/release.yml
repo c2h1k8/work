@@ -42,29 +42,53 @@ jobs:
           npx lessc css/dashboard.less css/dashboard.css
           npx lessc css/wbs.less       css/wbs.css
 
-      - name: Create release ZIP
+      - name: Create release ZIPs
         run: |
           TAG="${GITHUB_REF_NAME}"
-          ZIP_NAME="mytools-${TAG}.zip"
 
-          zip -r "${ZIP_NAME}" \
-            index.html \
-            todo.html \
-            note.html \
-            sql.html \
-            dashboard.html \
-            wbs.html \
-            favicon.svg \
-            js/ \
-            css/ \
-            -x "css/**/*.less" \
+          # Mac 用: .command ファイルに実行権限を付与
+          chmod +x start_server.command stop_server.command
+
+          COMMON_FILES=(
+            index.html
+            todo.html
+            note.html
+            sql.html
+            dashboard.html
+            wbs.html
+            favicon.svg
+            js/
+            css/
+          )
+          COMMON_EXCLUDE=(
+            -x "css/**/*.less"
             -x "js/core/.gitkeep"
+          )
 
-          echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
+          # Windows ZIP
+          ZIP_WIN="mytools-${TAG}-windows.zip"
+          zip -r "${ZIP_WIN}" \
+            "${COMMON_FILES[@]}" \
+            start_server.bat \
+            stop_server.bat \
+            "${COMMON_EXCLUDE[@]}"
+
+          # Mac ZIP
+          ZIP_MAC="mytools-${TAG}-mac.zip"
+          zip -r "${ZIP_MAC}" \
+            "${COMMON_FILES[@]}" \
+            start_server.command \
+            stop_server.command \
+            "${COMMON_EXCLUDE[@]}"
+
+          echo "ZIP_WIN=${ZIP_WIN}" >> "$GITHUB_ENV"
+          echo "ZIP_MAC=${ZIP_MAC}" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
           generate_release_notes: true
-          files: ${{ env.ZIP_NAME }}
+          files: |
+            ${{ env.ZIP_WIN }}
+            ${{ env.ZIP_MAC }}

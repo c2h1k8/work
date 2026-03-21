@@ -85,7 +85,7 @@ const DatePicker = {
     } else {
       this._year  = today.getFullYear();
       this._month = today.getMonth();
-      this._selected = null;
+      this._selected = new Date(today);
     }
     this._onSelect = onSelect;
     this._onClear  = onClear;

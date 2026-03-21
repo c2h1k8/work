@@ -151,6 +151,48 @@ const App = {
         case "save-section-checklist":
           eh.saveSectionChecklist(sectionId).catch(console.error);
           break;
+        case "toggle-md-edit":
+          eh.toggleMarkdownEdit(sectionId);
+          break;
+        case "save-markdown-body":
+          eh.saveMarkdownBody(sectionId).catch(console.error);
+          break;
+        case "cancel-md-edit":
+          eh.toggleMarkdownEdit(sectionId);
+          break;
+        case "toggle-countdown-mode":
+          eh.toggleCountdownMode(sectionId).catch(console.error);
+          break;
+        case "edit-countdown-date":
+          eh.editCountdownDate(itemId, sectionId).catch(console.error);
+          break;
+        case "edit-countdown-label":
+          eh.editCountdownLabel(btn);
+          break;
+        case "delete-countdown-item":
+          eh.deleteCountdownItem(itemId, sectionId).catch(console.error);
+          break;
+        case "toggle-countdown-add":
+          eh.toggleCountdownAdd(sectionId);
+          break;
+        case "save-countdown-add":
+          eh.saveCountdownAdd(sectionId).catch(console.error);
+          break;
+        case "cancel-countdown-add":
+          eh.cancelCountdownAdd(sectionId);
+          break;
+        case "open-countdown-date":
+          eh.openCountdownDatePicker(btn);
+          break;
+        case "format-code":
+          eh.formatCode(sectionId);
+          break;
+        case "clear-formatter":
+          eh.clearFormatter(sectionId);
+          break;
+        case "copy-formatter-output":
+          eh.copyFormatterOutput(sectionId);
+          break;
         case "toggle-jump-nav":
           eh.toggleJumpNav();
           break;
