@@ -36,6 +36,7 @@ const State = {
     levels: { ERROR: true, WARN: true, INFO: true, DEBUG: true, OTHER: true },
     startTime: null, // ms epoch
     endTime:   null, // ms epoch
+    text:      '',   // テキスト絞り込み（大文字小文字不問）
   },
 };
 
@@ -152,8 +153,9 @@ function updateSummary(visibleCount, counts) {
 
 /** フィルターを適用して表示/非表示を切り替え、サマリーを更新する */
 function applyLogFilter() {
-  const { levels, startTime, endTime } = State.filters;
-  const lines = document.querySelectorAll('.log-line');
+  const { levels, startTime, endTime, text } = State.filters;
+  const needle = text.toLowerCase();
+  const lines  = document.querySelectorAll('.log-line');
   const counts = { ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, OTHER: 0 };
   let visibleCount = 0;
 
@@ -162,6 +164,12 @@ function applyLogFilter() {
     const ts    = el.dataset.ts ? parseInt(el.dataset.ts, 10) : null;
 
     let visible = !!levels[level];
+
+    // テキスト絞り込み
+    if (visible && needle) {
+      const lineText = el.querySelector('.log-line__text')?.textContent ?? '';
+      if (!lineText.toLowerCase().includes(needle)) visible = false;
+    }
 
     // 時間範囲フィルター（タイムスタンプ検出済み行のみ）
     if (visible && ts !== null) {
@@ -216,6 +224,12 @@ function init() {
   logInput.addEventListener('paste',  () => setTimeout(onLogInput, 0));
   logInput.addEventListener('input',  onLogInput);
 
+  // テキスト絞り込み
+  document.getElementById('log-text-filter').addEventListener('input', e => {
+    State.filters.text = e.target.value;
+    applyLogFilter();
+  });
+
   // レベルチェックボックス
   document.querySelectorAll('.log-filter__level input[data-level]').forEach(cb => {
     cb.addEventListener('change', () => {
@@ -226,19 +240,20 @@ function init() {
 
   // 開始日時ピッカー
   document.getElementById('log-time-start-btn').addEventListener('click', () => {
-    const btn = document.getElementById('log-time-start-btn');
+    const btn   = document.getElementById('log-time-start-btn');
+    const label = btn.querySelector('.log-filter__time-btn-label');
     DatePicker.open(
       btn.dataset.value || '',
       (dt) => {
         btn.dataset.value = dt;
-        btn.textContent   = dt.replace('T', ' ');
+        label.textContent = dt.replace('T', ' ');
         btn.classList.add('log-filter__time-btn--set');
         State.filters.startTime = new Date(dt).getTime();
         applyLogFilter();
       },
       () => {
         btn.dataset.value = '';
-        btn.textContent   = '開始日時';
+        label.textContent = '開始日時';
         btn.classList.remove('log-filter__time-btn--set');
         State.filters.startTime = null;
         applyLogFilter();
@@ -249,19 +264,20 @@ function init() {
 
   // 終了日時ピッカー
   document.getElementById('log-time-end-btn').addEventListener('click', () => {
-    const btn = document.getElementById('log-time-end-btn');
+    const btn   = document.getElementById('log-time-end-btn');
+    const label = btn.querySelector('.log-filter__time-btn-label');
     DatePicker.open(
       btn.dataset.value || '',
       (dt) => {
         btn.dataset.value = dt;
-        btn.textContent   = dt.replace('T', ' ');
+        label.textContent = dt.replace('T', ' ');
         btn.classList.add('log-filter__time-btn--set');
         State.filters.endTime = new Date(dt).getTime();
         applyLogFilter();
       },
       () => {
         btn.dataset.value = '';
-        btn.textContent   = '終了日時';
+        label.textContent = '終了日時';
         btn.classList.remove('log-filter__time-btn--set');
         State.filters.endTime = null;
         applyLogFilter();
@@ -276,17 +292,19 @@ function init() {
       levels: { ERROR: true, WARN: true, INFO: true, DEBUG: true, OTHER: true },
       startTime: null,
       endTime:   null,
+      text:      '',
     };
     document.querySelectorAll('.log-filter__level input[data-level]').forEach(cb => {
       cb.checked = true;
     });
+    document.getElementById('log-text-filter').value = '';
     const startBtn = document.getElementById('log-time-start-btn');
     const endBtn   = document.getElementById('log-time-end-btn');
     startBtn.dataset.value = '';
-    startBtn.textContent   = '開始日時';
+    startBtn.querySelector('.log-filter__time-btn-label').textContent = '開始日時';
     startBtn.classList.remove('log-filter__time-btn--set');
     endBtn.dataset.value   = '';
-    endBtn.textContent     = '終了日時';
+    endBtn.querySelector('.log-filter__time-btn-label').textContent = '終了日時';
     endBtn.classList.remove('log-filter__time-btn--set');
     applyLogFilter();
   });

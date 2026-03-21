@@ -57,12 +57,14 @@ const DatePicker = {
         </div>
         <div id="dp-grid" class="datepicker__grid"></div>
         <div id="dp-time-row" class="datepicker__time" hidden>
-          <span class="datepicker__time-label">時刻</span>
-          <div class="datepicker__time-fields">
-            <input type="number" id="dp-hour"   class="datepicker__time-num" min="0" max="23" value="0" />
-            <span class="datepicker__time-sep">:</span>
-            <input type="number" id="dp-minute" class="datepicker__time-num" min="0" max="59" step="5" value="0" />
-          </div>
+          <span class="datepicker__time-label">
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" width="13" height="13">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M8 4.5V8l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            時刻
+          </span>
+          <input type="time" id="dp-time" class="datepicker__time-input" value="00:00" />
         </div>
         <div class="datepicker__footer">
           <button data-dp-action="confirm" class="btn btn--sm btn--primary">決定</button>
@@ -83,16 +85,6 @@ const DatePicker = {
       this.handleAction(e.deltaY < 0 ? 'prev-month' : 'next-month', null);
     }, { passive: false });
 
-    // 時間入力の変更（範囲クランプ）
-    el.addEventListener('change', (e) => {
-      if (e.target.id === 'dp-hour') {
-        this._hour = Math.max(0, Math.min(23, parseInt(e.target.value, 10) || 0));
-        e.target.value = this._hour;
-      } else if (e.target.id === 'dp-minute') {
-        this._minute = Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0));
-        e.target.value = this._minute;
-      }
-    });
   },
 
   /**
@@ -138,8 +130,9 @@ const DatePicker = {
     const timeRow = document.getElementById('dp-time-row');
     if (this._showTime) {
       timeRow.removeAttribute('hidden');
-      document.getElementById('dp-hour').value   = this._hour;
-      document.getElementById('dp-minute').value = this._minute;
+      const h  = String(this._hour).padStart(2, '0');
+      const mn = String(this._minute).padStart(2, '0');
+      document.getElementById('dp-time').value = `${h}:${mn}`;
     } else {
       timeRow.setAttribute('hidden', '');
     }
@@ -259,20 +252,15 @@ const DatePicker = {
       }
       case 'confirm':
         if (this._selected) {
-          const y = this._selected.getFullYear();
-          const m = String(this._selected.getMonth() + 1).padStart(2, '0');
-          const d = String(this._selected.getDate()).padStart(2, '0');
+          const yr = this._selected.getFullYear();
+          const mo = String(this._selected.getMonth() + 1).padStart(2, '0');
+          const dy = String(this._selected.getDate()).padStart(2, '0');
           if (this._showTime) {
-            // 時間入力の最新値を読み取る
-            const hVal = parseInt(document.getElementById('dp-hour').value,   10);
-            const mVal = parseInt(document.getElementById('dp-minute').value, 10);
-            this._hour   = isNaN(hVal) ? this._hour   : Math.max(0, Math.min(23, hVal));
-            this._minute = isNaN(mVal) ? this._minute : Math.max(0, Math.min(59, mVal));
-            const h  = String(this._hour).padStart(2, '0');
-            const mn = String(this._minute).padStart(2, '0');
-            this._onSelect?.(`${y}-${m}-${d}T${h}:${mn}`);
+            // ネイティブ time input から HH:MM を読み取る
+            const timeVal = document.getElementById('dp-time').value || '00:00';
+            this._onSelect?.(`${yr}-${mo}-${dy}T${timeVal}`);
           } else {
-            this._onSelect?.(`${y}-${m}-${d}`);
+            this._onSelect?.(`${yr}-${mo}-${dy}`);
           }
         }
         this.close();
