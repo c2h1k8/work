@@ -55,7 +55,16 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `State.sort: { field, dir }` でソート状態を保持。localStorage `kanban_sort` に永続化
 - `State.taskLabels: Map<taskId, Set<labelId>>` はフィルター用キャッシュ。`renderBoard()` でリビルド、ラベル追加／削除時にインクリメンタル更新
 - `State.filter: { text, labelIds }` でフィルター状態を保持。`applyFilter()` でカードの表示／非表示を制御
-- IndexedDB は version 1
+- `State.templates: []` テンプレートキャッシュ。`App.init()` でロード
+- `State.dependencies: Map<taskId, { blocking: Set<taskId>, blockedBy: Set<taskId> }>` 依存関係キャッシュ。`renderBoard()` でリビルド
+- IndexedDB は version **2**（version 1 → 2 で templates / archives / dependencies ストアを追加）
+- `tasks.checklist`: `[{id, text, done, position}] | null` フィールド（スキーマレス追加）。モーダルにチェックリストセクション。カードに `✓ 完了/全数` バッジ表示
+- `tasks.recurring`: `{interval: 'daily'|'weekly'|'monthly', next_date: 'YYYY-MM-DD'} | null` フィールド。完了カラム移動時に次回タスク自動生成。カードに繰り返しバッジ（`Icons.repeat`）
+- `columns.wip_limit`: `number (0=制限なし)` フィールド。カラムヘッダーに `現在/上限` 形式で表示。超過時は `.column--wip-exceeded` クラスで赤ハイライト
+- `templates` ストア: `{id*, name, title, description, checklist, label_ids, position}`。テンプレート管理モーダル（`#template-modal`）。タスク追加時にピッカー表示（テンプレートが存在する場合）
+- `archives` ストア: tasks の全フィールド + `archived_at: ISO8601`。完了カラムヘッダーにアーカイブボタン（一括アーカイブ）。アーカイブ一覧モーダル（`#archive-modal`）で検索・復元・完全削除
+- `dependencies` ストア: `{id*, from_task_id, to_task_id}`。`from`=先行（ブロッカー）、`to`=後続（ブロックされる）。モーダルに依存関係セクション。ブロックされているカードにロックアイコン（`Icons.lock`）。循環依存チェック（DFS）
+- `_updateWipDisplay(columnKey)`: WIP 超過判定 + DOM 更新ヘルパー。タスク追加・移動・削除時に呼ぶ
 - `note_links` スキーマ: `{ id, todo_task_id, note_task_id }`。インデックス: `todo_task_id` / `note_task_id`
 - `Renderer.renderNoteLinks(taskId, db)`: モーダルサイドバーの「ノート」セクションを描画
 - `_openNoteDB()`: `note_db` を開くモジュールレベルヘルパー（todo.js 内）

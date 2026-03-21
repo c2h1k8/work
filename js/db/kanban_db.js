@@ -3,7 +3,7 @@
 // ==================================================
 //
 // ■ DB情報
-//   DB名: kanban_db  /  バージョン: 1
+//   DB名: kanban_db  /  バージョン: 2
 //
 // ■ ストア一覧とスキーマ
 //
@@ -13,9 +13,11 @@
 //     description   説明・本文 (string, Markdown)
 //     column        所属カラムキー (string) → columns.key に対応
 //     position      表示順 (number)
-//     due_date      期限日 (string YYYY/MM/DD | '')
+//     due_date      期限日 (string YYYY-MM-DD | '')
 //     created_at    作成日時 (ISO8601)
 //     updated_at    更新日時 (ISO8601)
+//     checklist     サブタスク [{id, text, done, position}] | null
+//     recurring     繰り返し設定 {interval: 'daily'|'weekly'|'monthly', next_date: 'YYYY-MM-DD'} | null
 //     index: column, position
 //
 //   comments        タスクコメント
@@ -42,6 +44,7 @@
 //     key           カラム識別キー (string, unique) → tasks.column に対応
 //     name          表示名 (string)
 //     position      表示順 (number)
+//     wip_limit     WIP上限 (number, 0=制限なし)
 //     index: key (unique), position
 //
 //   activities      変更履歴（アクティビティタイムライン）
@@ -83,6 +86,27 @@
 //     note_task_id  → note_db.tasks.id（別 DB）
 //     index: todo_task_id, note_task_id
 //
+//   templates       タスクテンプレート（version 2 追加）
+//     id*           AutoIncrement PK
+//     name          テンプレート名 (string)
+//     title         タスクタイトル (string)
+//     description   説明 (string)
+//     checklist     チェックリスト [{id, text, done, position}] | null
+//     label_ids     ラベルIDリスト (number[])
+//     position      表示順 (number)
+//     index: position
+//
+//   archives        アーカイブ済みタスク（version 2 追加）
+//     id*           AutoIncrement PK
+//     ※ tasks の全フィールド + archived_at: string (ISO8601)
+//     index: archived_at
+//
+//   dependencies    タスク間依存関係（version 2 追加）
+//     id*           AutoIncrement PK
+//     from_task_id  先行タスク（ブロッカー） → tasks.id
+//     to_task_id    後続タスク（ブロックされる） → tasks.id
+//     index: from_task_id, to_task_id
+//
 // ■ テーブル間リレーション
 //
 //   tasks ──< comments        tasks.id = comments.task_id
@@ -94,6 +118,7 @@
 //              tasks.id = task_relations.related_id (子)
 //     related: 双方向。task_id/related_id インデックス両方を検索
 //   tasks >─< note_db.tasks   cross-DB (via note_links)
+//   tasks >─< tasks           依存関係 (via dependencies)
 //
 // ==================================================
 
@@ -105,11 +130,13 @@ class KanbanDB {
   /** DBをオープン（スキーマ初期化含む） */
   open() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('kanban_db', 1);
+      const req = indexedDB.open('kanban_db', 2);
 
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
+        const oldVersion = e.oldVersion;
 
+        // version 1 から存在するストア群
         // tasks ストア
         if (!db.objectStoreNames.contains('tasks')) {
           const tasks = db.createObjectStore('tasks', { keyPath: 'id', autoIncrement: true });
@@ -159,6 +186,28 @@ class KanbanDB {
           const nl = db.createObjectStore('note_links', { keyPath: 'id', autoIncrement: true });
           nl.createIndex('todo_task_id', 'todo_task_id', { unique: false });
           nl.createIndex('note_task_id', 'note_task_id', { unique: false });
+        }
+
+        // version 2 追加ストア: templates / archives / dependencies
+        if (oldVersion < 2) {
+          // templates ストア（タスクテンプレート）
+          if (!db.objectStoreNames.contains('templates')) {
+            const tpl = db.createObjectStore('templates', { keyPath: 'id', autoIncrement: true });
+            tpl.createIndex('position', 'position', { unique: false });
+          }
+
+          // archives ストア（アーカイブ済みタスク）
+          if (!db.objectStoreNames.contains('archives')) {
+            const arc = db.createObjectStore('archives', { keyPath: 'id', autoIncrement: true });
+            arc.createIndex('archived_at', 'archived_at', { unique: false });
+          }
+
+          // dependencies ストア（タスク間依存関係）
+          if (!db.objectStoreNames.contains('dependencies')) {
+            const dep = db.createObjectStore('dependencies', { keyPath: 'id', autoIncrement: true });
+            dep.createIndex('from_task_id', 'from_task_id', { unique: false });
+            dep.createIndex('to_task_id', 'to_task_id', { unique: false });
+          }
         }
       };
 
@@ -251,6 +300,8 @@ class KanbanDB {
     await this.deleteRelationsByTask(id).catch(() => {});
     // note_links をカスケード削除
     await this.deleteNoteLinksByTodo(id).catch(() => {});
+    // dependencies をカスケード削除
+    await this.deleteDependenciesForTask(id).catch(() => {});
 
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(['tasks', 'comments', 'task_labels', 'activities'], 'readwrite');
@@ -534,19 +585,22 @@ class KanbanDB {
 
   /** 全ストアのデータを一括エクスポート */
   async exportAll() {
-    const [tasks, comments, labels, task_labels, columns, activities, task_relations, note_links] = await Promise.all([
+    const [tasks, comments, labels, task_labels, columns, activities, task_relations, note_links, templates, archives, dependencies] = await Promise.all([
       this._getAll('tasks'), this._getAll('comments'),
       this._getAll('labels'), this._getAll('task_labels'),
       this._getAll('columns'), this._getAll('activities'),
       this._getAll('task_relations').catch(() => []),
       this._getAll('note_links').catch(() => []),
+      this._getAll('templates').catch(() => []),
+      this._getAll('archives').catch(() => []),
+      this._getAll('dependencies').catch(() => []),
     ]);
-    return { version: 5, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns, activities, task_relations, note_links };
+    return { version: 6, exported_at: new Date().toISOString(), tasks, comments, labels, task_labels, columns, activities, task_relations, note_links, templates, archives, dependencies };
   }
 
   /** 全ストアをクリアして data で上書き（put で ID 保持） */
   async importAll(data) {
-    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities', 'task_relations', 'note_links'];
+    const stores = ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities', 'task_relations', 'note_links', 'templates', 'archives', 'dependencies'];
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction(stores, 'readwrite');
       tx.oncomplete = resolve;
@@ -560,6 +614,198 @@ class KanbanDB {
       for (const a   of (data.activities     ?? [])) tx.objectStore('activities').put(a);
       for (const r   of (data.task_relations ?? [])) tx.objectStore('task_relations').put(r);
       for (const nl  of (data.note_links     ?? [])) tx.objectStore('note_links').put(nl);
+      for (const tpl of (data.templates      ?? [])) tx.objectStore('templates').put(tpl);
+      for (const arc of (data.archives       ?? [])) tx.objectStore('archives').put(arc);
+      for (const dep of (data.dependencies   ?? [])) tx.objectStore('dependencies').put(dep);
+    });
+  }
+
+  // ---- Templates ----
+  /** テンプレート全件取得（position 昇順） */
+  async getTemplates() {
+    const tpls = await this._getAll('templates');
+    return sortByPosition(tpls);
+  }
+
+  /** テンプレートを追加 */
+  async addTemplate(t) {
+    return new Promise((resolve, reject) => {
+      const tpl = { ...t };
+      const tx  = this.db.transaction('templates', 'readwrite');
+      const req = tx.objectStore('templates').add(tpl);
+      req.onsuccess = () => { tpl.id = req.result; resolve(tpl); };
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  /** テンプレートを更新 */
+  async updateTemplate(t) {
+    return new Promise((resolve, reject) => {
+      const tx  = this.db.transaction('templates', 'readwrite');
+      const req = tx.objectStore('templates').put(t);
+      req.onsuccess = () => resolve(t);
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  /** テンプレートを削除 */
+  async deleteTemplate(id) {
+    return new Promise((resolve, reject) => {
+      const tx  = this.db.transaction('templates', 'readwrite');
+      const req = tx.objectStore('templates').delete(id);
+      req.onsuccess = resolve;
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  // ---- Archives ----
+  /** タスクをアーカイブ（tasks から archives に移動） */
+  async archiveTask(id) {
+    // タスクと関連ラベルを取得
+    const [allTasks, taskLabels] = await Promise.all([
+      this.getAllTasks(),
+      this._getAllByIndex('task_labels', 'task_id', id),
+    ]);
+    const task = allTasks.find(t => t.id === id);
+    if (!task) throw new Error(`タスク ID:${id} が見つかりません`);
+
+    const archived = {
+      ...task,
+      archived_at:     new Date().toISOString(),
+      archived_labels: taskLabels.map(tl => tl.label_id),
+    };
+
+    // archives に追加し tasks から削除（依存関係・note_links も削除）
+    await this.deleteDependenciesForTask(id).catch(() => {});
+    await this.deleteNoteLinksByTodo(id).catch(() => {});
+    await this.deleteRelationsByTask(id).catch(() => {});
+
+    // comments / task_labels を取得してから削除（activities は保持してアーカイブ復元時に再利用）
+    const [comments, tls] = await Promise.all([
+      this._getAllByIndex('comments',   'task_id', id),
+      this._getAllByIndex('task_labels', 'task_id', id),
+    ]);
+
+    return new Promise((resolve, reject) => {
+      const stores = ['tasks', 'archives', 'comments', 'task_labels'];
+      const tx = this.db.transaction(stores, 'readwrite');
+      tx.oncomplete = resolve;
+      tx.onerror    = (e) => reject(e.target.error);
+
+      tx.objectStore('archives').add(archived);
+      tx.objectStore('tasks').delete(id);
+      for (const c  of comments)  tx.objectStore('comments').delete(c.id);
+      for (const tl of tls)       tx.objectStore('task_labels').delete([tl.task_id, tl.label_id]);
+    });
+  }
+
+  /** 指定カラムの全タスクをアーカイブ */
+  async archiveAllInColumn(columnKey) {
+    const tasks = await this._getAllByIndex('tasks', 'column', columnKey);
+    for (const task of tasks) {
+      await this.archiveTask(task.id);
+    }
+  }
+
+  /** アーカイブ一覧を取得（archived_at 降順、クエリがあればタイトル/説明フィルタ） */
+  async getArchives(query) {
+    const all = await this._getAll('archives');
+    all.sort((a, b) => b.archived_at.localeCompare(a.archived_at));
+    if (!query) return all;
+    const q = query.toLowerCase();
+    return all.filter(a =>
+      (a.title || '').toLowerCase().includes(q) ||
+      (a.description || '').toLowerCase().includes(q)
+    );
+  }
+
+  /** アーカイブを tasks に復元 */
+  async restoreArchive(id, columnKey) {
+    const archives = await this._getAll('archives');
+    const archived = archives.find(a => a.id === id);
+    if (!archived) throw new Error(`アーカイブ ID:${id} が見つかりません`);
+
+    // archived_at / archived_labels を取り除いて tasks に戻す
+    const { archived_at, archived_labels, ...task } = archived;
+    if (columnKey) task.column = columnKey;
+    task.updated_at = new Date().toISOString();
+
+    // tasks の末尾 position を設定
+    const colTasks = await this._getAllByIndex('tasks', 'column', task.column);
+    const maxPos = colTasks.reduce((m, t) => Math.max(m, t.position || 0), 0);
+    task.position = maxPos + 1000;
+
+    const labelIds = archived_labels || [];
+
+    return new Promise((resolve, reject) => {
+      const stores = ['tasks', 'archives', 'task_labels'];
+      const tx = this.db.transaction(stores, 'readwrite');
+      tx.oncomplete = () => resolve(task);
+      tx.onerror    = (e) => reject(e.target.error);
+
+      tx.objectStore('tasks').add(task);
+      tx.objectStore('archives').delete(id);
+      for (const labelId of labelIds) {
+        tx.objectStore('task_labels').put({ task_id: task.id, label_id: labelId });
+      }
+    });
+  }
+
+  /** アーカイブを完全削除 */
+  async deleteArchive(id) {
+    return new Promise((resolve, reject) => {
+      const tx  = this.db.transaction('archives', 'readwrite');
+      const req = tx.objectStore('archives').delete(id);
+      req.onsuccess = resolve;
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  // ---- Dependencies ----
+  /** 依存関係を追加（from=先行ブロッカー, to=後続ブロックされる） */
+  async addDependency(fromId, toId) {
+    return new Promise((resolve, reject) => {
+      const record = { from_task_id: fromId, to_task_id: toId };
+      const tx  = this.db.transaction('dependencies', 'readwrite');
+      const req = tx.objectStore('dependencies').add(record);
+      req.onsuccess = () => { record.id = req.result; resolve(record); };
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  /** 全依存関係を取得 */
+  async getAllDependencies() {
+    return this._getAll('dependencies');
+  }
+
+  /** タスクが関係する全依存関係を取得（from/to 両方） */
+  async getDependenciesForTask(taskId) {
+    const [fromDeps, toDeps] = await Promise.all([
+      this._getAllByIndex('dependencies', 'from_task_id', taskId).catch(() => []),
+      this._getAllByIndex('dependencies', 'to_task_id',   taskId).catch(() => []),
+    ]);
+    return [...fromDeps, ...toDeps];
+  }
+
+  /** 依存関係を削除 */
+  async deleteDependency(id) {
+    return new Promise((resolve, reject) => {
+      const tx  = this.db.transaction('dependencies', 'readwrite');
+      const req = tx.objectStore('dependencies').delete(id);
+      req.onsuccess = resolve;
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  /** タスク削除時に関連する依存関係をカスケード削除 */
+  async deleteDependenciesForTask(taskId) {
+    const deps = await this.getDependenciesForTask(taskId).catch(() => []);
+    if (deps.length === 0) return;
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction('dependencies', 'readwrite');
+      tx.oncomplete = resolve;
+      tx.onerror    = (e) => reject(e.target.error);
+      for (const d of deps) tx.objectStore('dependencies').delete(d.id);
     });
   }
 

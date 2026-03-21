@@ -29,6 +29,7 @@
     <script defer src="./js/base/date_picker.js"></script>
     <script defer src="./js/base/label_filter.js"></script>
     <script defer src="./js/base/label_manager.js"></script>
+    <script defer src="./js/base/icons.js"></script>
     <script defer src="./js/db/kanban_db.js"></script>
     <script defer src="./js/todo.js"></script>
   </head>
@@ -70,6 +71,14 @@
           </select>
         </div>
         <div class="app-header__actions">
+          <button class="btn btn--secondary btn--sm" data-action="open-template-modal">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            テンプレート
+          </button>
+          <button class="btn btn--secondary btn--sm" data-action="open-archive-modal">
+            <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor" width="13" height="13"><path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v2.5A1.75 1.75 0 0 1 14.25 6H1.75A1.75 1.75 0 0 1 0 4.25Zm1.75-.25a.25.25 0 0 0-.25.25v2.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25v-2.5a.25.25 0 0 0-.25-.25ZM0 8.75A.75.75 0 0 1 .75 8h14.5a.75.75 0 0 1 0 1.5h-.25v5.75a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1-.75-.75V9.5H.75A.75.75 0 0 1 0 8.75ZM2.5 9.5v5h11v-5Zm3.25 1.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1-.75-.75Z"/></svg>
+            アーカイブ
+          </button>
           <button class="btn btn--secondary btn--sm" data-action="export-backup">
             <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></svg>
             エクスポート
@@ -93,6 +102,9 @@
         <div class="card__footer">
           <span class="card__due"></span>
           <div class="card__actions">
+            <button class="card__btn card__btn--archive" data-action="archive-task" aria-label="アーカイブ">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v1.5A1.75 1.75 0 0 1 14.25 6H1.75A1.75 1.75 0 0 1 0 4.25Zm0 4.5v6c0 .966.784 1.75 1.75 1.75h12.5A1.75 1.75 0 0 0 16 13.25v-6H0Zm6.75 1.5h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1 0-1.5Z"/></svg>
+            </button>
             <button class="card__btn card__btn--delete" data-action="delete-task" aria-label="削除">
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>
             </button>
@@ -150,6 +162,23 @@
                   rows="4"
                 ></textarea>
                 <div class="md-editor__preview md-body" hidden></div>
+              </div>
+            </section>
+
+            <!-- チェックリスト（サブタスク） -->
+            <section class="modal__section" id="modal-checklist-section">
+              <h3 class="modal__section-title">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 0h10.5C14.216 0 15 .784 15 1.75v12.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V1.75C1 .784 1.784 0 2.75 0Zm0 1.5a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25Zm6.28 4.97-3.5 3.5a.749.749 0 0 1-1.06 0l-1.5-1.5a.749.749 0 1 1 1.06-1.06l.97.97 2.97-2.97a.749.749 0 1 1 1.06 1.06Z"/></svg>
+                チェックリスト
+              </h3>
+              <div id="checklist-progress" class="checklist-progress" hidden>
+                <div class="checklist-progress__bar"><div class="checklist-progress__fill" id="checklist-progress-fill"></div></div>
+                <span class="checklist-progress__text" id="checklist-progress-text"></span>
+              </div>
+              <div id="modal-checklist-items" class="checklist-items"></div>
+              <!-- 新規項目追加フォーム -->
+              <div class="checklist-add-row">
+                <input type="text" id="checklist-new-input" class="checklist-new-input" placeholder="+ 項目を追加（Enter で確定）" />
               </div>
             </section>
 
@@ -217,6 +246,25 @@
               <input type="hidden" id="modal-due" />
             </div>
 
+            <!-- 繰り返し設定 -->
+            <div class="modal__sidebar-item" id="modal-recurring-section">
+              <span class="modal__sidebar-label">繰り返し</span>
+              <div class="recurring-row">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="modal-recurring-toggle" class="toggle-switch__input" />
+                  <span class="toggle-switch__slider"></span>
+                </label>
+                <span class="recurring-toggle-text">繰り返す</span>
+                <div id="modal-recurring-interval-wrap" hidden>
+                  <select id="modal-recurring-interval" class="cs-target kn-select--sm recurring-interval">
+                    <option value="daily">毎日</option>
+                    <option value="weekly">毎週</option>
+                    <option value="monthly">毎月</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <!-- ラベル -->
             <div class="modal__sidebar-item">
               <span class="modal__sidebar-label">ラベル</span>
@@ -233,6 +281,23 @@
                   </svg>
                   ラベルを管理
                 </button>
+              </div>
+            </div>
+
+            <!-- 依存関係 -->
+            <div class="modal__sidebar-item" id="modal-dependencies-section">
+              <span class="modal__sidebar-label">依存関係</span>
+              <!-- 先行タスク（ブロッカー） -->
+              <div class="modal__relation-group" id="modal-dep-blockers-section">
+                <span class="modal__sidebar-label" style="font-size:10px;color:var(--color-text-muted)">先行タスク（完了待ち）</span>
+                <div id="modal-dep-blockers"></div>
+                <button class="modal__relation-add-btn" data-action="pick-dep-blocker">＋ 追加</button>
+              </div>
+              <!-- 後続タスク（このタスクを待っている） -->
+              <div class="modal__relation-group" id="modal-dep-blocked-section">
+                <span class="modal__sidebar-label" style="font-size:10px;color:var(--color-text-muted)">後続タスク（このタスクを待っている）</span>
+                <div id="modal-dep-blocked"></div>
+                <button class="modal__relation-add-btn" data-action="pick-dep-blocked">＋ 追加</button>
               </div>
             </div>
 
@@ -265,8 +330,20 @@
               </div>
             </div>
 
-            <!-- タスク削除 -->
+            <!-- テンプレートとして保存 -->
+            <div class="modal__sidebar-item">
+              <button class="btn btn--sm btn--secondary" data-action="save-as-template" style="width:100%;justify-content:center;">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                テンプレートとして保存
+              </button>
+            </div>
+
+            <!-- タスクアーカイブ・削除 -->
             <div class="modal__sidebar-item modal__sidebar-item--footer">
+              <button class="btn btn--sm btn--secondary modal__archive-task-btn" data-action="archive-task">
+                <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor"><path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v1.5A1.75 1.75 0 0 1 14.25 6H1.75A1.75 1.75 0 0 1 0 4.25Zm0 4.5v6c0 .966.784 1.75 1.75 1.75h12.5A1.75 1.75 0 0 0 16 13.25v-6H0Zm6.75 1.5h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1 0-1.5Z"/></svg>
+                アーカイブ
+              </button>
               <button class="btn btn--sm btn--danger modal__delete-task-btn" data-action="delete-task">
                 <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>
                 タスクを削除
@@ -288,6 +365,61 @@
     <div id="note-picker" class="task-picker" hidden>
       <input id="note-picker-input" type="text" placeholder="ノートを検索..." class="task-picker__input" />
       <ul id="note-picker-list" class="task-picker__list"></ul>
+    </div>
+
+    <!-- 依存ピッカー（依存関係選択用） -->
+    <div id="dep-picker" class="task-picker" hidden>
+      <input id="dep-picker-input" type="text" placeholder="タスクを検索..." class="task-picker__input" />
+      <ul id="dep-picker-list" class="task-picker__list"></ul>
+    </div>
+
+    <!-- テンプレート選択ポップアップ -->
+    <div id="template-picker" class="template-picker" hidden>
+      <div class="template-picker__header">テンプレートを選択</div>
+      <ul id="template-picker-list" class="template-picker__list"></ul>
+    </div>
+
+    <!-- テンプレート管理モーダル -->
+    <div id="template-modal" class="overlay-modal" hidden>
+      <div class="overlay-modal__backdrop" data-action="close-template-modal"></div>
+      <div class="overlay-modal__dialog">
+        <div class="overlay-modal__header">
+          <span class="overlay-modal__title">テンプレート管理</span>
+          <button class="overlay-modal__close" data-action="close-template-modal" aria-label="閉じる">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+          </button>
+        </div>
+        <div class="overlay-modal__body template-modal__body">
+          <!-- 左カラム: テンプレート一覧 -->
+          <div class="template-modal__list-col">
+            <button class="btn btn--primary btn--sm" data-action="new-template" style="width:100%;justify-content:center;margin-bottom:8px;">＋ 新規テンプレート</button>
+            <ul id="template-list" class="template-list"></ul>
+          </div>
+          <!-- 右カラム: 編集フォーム -->
+          <div class="template-modal__form-col" id="template-form-col">
+            <div class="template-form__empty">テンプレートを選択してください</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- アーカイブ一覧モーダル -->
+    <div id="archive-modal" class="overlay-modal" hidden>
+      <div class="overlay-modal__backdrop" data-action="close-archive-modal"></div>
+      <div class="overlay-modal__dialog overlay-modal__dialog--full">
+        <div class="overlay-modal__header">
+          <span class="overlay-modal__title">アーカイブ一覧</span>
+          <button class="overlay-modal__close" data-action="close-archive-modal" aria-label="閉じる">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+          </button>
+        </div>
+        <div class="archive-modal__search">
+          <input type="text" id="archive-search-input" class="archive-search" placeholder="タイトル・説明で検索..." />
+        </div>
+        <div class="overlay-modal__body">
+          <ul id="archive-list" class="archive-list"></ul>
+        </div>
+      </div>
     </div>
 
     <!-- トースト通知 -->

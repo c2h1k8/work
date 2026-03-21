@@ -11,10 +11,12 @@ const State = {
   tasks:     {},         // 列別キャッシュ（動的、col.key → task[]）
   columns:   [],         // { id, key, name, position }[] 位置順
   labels:    [],         // 全ラベルキャッシュ
+  templates: [],         // タスクテンプレートキャッシュ
   sortables: [],         // SortableJS インスタンス
   isDirty:   false,      // 前回エクスポート後に変更があるか
   taskLabels: new Map(), // taskId → Set<labelId>（フィルター用キャッシュ）
   comments:  new Map(), // taskId → string[]（コメント本文、テキスト検索用キャッシュ）
+  dependencies: new Map(), // taskId → { blocking: Set<taskId>, blockedBy: Set<taskId> }
   _labelFilterInst: null,                                     // LabelFilter コンポーネントインスタンス
   filter:         { text: '', labelIds: new Set(), due: '' }, // フィルター状態
   sort:           { field: '', dir: 'asc' },                  // ソート状態
@@ -22,6 +24,12 @@ const State = {
   timeAbsolute:   false,                                      // 時刻表示形式（false=相対, true=絶対）
   newlyCreatedTaskId: null,                                   // 新規作成直後のタスクID（初回編集をアクティビティに記録しない）
   _descriptionBeforeEdit: null,                              // 説明編集開始時の元テキスト（変更なし判定用）
+  _checklistSortable: null,                                  // チェックリスト SortableJS インスタンス
+  _templateSortable:  null,                                  // テンプレート一覧 SortableJS インスタンス
+  _pickerDepMode: null,                                      // 'blocker' | 'blocked' 依存ピッカーモード
+  _depPickerCandidates: null,                                // 依存ピッカー候補リスト
+  _templatePickerColumn: null,                               // テンプレート選択中のカラムキー
+  _editingTemplateId: null,                                  // テンプレート管理モーダルで編集中のテンプレートID
 };
 
 // ==================================================
@@ -117,6 +125,11 @@ function _resetMdEditor(editor) {
 }
 
 // ==================================================
+// DB 参照（モジュールレベル、App.init() で設定）
+// ==================================================
+let _dbRef = null;
+
+// ==================================================
 // BroadcastChannel: ノートリンク変更をノートページに通知（非対応環境は null）
 // ==================================================
 let _noteLinksBC = null;
@@ -131,6 +144,37 @@ function _openNoteDB() {
     req.onsuccess = e => resolve(e.target.result);
     req.onerror   = e => reject(e.target.error);
   });
+}
+
+// ==================================================
+// Helper: WIP 超過表示を更新
+// ==================================================
+function _updateWipDisplay(columnKey) {
+  const col = State.columns.find(c => c.key === columnKey);
+  if (!col) return;
+  const count   = (State.tasks[columnKey] || []).length;
+  const limit   = col.wip_limit || 0;
+  const exceeded = limit > 0 && count > limit;
+
+  const countEl  = document.querySelector(`[data-count="${columnKey}"]`);
+  const section  = document.querySelector(`[data-column="${columnKey}"]`);
+  if (countEl) {
+    countEl.textContent = limit > 0 ? `${count}/${limit}` : String(count);
+    countEl.style.color = exceeded ? 'var(--c-danger)' : '';
+    countEl.style.background = exceeded ? 'var(--c-danger-bg)' : '';
+  }
+  if (section) section.classList.toggle('column--wip-exceeded', exceeded);
+}
+
+// ==================================================
+// Helper: 繰り返しの次回日付を計算
+// ==================================================
+function _calcNextDate(dateStr, interval) {
+  const d = new Date(dateStr + 'T00:00:00');
+  if (interval === 'daily')   d.setDate(d.getDate() + 1);
+  if (interval === 'weekly')  d.setDate(d.getDate() + 7);
+  if (interval === 'monthly') d.setMonth(d.getMonth() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
 // ==================================================
@@ -222,8 +266,14 @@ function applyFilter() {
       if (show) visible++;
     }
 
-    const count = document.querySelector(`[data-count="${col}"]`);
-    if (count) count.textContent = active ? visible : (State.tasks[col] || []).length;
+    // WIP 表示更新（フィルター中は実タスク数を使う）
+    _updateWipDisplay(col);
+    const countEl = document.querySelector(`[data-count="${col}"]`);
+    if (countEl && active) countEl.textContent = (() => {
+      const limit = State.columns.find(c => c.key === col)?.wip_limit || 0;
+      const total = (State.tasks[col] || []).length;
+      return limit > 0 ? `${visible}/${limit}` : String(visible);
+    })();
   }
 
   const clearBtn = document.getElementById('filter-clear');
@@ -339,6 +389,10 @@ const Renderer = {
     const titleEl = document.createElement('span');
     titleEl.className = 'column__title';
     titleEl.textContent = col.name;
+    titleEl.dataset.action    = 'rename-column';
+    titleEl.dataset.columnId  = col.id;
+    titleEl.dataset.columnKey = col.key;
+    titleEl.setAttribute('data-tooltip', 'ダブルクリックで名前を変更');
 
     const actions = document.createElement('div');
     actions.className = 'column__header-actions';
@@ -358,6 +412,16 @@ const Renderer = {
     doneBtn.setAttribute('data-tooltip', col.done ? '完了カラム（期限切れ非表示）' : '完了カラムに設定');
     doneBtn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>';
 
+    // アーカイブボタン（完了カラムのみ表示）
+    const archiveBtn = document.createElement('button');
+    archiveBtn.className = 'column__archive-btn' + (col.done ? '' : ' hidden-btn');
+    archiveBtn.dataset.action    = 'archive-column';
+    archiveBtn.dataset.columnKey = col.key;
+    archiveBtn.dataset.columnId  = col.id;
+    archiveBtn.setAttribute('aria-label', `${col.name}のタスクをアーカイブ`);
+    archiveBtn.setAttribute('data-tooltip', '完了タスクをアーカイブ');
+    archiveBtn.innerHTML = Icons.archive;
+
     const delBtn = document.createElement('button');
     delBtn.className = 'column__delete-btn';
     delBtn.dataset.action    = 'delete-column';
@@ -368,6 +432,7 @@ const Renderer = {
 
     actions.appendChild(count);
     actions.appendChild(doneBtn);
+    actions.appendChild(archiveBtn);
     actions.appendChild(delBtn);
     header.appendChild(titleEl);
     header.appendChild(actions);
@@ -437,6 +502,22 @@ const Renderer = {
       State.comments.get(c.task_id).push(c.body);
     }
 
+    // 依存関係キャッシュを再構築
+    const allDeps = await db.getAllDependencies().catch(() => []);
+    State.dependencies = new Map();
+    for (const dep of allDeps) {
+      if (!State.dependencies.has(dep.from_task_id)) {
+        State.dependencies.set(dep.from_task_id, { blocking: new Set(), blockedBy: new Set() });
+      }
+      if (!State.dependencies.has(dep.to_task_id)) {
+        State.dependencies.set(dep.to_task_id, { blocking: new Set(), blockedBy: new Set() });
+      }
+      // from がブロッカー → to の blockedBy に from を追加
+      State.dependencies.get(dep.to_task_id).blockedBy.add(dep.from_task_id);
+      // to がブロックされる → from の blocking に to を追加
+      State.dependencies.get(dep.from_task_id).blocking.add(dep.to_task_id);
+    }
+
     for (const col of State.columns) {
       const tasks = await db.getTasksByColumn(col.key);
       State.tasks[col.key] = tasks;
@@ -448,7 +529,6 @@ const Renderer = {
   /** 1カラムを描画（ソート適用済み） */
   renderColumn(column, tasks, db) {
     const body  = document.querySelector(`[data-column-body="${column}"]`);
-    const count = document.querySelector(`[data-count="${column}"]`);
     if (!body) return;
 
     // ソートを適用
@@ -460,8 +540,8 @@ const Renderer = {
       body.appendChild(this.createCard(task, db));
     }
 
-    // バッジ更新
-    if (count) count.textContent = tasks.length;
+    // WIP バッジ更新
+    _updateWipDisplay(column);
   },
 
   /** カード要素を生成 */
@@ -485,6 +565,45 @@ const Renderer = {
       } else {
         dueEl.textContent = text;
         if (cls) dueEl.classList.add(cls);
+      }
+    }
+
+    // チェックリストバッジ
+    const footer = card.querySelector('.card__footer');
+    if (task.checklist && task.checklist.length > 0) {
+      const total = task.checklist.length;
+      const done  = task.checklist.filter(i => i.done).length;
+      const badge = document.createElement('span');
+      badge.className = 'card__checklist-badge' + (done === total ? ' card__checklist-badge--done' : '');
+      badge.textContent = `✓ ${done}/${total}`;
+      footer.insertBefore(badge, footer.firstChild);
+    }
+
+    // 繰り返しバッジ
+    if (task.recurring) {
+      const repBadge = document.createElement('span');
+      repBadge.className = 'card__repeat-badge';
+      repBadge.innerHTML = Icons.repeat;
+      repBadge.title = `繰り返し（${task.recurring.interval === 'daily' ? '毎日' : task.recurring.interval === 'weekly' ? '毎週' : '毎月'}）`;
+      footer.insertBefore(repBadge, footer.firstChild);
+    }
+
+    // 依存ロックアイコン（blockedBy に未完了タスクがある場合）
+    const deps = State.dependencies.get(task.id);
+    if (deps && deps.blockedBy.size > 0) {
+      // 完了カラムにいないタスクのうち、blockedBy に含まれるものがあるかチェック
+      const doneColKeys = new Set(State.columns.filter(c => c.done).map(c => c.key));
+      const allTasks = Object.values(State.tasks).flat();
+      const hasBlocker = [...deps.blockedBy].some(blockerId => {
+        const bt = allTasks.find(t => t.id === blockerId);
+        return bt && !doneColKeys.has(bt.column);
+      });
+      if (hasBlocker) {
+        const lockEl = document.createElement('span');
+        lockEl.className = 'card__lock-badge';
+        lockEl.innerHTML = Icons.lock;
+        lockEl.title = '先行タスクが未完了';
+        card.querySelector('.card__actions').prepend(lockEl);
       }
     }
 
@@ -603,6 +722,15 @@ const Renderer = {
 
     // ラベル
     await this.renderModalLabels(taskId, db);
+
+    // チェックリスト
+    this.renderChecklist(t);
+
+    // 繰り返し設定
+    this.renderRecurring(t);
+
+    // 依存関係
+    await this.renderDependencies(taskId, db);
 
     // 関係タスク
     await this.renderRelations(taskId, db);
@@ -839,6 +967,13 @@ const Renderer = {
       comment_edit:       '<svg viewBox="0 0 16 16"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354l-1.086-1.086ZM11.189 6.25 9.75 4.81l-6.286 6.287a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.249.249 0 0 0 .108-.064l6.286-6.286Z"/></svg>',
       relation_add:       '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm.75 4.75a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z"/></svg>',
       relation_remove:    '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm-3.25 7.25a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z"/></svg>',
+      checklist_add:      '<svg viewBox="0 0 16 16"><path d="M2.75 0h10.5C14.216 0 15 .784 15 1.75v12.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V1.75C1 .784 1.784 0 2.75 0Zm0 1.5a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25Zm6.28 4.97-3.5 3.5a.749.749 0 0 1-1.06 0l-1.5-1.5a.749.749 0 1 1 1.06-1.06l.97.97 2.97-2.97a.749.749 0 1 1 1.06 1.06Z"/></svg>',
+      checklist_remove:   '<svg viewBox="0 0 16 16"><path d="M2.75 0h10.5C14.216 0 15 .784 15 1.75v12.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V1.75C1 .784 1.784 0 2.75 0Zm0 1.5a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25Zm5.04 7.5H4.75a.75.75 0 0 1 0-1.5h3.04v1.5Z"/></svg>',
+      checklist_check:    '<svg viewBox="0 0 16 16"><path d="M2.75 0h10.5C14.216 0 15 .784 15 1.75v12.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V1.75C1 .784 1.784 0 2.75 0Zm0 1.5a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25Zm6.28 4.97-3.5 3.5a.749.749 0 0 1-1.06 0l-1.5-1.5a.749.749 0 1 1 1.06-1.06l.97.97 2.97-2.97a.749.749 0 1 1 1.06 1.06Z"/></svg>',
+      checklist_edit:     '<svg viewBox="0 0 16 16"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Z"/></svg>',
+      dep_add:            '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm.75 4.75a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z"/></svg>',
+      dep_remove:         '<svg viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm-3.25 7.25a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z"/></svg>',
+      archive:            '<svg viewBox="0 0 16 16"><path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v1.5A1.75 1.75 0 0 1 14.25 6H1.75A1.75 1.75 0 0 1 0 4.25Zm0 4.5v6c0 .966.784 1.75 1.75 1.75h12.5A1.75 1.75 0 0 0 16 13.25v-6H0Zm6.75 1.5h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1 0-1.5Z"/></svg>',
     };
     return icons[type] ?? '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="4"/></svg>';
   },
@@ -887,6 +1022,26 @@ const Renderer = {
         const roleLabel = { parent: '親タスク', child: '子タスク', related: '関連タスク' }[c.role] ?? '関係タスク';
         return `${roleLabel}の紐づけを解除`;
       }
+      case 'checklist_add':
+        return `チェックリスト「${c.text ?? ''}」を追加`;
+      case 'checklist_remove':
+        return `チェックリスト「${c.text ?? ''}」を削除`;
+      case 'checklist_check':
+        return c.done
+          ? `チェックリスト「${c.text ?? ''}」を完了へ`
+          : `チェックリスト「${c.text ?? ''}」を未完了へ`;
+      case 'checklist_edit':
+        return `チェックリスト「${c.from ?? ''}」→「${c.to ?? ''}」に変更`;
+      case 'dep_add':
+        return c.relation === 'blocking'
+          ? `先行タスク「${c.taskTitle ?? ''}」を設定`
+          : `後続タスク「${c.taskTitle ?? ''}」を設定`;
+      case 'dep_remove':
+        return c.relation === 'blocking'
+          ? `先行タスク「${c.taskTitle ?? ''}」の依存を解除`
+          : `後続タスク「${c.taskTitle ?? ''}」の依存を解除`;
+      case 'archive':
+        return 'アーカイブへ移動';
       default:
         return '変更';
     }
@@ -1005,8 +1160,224 @@ const Renderer = {
 
   /** カウントバッジを更新 */
   updateCount(column) {
-    const count = document.querySelector(`[data-count="${column}"]`);
-    if (count) count.textContent = (State.tasks[column] || []).length;
+    _updateWipDisplay(column);
+  },
+
+  /** チェックリストを描画・初期化 */
+  renderChecklist(task) {
+    const container = document.getElementById('modal-checklist-items');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // 既存の SortableJS を破棄（ドラッグ並べ替えは廃止）
+    if (State._checklistSortable) {
+      State._checklistSortable.destroy();
+      State._checklistSortable = null;
+    }
+
+    const items = task.checklist || [];
+    const doneCount = items.filter(i => i.done).length;
+    const pct = items.length > 0 ? Math.round((doneCount / items.length) * 100) : 0;
+
+    // プログレスバーを更新
+    const progressEl   = document.getElementById('checklist-progress');
+    const progressFill = document.getElementById('checklist-progress-fill');
+    const progressText = document.getElementById('checklist-progress-text');
+    if (progressEl) {
+      if (items.length > 0) {
+        progressEl.removeAttribute('hidden');
+        if (progressFill) progressFill.style.width = pct + '%';
+        if (progressText) progressText.textContent = `${doneCount} / ${items.length}`;
+      } else {
+        progressEl.setAttribute('hidden', '');
+      }
+    }
+
+    for (const item of items) {
+      container.appendChild(this._createChecklistItemEl(item, task));
+    }
+  },
+
+  /** チェックリスト1項目のDOM要素を生成（丸チェックアイコン＋ラベル）*/
+  _createChecklistItemEl(item, task) {
+    const row = document.createElement('div');
+    row.className = 'checklist-item' + (item.done ? ' is-checked' : '');
+    row.dataset.itemId = item.id;
+
+    // 丸チェックアイコン
+    const checkIcon = document.createElement('span');
+    checkIcon.className = 'checklist-check-icon';
+    checkIcon.innerHTML = '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,6.5 4.5,9 10,3"/></svg>';
+
+    // ラベル
+    const label = document.createElement('span');
+    label.className = 'checklist-label';
+    label.textContent = item.text;
+
+    // 削除ボタン
+    const delBtn = document.createElement('button');
+    delBtn.className = 'checklist-item__del';
+    delBtn.innerHTML = Icons.close;
+    delBtn.setAttribute('aria-label', '削除');
+    delBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const taskId = State.currentTaskId;
+      for (const col of Object.keys(State.tasks)) {
+        const t = (State.tasks[col] || []).find(t => t.id === taskId);
+        if (t) {
+          t.checklist = (t.checklist || []).filter(c => c.id !== item.id);
+          await _dbRef.updateTask(taskId, { checklist: t.checklist });
+          try { await _dbRef.addActivity(taskId, 'checklist_remove', { text: item.text }); } catch {}
+          if (State.timelineFilter === 'all') Renderer.renderComments(taskId, _dbRef).catch(() => {});
+          markDirty();
+          Renderer.renderChecklist(t);
+          await Renderer.refreshCard(taskId, _dbRef);
+          break;
+        }
+      }
+    });
+
+    // 行クリックでチェック切り替え
+    row.addEventListener('click', async (e) => {
+      if (e.target.closest('.checklist-item__del') || e.target.closest('.checklist-item__edit-input')) return;
+      const taskId = State.currentTaskId;
+      item.done = !item.done;
+      row.classList.toggle('is-checked', item.done);
+      for (const col of Object.keys(State.tasks)) {
+        const t = (State.tasks[col] || []).find(t => t.id === taskId);
+        if (t) {
+          const ci = (t.checklist || []).find(c => c.id === item.id);
+          if (ci) ci.done = item.done;
+          await _dbRef.updateTask(taskId, { checklist: t.checklist });
+          try { await _dbRef.addActivity(taskId, 'checklist_check', { text: item.text, done: item.done }); } catch {}
+          if (State.timelineFilter === 'all') Renderer.renderComments(taskId, _dbRef).catch(() => {});
+          markDirty();
+          // プログレスバーを再計算
+          Renderer.renderChecklist(t);
+          await Renderer.refreshCard(taskId, _dbRef);
+          break;
+        }
+      }
+    });
+
+    // ラベルクリックでインライン編集
+    label.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const oldText = item.text;
+      const inp = document.createElement('input');
+      inp.type  = 'text';
+      inp.value = item.text;
+      inp.className = 'checklist-item__edit-input';
+      label.replaceWith(inp);
+      inp.focus();
+      inp.select();
+      const commit = async () => {
+        const newText = inp.value.trim();
+        if (newText) item.text = newText;
+        inp.replaceWith(label);
+        label.textContent = item.text;
+        const taskId = State.currentTaskId;
+        for (const col of Object.keys(State.tasks)) {
+          const t = (State.tasks[col] || []).find(t => t.id === taskId);
+          if (t) {
+            const ci = (t.checklist || []).find(c => c.id === item.id);
+            if (ci) ci.text = item.text;
+            await _dbRef.updateTask(taskId, { checklist: t.checklist });
+            if (newText && newText !== oldText) {
+              try { await _dbRef.addActivity(taskId, 'checklist_edit', { from: oldText, to: newText }); } catch {}
+              if (State.timelineFilter === 'all') Renderer.renderComments(taskId, _dbRef).catch(() => {});
+            }
+            markDirty();
+            break;
+          }
+        }
+      };
+      inp.addEventListener('blur', commit);
+      inp.addEventListener('keydown', (e) => {
+        if (e.isComposing) return;
+        if (e.key === 'Enter')  { e.preventDefault(); inp.blur(); }
+        if (e.key === 'Escape') { inp.value = item.text; inp.blur(); }
+      });
+    });
+
+    row.appendChild(checkIcon);
+    row.appendChild(label);
+    row.appendChild(delBtn);
+    return row;
+  },
+
+  /** 繰り返し設定を描画 */
+  renderRecurring(task) {
+    const toggle       = document.getElementById('modal-recurring-toggle');
+    const interval     = document.getElementById('modal-recurring-interval');
+    const intervalWrap = document.getElementById('modal-recurring-interval-wrap');
+    if (!toggle || !interval) return;
+    const rec = task.recurring;
+    toggle.checked = !!rec;
+    if (rec) {
+      intervalWrap?.removeAttribute('hidden');
+      interval.value = rec.interval || 'weekly';
+      if (interval._csInst) interval._csInst.render();
+    } else {
+      intervalWrap?.setAttribute('hidden', '');
+    }
+  },
+
+  /** 依存関係セクションを描画 */
+  async renderDependencies(taskId, db) {
+    const blockersCont = document.getElementById('modal-dep-blockers');
+    const blockedCont  = document.getElementById('modal-dep-blocked');
+    if (!blockersCont || !blockedCont) return;
+
+    blockersCont.innerHTML = '';
+    blockedCont.innerHTML  = '';
+
+    const deps = State.dependencies.get(taskId);
+    const allTasks = Object.values(State.tasks).flat();
+
+    if (deps) {
+      // 先行タスク（blockedBy）
+      for (const blockerId of deps.blockedBy) {
+        const t = allTasks.find(t => t.id === blockerId);
+        if (t) blockersCont.appendChild(this._createDepChip(t, taskId, 'blocker', db));
+      }
+      // 後続タスク（blocking）
+      for (const blockedId of deps.blocking) {
+        const t = allTasks.find(t => t.id === blockedId);
+        if (t) blockedCont.appendChild(this._createDepChip(t, taskId, 'blocked', db));
+      }
+    }
+  },
+
+  /** 依存関係チップ要素を生成 */
+  _createDepChip(task, currentTaskId, mode, db) {
+    const col  = State.columns.find(c => c.key === task.column);
+    const chip = document.createElement('div');
+    chip.className = 'relation-chip';
+    chip.dataset.action = 'open-related-task';
+    chip.dataset.taskId = task.id;
+
+    const title = document.createElement('span');
+    title.className = 'relation-chip__title';
+    title.textContent = task.title;
+    title.title = task.title;
+
+    const colBadge = document.createElement('span');
+    colBadge.className = 'relation-chip__column';
+    colBadge.textContent = col?.name ?? task.column;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'relation-chip__remove';
+    removeBtn.dataset.action = 'remove-dependency';
+    removeBtn.dataset.depFromId = mode === 'blocker' ? task.id : currentTaskId;
+    removeBtn.dataset.depToId   = mode === 'blocker' ? currentTaskId : task.id;
+    removeBtn.textContent = '×';
+    removeBtn.setAttribute('aria-label', '依存関係を解除');
+
+    chip.appendChild(title);
+    chip.appendChild(colBadge);
+    chip.appendChild(removeBtn);
+    return chip;
   },
 
   /** ノート紐づけセクションを描画 */
@@ -1094,6 +1465,29 @@ const DragDrop = {
     const taskId  = parseInt(evt.item.dataset.id, 10);
 
     if (!fromCol || !toCol || !taskId) return;
+
+    // 完了カラムへ移動しようとしている場合、先行タスクが完了しているか確認
+    if (fromCol !== toCol) {
+      const toColDef = State.columns.find(c => c.key === toCol);
+      if (toColDef?.done) {
+        const deps = State.dependencies.get(taskId);
+        if (deps && deps.blockedBy.size > 0) {
+          const doneKeys = new Set(State.columns.filter(c => c.done).map(c => c.key));
+          const hasBlocker = [...deps.blockedBy].some(blockerId => {
+            const bt = Object.values(State.tasks).flat().find(t => t.id === blockerId);
+            return !bt || !doneKeys.has(bt.column);
+          });
+          if (hasBlocker) {
+            Toast.show('先行タスクが完了していないため移動できません', 'error');
+            // SortableJS が移動した DOM を元に戻す
+            Renderer.renderColumn(fromCol, State.tasks[fromCol] || [], db);
+            Renderer.renderColumn(toCol,   State.tasks[toCol]   || [], db);
+            DragDrop.init(db);
+            return;
+          }
+        }
+      }
+    }
 
     if (State.sort.field) {
       // ソート条件あり：カラム移動のみ更新（position は変えない）
@@ -1184,10 +1578,80 @@ const DragDrop = {
     }
     Renderer.updateCount(toCol);
 
+    // 完了カラムへ移動した場合、繰り返しタスクを自動生成
+    if (fromCol !== toCol) {
+      const toDone = State.columns.find(c => c.key === toCol)?.done;
+      if (toDone) {
+        const allTasks = await db.getAllTasks();
+        const movedTask = allTasks.find(t => t.id === taskId);
+        if (movedTask?.recurring) {
+          await _handleRecurringOnDone(movedTask, db);
+        }
+      }
+    }
+
     applyFilter();
   },
 
 };
+
+// ==================================================
+// Helper: 完了カラム移動時に繰り返しタスクを生成
+// ==================================================
+async function _handleRecurringOnDone(task, db) {
+  if (!task.recurring) return;
+  const firstCol = [...State.columns].sort((a, b) => a.position - b.position)[0];
+  if (!firstCol) return;
+
+  const nextDate = task.recurring.next_date || task.due_date || new Date().toISOString().slice(0, 10);
+  const afterNextDate = _calcNextDate(nextDate, task.recurring.interval);
+
+  // チェックリストの done をリセット
+  const checklist = (task.checklist || []).map(c => ({ ...c, done: false }));
+
+  // 次回タスクを作成
+  const colTasks = State.tasks[firstCol.key] || [];
+  const lastPos  = colTasks.length > 0 ? colTasks[colTasks.length - 1].position + 1000 : 1000;
+
+  // task_labels を取得してコピー
+  const taskLabels = await db._getAllByIndex('task_labels', 'task_id', task.id).catch(() => []);
+  const labelIds   = taskLabels.map(tl => tl.label_id);
+
+  const newTask = await db.addTask({
+    column:      firstCol.key,
+    position:    lastPos,
+    title:       task.title,
+    description: task.description || '',
+    checklist,
+    due_date:    nextDate,
+    recurring:   { interval: task.recurring.interval, next_date: afterNextDate },
+  });
+
+  // ラベルをコピー
+  for (const labelId of labelIds) {
+    await db.addTaskLabel(newTask.id, labelId).catch(() => {});
+    if (!State.taskLabels.has(newTask.id)) State.taskLabels.set(newTask.id, new Set());
+    State.taskLabels.get(newTask.id).add(labelId);
+  }
+
+  // State キャッシュ更新
+  if (!State.tasks[firstCol.key]) State.tasks[firstCol.key] = [];
+  State.tasks[firstCol.key].push(newTask);
+  try { await db.addActivity(newTask.id, 'task_create', {}); } catch {}
+
+  // 元タスクの next_date を更新
+  await db.updateTask(task.id, { recurring: { ...task.recurring, next_date: afterNextDate } });
+  for (const col of Object.keys(State.tasks)) {
+    const t = (State.tasks[col] || []).find(t => t.id === task.id);
+    if (t) { t.recurring = { ...t.recurring, next_date: afterNextDate }; break; }
+  }
+
+  // ボード更新
+  Renderer.renderColumn(firstCol.key, State.tasks[firstCol.key], db);
+  markDirty();
+  const showToast = (msg, type) => Toast.show(msg, type);
+  showToast('繰り返しタスクを生成しました', 'success');
+}
 
 // ==================================================
 // EventHandlers: data-action 委譲
@@ -1208,6 +1672,13 @@ const EventHandlers = {
       this._dispatch(btn.dataset.action, btn, db);
     });
 
+    // カラムタイトルのダブルクリックでリネーム
+    document.getElementById('board').addEventListener('dblclick', (e) => {
+      const titleEl = e.target.closest('.column__title[data-action="rename-column"]');
+      if (!titleEl) return;
+      this._onRenameColumn(titleEl, db);
+    });
+
     // カードタイトルクリックで詳細を開く
     document.getElementById('board').addEventListener('click', (e) => {
       const title = e.target.closest('.card__title');
@@ -1220,12 +1691,13 @@ const EventHandlers = {
     });
 
 
-    // ヘッダー（バックアップ操作）
+    // ヘッダー（バックアップ操作・テンプレート・アーカイブ）
     document.querySelector('.app-header').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
       if (btn.dataset.action === 'export-backup') Backup.export(db);
-      if (btn.dataset.action === 'import-backup') Backup.import(db);
+      else if (btn.dataset.action === 'import-backup') Backup.import(db);
+      else this._dispatch(btn.dataset.action, btn, db);
     });
 
     // モーダルフィールドの変更イベント
@@ -1279,7 +1751,7 @@ const EventHandlers = {
         },
       }
     );
-    // タスクピッカー外クリックで閉じる
+    // タスクピッカー・依存ピッカー・テンプレートピッカー外クリックで閉じる
     document.addEventListener('click', (e) => {
       const picker = document.getElementById('task-picker');
       if (picker && !picker.hidden && !picker.contains(e.target)) {
@@ -1289,6 +1761,70 @@ const EventHandlers = {
       if (notePicker && !notePicker.hidden && !notePicker.contains(e.target)) {
         this._closeNotePicker();
       }
+      const depPicker = document.getElementById('dep-picker');
+      if (depPicker && !depPicker.hidden && !depPicker.contains(e.target) &&
+          !e.target.closest('[data-action="pick-dep-blocker"]') &&
+          !e.target.closest('[data-action="pick-dep-blocked"]')) {
+        this._closeDepPicker();
+      }
+      const tplPicker = document.getElementById('template-picker');
+      if (tplPicker && !tplPicker.hidden && !tplPicker.contains(e.target) &&
+          !e.target.closest('[data-action="add-task"]')) {
+        tplPicker.setAttribute('hidden', '');
+        State._templatePickerColumn = null;
+      }
+    });
+
+    // 繰り返し設定トグル
+    document.getElementById('modal-recurring-toggle')?.addEventListener('change', (e) => {
+      this._onRecurringToggle(e, db);
+    });
+    document.getElementById('modal-recurring-interval')?.addEventListener('change', (e) => {
+      this._onRecurringIntervalChange(e, db);
+    });
+
+    // チェックリスト新規追加入力（Enter で確定）
+    document.getElementById('checklist-new-input')?.addEventListener('keydown', (e) => {
+      if (e.isComposing) return;
+      if (e.key === 'Enter') { e.preventDefault(); this._onAddChecklistItem(db); }
+    });
+
+    // 依存ピッカー検索入力
+    document.getElementById('dep-picker-input')?.addEventListener('input', (e) => {
+      this._filterDepPickerList(e.target.value);
+    });
+
+    // 依存ピッカーリストクリック委譲
+    document.getElementById('dep-picker-list')?.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-action="select-dep-task"]');
+      if (!item) return;
+      this._onSelectDepTask(item, db).catch(console.error);
+    });
+
+    // テンプレートピッカーのクリック委譲
+    document.getElementById('template-picker')?.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-action]');
+      if (!item) return;
+      this._dispatch(item.dataset.action, item, db);
+    });
+
+    // アーカイブ検索入力
+    document.getElementById('archive-search-input')?.addEventListener('input', (e) => {
+      this._onArchiveSearch(e.target.value, db);
+    });
+
+    // テンプレートモーダルのイベント委譲
+    document.getElementById('template-modal')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      this._dispatch(btn.dataset.action, btn, db);
+    });
+
+    // アーカイブモーダルのイベント委譲
+    document.getElementById('archive-modal')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      this._dispatch(btn.dataset.action, btn, db);
     });
 
     // タスクピッカー検索入力
@@ -1354,6 +1890,8 @@ const EventHandlers = {
       case 'add-column':          this._onAddColumn(db);               break;
       case 'delete-column':       this._onDeleteColumn(btn, db);       break;
       case 'toggle-done-column':  this._onToggleDoneColumn(btn, db);   break;
+      case 'archive-column':      this._onArchiveColumn(btn, db).catch(console.error); break;
+      case 'rename-column':       /* ダブルクリックで処理 */           break;
       case 'open-datepicker':   this._onOpenDatepicker(db);           break;
       case 'timeline-filter':    this._onTimelineFilter(btn, db);  break;
       case 'toggle-time-format': this._onToggleTimeFormat();        break;
@@ -1368,15 +1906,122 @@ const EventHandlers = {
       case 'select-note-task': this._onSelectNoteTask(btn, db).catch(console.error); break;
       case 'remove-note-link': this._onRemoveNoteLink(btn, db).catch(console.error); break;
       case 'open-note-task':   this._onOpenNoteTask(btn); break;
+      // 依存関係
+      case 'pick-dep-blocker':  this._onPickDep('blocker', btn, db).catch(console.error); break;
+      case 'pick-dep-blocked':  this._onPickDep('blocked', btn, db).catch(console.error); break;
+      case 'select-dep-task':   this._onSelectDepTask(btn, db).catch(console.error); break;
+      case 'remove-dependency': this._onRemoveDependency(btn, db).catch(console.error); break;
+      // テンプレート
+      case 'open-template-modal':  this._onOpenTemplateModal(db).catch(console.error); break;
+      case 'close-template-modal': this._closeTemplateModal(); break;
+      case 'new-template':         this._onNewTemplate(db).catch(console.error); break;
+      case 'select-template-item': this._onSelectTemplateItem(btn, db).catch(console.error); break;
+      case 'delete-template-item': this._onDeleteTemplateItem(btn, db).catch(console.error); break;
+      case 'save-as-template':     this._onSaveAsTemplate(db).catch(console.error); break;
+      case 'use-template':         this._onUseTemplate(btn, db).catch(console.error); break;
+      case 'skip-template':        this._onSkipTemplate(btn, db).catch(console.error); break;
+      // アーカイブ
+      case 'open-archive-modal':  this._onOpenArchiveModal(db).catch(console.error); break;
+      case 'close-archive-modal': this._closeArchiveModal(); break;
+      case 'restore-archive':     this._onRestoreArchive(btn, db).catch(console.error); break;
+      case 'delete-archive':      this._onDeleteArchive(btn, db).catch(console.error); break;
     }
   },
 
   /** タスク追加 */
   async _onAddTask(btn, db) {
-    const column   = btn.dataset.column;
+    const column = btn.dataset.column;
+
+    // テンプレートが存在する場合はテンプレート選択ポップアップを表示
+    if (State.templates.length > 0) {
+      State._templatePickerColumn = column;
+      this._showTemplatePicker(btn);
+      return;
+    }
+
+    await this._createTaskInColumn(column, {}, db);
+  },
+
+  /** テンプレート選択ポップアップを表示 */
+  _showTemplatePicker(btn) {
+    const picker = document.getElementById('template-picker');
+    const list   = document.getElementById('template-picker-list');
+    if (!picker || !list) return;
+
+    list.innerHTML = '';
+
+    // スキップ項目
+    const skipItem = document.createElement('li');
+    skipItem.className = 'template-picker__item template-picker__item--skip';
+    skipItem.dataset.action = 'skip-template';
+    skipItem.textContent = '（空白で作成）';
+    list.appendChild(skipItem);
+
+    // テンプレート一覧
+    for (const tpl of State.templates) {
+      const item = document.createElement('li');
+      item.className = 'template-picker__item';
+      item.dataset.action = 'use-template';
+      item.dataset.templateId = tpl.id;
+      item.textContent = tpl.name;
+      list.appendChild(item);
+    }
+
+    // 一旦非表示のまま高さを取得してからボタンの上に配置
+    picker.style.visibility = 'hidden';
+    picker.removeAttribute('hidden');
+    const pickerH = picker.offsetHeight;
+    picker.style.visibility = '';
+
+    const rect = btn.getBoundingClientRect();
+    const top = Math.max(4, rect.top - pickerH - 4);
+    picker.style.top  = top + 'px';
+    picker.style.left = rect.left + 'px';
+  },
+
+  /** テンプレートを使用してタスク作成 */
+  async _onUseTemplate(btn, db) {
+    const tplId  = parseInt(btn.dataset.templateId, 10);
+    const column = State._templatePickerColumn;
+    if (!column) return;
+    const tpl = State.templates.find(t => t.id === tplId);
+    if (!tpl) return;
+    document.getElementById('template-picker').setAttribute('hidden', '');
+    State._templatePickerColumn = null;
+
+    // チェックリストの done をリセット
+    const checklist = (tpl.checklist || []).map(c => ({ ...c, done: false }));
+    const data = {
+      title:       tpl.title       || '',
+      description: tpl.description || '',
+      checklist,
+    };
+    const task = await this._createTaskInColumn(column, data, db);
+
+    // ラベルを付与
+    if (tpl.label_ids && tpl.label_ids.length > 0) {
+      for (const labelId of tpl.label_ids) {
+        await db.addTaskLabel(task.id, labelId).catch(() => {});
+        if (!State.taskLabels.has(task.id)) State.taskLabels.set(task.id, new Set());
+        State.taskLabels.get(task.id).add(labelId);
+      }
+    }
+  },
+
+  /** テンプレートをスキップして空白タスクを作成 */
+  async _onSkipTemplate(btn, db) {
+    const column = State._templatePickerColumn;
+    document.getElementById('template-picker').setAttribute('hidden', '');
+    State._templatePickerColumn = null;
+    if (!column) return;
+    await this._createTaskInColumn(column, {}, db);
+  },
+
+  /** 指定カラムにタスクを作成してモーダルを開く共通処理 */
+  async _createTaskInColumn(column, data, db) {
     const colTasks = State.tasks[column] || [];
     const lastPos  = colTasks.length > 0 ? colTasks[colTasks.length - 1].position + 1000 : 1000;
-    const task     = await db.addTask({ column, position: lastPos });
+    const task     = await db.addTask({ column, position: lastPos, ...data });
     if (!State.tasks[column]) State.tasks[column] = [];
     State.tasks[column].push(task);
 
@@ -1394,6 +2039,7 @@ const EventHandlers = {
     State.newlyCreatedTaskId = task.id;
     // すぐモーダルを開く
     await Renderer.renderModal(task.id, db);
+    return task;
   },
 
   /** タスク詳細を開く */
@@ -1761,6 +2407,25 @@ const EventHandlers = {
     const oldCol = task.column;
     if (oldCol === newCol) return;
 
+    // 完了カラムへ移動しようとしている場合、先行タスクが完了しているか確認
+    const toColDef = State.columns.find(c => c.key === newCol);
+    if (toColDef?.done) {
+      const deps = State.dependencies.get(taskId);
+      if (deps && deps.blockedBy.size > 0) {
+        const doneKeys = new Set(State.columns.filter(c => c.done).map(c => c.key));
+        const hasBlocker = [...deps.blockedBy].some(blockerId => {
+          const bt = Object.values(State.tasks).flat().find(t => t.id === blockerId);
+          return !bt || !doneKeys.has(bt.column);
+        });
+        if (hasBlocker) {
+          Toast.show('先行タスクが完了していないため移動できません', 'error');
+          e.target.value = oldCol;
+          if (e.target._csInst) e.target._csInst.render();
+          return;
+        }
+      }
+    }
+
     // 新カラムの末尾 position
     const newColTasks = State.tasks[newCol] || [];
     const lastPos     = newColTasks.length > 0 ? newColTasks[newColTasks.length - 1].position + 1000 : 1000;
@@ -1794,6 +2459,11 @@ const EventHandlers = {
       await db.addActivity(taskId, 'column_change', { from: oldColName, to: newColName });
       if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
     } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    // 完了カラムへ移動した場合、繰り返しタスクを自動生成
+    const newDone2 = State.columns.find(c => c.key === newCol)?.done;
+    if (newDone2 && updated.recurring) {
+      await _handleRecurringOnDone(updated, db);
+    }
   },
 
   /** カレンダーを開いて期限日を選択 */
@@ -2040,10 +2710,109 @@ const EventHandlers = {
     btn.classList.toggle('is-active', col.done);
     btn.setAttribute('aria-label', col.done ? `${col.name}: 完了カラム（クリックで解除）` : `${col.name}: 完了カラムに設定`);
     btn.setAttribute('data-tooltip', col.done ? '完了カラム（期限切れ非表示）' : '完了カラムに設定');
+    // アーカイブボタンの表示切替
+    const section = document.querySelector(`[data-column="${key}"]`);
+    if (section) {
+      const archiveBtn = section.querySelector('.column__archive-btn');
+      if (archiveBtn) archiveBtn.classList.toggle('hidden-btn', !col.done);
+    }
     // カードを再描画して期限表示を更新し、アクティブなフィルターを再適用
     Renderer.renderColumn(key, State.tasks[key] ?? [], db);
     applyFilter();
     markDirty();
+  },
+
+  /** カラム名インライン編集（+ WIP上限設定） */
+  _onRenameColumn(titleEl, db) {
+    if (titleEl.querySelector('input')) return; // 既に編集中
+    const colId  = parseInt(titleEl.dataset.columnId, 10);
+    const colKey = titleEl.dataset.columnKey;
+    const col    = State.columns.find(c => c.id === colId);
+    if (!col) return;
+
+    const originalName = col.name;
+    const originalWip  = col.wip_limit || 0;
+
+    // 名前入力
+    const nameInput = document.createElement('input');
+    nameInput.type      = 'text';
+    nameInput.value     = originalName;
+    nameInput.className = 'column__title-input';
+    nameInput.placeholder = 'カラム名';
+
+    // WIP上限入力
+    const wipInput = document.createElement('input');
+    wipInput.type      = 'number';
+    wipInput.value     = originalWip || '';
+    wipInput.className = 'column__wip-input';
+    wipInput.placeholder = 'WIP上限';
+    wipInput.min       = '0';
+
+    titleEl.textContent = '';
+    titleEl.appendChild(nameInput);
+    titleEl.appendChild(wipInput);
+    nameInput.focus();
+    nameInput.select();
+
+    let settled = false;
+
+    const restore = (newName) => {
+      if (settled) return;
+      settled = true;
+      titleEl.textContent = newName;
+      titleEl.dataset.action    = 'rename-column';
+      titleEl.dataset.columnId  = col.id;
+      titleEl.dataset.columnKey = colKey;
+      titleEl.setAttribute('data-tooltip', 'ダブルクリックで名前変更・WIP上限設定');
+    };
+
+    const save = async () => {
+      if (settled) return;
+      const newName = nameInput.value.trim();
+      const newWip  = parseInt(wipInput.value, 10) || 0;
+      if (!newName) {
+        restore(originalName);
+        return;
+      }
+      col.name      = newName;
+      col.wip_limit = newWip;
+      await db.updateColumn(col);
+      // モーダルのカラム選択肢も更新
+      Renderer.renderModalColumnSelect();
+      restore(newName);
+      // WIP表示を更新
+      _updateWipDisplay(colKey);
+      // 完了カラムボタンの aria-label も更新
+      const section = document.querySelector(`[data-column="${colKey}"]`);
+      if (section) {
+        const doneBtn = section.querySelector('.column__done-btn');
+        if (doneBtn) {
+          doneBtn.setAttribute('aria-label', col.done ? `${newName}: 完了カラム（クリックで解除）` : `${newName}: 完了カラムに設定`);
+          doneBtn.setAttribute('data-tooltip', col.done ? '完了カラム（期限切れ非表示）' : '完了カラムに設定');
+        }
+        const delBtn = section.querySelector('.column__delete-btn');
+        if (delBtn) delBtn.setAttribute('aria-label', `${newName} を削除`);
+      }
+      markDirty();
+      if (newName !== originalName) Toast.show(`カラム名を「${newName}」に変更しました`, 'success');
+    };
+
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.isComposing) return;
+      if (e.key === 'Enter')  { e.preventDefault(); wipInput.focus(); wipInput.select(); }
+      if (e.key === 'Escape') { e.preventDefault(); restore(originalName); }
+    });
+    wipInput.addEventListener('keydown', (e) => {
+      if (e.isComposing) return;
+      if (e.key === 'Enter')  { e.preventDefault(); save(); }
+      if (e.key === 'Escape') { e.preventDefault(); restore(originalName); }
+    });
+    nameInput.addEventListener('blur', (e) => {
+      // WIP input にフォーカスが移った場合は保存しない
+      if (e.relatedTarget === wipInput) return;
+      save();
+    });
+    wipInput.addEventListener('blur', () => save());
   },
 
   /** カラム追加 */
@@ -2357,6 +3126,640 @@ const EventHandlers = {
     parent.postMessage({ type: 'navigate:note', noteTaskId }, '*');
   },
 
+  // ---- 繰り返し設定 ----
+
+  /** 繰り返しトグルを変更 */
+  async _onRecurringToggle(e, db) {
+    if (!State.currentTaskId) return;
+    const taskId  = State.currentTaskId;
+    const enabled = e.target.checked;
+    const interval     = document.getElementById('modal-recurring-interval');
+    const intervalWrap = document.getElementById('modal-recurring-interval-wrap');
+    if (enabled) {
+      intervalWrap?.removeAttribute('hidden');
+      // 次回日付: 期限日があればそれを使用、なければ今日
+      const dueHidden = document.getElementById('modal-due');
+      const nextDate  = dueHidden?.value || new Date().toISOString().slice(0, 10);
+      const rec = { interval: interval?.value || 'weekly', next_date: nextDate };
+      await db.updateTask(taskId, { recurring: rec });
+      // キャッシュ更新
+      for (const col of getColumnKeys()) {
+        const t = (State.tasks[col] || []).find(t => t.id === taskId);
+        if (t) { t.recurring = rec; break; }
+      }
+    } else {
+      intervalWrap?.setAttribute('hidden', '');
+      await db.updateTask(taskId, { recurring: null });
+      for (const col of getColumnKeys()) {
+        const t = (State.tasks[col] || []).find(t => t.id === taskId);
+        if (t) { t.recurring = null; break; }
+      }
+    }
+    markDirty();
+    await Renderer.refreshCard(taskId, db);
+  },
+
+  /** 繰り返しインターバル変更 */
+  async _onRecurringIntervalChange(e, db) {
+    if (!State.currentTaskId) return;
+    const taskId   = State.currentTaskId;
+    const interval = e.target.value;
+    for (const col of getColumnKeys()) {
+      const t = (State.tasks[col] || []).find(t => t.id === taskId);
+      if (t && t.recurring) {
+        t.recurring.interval = interval;
+        await db.updateTask(taskId, { recurring: t.recurring });
+        break;
+      }
+    }
+    markDirty();
+  },
+
+  // ---- チェックリスト ----
+
+  /** チェックリスト項目を追加 */
+  async _onAddChecklistItem(db) {
+    const input  = document.getElementById('checklist-new-input');
+    const text   = input?.value.trim();
+    if (!text || !State.currentTaskId) return;
+    const taskId = State.currentTaskId;
+
+    for (const col of getColumnKeys()) {
+      const t = (State.tasks[col] || []).find(t => t.id === taskId);
+      if (t) {
+        const checklist = t.checklist || [];
+        const newItem   = { id: Date.now(), text, done: false, position: checklist.length };
+        checklist.push(newItem);
+        t.checklist = checklist;
+        await db.updateTask(taskId, { checklist });
+        try { await db.addActivity(taskId, 'checklist_add', { text }); } catch {}
+        if (State.timelineFilter === 'all') Renderer.renderComments(taskId, db).catch(() => {});
+        markDirty();
+        Renderer.renderChecklist(t);
+        await Renderer.refreshCard(taskId, db);
+        break;
+      }
+    }
+
+    if (input) { input.value = ''; input.focus(); }
+  },
+
+  // ---- 依存関係 ----
+
+  /** 依存ピッカーを開く */
+  async _onPickDep(mode, btn, db) {
+    if (!State.currentTaskId) return;
+    const taskId = State.currentTaskId;
+
+    // 既存依存のIDセット
+    const deps = State.dependencies.get(taskId) || { blocking: new Set(), blockedBy: new Set() };
+    const excludeIds = new Set([taskId, ...deps.blocking, ...deps.blockedBy]);
+
+    const allTasks = Object.values(State.tasks).flat();
+    State._pickerDepMode       = mode;
+    State._depPickerCandidates = allTasks.filter(t => !excludeIds.has(t.id));
+
+    const picker = document.getElementById('dep-picker');
+    const input  = document.getElementById('dep-picker-input');
+    if (!picker || !input) return;
+    input.value = '';
+    this._renderDepPickerList(State._depPickerCandidates);
+
+    const rect    = btn.getBoundingClientRect();
+    const pickerW = 260;
+    const left    = Math.min(rect.left, window.innerWidth - pickerW - 8);
+    picker.style.top  = (rect.bottom + 4) + 'px';
+    picker.style.left = Math.max(8, left) + 'px';
+    picker.removeAttribute('hidden');
+    input.focus();
+  },
+
+  /** 依存ピッカーのリスト描画 */
+  _renderDepPickerList(tasks) {
+    const list = document.getElementById('dep-picker-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (tasks.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'task-picker__empty';
+      empty.textContent = '選択可能なタスクがありません';
+      list.appendChild(empty);
+      return;
+    }
+    for (const t of tasks) {
+      const col  = State.columns.find(c => c.key === t.column);
+      const item = document.createElement('li');
+      item.className = 'task-picker__item';
+      item.dataset.action = 'select-dep-task';
+      item.dataset.taskId = t.id;
+
+      const titleEl = document.createElement('span');
+      titleEl.className = 'task-picker__item-title';
+      titleEl.textContent = t.title;
+
+      const colEl = document.createElement('span');
+      colEl.className = 'task-picker__item-column';
+      colEl.textContent = col?.name ?? t.column;
+
+      item.appendChild(titleEl);
+      item.appendChild(colEl);
+      list.appendChild(item);
+    }
+  },
+
+  /** 依存ピッカーの検索フィルター */
+  _filterDepPickerList(text) {
+    const q = text.toLowerCase();
+    const candidates = (State._depPickerCandidates || []).filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      (State.columns.find(c => c.key === t.column)?.name ?? t.column).toLowerCase().includes(q),
+    );
+    this._renderDepPickerList(candidates);
+  },
+
+  /** 依存タスクを選択（循環依存チェック付き） */
+  async _onSelectDepTask(btn, db) {
+    const selectedId = parseInt(btn.dataset.taskId, 10);
+    const taskId     = State.currentTaskId;
+    const mode       = State._pickerDepMode;
+    if (!selectedId || !taskId || !mode) return;
+
+    // 循環依存チェック: DFS で selectedId から taskId に到達できるか
+    const fromId = mode === 'blocker' ? selectedId : taskId;
+    const toId   = mode === 'blocker' ? taskId     : selectedId;
+
+    const hasCycle = (() => {
+      // fromId → toId の方向で fromId の後続を辿って toId が既に到達できないか確認
+      // つまり toId → fromId が既に存在するか（fromId が toId の後続にあるか）
+      const visited = new Set();
+      const stack   = [toId];
+      while (stack.length) {
+        const cur = stack.pop();
+        if (cur === fromId) return true;
+        if (visited.has(cur)) continue;
+        visited.add(cur);
+        const d = State.dependencies.get(cur);
+        if (d) for (const id of d.blocking) stack.push(id);
+      }
+      return false;
+    })();
+
+    if (hasCycle) {
+      Toast.show('循環依存になるため追加できません', 'error');
+      return;
+    }
+
+    try {
+      await db.addDependency(fromId, toId);
+      // State.dependencies を更新
+      if (!State.dependencies.has(fromId)) State.dependencies.set(fromId, { blocking: new Set(), blockedBy: new Set() });
+      if (!State.dependencies.has(toId))   State.dependencies.set(toId,   { blocking: new Set(), blockedBy: new Set() });
+      State.dependencies.get(fromId).blocking.add(toId);
+      State.dependencies.get(toId).blockedBy.add(fromId);
+      // アクティビティ記録（先行タスク側・後続タスク側）
+      const allTasks = Object.values(State.tasks).flat();
+      const fromTask = allTasks.find(t => t.id === fromId);
+      const toTask   = allTasks.find(t => t.id === toId);
+      try { await db.addActivity(fromId, 'dep_add', { relation: 'blocking', taskTitle: toTask?.title ?? '' }); } catch {}
+      try { await db.addActivity(toId,   'dep_add', { relation: 'blockedBy', taskTitle: fromTask?.title ?? '' }); } catch {}
+      if (State.timelineFilter === 'all') Renderer.renderComments(taskId, db).catch(() => {});
+      markDirty();
+    } catch (e) {
+      console.error('依存関係の追加に失敗:', e);
+    }
+
+    this._closeDepPicker();
+    await Renderer.renderDependencies(taskId, db);
+    // ブロックされているカードにロックアイコンを表示
+    await Renderer.refreshCard(selectedId, db);
+    await Renderer.refreshCard(taskId, db);
+  },
+
+  /** 依存ピッカーを閉じる */
+  _closeDepPicker() {
+    const picker = document.getElementById('dep-picker');
+    if (picker) picker.setAttribute('hidden', '');
+    State._pickerDepMode       = null;
+    State._depPickerCandidates = null;
+  },
+
+  /** 依存関係を削除 */
+  async _onRemoveDependency(btn, db) {
+    const fromId = parseInt(btn.dataset.depFromId, 10);
+    const toId   = parseInt(btn.dataset.depToId,   10);
+    if (!fromId || !toId) return;
+
+    try {
+      // DB から削除（from_task_id + to_task_id で特定）
+      const allDeps = await db.getAllDependencies();
+      const dep = allDeps.find(d => d.from_task_id === fromId && d.to_task_id === toId);
+      if (dep) await db.deleteDependency(dep.id);
+
+      // State キャッシュを更新
+      State.dependencies.get(fromId)?.blocking.delete(toId);
+      State.dependencies.get(toId)?.blockedBy.delete(fromId);
+      // アクティビティ記録
+      const allTasks = Object.values(State.tasks).flat();
+      const fromTask = allTasks.find(t => t.id === fromId);
+      const toTask   = allTasks.find(t => t.id === toId);
+      try { await db.addActivity(fromId, 'dep_remove', { relation: 'blocking', taskTitle: toTask?.title ?? '' }); } catch {}
+      try { await db.addActivity(toId,   'dep_remove', { relation: 'blockedBy', taskTitle: fromTask?.title ?? '' }); } catch {}
+      if (State.currentTaskId && State.timelineFilter === 'all') Renderer.renderComments(State.currentTaskId, db).catch(() => {});
+      markDirty();
+    } catch (e) {
+      console.error('依存関係の削除に失敗:', e);
+    }
+
+    if (State.currentTaskId) await Renderer.renderDependencies(State.currentTaskId, db);
+    // 関連カードを再描画（ロックアイコン更新）
+    Renderer.refreshCard(fromId, db).catch(() => {});
+    Renderer.refreshCard(toId,   db).catch(() => {});
+  },
+
+  // ---- アーカイブ ----
+
+  /** 完了カラム内の全タスクをアーカイブ */
+  async _onArchiveColumn(btn, db) {
+    const colKey = btn.dataset.columnKey;
+    if (!colKey) return;
+    const tasks = State.tasks[colKey] || [];
+    if (tasks.length === 0) {
+      Toast.show('アーカイブするタスクがありません');
+      return;
+    }
+    if (!confirm(`「${State.columns.find(c => c.key === colKey)?.name ?? colKey}」の ${tasks.length} 件をアーカイブしますか？`)) return;
+
+    // アーカイブ前にアクティビティを記録（archiveTask がタスクを削除する前に記録）
+    for (const task of tasks) {
+      try { await db.addActivity(task.id, 'archive', {}); } catch {}
+    }
+    await db.archiveAllInColumn(colKey);
+    State.tasks[colKey] = [];
+    Renderer.renderColumn(colKey, [], db);
+    markDirty();
+    Toast.show(`${tasks.length} 件をアーカイブしました`, 'success');
+  },
+
+  // ---- テンプレート管理モーダル ----
+
+  /** テンプレート管理モーダルを開く */
+  async _onOpenTemplateModal(db) {
+    State.templates = sortByPosition(await db.getTemplates());
+    const modal = document.getElementById('template-modal');
+    if (!modal) return;
+    modal.removeAttribute('hidden');
+    this._renderTemplateList();
+    this._renderTemplateForm(null);
+  },
+
+  /** テンプレートモーダルを閉じる */
+  _closeTemplateModal() {
+    const modal = document.getElementById('template-modal');
+    if (modal) modal.setAttribute('hidden', '');
+    State._editingTemplateId = null;
+  },
+
+  /** テンプレート一覧を描画 */
+  _renderTemplateList() {
+    const list = document.getElementById('template-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (State.templates.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'template-list__empty';
+      empty.textContent = 'テンプレートがありません';
+      list.appendChild(empty);
+      return;
+    }
+    for (const tpl of State.templates) {
+      const item = document.createElement('li');
+      item.className = 'template-list__item' + (tpl.id === State._editingTemplateId ? ' is-active' : '');
+      item.dataset.action     = 'select-template-item';
+      item.dataset.templateId = tpl.id;
+
+      const name = document.createElement('span');
+      name.className = 'template-list__name';
+      name.textContent = tpl.name;
+
+      const del = document.createElement('button');
+      del.className = 'template-list__del btn btn--ghost btn--sm';
+      del.dataset.action     = 'delete-template-item';
+      del.dataset.templateId = tpl.id;
+      del.textContent = '削除';
+
+      item.appendChild(name);
+      item.appendChild(del);
+      list.appendChild(item);
+    }
+  },
+
+  /** テンプレート編集フォームを描画 */
+  _renderTemplateForm(tpl) {
+    const col = document.getElementById('template-form-col');
+    if (!col) return;
+
+    if (!tpl) {
+      col.innerHTML = '<p class="template-form__empty">左のリストからテンプレートを選択するか、「新規作成」をクリックしてください。</p>';
+      return;
+    }
+
+    col.innerHTML = `
+      <div class="template-form">
+        <div class="template-form__row">
+          <label class="template-form__label">テンプレート名</label>
+          <input type="text" id="tpl-name" class="template-form__input" value="${escapeHtml(tpl.name || '')}" placeholder="テンプレート名を入力" />
+        </div>
+        <div class="template-form__row">
+          <label class="template-form__label">タイトル（初期値）</label>
+          <input type="text" id="tpl-title" class="template-form__input" value="${escapeHtml(tpl.title || '')}" placeholder="空白でも可" />
+        </div>
+        <div class="template-form__row">
+          <label class="template-form__label">説明（初期値）</label>
+          <textarea id="tpl-description" class="template-form__textarea" rows="4" placeholder="空白でも可">${escapeHtml(tpl.description || '')}</textarea>
+        </div>
+        <div class="template-form__row">
+          <label class="template-form__label">チェックリスト（初期項目）</label>
+          <div id="tpl-checklist-items" class="template-checklist-items"></div>
+          <input type="text" id="tpl-checklist-new" class="template-form__input" placeholder="+ 項目を追加（Enter で確定）" />
+        </div>
+        <div class="template-form__actions">
+          <button class="btn btn--primary btn--sm" id="tpl-save-btn">保存</button>
+        </div>
+      </div>
+    `;
+
+    // チェックリスト項目を描画
+    this._renderTplChecklist(tpl.checklist || []);
+
+    // 新規チェックリスト項目の追加
+    document.getElementById('tpl-checklist-new')?.addEventListener('keydown', (e) => {
+      if (e.isComposing) return;
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const inp   = document.getElementById('tpl-checklist-new');
+      const text  = inp?.value.trim();
+      if (!text) return;
+      const items = tpl.checklist || [];
+      items.push({ id: Date.now(), text, done: false, position: items.length });
+      tpl.checklist = items;
+      this._renderTplChecklist(items);
+      if (inp) inp.value = '';
+    });
+
+    // 保存ボタン
+    document.getElementById('tpl-save-btn')?.addEventListener('click', async () => {
+      const name  = document.getElementById('tpl-name')?.value.trim();
+      if (!name) { Toast.show('テンプレート名を入力してください', 'error'); return; }
+      const updTpl = {
+        ...tpl,
+        name,
+        title:       document.getElementById('tpl-title')?.value || '',
+        description: document.getElementById('tpl-description')?.value || '',
+        checklist:   tpl.checklist || [],
+      };
+      if (updTpl.id) {
+        await _dbRef.updateTemplate(updTpl);
+        const idx = State.templates.findIndex(t => t.id === updTpl.id);
+        if (idx !== -1) State.templates[idx] = updTpl;
+      } else {
+        const saved = await _dbRef.addTemplate({ ...updTpl, position: State.templates.length });
+        State.templates.push(saved);
+        State._editingTemplateId = saved.id;
+      }
+      this._renderTemplateList();
+      Toast.show('テンプレートを保存しました', 'success');
+    });
+  },
+
+  /** テンプレートのチェックリスト項目を描画（管理モーダル内） */
+  _renderTplChecklist(items) {
+    const container = document.getElementById('tpl-checklist-items');
+    if (!container) return;
+    container.innerHTML = '';
+    for (const item of items) {
+      const row = document.createElement('div');
+      row.className = 'template-checklist-item';
+
+      const text = document.createElement('span');
+      text.className = 'template-checklist-item__text';
+      text.textContent = item.text;
+
+      const del = document.createElement('button');
+      del.className = 'template-checklist-item__del btn btn--ghost btn--sm';
+      del.textContent = '×';
+      del.addEventListener('click', () => {
+        const tpl = State.templates.find(t => t.id === State._editingTemplateId);
+        if (tpl) {
+          tpl.checklist = (tpl.checklist || []).filter(c => c.id !== item.id);
+          this._renderTplChecklist(tpl.checklist);
+        } else {
+          // 新規テンプレートの場合は直接削除
+          items.splice(items.indexOf(item), 1);
+          this._renderTplChecklist(items);
+        }
+      });
+
+      row.appendChild(text);
+      row.appendChild(del);
+      container.appendChild(row);
+    }
+  },
+
+  /** テンプレート項目を選択して編集フォームを表示 */
+  async _onSelectTemplateItem(btn, db) {
+    const tplId = parseInt(btn.dataset.templateId, 10);
+    const tpl   = State.templates.find(t => t.id === tplId);
+    if (!tpl) return;
+    State._editingTemplateId = tplId;
+    this._renderTemplateList();
+    this._renderTemplateForm(tpl);
+  },
+
+  /** テンプレートを削除 */
+  async _onDeleteTemplateItem(btn, db) {
+    const tplId = parseInt(btn.dataset.templateId, 10);
+    const tpl   = State.templates.find(t => t.id === tplId);
+    if (!tpl) return;
+    if (!confirm(`テンプレート「${tpl.name}」を削除しますか？`)) return;
+    await db.deleteTemplate(tplId);
+    State.templates = State.templates.filter(t => t.id !== tplId);
+    if (State._editingTemplateId === tplId) {
+      State._editingTemplateId = null;
+      this._renderTemplateForm(null);
+    }
+    this._renderTemplateList();
+    Toast.show('テンプレートを削除しました', 'success');
+  },
+
+  /** 新規テンプレートフォームを表示 */
+  async _onNewTemplate(db) {
+    State._editingTemplateId = null;
+    this._renderTemplateList();
+    this._renderTemplateForm({ name: '', title: '', description: '', checklist: [], position: State.templates.length });
+  },
+
+  /** 現在のタスクをテンプレートとして保存 */
+  async _onSaveAsTemplate(db) {
+    if (!State.currentTaskId) return;
+    const taskId = State.currentTaskId;
+
+    // タスク本体を取得
+    let task = null;
+    for (const col of getColumnKeys()) {
+      task = (State.tasks[col] || []).find(t => t.id === taskId);
+      if (task) break;
+    }
+    if (!task) return;
+
+    const name = prompt('テンプレート名を入力してください:', task.title || 'テンプレート');
+    if (!name?.trim()) return;
+
+    // ラベル ID を取得
+    const labelIds = [...(State.taskLabels.get(taskId) || new Set())];
+
+    const tpl = {
+      name:        name.trim(),
+      title:       task.title       || '',
+      description: task.description || '',
+      checklist:   (task.checklist  || []).map(c => ({ ...c, done: false })),
+      label_ids:   labelIds,
+      position:    State.templates.length,
+    };
+    const saved = await db.addTemplate(tpl);
+    State.templates.push(saved);
+    Toast.show(`「${saved.name}」をテンプレートとして保存しました`, 'success');
+  },
+
+  // ---- アーカイブ管理モーダル ----
+
+  /** アーカイブ管理モーダルを開く */
+  async _onOpenArchiveModal(db) {
+    const modal = document.getElementById('archive-modal');
+    if (!modal) return;
+    modal.removeAttribute('hidden');
+    const input = document.getElementById('archive-search-input');
+    if (input) input.value = '';
+    await this._renderArchiveList('', db);
+  },
+
+  /** アーカイブモーダルを閉じる */
+  _closeArchiveModal() {
+    const modal = document.getElementById('archive-modal');
+    if (modal) modal.setAttribute('hidden', '');
+  },
+
+  /** アーカイブ一覧を描画 */
+  async _renderArchiveList(query, db) {
+    const list = document.getElementById('archive-list');
+    if (!list) return;
+    list.innerHTML = '<li class="archive-list__loading">読み込み中...</li>';
+    const archives = await db.getArchives(query);
+    list.innerHTML = '';
+
+    if (archives.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'archive-list__empty';
+      empty.textContent = query ? '検索結果がありません' : 'アーカイブがありません';
+      list.appendChild(empty);
+      return;
+    }
+
+    for (const arc of archives) {
+      const item = document.createElement('li');
+      item.className = 'archive-list__item';
+
+      const info = document.createElement('div');
+      info.className = 'archive-list__info';
+
+      const title = document.createElement('span');
+      title.className = 'archive-list__title';
+      title.textContent = arc.title;
+
+      const meta = document.createElement('span');
+      meta.className = 'archive-list__meta';
+      const d = new Date(arc.archived_at);
+      meta.textContent = `アーカイブ: ${d.toLocaleDateString('ja-JP')}`;
+
+      info.appendChild(title);
+      info.appendChild(meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'archive-list__actions';
+
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'btn btn--secondary btn--sm';
+      restoreBtn.dataset.action    = 'restore-archive';
+      restoreBtn.dataset.archiveId = arc.id;
+      restoreBtn.textContent = '復元';
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn btn--ghost-danger btn--sm';
+      delBtn.dataset.action    = 'delete-archive';
+      delBtn.dataset.archiveId = arc.id;
+      delBtn.textContent = '削除';
+
+      actions.appendChild(restoreBtn);
+      actions.appendChild(delBtn);
+
+      item.appendChild(info);
+      item.appendChild(actions);
+      list.appendChild(item);
+    }
+  },
+
+  /** アーカイブを復元 */
+  async _onRestoreArchive(btn, db) {
+    const archiveId = parseInt(btn.dataset.archiveId, 10);
+    if (!archiveId) return;
+
+    if (!State.columns.length) { Toast.show('カラムが存在しません', 'error'); return; }
+
+    // アーカイブレコードを先に取得して元のカラムを確認
+    const archives    = await db.getArchives();
+    const archived    = archives.find(a => a.id === archiveId);
+    const originalCol = archived ? State.columns.find(c => c.key === archived.column) : null;
+    // 元のカラムが存在すれば null を渡して元カラムへ、なければ先頭カラムへ
+    const targetColKey = originalCol ? null : State.columns[0].key;
+
+    try {
+      const task = await db.restoreArchive(archiveId, targetColKey);
+      const restoredColKey = task.column;
+      if (!State.tasks[restoredColKey]) State.tasks[restoredColKey] = [];
+      State.tasks[restoredColKey].push(task);
+      Renderer.renderColumn(restoredColKey, State.tasks[restoredColKey], db);
+      applyFilter();
+      markDirty();
+      const colName = State.columns.find(c => c.key === restoredColKey)?.name ?? restoredColKey;
+      Toast.show(`「${task.title}」を「${colName}」に復元しました`, 'success');
+    } catch (e) {
+      console.error('復元に失敗:', e);
+      Toast.show('復元に失敗しました', 'error');
+      return;
+    }
+
+    // 一覧を再描画
+    const query = document.getElementById('archive-search-input')?.value || '';
+    await this._renderArchiveList(query, db);
+  },
+
+  /** アーカイブを完全削除 */
+  async _onDeleteArchive(btn, db) {
+    const archiveId = parseInt(btn.dataset.archiveId, 10);
+    if (!archiveId) return;
+    if (!confirm('このアーカイブを完全に削除しますか？この操作は取り消せません。')) return;
+
+    await db.deleteArchive(archiveId);
+    markDirty();
+
+    const query = document.getElementById('archive-search-input')?.value || '';
+    await this._renderArchiveList(query, db);
+  },
+
+  /** アーカイブ検索 */
+  async _onArchiveSearch(query, db) {
+    await this._renderArchiveList(query, db);
+  },
+
 };
 
 // ==================================================
@@ -2401,6 +3804,12 @@ const App = {
       State.labels.sort((a, b) => (_orderMap.has(a.id) ? _orderMap.get(a.id) : Infinity) - (_orderMap.has(b.id) ? _orderMap.get(b.id) : Infinity));
     }
 
+    // DB 参照をモジュールレベル変数にセット（Renderer コールバック等から参照）
+    _dbRef = db;
+
+    // テンプレートキャッシュをロード
+    State.templates = sortByPosition(await db.getTemplates());
+
     // ボードカラムを生成してからボードを描画
     Renderer.renderBoardColumns(db);
     await Renderer.renderBoard(db);
@@ -2410,6 +3819,20 @@ const App = {
 
     // イベントハンドラを初期化
     EventHandlers.init(db);
+
+    // 期限切れの繰り返しタスクを処理（next_date が過去のものを自動生成）
+    {
+      const today = new Date().toISOString().slice(0, 10);
+      const allTasks = Object.values(State.tasks).flat();
+      for (const t of allTasks) {
+        if (t.recurring && t.recurring.next_date && t.recurring.next_date <= today) {
+          const col = State.columns.find(c => c.key === t.column);
+          if (col && !col.done) {
+            await _handleRecurringOnDone(t, db).catch(console.error);
+          }
+        }
+      }
+    }
 
     // 親フレームからの navigate:todo 指示を受信してモーダルを開く
     window.addEventListener('message', async (e) => {
@@ -2436,6 +3859,8 @@ const App = {
     CustomSelect.replaceAll(document.querySelector('.app-header'));
     const modalColSel = document.getElementById('modal-column');
     if (modalColSel) modalColSel._csInst = CustomSelect.create(modalColSel);
+    const recurringIntervalSel = document.getElementById('modal-recurring-interval');
+    if (recurringIntervalSel) CustomSelect.create(recurringIntervalSel);
 
     // 前回エクスポート後に変更があるか確認してインジケーターを初期化
     const dirtyAt  = localStorage.getItem('kanban_dirty_at')      || '';
