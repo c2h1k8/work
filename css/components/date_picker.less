@@ -85,6 +85,67 @@
     gap: 2px;
   }
 
+  // 時間入力行
+  &__time {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--color-border);
+
+    &[hidden] { display: none !important; }
+  }
+
+  &__time-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+
+  &__time-fields {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+
+  &__time-num {
+    width: 60px;
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    font-family: inherit;
+    transition: border-color 0.15s;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    // スピナーを表示（数値増減しやすくする）
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      opacity: 1;
+      height: 24px;
+    }
+  }
+
+  &__time-sep {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1;
+    user-select: none;
+  }
+
   // フッター
   &__footer {
     display: flex;

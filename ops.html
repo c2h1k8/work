@@ -16,11 +16,13 @@
     <link rel="stylesheet" href="./css/core/tokens.css" />
     <link rel="stylesheet" href="./css/core/ui.css" />
     <link rel="stylesheet" href="./css/components/toast.css" />
+    <link rel="stylesheet" href="./css/components/date_picker.css" />
     <link rel="stylesheet" href="./css/ops.css" />
     <script defer src="./js/core/utils.js"></script>
     <script defer src="./js/core/icons.js"></script>
     <script defer src="./js/core/local_storage.js"></script>
     <script defer src="./js/components/toast.js"></script>
+    <script defer src="./js/components/date_picker.js"></script>
     <script defer src="./js/ops.js"></script>
   </head>
   <body>
@@ -90,9 +92,9 @@
             </label>
           </div>
           <div class="log-filter__time">
-            <input type="datetime-local" id="log-time-start" class="log-filter__time-input" title="開始日時" />
+            <button class="log-filter__time-btn" id="log-time-start-btn" data-value="" title="開始日時を選択">開始日時</button>
             <span class="log-filter__time-sep">〜</span>
-            <input type="datetime-local" id="log-time-end" class="log-filter__time-input" title="終了日時" />
+            <button class="log-filter__time-btn" id="log-time-end-btn" data-value="" title="終了日時を選択">終了日時</button>
           </div>
           <button class="btn btn--ghost btn--sm" id="log-filter-clear">クリア</button>
         </div>

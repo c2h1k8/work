@@ -224,14 +224,50 @@ function init() {
     });
   });
 
-  // 時間範囲フィルター
-  document.getElementById('log-time-start').addEventListener('change', e => {
-    State.filters.startTime = e.target.value ? new Date(e.target.value).getTime() : null;
-    applyLogFilter();
+  // 開始日時ピッカー
+  document.getElementById('log-time-start-btn').addEventListener('click', () => {
+    const btn = document.getElementById('log-time-start-btn');
+    DatePicker.open(
+      btn.dataset.value || '',
+      (dt) => {
+        btn.dataset.value = dt;
+        btn.textContent   = dt.replace('T', ' ');
+        btn.classList.add('log-filter__time-btn--set');
+        State.filters.startTime = new Date(dt).getTime();
+        applyLogFilter();
+      },
+      () => {
+        btn.dataset.value = '';
+        btn.textContent   = '開始日時';
+        btn.classList.remove('log-filter__time-btn--set');
+        State.filters.startTime = null;
+        applyLogFilter();
+      },
+      { showTime: true }
+    );
   });
-  document.getElementById('log-time-end').addEventListener('change', e => {
-    State.filters.endTime = e.target.value ? new Date(e.target.value).getTime() : null;
-    applyLogFilter();
+
+  // 終了日時ピッカー
+  document.getElementById('log-time-end-btn').addEventListener('click', () => {
+    const btn = document.getElementById('log-time-end-btn');
+    DatePicker.open(
+      btn.dataset.value || '',
+      (dt) => {
+        btn.dataset.value = dt;
+        btn.textContent   = dt.replace('T', ' ');
+        btn.classList.add('log-filter__time-btn--set');
+        State.filters.endTime = new Date(dt).getTime();
+        applyLogFilter();
+      },
+      () => {
+        btn.dataset.value = '';
+        btn.textContent   = '終了日時';
+        btn.classList.remove('log-filter__time-btn--set');
+        State.filters.endTime = null;
+        applyLogFilter();
+      },
+      { showTime: true }
+    );
   });
 
   // フィルタークリアボタン
@@ -244,8 +280,14 @@ function init() {
     document.querySelectorAll('.log-filter__level input[data-level]').forEach(cb => {
       cb.checked = true;
     });
-    document.getElementById('log-time-start').value = '';
-    document.getElementById('log-time-end').value   = '';
+    const startBtn = document.getElementById('log-time-start-btn');
+    const endBtn   = document.getElementById('log-time-end-btn');
+    startBtn.dataset.value = '';
+    startBtn.textContent   = '開始日時';
+    startBtn.classList.remove('log-filter__time-btn--set');
+    endBtn.dataset.value   = '';
+    endBtn.textContent     = '終了日時';
+    endBtn.classList.remove('log-filter__time-btn--set');
     applyLogFilter();
   });
 

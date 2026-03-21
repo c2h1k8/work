@@ -203,19 +203,28 @@ body {
     flex-shrink: 0;
   }
 
-  &__time-input {
-    padding: 5px 8px;
+  &__time-btn {
+    padding: 4px 10px;
     border: 1px solid var(--c-border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     background: var(--c-bg);
-    color: var(--c-text);
+    color: var(--c-text-2);
     font-size: 12px;
-    transition: border-color var(--t);
-    color-scheme: light dark;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color var(--t), color var(--t), background var(--t);
+    white-space: nowrap;
 
-    &:focus {
-      outline: none;
+    &:hover {
       border-color: var(--c-accent);
+      color: var(--c-accent);
+    }
+
+    &--set {
+      border-color: var(--c-accent);
+      background: var(--c-accent-dim);
+      color: var(--c-accent);
+      font-weight: 600;
     }
   }
 
@@ -310,9 +319,5 @@ body {
 
   .log-filter {
     gap: 8px;
-
-    &__time {
-      flex-wrap: wrap;
-    }
   }
 }
