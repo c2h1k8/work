@@ -23,6 +23,7 @@
     <script defer src="./js/core/local_storage.js"></script>
     <script defer src="./js/components/toast.js"></script>
     <script defer src="./js/components/date_picker.js"></script>
+    <script defer src="./js/db/ops_db.js"></script>
     <script defer src="./js/ops.js"></script>
   </head>
   <body>
@@ -42,12 +43,19 @@
     <!-- ツール内タブナビ -->
     <nav class="ops-tabs" id="ops-tabs">
       <button class="ops-tab ops-tab--active" data-tool="log-viewer">ログビューア</button>
+      <button class="ops-tab" data-tool="cron">cron式</button>
+      <button class="ops-tab" data-tool="http-status">HTTPステータス</button>
+      <button class="ops-tab" data-tool="ports">ポート番号</button>
     </nav>
 
     <main class="page-main">
-      <div class="ops-tool">
 
-        <!-- ━━━ 入力パネル ━━━ -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- ログビューア                                  -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="ops-tool" id="tool-log-viewer">
+
+        <!-- 入力パネル -->
         <div class="log-input-panel">
           <div class="log-input-panel__header">
             <div class="log-input-panel__label">
@@ -66,7 +74,7 @@
           ></textarea>
         </div>
 
-        <!-- ━━━ サマリーバー ━━━ -->
+        <!-- サマリーバー -->
         <div id="log-summary" class="log-summary" hidden>
           <div class="log-summary__stat">
             <span class="log-summary__stat-label">表示中</span>
@@ -76,10 +84,8 @@
           <div class="log-summary__badges" id="log-summary-badges"></div>
         </div>
 
-        <!-- ━━━ フィルターバー ━━━ -->
+        <!-- フィルターバー -->
         <div id="log-filter-bar" class="log-filter" hidden>
-
-          <!-- 検索 -->
           <div class="log-filter__search">
             <svg class="log-filter__search-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.75"/>
@@ -87,8 +93,6 @@
             </svg>
             <input type="text" id="log-text-filter" class="log-filter__search-input" placeholder="ログを絞り込む..." />
           </div>
-
-          <!-- レベル + 時間 + クリア -->
           <div class="log-filter__bottom">
             <div class="log-filter__levels">
               <label class="log-filter__level">
@@ -112,7 +116,6 @@
                 <span class="log-level-badge log-level-badge--other">その他</span>
               </label>
             </div>
-
             <div class="log-filter__right">
               <div class="log-filter__time">
                 <button class="log-filter__time-btn" id="log-time-start-btn" data-value="">
@@ -131,7 +134,6 @@
                   <span class="log-filter__time-btn-label">終了日時</span>
                 </button>
               </div>
-
               <button class="log-filter__clear" id="log-filter-clear">
                 <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                   <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
@@ -142,10 +144,270 @@
           </div>
         </div>
 
-        <!-- ━━━ ログ出力 ━━━ -->
+        <!-- ログ出力 -->
         <div id="log-output" class="log-output" hidden></div>
 
       </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- cron式エディタ                               -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="ops-tool" id="tool-cron" hidden>
+
+        <!-- cron入力 -->
+        <div class="cron-card">
+          <div class="cron-card__header">
+            <span class="ops-section-label">cron 式</span>
+            <div class="cron-tz-toggle" id="cron-tz-toggle">
+              <button class="cron-tz-btn cron-tz-btn--active" data-tz="UTC">UTC</button>
+              <button class="cron-tz-btn" data-tz="JST">JST</button>
+            </div>
+          </div>
+          <div class="cron-input-row">
+            <input type="text" id="cron-expr" class="cron-expr-input" value="0 9 * * *" spellcheck="false" autocomplete="off" />
+            <div class="cron-fields-hint">
+              <span>分</span><span>時</span><span>日</span><span>月</span><span>曜日</span>
+            </div>
+          </div>
+          <div id="cron-desc" class="cron-desc"></div>
+          <div id="cron-error" class="cron-error" hidden></div>
+        </div>
+
+        <!-- プリセット -->
+        <div class="cron-card">
+          <div class="cron-card__header">
+            <span class="ops-section-label">プリセット</span>
+          </div>
+          <div class="cron-presets">
+            <button class="cron-preset-btn" data-expr="* * * * *">毎分</button>
+            <button class="cron-preset-btn" data-expr="0 * * * *">毎時0分</button>
+            <button class="cron-preset-btn" data-expr="0 9 * * *">毎日 9:00</button>
+            <button class="cron-preset-btn" data-expr="0 9 * * 1">毎週月曜 9:00</button>
+            <button class="cron-preset-btn" data-expr="0 0 1 * *">毎月1日 0:00</button>
+            <button class="cron-preset-btn" data-expr="0 9 * * 1-5">平日 9:00</button>
+          </div>
+        </div>
+
+        <!-- GUIビルダー -->
+        <details class="cron-card cron-details">
+          <summary class="cron-details__summary">
+            <span class="ops-section-label">GUIビルダー</span>
+            <svg class="cron-details__chevron" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M4.427 7.427l3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"/>
+            </svg>
+          </summary>
+          <div class="cron-builder" id="cron-builder">
+            <!-- 分 -->
+            <div class="cron-builder__field">
+              <div class="cron-builder__field-label">分</div>
+              <div class="cron-builder__field-ctrl">
+                <label class="cron-builder__radio"><input type="radio" name="cron-min" value="*" checked /> 毎分</label>
+                <label class="cron-builder__radio"><input type="radio" name="cron-min" value="step" /> ごとに
+                  <select class="cron-builder__sel" id="cron-min-step">
+                    <option value="5">5</option><option value="10">10</option><option value="15">15</option>
+                    <option value="20">20</option><option value="30">30</option>
+                  </select>分
+                </label>
+                <label class="cron-builder__radio"><input type="radio" name="cron-min" value="fix" /> 指定
+                  <select class="cron-builder__sel" id="cron-min-fix">
+                    <!-- 0〜59 は JS で生成 -->
+                  </select>分
+                </label>
+              </div>
+            </div>
+            <!-- 時 -->
+            <div class="cron-builder__field">
+              <div class="cron-builder__field-label">時</div>
+              <div class="cron-builder__field-ctrl">
+                <label class="cron-builder__radio"><input type="radio" name="cron-hour" value="*" checked /> 毎時</label>
+                <label class="cron-builder__radio"><input type="radio" name="cron-hour" value="step" /> ごとに
+                  <select class="cron-builder__sel" id="cron-hour-step">
+                    <option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                    <option value="6">6</option><option value="8">8</option><option value="12">12</option>
+                  </select>時間
+                </label>
+                <label class="cron-builder__radio"><input type="radio" name="cron-hour" value="fix" /> 指定
+                  <select class="cron-builder__sel" id="cron-hour-fix">
+                    <!-- 0〜23 は JS で生成 -->
+                  </select>時
+                </label>
+              </div>
+            </div>
+            <!-- 日 -->
+            <div class="cron-builder__field">
+              <div class="cron-builder__field-label">日</div>
+              <div class="cron-builder__field-ctrl">
+                <label class="cron-builder__radio"><input type="radio" name="cron-day" value="*" checked /> 毎日</label>
+                <label class="cron-builder__radio"><input type="radio" name="cron-day" value="fix" /> 指定
+                  <select class="cron-builder__sel" id="cron-day-fix">
+                    <!-- 1〜31 は JS で生成 -->
+                  </select>日
+                </label>
+              </div>
+            </div>
+            <!-- 月 -->
+            <div class="cron-builder__field">
+              <div class="cron-builder__field-label">月</div>
+              <div class="cron-builder__field-ctrl cron-builder__field-ctrl--wrap">
+                <label class="cron-builder__check"><input type="checkbox" id="cron-month-all" checked /> 毎月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="1" /> 1月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="2" /> 2月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="3" /> 3月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="4" /> 4月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="5" /> 5月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="6" /> 6月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="7" /> 7月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="8" /> 8月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="9" /> 9月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="10" /> 10月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="11" /> 11月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-month="12" /> 12月</label>
+              </div>
+            </div>
+            <!-- 曜日 -->
+            <div class="cron-builder__field">
+              <div class="cron-builder__field-label">曜日</div>
+              <div class="cron-builder__field-ctrl cron-builder__field-ctrl--wrap">
+                <label class="cron-builder__check"><input type="checkbox" id="cron-dow-all" checked /> 毎日</label>
+                <label class="cron-builder__check"><input type="checkbox" data-dow="0" /> 日</label>
+                <label class="cron-builder__check"><input type="checkbox" data-dow="1" /> 月</label>
+                <label class="cron-builder__check"><input type="checkbox" data-dow="2" /> 火</label>
+                <label class="cron-builder__check"><input type="checkbox" data-dow="3" /> 水</label>
+                <label class="cron-builder__check"><input type="checkbox" data-dow="4" /> 木</label>
+                <label class="cron-builder__check"><input type="checkbox" data-dow="5" /> 金</label>
+                <label class="cron-builder__check"><input type="checkbox" data-dow="6" /> 土</label>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- 次回実行日時 -->
+        <div class="cron-card">
+          <div class="cron-card__header">
+            <span class="ops-section-label">次回実行予定（直近10件）</span>
+            <span class="cron-next-list__tz-hint">選択TZ 基準 / 参考TZ も表示</span>
+          </div>
+          <ol id="cron-next-list" class="cron-next-list"></ol>
+        </div>
+
+        <!-- 特殊文字ガイド -->
+        <details class="cron-card cron-details">
+          <summary class="cron-details__summary">
+            <span class="ops-section-label">特殊文字ガイド</span>
+            <svg class="cron-details__chevron" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M4.427 7.427l3.396 3.396a.25.25 0 0 0 .354 0l3.396-3.396A.25.25 0 0 0 11.396 7H4.604a.25.25 0 0 0-.177.427Z"/>
+            </svg>
+          </summary>
+          <div class="cron-guide">
+            <table class="cron-guide__table">
+              <thead><tr><th>記号</th><th>意味</th><th>例</th></tr></thead>
+              <tbody>
+                <tr><td><code>*</code></td><td>すべての値</td><td><code>* * * * *</code> → 毎分</td></tr>
+                <tr><td><code>/</code></td><td>ステップ（N毎）</td><td><code>*/15 * * * *</code> → 15分ごと</td></tr>
+                <tr><td><code>,</code></td><td>複数指定</td><td><code>0 9,18 * * *</code> → 9時と18時</td></tr>
+                <tr><td><code>-</code></td><td>範囲指定</td><td><code>0 9 * * 1-5</code> → 平日</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+      </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- HTTPステータスコード辞典                     -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="ops-tool" id="tool-http-status" hidden>
+
+        <!-- 検索バー -->
+        <div class="http-search-bar">
+          <div class="http-search-bar__field">
+            <svg class="http-search-bar__icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.75"/>
+              <path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+            </svg>
+            <input type="text" id="http-search" class="http-search-bar__input" placeholder="コード番号 or 名前で検索..." autocomplete="off" />
+          </div>
+          <button class="http-star-btn" id="http-star-toggle" aria-pressed="false">
+            <span class="http-star-btn__icon">★</span> よく使う
+          </button>
+        </div>
+
+        <!-- カテゴリアコーディオン -->
+        <div id="http-accordion"></div>
+
+      </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- ポート番号リファレンス                       -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="ops-tool" id="tool-ports" hidden>
+
+        <!-- ツールバー -->
+        <div class="ports-toolbar">
+          <div class="ports-toolbar__search">
+            <svg class="ports-toolbar__search-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.75"/>
+              <path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+            </svg>
+            <input type="text" id="ports-search" class="ports-toolbar__search-input" placeholder="ポート番号 or サービス名で検索..." autocomplete="off" />
+          </div>
+          <div class="ops-filter-tabs" id="ports-filter-tabs">
+            <button class="ops-filter-tab ops-filter-tab--active" data-filter="all" data-label="すべて">すべて</button>
+            <button class="ops-filter-tab" data-filter="builtin" data-label="定番">定番</button>
+            <button class="ops-filter-tab" data-filter="custom" data-label="カスタム">カスタム</button>
+          </div>
+          <button class="btn btn--primary btn--sm" id="ports-add-btn">＋ 追加</button>
+        </div>
+
+        <!-- 追加フォーム -->
+        <div id="ports-form" class="ports-form" hidden>
+          <div class="ports-form__row">
+            <div class="ports-form__field">
+              <label class="ports-form__label">ポート番号</label>
+              <input type="number" id="ports-form-port" class="ports-form__input" min="1" max="65535" placeholder="例: 8080" />
+            </div>
+            <div class="ports-form__field">
+              <label class="ports-form__label">プロトコル</label>
+              <select id="ports-form-proto" class="ports-form__select">
+                <option value="TCP">TCP</option>
+                <option value="UDP">UDP</option>
+                <option value="both">TCP/UDP</option>
+              </select>
+            </div>
+            <div class="ports-form__field ports-form__field--grow">
+              <label class="ports-form__label">サービス名</label>
+              <input type="text" id="ports-form-service" class="ports-form__input" placeholder="例: MyApp" />
+            </div>
+            <div class="ports-form__field ports-form__field--grow">
+              <label class="ports-form__label">メモ</label>
+              <input type="text" id="ports-form-memo" class="ports-form__input" placeholder="任意" />
+            </div>
+          </div>
+          <div class="ports-form__actions">
+            <button class="btn btn--primary btn--sm" id="ports-form-save">保存</button>
+            <button class="btn btn--ghost btn--sm" id="ports-form-cancel">キャンセル</button>
+          </div>
+        </div>
+
+        <!-- ポート一覧テーブル -->
+        <div class="ports-table-wrap">
+          <table class="ports-table">
+            <thead>
+              <tr>
+                <th class="ports-table__th--port">ポート</th>
+                <th class="ports-table__th--proto">プロトコル</th>
+                <th class="ports-table__th--service">サービス名</th>
+                <th class="ports-table__th--memo">メモ</th>
+                <th class="ports-table__th--ops"></th>
+              </tr>
+            </thead>
+            <tbody id="ports-tbody"></tbody>
+          </table>
+          <div id="ports-empty" class="ports-empty" hidden>該当するポートが見つかりません</div>
+        </div>
+
+      </div>
+
     </main>
 
   </body>

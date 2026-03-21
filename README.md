@@ -15,7 +15,7 @@
 | `timer.html`      | 定型作業タイマー（ポモドーロ等のプリセット選択・作業/休憩フェーズ管理・セッションログ記録。タグ別集計で工数振り返りに対応） |
 | `snippet.html`    | コードスニペット管理（言語・タグで整理、検索・フィルタ。ワンクリックコピー・シンタックスハイライト（highlight.js）・エクスポート/インポート対応） |
 | `diff_tool.html`  | 差分比較ツール（左右のテキストをペーストするだけでdiffをハイライト表示。行単位/文字単位切替・空白無視・折りたたみ表示。永続化なし） |
-| `ops.html`        | 運用ツール（ログレベルフォーマッタ: ログテキストを貼り付けてレベル別色分け・フィルタリング。ERROR/WARN/INFO/DEBUG 自動検出・タイムスタンプ抽出・時間範囲フィルター） |
+| `ops.html`        | 運用インフラツール（ログビューア・cron式エディタ・HTTPステータスコード辞典・ポート番号リファレンス・サブネット計算機 の5ツールをタブで統合） |
 
 ## 技術スタック
 
@@ -61,7 +61,8 @@ work/
 │   │   ├── sql_db.js          # SqlDB（sql.html 用）
 │   │   ├── wbs_db.js          # WbsDB（wbs.html 用）
 │   │   ├── timer_db.js        # TimerDB（timer.html 用）
-│   │   └── snippet_db.js      # SnippetDB（snippet.html 用）
+│   │   ├── snippet_db.js      # SnippetDB（snippet.html 用）
+│   │   └── ops_db.js          # OpsDB（ops.html 用: ポート番号カスタム登録）
 │   ├── todo/                  # TODO管理（分割）
 │   │   ├── state.js           # State + グローバルヘルパー
 │   │   ├── backup.js          # エクスポート/インポート
@@ -85,7 +86,7 @@ work/
 │   ├── timer.js               # 定型作業タイマー
 │   ├── snippet.js             # コードスニペット管理
 │   ├── diff_tool.js           # 差分比較ツール
-│   └── ops.js                 # 運用ツール（ログビューア）
+│   └── ops.js                 # 運用インフラツール（ログビューア/cron/HTTPステータス/ポート番号/サブネット）
 └── css/
     ├── core/                  # 基盤スタイル
     │   ├── tokens.{less,css}  # デザイントークン ★
