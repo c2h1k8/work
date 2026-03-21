@@ -1,0 +1,491 @@
+// ── 詳細パネル ────────────────────────────────────────────────
+.note-detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px 28px;
+  min-width: 0;
+  background: var(--color-bg);
+}
+
+// 空状態（タスク未選択）
+.note-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: @text-muted;
+  font-size: 15px;
+
+  svg {
+    width: 48px;
+    height: 48px;
+    opacity: 0.4;
+  }
+}
+
+.note-detail__content {
+  // max-width なし → ダッシュボードと同様にグリッドで幅を自動制御
+}
+
+// ── 詳細ヘッダー ──────────────────────────────────────────────
+.note-detail__header {
+  margin-bottom: 20px;
+}
+
+.note-detail__title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.note-detail__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: @text;
+  cursor: pointer;
+  flex: 1;
+  line-height: 1.3;
+  word-break: break-word;
+  transition: color @t;
+
+  &:hover { color: @accent; }
+}
+
+.note-title-input {
+  flex: 1;
+  font-size: 22px;
+  font-weight: 700;
+  color: @text;
+  border: none;
+  border-bottom: 2px solid @accent;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  width: 100%;
+}
+
+.note-detail__meta {
+  font-size: 12px;
+  color: @text-muted;
+}
+
+// ── フィールドラベル ──────────────────────────────────────────
+.note-field-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: @text-sub;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: block;
+  line-height: 1;
+}
+
+// ── フィールド一覧（CSS Grid・ダッシュボードと同仕様） ────────
+.note-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.note-field {
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: @radius-md;
+  padding: 14px 16px;
+  box-shadow: @shadow;
+  transition: border-color @t, box-shadow @t;
+  min-width: 0;
+
+  &:hover {
+    border-color: var(--c-border-2);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &:focus-within { border-color: var(--c-border-2); box-shadow: var(--shadow-sm); }
+
+  // ダッシュボードと同仕様の幅指定（narrow=1/6, auto=2/6, w3=3/6, wide=4/6, w5=5/6, full=6/6）
+  &[data-width="narrow"] { grid-column: span 1; }
+  &[data-width="auto"]   { grid-column: span 2; }
+  &[data-width="w3"]     { grid-column: span 3; }
+  &[data-width="wide"]   { grid-column: span 4; }
+  &[data-width="w5"]     { grid-column: span 5; }
+  &[data-width="full"]   { grid-column: 1 / -1; }
+  // 行頭開始（data-new-row 属性で制御）
+  // 幅との組み合わせルール（span を維持しつつ行頭から開始）
+  &[data-new-row="true"]                      { grid-column-start: 1; }
+  &[data-new-row="true"][data-width="narrow"] { grid-column: 1 / span 1; }
+  &[data-new-row="true"][data-width="auto"]   { grid-column: 1 / span 2; }
+  &[data-new-row="true"][data-width="w3"]     { grid-column: 1 / span 3; }
+  &[data-new-row="true"][data-width="wide"]   { grid-column: 1 / span 4; }
+  &[data-new-row="true"][data-width="w5"]     { grid-column: 1 / span 5; }
+  // half は旧データ後方互換（auto と同扱い＝デフォルト）
+}
+
+// 狭い画面では w3以上を全幅に収める
+@media (max-width: 840px) {
+  .note-field[data-width="w3"],
+  .note-field[data-width="wide"],
+  .note-field[data-width="w5"],
+  .note-field[data-width="full"] {
+    grid-column: 1 / -1;
+  }
+}
+
+.note-field__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+// ── メモ風テキストエリア（テキストフィールド・メモ共通） ──────
+.note-memo {
+  width: 100%;
+  margin-top: 0;
+  padding: 6px 0;
+  border: none;
+  border-top: 1px solid @border-l;
+  font-size: 14px;
+  color: @text;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  background: transparent;
+  display: block;
+
+  &::placeholder { color: @text-muted; }
+}
+
+// ── 日付表示（クリッカブル） ──────────────────────────────────
+.note-date-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: @bg;
+  border-radius: @radius-sm;
+  cursor: pointer;
+  transition: background @t;
+  border: 1px solid transparent;
+
+  &:hover {
+    background: var(--c-bg-2);
+    border-color: @border;
+
+    .note-entry__delete { opacity: 1; }
+  }
+
+  &--empty {
+    color: @text-muted;
+  }
+}
+
+.note-date-display__icon {
+  color: @text-muted;
+  flex-shrink: 0;
+}
+
+.note-date-text {
+  font-size: 13px;
+  color: @text;
+  font-weight: 500;
+}
+
+.note-date-placeholder {
+  font-size: 13px;
+  color: @text-muted;
+}
+
+// ── フィールド一覧 ────────────────────────────────────────────
+.note-field__entries {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+// ── エントリ ─────────────────────────────────────────────────
+.note-entry {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  background: @bg;
+  border-radius: @radius-sm;
+  transition: background @t;
+
+  &:hover {
+    background: var(--c-bg-2);
+
+    .note-entry__actions {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+    }
+
+    // アクションバー左側のフェードアウトグラデーション
+    .note-entry__actions::before {
+      opacity: 1;
+    }
+  }
+}
+
+.note-entry__link {
+  flex: 1;
+  color: @accent;
+  text-decoration: none;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+
+  svg { flex-shrink: 0; }
+
+  &:hover { text-decoration: underline; }
+}
+
+.note-entry__link-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.note-entry__text {
+  flex: 1;
+  font-size: 13px;
+  color: @text;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+// アクションボタングループ（ホバー時にオーバーレイ）
+.note-entry__actions {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%) translateX(4px);
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity @t, transform @t;
+  background: var(--c-surface-raised);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 2px 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  // 左側フェードアウト
+  &::before {
+    content: '';
+    position: absolute;
+    right: 100%;
+    top: -1px;
+    bottom: -1px;
+    width: 32px;
+    background: linear-gradient(to right, transparent, var(--c-bg-2));
+    opacity: 0;
+    transition: opacity @t;
+    pointer-events: none;
+  }
+}
+
+// アクションボタン共通
+.note-entry__action {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: @text-muted;
+  padding: 3px 4px;
+  border-radius: 4px;
+  transition: color @t, background @t;
+  display: flex;
+  align-items: center;
+
+  &:hover {
+    color: var(--c-accent);
+    background: var(--c-accent-dim);
+  }
+
+  // 削除ボタン
+  &--delete:hover {
+    color: var(--c-danger);
+    background: var(--c-danger-bg);
+  }
+}
+
+// 後方互換（date フィールドのクリアボタン等で使用）
+.note-entry__delete {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: @text-muted;
+  padding: 2px 3px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity @t, color @t, background @t;
+  display: flex;
+  align-items: center;
+
+  &:hover {
+    color: var(--c-danger);
+    background: var(--c-danger-bg);
+  }
+}
+
+// インライン編集フォーム
+.note-entry-inline-edit {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .note-entry-form__row {
+    margin: 0;
+  }
+}
+
+// ── エントリ追加ボタン ────────────────────────────────────────
+.note-add-entry-btn {
+  background: none;
+  border: none;
+  color: @accent;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 3px 0;
+  transition: opacity @t;
+
+  &:hover { opacity: 0.7; }
+}
+
+// ── エントリ追加フォーム ──────────────────────────────────────
+.note-entry-form {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid @border-l;
+}
+
+.note-entry-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .note-input:first-child { flex: 1 1 120px; min-width: 0; }
+  .note-input:last-child  { flex: 2 1 160px; min-width: 0; }
+}
+
+.note-entry-form__actions {
+  display: flex;
+  gap: 8px;
+}
+
+// ── select 全幅バリアント ────────────────────────────────────
+.note-select {
+  &--full { width: 100%; }
+}
+
+// ── ドロップダウンフィールド（CustomSelect）─────────────────
+// note-field 内の CustomSelect ラッパーを全幅に
+.note-field .cs-wrapper {
+  width: 100%;
+}
+.note-field .cs-trigger {
+  width: 100%;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+// ── ラベルタイプフォーム（バッジトグル） ────────────────────
+.note-label-form {
+  padding-top: 2px;
+}
+
+.note-label-form__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-label-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border: 1px solid @border;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  color: @text-sub;
+  background: @card-bg;
+  cursor: pointer;
+  transition: filter @t, opacity @t;
+  font-family: inherit;
+
+  &:hover {
+    filter: brightness(0.92);
+  }
+
+  &.is-active {
+    // is-active 時は JS でインラインスタイルを設定（カラー付き）
+    color: #fff;
+  }
+}
+
+// ── select タイプ（単一選択バッジ） ──────────────────────────
+.note-select-form {
+  padding-top: 2px;
+}
+
+.note-select-form__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-select-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border: 1px solid @border;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  color: @text-sub;
+  background: @card-bg;
+  cursor: pointer;
+  transition: background @t, color @t, border-color @t;
+  font-family: inherit;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    color: @accent;
+  }
+
+  &.is-active {
+    background: @accent;
+    border-color: @accent;
+    color: #fff;
+
+    &:hover {
+      filter: brightness(0.92);
+    }
+  }
+}
+

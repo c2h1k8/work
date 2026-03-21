@@ -36,19 +36,18 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 - **全ページ Vanilla JS**
 - `todo.html` は IndexedDB（`KanbanDB` クラス）でデータ永続化。`localStorage` は使わない
-- その他ページの localStorage 操作は `js/base/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
-- `js/base/common.js` の共通ユーティリティを活用する（dashboard.html は不使用）
-- `js/base/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` — HTML エスケープと position 昇順ソート
-- `js/base/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` — 統一トースト通知（自己挿入型）。CSS は `css/base/toast.{less,css}`。各ページに `showToast` ラッパーを定義する場合は `type` を必ず透過すること: `const showToast = (msg, type) => Toast.show(msg, type);`
-- `js/base/tooltip.js` を必要なページで読み込む: `Tooltip.init(container, selector?)` — カスタムツールチップ（自己挿入型・即時表示）。CSS は `css/base/tooltip.{less,css}`。`data-tooltip="テキスト"` 属性を持つ要素が対象。`title` 属性の代わりに使用することでブラウザ固有の遅延を回避できる。現在の使用ページ: `wbs.html`
-- `js/base/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` など
+- その他ページの localStorage 操作は `js/core/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
+- `js/core/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` / `getString(origin, params)` / `isValidUrl(url)` — HTML エスケープ、position 昇順ソート、テンプレート置換、URL バリデーション
+- `js/components/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` — 統一トースト通知（自己挿入型）。CSS は `css/components/toast.{less,css}`。各ページに `showToast` ラッパーを定義する場合は `type` を必ず透過すること: `const showToast = (msg, type) => Toast.show(msg, type);`
+- `js/components/tooltip.js` を必要なページで読み込む: `Tooltip.init(container, selector?)` — カスタムツールチップ（自己挿入型・即時表示）。CSS は `css/components/tooltip.{less,css}`。`data-tooltip="テキスト"` 属性を持つ要素が対象。`title` 属性の代わりに使用することでブラウザ固有の遅延を回避できる。現在の使用ページ: `wbs.html`
+- `js/core/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` など
 - コメントは日本語で記載する
-- `todo.js` のアーキテクチャ: `State` / `Backup` / `Renderer` / `DragDrop` / `EventHandlers` / `App`（DB層は `js/db/kanban_db.js` の `KanbanDB` クラスに分離）
-- `DatePicker` は `js/base/date_picker.js` に分離された再利用可能部品。CSS は `css/base/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
-- `LabelManager` は `js/base/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/base/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`。重複名チェック（追加・リネーム両方）は LabelManager 内で処理し `Toast.show` で通知（Toast が存在する場合）。Enter キーは `isComposing` チェックで IME 変換中を無視。
-- `BindVarModal` は `js/base/bind_var_modal.js` に分離されたバインド変数 + プリセット管理モーダル（共通部品）。CSS は `css/base/bind_var_modal.{less,css}`。HTML は初回 `BindVarModal.open()` 時に自動生成・挿入される。API: `BindVarModal.open({ title, varNames, presets, showBarConfig, uiType, barLabel, onAddVar, onRemoveVar, onSaveBarConfig, onAddPreset, onUpdatePreset, onDeletePreset, onMovePresetUp, onMovePresetDown, onChange })` / `BindVarModal.close()`。2カラムレイアウト（左: 変数定義 + バー設定、右: プリセット一覧/編集）。dashboard.js の共通バインド変数設定・テーブルバインド変数設定で使用。
-- `CustomSelect` は `js/base/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/base/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。**`<option data-color="#hex">` を付与すると色が自動反映される。** トリガー（選択中）: `.cs-color-badge`（カラーバッジチップ、色背景＋白文字）。ドロップダウン内アイテム: `.cs-swatch`（11px角丸スクエア、`--cs-swatch-color` CSS変数で色指定、影付き）。選択中アイテムはスウォッチにリングを付与し、既存の選択ドット（`::before`）は非表示（`:has` で制御）。 使用ページ: `index.html` / `todo.html` / `sql.html` / `note.html` / `dashboard.html`
-- `todo.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
+- `todo/` のアーキテクチャ: `state.js`（State + グローバルヘルパー）/ `backup.js`（Backup）/ `renderer.js`（Renderer）/ `dragdrop.js`（DragDrop）/ `app.js`（EventHandlers + App）。DB層は `js/db/kanban_db.js` の `KanbanDB` クラスに分離
+- `DatePicker` は `js/components/date_picker.js` に分離された再利用可能部品。CSS は `css/components/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
+- `LabelManager` は `js/components/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/components/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`。重複名チェック（追加・リネーム両方）は LabelManager 内で処理し `Toast.show` で通知（Toast が存在する場合）。Enter キーは `isComposing` チェックで IME 変換中を無視。
+- `BindVarModal` は `js/components/bind_var_modal.js` に分離されたバインド変数 + プリセット管理モーダル（共通部品）。CSS は `css/components/bind_var_modal.{less,css}`。HTML は初回 `BindVarModal.open()` 時に自動生成・挿入される。API: `BindVarModal.open({ title, varNames, presets, showBarConfig, uiType, barLabel, onAddVar, onRemoveVar, onSaveBarConfig, onAddPreset, onUpdatePreset, onDeletePreset, onMovePresetUp, onMovePresetDown, onChange })` / `BindVarModal.close()`。2カラムレイアウト（左: 変数定義 + バー設定、右: プリセット一覧/編集）。dashboard.js の共通バインド変数設定・テーブルバインド変数設定で使用。
+- `CustomSelect` は `js/components/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/components/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。**`<option data-color="#hex">` を付与すると色が自動反映される。** トリガー（選択中）: `.cs-color-badge`（カラーバッジチップ、色背景＋白文字）。ドロップダウン内アイテム: `.cs-swatch`（11px角丸スクエア、`--cs-swatch-color` CSS変数で色指定、影付き）。選択中アイテムはスウォッチにリングを付与し、既存の選択ドット（`::before`）は非表示（`:has` で制御）。 使用ページ: `index.html` / `todo.html` / `sql.html` / `note.html` / `dashboard.html`
+- `js/todo/state.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
 - `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
 - `State.columns: []` は `{ id, key, name, position, done? }` の配列。`getColumnKeys()` で key 一覧を取得
 - `columns.done`: `true` の場合は「完了カラム」として扱い、カード上の「期限切れ」ラベル・スタイルを抑制（日付のみ表示）。カラムヘッダーのチェックマークボタンでトグル。`KanbanDB.updateColumn(col)` で永続化
@@ -67,27 +66,33 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `_updateWipDisplay(columnKey)`: WIP 超過判定 + DOM 更新ヘルパー。タスク追加・移動・削除時に呼ぶ
 - `note_links` スキーマ: `{ id, todo_task_id, note_task_id }`。インデックス: `todo_task_id` / `note_task_id`
 - `Renderer.renderNoteLinks(taskId, db)`: モーダルサイドバーの「ノート」セクションを描画
-- `_openNoteDB()`: `note_db` を開くモジュールレベルヘルパー（todo.js 内）
-- 期限日フィールドはカスタムカレンダー（`js/base/date_picker.js` の `DatePicker`）で選択。`#modal-due` は hidden input
+- `_openNoteDB()`: `note_db` を開くモジュールレベルヘルパー（`js/todo/state.js` 内）
+- 期限日フィールドはカスタムカレンダー（`js/components/date_picker.js` の `DatePicker`）で選択。`#modal-due` は hidden input
 - カラムは動的追加・削除可能。削除時にタスクが残っていればブロック
 
 ### CSS / LESS
 
 - **スタイルは必ず `.less` を編集すること。`.css` を直接編集してはいけない**
 - `.less` を編集したら `npx lessc <src>.less <dst>.css` で対応 `.css` を必ず再生成する
-  - 例: `npx lessc css/base/tab_style.less css/base/tab_style.css`
+  - 例: `npx lessc css/core/tab_style.less css/core/tab_style.css`
   - 例: `npx lessc css/todo.less css/todo.css`
-- 共通スタイルは `css/base/` 配下に配置する
-- ページ固有スタイルは `css/<page>.{less,css}` に配置する
+- 基盤スタイルは `css/core/` 配下に配置する（tokens, ui, tab_style）
+- UIコンポーネントスタイルは `css/components/` 配下に配置する
+- ページ固有スタイルは `css/<page>.{less,css}` に配置（エントリポイント）。大きいファイルは `css/<page>/` に `_*.less` パーシャルとして分割し `@import` で読み込む
 - **`.less` ファイルを追加・削除した場合は `.github/workflows/release.yml` の「Build CSS from LESS」ステップも必ず更新すること**
   - 追加時: `npx lessc <src>.less <dst>.css` を該当ステップに追記する
   - 削除時: 対応する行をステップから削除する
   - 新規ページ HTML を追加した場合は release.yml の ZIP 作成ステップ（`zip -r` コマンド）にも追記する
 
+### デザイン方針
+
+- **UI/UX を最大限に考慮した、洗練されたモダンデザインを追求すること。** 見た目の美しさ・操作の気持ちよさ・情報の整理しやすさを常に意識し、プロダクト品質のUIを目指す。余白・タイポグラフィ・色彩・アニメーション・インタラクションのすべてにおいて妥協しない
+- 新機能の追加やUIの変更を行う際は、既存のデザインシステム（トークン・コンポーネント）を活用しつつ、より良い体験になるよう積極的に提案・改善すること
+
 ### デザインシステム（2026-03現在）
 
-- **デザイントークン**: `css/base/tokens.less` / `css/base/tokens.css` — 全ページ共通の CSS カスタムプロパティ（色・シャドウ・ラジウス・フォント・スペーシング）
-- **共通 UI**: `css/base/ui.less` / `css/base/ui.css` — 全ページ共通のスタイルを定義。`--c-*` トークンを直接参照。全ページ（note / todo / sql / dashboard / index）で `tokens.css` の直後に読み込む
+- **デザイントークン**: `css/core/tokens.less` / `css/core/tokens.css` — 全ページ共通の CSS カスタムプロパティ（色・シャドウ・ラジウス・フォント・スペーシング）
+- **共通 UI**: `css/core/ui.less` / `css/core/ui.css` — 全ページ共通のスタイルを定義。`--c-*` トークンを直接参照。共通カラーエイリアス（`--color-card`, `--color-bg`, `--color-border` 等）もここで定義。全ページ（note / todo / sql / dashboard / index）で `tokens.css` の直後に読み込む
   - **リセット**: `*, *::before, *::after { box-sizing: border-box }` / `[hidden] { display: none !important }` — ページ LESS で重複定義しない。flex/grid コンテナ内での `&[hidden]` も不要
   - **body 基本**: `margin: 0; padding: 0; font-family; font-size: 14px; line-height: 1.5; color; background` — ページ LESS では layout 系（height / overflow / display）のみ上書きする
   - **ボタン**: `.btn` / `.btn--primary` / `.btn--secondary` / `.btn--danger` / `.btn--ghost` / `.btn--ghost-danger` / `.btn--sm` — ページ固有 LESS には記載しない
@@ -112,7 +117,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
-  <link rel="stylesheet" href="./css/base/tokens.css" />
+  <link rel="stylesheet" href="./css/core/tokens.css" />
   ```
 
 ### HTML
@@ -123,14 +128,16 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ## ファイル配置ルール
 
-| 種別           | 配置先                       |
-| -------------- | ---------------------------- |
-| 新ページ       | ルートに `<name>.html`       |
-| ページ固有 JS  | `js/<name>.js`               |
-| ページ固有 CSS | `css/<name>.{less,css}`      |
-| DB層 JS        | `js/db/<name>_db.js`         |
-| 共通 JS        | `js/base/<name>.js`          |
-| 共通 CSS       | `css/base/<name>.{less,css}` |
+| 種別               | 配置先                                |
+| ------------------ | ------------------------------------- |
+| 新ページ           | ルートに `<name>.html`                |
+| ページ固有 JS      | `js/<name>.js` or `js/<name>/` (分割時) |
+| ページ固有 CSS     | `css/<name>.{less,css}` (エントリポイント) + `css/<name>/` (パーシャル) |
+| DB層 JS            | `js/db/<name>_db.js`                  |
+| コアユーティリティ | `js/core/<name>.js`                   |
+| UIコンポーネント   | `js/components/<name>.js`             |
+| 基盤スタイル       | `css/core/<name>.{less,css}`          |
+| コンポーネントCSS  | `css/components/<name>.{less,css}`    |
 
 ## DB層ファイル（js/db/）
 
@@ -144,8 +151,9 @@ Claude Code がこのプロジェクトで作業する際の指針。
 | `js/db/sql_db.js`         | SqlDB       | sql_db        | sql.html       |
 | `js/db/wbs_db.js`         | WbsDB       | wbs_db        | wbs.html       |
 
-- HTML での読み込み順: `utils.js` → ... → `js/db/<name>_db.js` → `js/<name>.js`
+- HTML での読み込み順: `js/core/utils.js` → `js/core/icons.js` → `js/components/*` → `js/db/<name>_db.js` → `js/<name>/*.js`
 - DB クラスはページ JS より前に読み込む必要がある（グローバルクラスとして参照するため）
+- 分割済みページ（todo/dashboard/note）は `js/<name>/` 配下の state → backup → renderer → dragdrop → app の順で読み込む
 
 ## タブの追加方法
 
@@ -194,7 +202,9 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - フォーマット: `{ type: 'app_export', version: 2, tabConfig, dashboards: [{ instanceId, sections, items, presets, bindConfig }] }`（version 1 は sections/items のみ、後方互換で読み込み可）
   - `_deleteDashboardInstance(instanceId)` → タブ削除時に共有DBからそのインスタンスのデータを削除
 
-## dashboard.js アーキテクチャ（2026-03現在）
+## dashboard/ アーキテクチャ（2026-03現在）
+
+- ファイル構成: `js/dashboard/constants.js`（定数）/ `state.js`（State + 変数解決）/ `renderer.js`（Renderer）/ `events.js`（EventHandlers）/ `app.js`（App）
 
 - IndexedDB DB名: `dashboard_db` version **2**（全インスタンス共有の単一DB）
 - URLパラメータ `?instance=<id>` で複数ダッシュボードタブを識別（DBは共有）
@@ -219,7 +229,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - 設定画面から `open-list-bind-var-modal` / `open-grid-bind-var-modal` で BindVarModal を開く
   - `switchListPreset(sectionId, presetId)` / `switchGridPreset(sectionId, presetId)` でプリセット切替・再レンダリング
 - **アイテム管理モーダル**（全画面でアイテムを管理）: 設定パネルのアイテム一覧ヘッダーの「⤢ 全画面で管理」ボタンで開く。`State.itemMgr: { sectionId, editingId, formTab: 'add'|'bulk' }` で状態管理。2カラム（左: アイテム一覧、右: 追加/編集フォーム or コピー登録フォーム）。`EventHandlers.openItemManager(sectionId)` / `closeItemManager()` / `_refreshItemManager()` で制御。CSS: `.item-mgr`（`dashboard.less`）。z-index: 400（設定パネルの 300 より上）。Esc キーで閉じる。コピー登録タブ（`formTab: 'bulk'`）では Tab 区切りのテキストを貼り付けて一括追加（`saveBulkItems(sectionId)`）。フォーマット: list=`ラベル\tヒント\t値`、grid=`絵文字\tカード名\t値`、table=`列1\t列2\t列3`。URL はリンク、それ以外はコピーとして自動判定。`#` で始まる行はコメント。
-- モジュール構成: `DashboardDB` / `State` / `Renderer` / `EventHandlers` / `App` の単一ファイル構成
+- モジュール構成: `DashboardDB`（`js/db/dashboard_db.js`）/ `constants.js` / `state.js` / `renderer.js` / `events.js` / `app.js`（`js/dashboard/` 配下に分割）
 - レイアウト: `max-width: 1440px` + CSS Grid（`auto-fill, minmax(190px, 1fr)`）でセクションカードを複数列配置
 - セクションの表示幅: `section.width = 'narrow' | 'auto' | 'w3' | 'wide' | 'w5' | 'full'`。カードに `data-width` 属性を付与し CSS でスパン制御（narrow=span 1 / auto=span 2 / w3=span 3 / wide=span 4 / w5=span 5 / full=1/-1 / ≤840px で w3以上は全幅）。セクション編集画面の「表示幅」セレクターで設定・保存
 - `.settings-col-row`: `flex-wrap: nowrap` で通常表示。`:has(input)` セレクターで列編集展開時のみ `flex-wrap: wrap`
@@ -244,17 +254,19 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - 日付プレースホルダー: `{TODAY}` / `{TODAY:Fmt}` / `{NOW}` / `{DATE:±N単位}` / `{DATE:±N単位:Fmt}`
   - 相対指定単位: `d`=日 `w`=週 `M`=月 `y`=年 `h`=時間 `m`=分
   - フォーマットトークン: `YYYY` `MM` `DD` `HH` `mm` `ss` `ddd`（月）`dddd`（月曜日）
-  - `resolveDateVars(str)`: テンプレート内の日付変数を解決するユーティリティ関数（dashboard.js）
+  - `resolveDateVars(str)`: テンプレート内の日付変数を解決するユーティリティ関数（`js/dashboard/state.js`）
 
 
-## note.js アーキテクチャ（2026-03現在）
+## note/ アーキテクチャ（2026-03現在）
+
+- ファイル構成: `js/note/state.js`（State + ヘルパー）/ `renderer.js`（Renderer）/ `events.js`（EventHandlers）/ `app.js`（App）
 
 - IndexedDB DB名: `note_db` version **1**
 - ストア: `tasks`（id/title/created_at/updated_at）+ `fields`（id/name/type/options/position/**width**/**listVisible**）+ `entries`（id/task_id/field_id/label/value/created_at）
 - フィールドタイプ: `link` | `text` | `date` | `select` | `label` | `dropdown`
 - `link`: 複数エントリ可。追加ボタンあり、表示名＋URL。表示名が設定されている場合は「表示名をコピー」ボタンも表示（`copy-entry-label`アクション）
 - `text`: 単一エントリ。メモ風インライン textarea（自動保存、debounce 600ms）
-- `date`: 単一エントリ。カスタム DatePicker（`js/base/date_picker.js`）で選択。クリッカブルな日付表示エリア
+- `date`: 単一エントリ。カスタム DatePicker（`js/components/date_picker.js`）で選択。クリッカブルな日付表示エリア
 - `select`: 単一エントリ。バッジトグル形式（単一ラベル・選択済みを再クリックで解除可能）。オプションは `{name, color}[]` 形式。管理は LabelManager（フィールド管理モーダルの「選択肢」ボタン）。フィールドタイプ表示名は「単一ラベル」
 - `dropdown`: 単一エントリ。CustomSelect ドロップダウン形式（空選択可能）。オプションは `{name, color}[]` 形式。管理は LabelManager（「選択肢」ボタン）。`renderDetail` 後に `CustomSelect.replaceAll(content)` で変換。`<option data-color>` を付与することで CustomSelect が自動的に色スウォッチを表示。値は plain string。フィールドタイプ表示名は「ドロップダウン」
 - `label`: バッジトグル形式（チェックボックスなし・保存ボタンなし）。クリックで即時保存。オプションは `{name, color}[]` 形式。色はインラインスタイルで適用。管理は LabelManager（フィールド管理モーダルの「ラベル」ボタン）
@@ -273,10 +285,10 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `Renderer._sortTasks()` / `Renderer._filterTasks()`: ソート・フィルター処理
 - `Renderer._renderFieldBadge()`: フィールドタイプ別バッジ HTML 生成
 - CSS: `note.less` に `:root { --color-card, --color-border, ... }` を追加（DatePicker が参照）
-- モジュール構成: `NoteDB` / `State` / `Renderer` / `EventHandlers` / `App`
+- モジュール構成: `NoteDB`（`js/db/note_db.js`）/ `state.js` / `renderer.js` / `events.js` / `app.js`（`js/note/` 配下に分割）
 - エクスポート/インポート: JSON形式（`type: 'note_export'`）
 - **TODOとの紐づけ**: `kanban_db` の `note_links` ストアに `{ id, todo_task_id, note_task_id }` 形式で保存。詳細パネルの「TODO」セクションに表示。`Renderer.renderTodoLinks(noteTaskId)` で描画、`_openKanbanDB()` で cross-DB アクセス
-- `_openKanbanDB()`: `kanban_db` を開くモジュールレベルヘルパー（note.js 内）
+- `_openKanbanDB()`: `kanban_db` を開くモジュールレベルヘルパー（`js/note/state.js` 内）
 - **リアルタイム同期**: `BroadcastChannel('kanban-note-links')` で TODO↔Note 間のリンク変更を通知。todo.js がリンク追加・削除時に送信（`_noteLinksBC`）、note.js が受信して `renderTodoLinks` を再実行
 - **Noteページからのリンク追加**: 詳細パネルの「TODO」セクションに「＋ 追加」ボタン。`#todo-picker` ポップアップで TODO タスクを検索・選択して紐づけ
 - **TODOセクション設定**: `type: 'todo'` フィールドとして `note_db` の `fields` ストアに保存（`width` / `visible` / `position` を持つ）。フィールド管理モーダルに「TODOリンク」行（`note-field-item--builtin`）として表示し、幅・表示・並び順を設定可能。`NoteDB.ensureTodoField()` で既存ユーザー向けマイグレーション

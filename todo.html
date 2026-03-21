@@ -13,25 +13,29 @@
         document.documentElement.setAttribute('data-theme', t);
       })();
     </script>
-    <link rel="stylesheet" href="./css/base/tokens.css" />
-    <link rel="stylesheet" href="./css/base/ui.css" />
-    <link rel="stylesheet" href="./css/base/custom_select.css" />
-    <link rel="stylesheet" href="./css/base/date_picker.css" />
-    <link rel="stylesheet" href="./css/base/label_filter.css" />
-    <link rel="stylesheet" href="./css/base/label_manager.css" />
-    <link rel="stylesheet" href="./css/base/toast.css" />
+    <link rel="stylesheet" href="./css/core/tokens.css" />
+    <link rel="stylesheet" href="./css/core/ui.css" />
+    <link rel="stylesheet" href="./css/components/custom_select.css" />
+    <link rel="stylesheet" href="./css/components/date_picker.css" />
+    <link rel="stylesheet" href="./css/components/label_filter.css" />
+    <link rel="stylesheet" href="./css/components/label_manager.css" />
+    <link rel="stylesheet" href="./css/components/toast.css" />
     <link rel="stylesheet" href="./css/todo.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/marked@4/marked.min.js"></script>
-    <script defer src="./js/base/utils.js"></script>
-    <script defer src="./js/base/custom_select.js"></script>
-    <script defer src="./js/base/toast.js"></script>
-    <script defer src="./js/base/date_picker.js"></script>
-    <script defer src="./js/base/label_filter.js"></script>
-    <script defer src="./js/base/label_manager.js"></script>
-    <script defer src="./js/base/icons.js"></script>
+    <script defer src="./js/core/utils.js"></script>
+    <script defer src="./js/components/custom_select.js"></script>
+    <script defer src="./js/components/toast.js"></script>
+    <script defer src="./js/components/date_picker.js"></script>
+    <script defer src="./js/components/label_filter.js"></script>
+    <script defer src="./js/components/label_manager.js"></script>
+    <script defer src="./js/core/icons.js"></script>
     <script defer src="./js/db/kanban_db.js"></script>
-    <script defer src="./js/todo.js"></script>
+    <script defer src="./js/todo/state.js"></script>
+    <script defer src="./js/todo/backup.js"></script>
+    <script defer src="./js/todo/renderer.js"></script>
+    <script defer src="./js/todo/dragdrop.js"></script>
+    <script defer src="./js/todo/app.js"></script>
   </head>
   <body>
 
@@ -423,6 +427,6 @@
     </div>
 
     <!-- トースト通知 -->
-    <!-- トースト: js/base/toast.js が自動生成 -->
+    <!-- トースト: js/components/toast.js が自動生成 -->
   </body>
 </html>

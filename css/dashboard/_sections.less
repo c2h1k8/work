@@ -1,0 +1,423 @@
+// ── URL フォーム ─────────────────────────────────────────────
+.url-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 10px;
+}
+
+.url-form__input {
+  width: 100%;
+  height: 38px;
+  border: 1.5px solid @border;
+  border-radius: @radius-sm;
+  padding: 0 12px;
+  font-size: 13px;
+  color: @text;
+  background: @bg;
+  outline: none;
+  font-family: inherit;
+  transition: border-color @t, background @t, box-shadow @t;
+
+  &:focus {
+    border-color: @accent;
+    background: var(--c-surface);
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
+  }
+
+  &::placeholder { color: @text-muted; }
+}
+
+// ボタン群ラッパー
+.url-form__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.url-form__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 90px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: @radius-sm;
+  background: @accent;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  border: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background @t, box-shadow @t, transform @t;
+
+  svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.18);
+  }
+  &:active {
+    transform: translateY(0);
+    opacity: .9;
+  }
+
+  // ボタンカラーパレット（インデックスでローテーション）
+  &[data-btn-index="0"] {
+    background: var(--c-accent);
+    &:hover { background: var(--c-accent-hover); box-shadow: 0 4px 12px rgba(99,102,241,.35); }
+  }
+  &[data-btn-index="1"] {
+    background: #059669;
+    &:hover { background: #047857; box-shadow: 0 4px 12px rgba(5,150,105,.35); }
+  }
+  &[data-btn-index="2"] {
+    background: #d97706;
+    &:hover { background: #b45309; box-shadow: 0 4px 12px rgba(217,119,6,.35); }
+  }
+  &[data-btn-index="3"] {
+    background: #7c3aed;
+    &:hover { background: #6d28d9; box-shadow: 0 4px 12px rgba(124,58,237,.35); }
+  }
+  &[data-btn-index="4"] {
+    background: #db2777;
+    &:hover { background: #be185d; box-shadow: 0 4px 12px rgba(219,39,119,.35); }
+  }
+  &[data-btn-index="5"] {
+    background: #0d9488;
+    &:hover { background: #0f766e; box-shadow: 0 4px 12px rgba(13,148,136,.35); }
+  }
+}
+
+// ── URL 履歴リスト ────────────────────────────────────────────
+.url-history {
+  padding: 0 16px 12px;
+}
+
+.url-history__hd {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: @text-muted;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin: 4px 2px 6px;
+
+  svg {
+    width: 11px;
+    height: 11px;
+    color: @text-muted;
+  }
+}
+
+.url-history__list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  overflow: hidden;
+  background: @card-bg;
+}
+
+.url-history__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid @border-l;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  color: @text-sub;
+  font-size: 12.5px;
+  font-family: inherit;
+  transition: background @t, color @t;
+
+  &:first-child { border-top: none; }
+
+  &:hover {
+    background: @accent-l;
+    color: @accent;
+
+    .url-history__item-icon { color: @accent; }
+    .url-history__item-num { background: @accent; color: #fff; }
+  }
+}
+
+.url-history__item-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: @border;
+  color: @text-muted;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background @t, color @t;
+}
+
+.url-history__item-icon {
+  width: 13px;
+  height: 13px;
+  color: @text-muted;
+  flex-shrink: 0;
+  transition: color @t;
+}
+
+.url-history__item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.url-history__item-enter {
+  font-size: 11px;
+  color: @text-muted;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity @t;
+}
+
+.url-history__item:hover .url-history__item-enter {
+  opacity: 1;
+}
+
+// ── テーブルウィジェット ───────────────────────────────────
+.data-table-wrap {
+  overflow-x: auto;
+  padding: 12px 16px 16px;
+}
+
+.data-table {
+  width: auto;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    text-align: left;
+    padding: 6px 12px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: @text-sub;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    border-bottom: 2px solid @border;
+    white-space: nowrap;
+    background: var(--c-surface-raised);
+  }
+
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid @border-l;
+    color: @text;
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  tbody tr:hover td { background: @accent-l; }
+}
+
+.data-table__td--copy {
+  cursor: pointer;
+  position: relative;
+  transition: background @t;
+
+  &:hover { background: @accent-l !important; }
+}
+
+.data-table__td--link a {
+  color: @accent;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+.td-copy-icon {
+  opacity: 0;
+  margin-left: 6px;
+  vertical-align: middle;
+  transition: opacity @t;
+  svg { color: @text-muted; }
+}
+
+.data-table__td--copy:hover .td-copy-icon { opacity: 1; }
+
+// ── テーブルページネーション ─────────────────────────────────
+.data-table-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 16px 12px;
+  font-size: 12px;
+  color: @text-sub;
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid @border;
+    border-radius: @radius-sm;
+    background: @card-bg;
+    color: @text-sub;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background @t, border-color @t, color @t;
+
+    &:hover:not(:disabled) {
+      background: @accent-l;
+      border-color: @accent;
+      color: @accent;
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+  }
+
+  span { padding: 0 4px; }
+}
+
+// 値が空のセルに — を表示（行の存在を示す）
+.data-table td.data-table__td--empty::after {
+  content: '—';
+  color: @text-muted;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+// ── テーブルセクション プリセットバー ────────────────────────────────
+.table-preset-bar {
+  padding: 8px 16px;
+  border-bottom: 1px solid @border;
+  background: var(--c-bg-2);
+}
+.table-preset-bar__inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  &--tabs {
+    gap: 4px;
+  }
+  &--segment {
+    gap: 6px;
+  }
+}
+.table-preset-bar__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: @text-muted;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+// ── テーブルツールバー（フィルタ + 列切り替え） ───────────────────────────
+.data-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 6px;
+}
+
+.data-table-filter {
+  flex: 1;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 12px;
+  color: @text;
+  background: @bg;
+  outline: none;
+  transition: border-color @t, box-shadow @t;
+
+  &:focus {
+    border-color: @accent;
+    box-shadow: 0 0 0 2px var(--c-accent-dim);
+  }
+  &::placeholder { color: @text-muted; }
+}
+
+.data-table-filter-count {
+  font-size: 11px;
+  color: @text-muted;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.data-table-col-toggle-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.data-table-col-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 12px;
+  color: @text-sub;
+  background: @card-bg;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background @t, border-color @t, color @t;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    color: @accent;
+  }
+
+  svg { width: 13px; height: 13px; }
+}
+
+.data-table-col-menu {
+  position: fixed;
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: @radius-md;
+  box-shadow: @shadow;
+  padding: 4px 0;
+  z-index: 200;
+  min-width: 140px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.data-table-col-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: @text;
+  cursor: pointer;
+  transition: background @t;
+
+  &:hover { background: @accent-l; }
+
+  input[type=checkbox] { cursor: pointer; accent-color: @accent; }
+}
+

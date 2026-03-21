@@ -2,20 +2,12 @@
 // WBS（作業分解構造）スタイル
 // ==========================================
 
-// ページ変数マッピング（DatePicker が参照する変数も含む）
+// 共通エイリアスは css/core/ui.less で定義。ここではページ固有のみ
 :root {
   --color-surface: var(--c-surface);
-  --color-border: var(--c-border);
-  --color-text: var(--c-text);
   --color-text-2: var(--c-text-2);
   --color-text-3: var(--c-text-3);
-  --color-bg: var(--c-bg);
   --color-bg-2: var(--c-bg-2);
-  // DatePicker が参照する変数
-  --color-accent: var(--c-accent);
-  --color-danger: var(--c-danger);
-  --color-card: var(--c-surface);          // datepicker__dialog の背景
-  --color-text-muted: var(--c-text-3);     // dp-weekday の色
 
   // WBS固有トークン
   --wbs-row-h: 40px;
@@ -43,7 +35,7 @@
   background-size: 20px 20px;
 }
 
-// ヘッダー（基本スタイルは css/base/ui.css の共通定義を参照）
+// ヘッダー（基本スタイルは css/core/ui.css の共通定義を参照）
 
 .wbs-header__btn {
   display: inline-flex;

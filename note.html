@@ -13,25 +13,28 @@
         document.documentElement.setAttribute('data-theme', t);
       })();
     </script>
-    <link rel="stylesheet" href="./css/base/tokens.css" />
-    <link rel="stylesheet" href="./css/base/ui.css" />
-    <link rel="stylesheet" href="./css/base/date_picker.css" />
-    <link rel="stylesheet" href="./css/base/label_filter.css" />
-    <link rel="stylesheet" href="./css/base/custom_select.css" />
-    <link rel="stylesheet" href="./css/base/label_manager.css" />
-    <link rel="stylesheet" href="./css/base/tooltip.css" />
-    <link rel="stylesheet" href="./css/base/toast.css" />
+    <link rel="stylesheet" href="./css/core/tokens.css" />
+    <link rel="stylesheet" href="./css/core/ui.css" />
+    <link rel="stylesheet" href="./css/components/date_picker.css" />
+    <link rel="stylesheet" href="./css/components/label_filter.css" />
+    <link rel="stylesheet" href="./css/components/custom_select.css" />
+    <link rel="stylesheet" href="./css/components/label_manager.css" />
+    <link rel="stylesheet" href="./css/components/tooltip.css" />
+    <link rel="stylesheet" href="./css/components/toast.css" />
     <link rel="stylesheet" href="./css/note.css" />
-    <script defer src="./js/base/utils.js"></script>
-    <script defer src="./js/base/icons.js"></script>
-    <script defer src="./js/base/toast.js"></script>
-    <script defer src="./js/base/date_picker.js"></script>
-    <script defer src="./js/base/label_filter.js"></script>
-    <script defer src="./js/base/custom_select.js"></script>
-    <script defer src="./js/base/tooltip.js"></script>
-    <script defer src="./js/base/label_manager.js"></script>
+    <script defer src="./js/core/utils.js"></script>
+    <script defer src="./js/core/icons.js"></script>
+    <script defer src="./js/components/toast.js"></script>
+    <script defer src="./js/components/date_picker.js"></script>
+    <script defer src="./js/components/label_filter.js"></script>
+    <script defer src="./js/components/custom_select.js"></script>
+    <script defer src="./js/components/tooltip.js"></script>
+    <script defer src="./js/components/label_manager.js"></script>
     <script defer src="./js/db/note_db.js"></script>
-    <script defer src="./js/note.js"></script>
+    <script defer src="./js/note/state.js"></script>
+    <script defer src="./js/note/renderer.js"></script>
+    <script defer src="./js/note/events.js"></script>
+    <script defer src="./js/note/app.js"></script>
   </head>
   <body>
     <!-- ヘッダー -->
@@ -151,6 +154,6 @@
     <input type="file" id="import-file" accept=".json" hidden>
 
     <!-- トースト通知 -->
-    <!-- トースト: js/base/toast.js が自動生成 -->
+    <!-- トースト: js/components/toast.js が自動生成 -->
   </body>
 </html>

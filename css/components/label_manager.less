@@ -1,0 +1,488 @@
+// ==================================================
+// LabelManager: ラベル管理ダイアログ
+// js/components/label_manager.js とセットで使用する
+// ==================================================
+
+@lmgr-z:   300;
+@lmgr-w:   480px;
+@lmgr-anim: 0.22s;
+
+.lmgr {
+  position: fixed;
+  inset: 0;
+  z-index: @lmgr-z;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &[hidden] { display: none; }
+
+  // ── バックドロップ ──────────────────────────────────────────
+  &__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    transition: opacity @lmgr-anim ease;
+    cursor: pointer;
+  }
+
+  &.is-open &__backdrop { opacity: 1; }
+
+  // ── ダイアログ ──────────────────────────────────────────────
+  &__dialog {
+    position: relative;
+    z-index: 1;
+    width: min(@lmgr-w, calc(100vw - 32px));
+    max-height: min(640px, calc(100vh - 48px));
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow:
+      0 2px 8px rgba(0,0,0,0.08),
+      0 16px 48px rgba(0,0,0,0.20);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(16px) scale(0.97);
+    opacity: 0;
+    transition:
+      transform @lmgr-anim cubic-bezier(0.16, 1, 0.3, 1),
+      opacity   @lmgr-anim ease;
+  }
+
+  &.is-open &__dialog {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  // ── ヘッダー ────────────────────────────────────────────────
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-border, #d0d7de);
+    flex-shrink: 0;
+    background: var(--color-bg, #f6f8fa);
+  }
+
+  &__header-icon {
+    display: flex;
+    align-items: center;
+    color: var(--color-accent, #0969da);
+    flex-shrink: 0;
+  }
+
+  &__title {
+    flex: 1;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text, #24292f);
+    letter-spacing: -0.01em;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: var(--radius-md, 6px);
+    background: transparent;
+    color: var(--color-text-muted, #656d76);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--color-border, #d0d7de);
+      color: var(--color-text, #24292f);
+    }
+  }
+
+  // ── ボディ ──────────────────────────────────────────────────
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  &__section {
+    padding: 16px 20px;
+
+    & + & {
+      border-top: 1px solid var(--color-border, #d0d7de);
+    }
+  }
+
+  &__add-section {
+    background: var(--color-bg, #f6f8fa);
+  }
+
+  &__section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  &__section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted, #656d76);
+  }
+
+  &__label-count {
+    font-size: 11px;
+    color: var(--color-text-muted, #656d76);
+    background: var(--color-border, #d0d7de);
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  // ── ラベルリスト ────────────────────────────────────────────
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__empty {
+    font-size: 13px;
+    color: var(--color-text-muted, #656d76);
+    padding: 12px 0 4px;
+    text-align: center;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: var(--radius-md, 6px);
+    transition: background 0.12s;
+
+    &:hover {
+      background: var(--color-bg, #f6f8fa);
+    }
+  }
+
+  // 並び替えボタン（上・下）
+  &__item-move {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.12s;
+
+    .lmgr__item:hover & { opacity: 1; }
+  }
+
+  &__move-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 13px;
+    border: none;
+    border-radius: var(--radius-sm, 4px);
+    background: transparent;
+    color: var(--color-text-muted, #656d76);
+    cursor: pointer;
+    font-size: 8px;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.12s, color 0.12s;
+
+    &:hover:not(:disabled) {
+      background: var(--color-border, #d0d7de);
+      color: var(--color-text, #24292f);
+    }
+
+    &:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+  }
+
+  // カラー変更ボタン（円形のカラースウォッチ）
+  &__item-color-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.14);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.14s, box-shadow 0.14s;
+    padding: 0;
+
+    &:hover {
+      transform: scale(1.25);
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  // チップ（プレビュー）
+  &__item-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.6;
+    border: 1px solid;
+    white-space: nowrap;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+  }
+
+  // ラベル名（クリックで編集）
+  &__item-name {
+    flex: 1;
+    font-size: 13px;
+    color: var(--color-text, #24292f);
+    cursor: pointer;
+    border-radius: var(--radius-sm, 4px);
+    padding: 2px 6px;
+    transition: background 0.12s;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+      background: var(--color-border, #d0d7de);
+    }
+  }
+
+  &__item-name-input {
+    flex: 1;
+    font-size: 13px;
+    font-family: inherit;
+    padding: 3px 7px;
+    border: 1.5px solid var(--color-accent, #0969da);
+    border-radius: var(--radius-sm, 4px);
+    outline: none;
+    min-width: 0;
+    background: var(--color-card, #fff);
+    color: var(--color-text, #24292f);
+    box-shadow: 0 0 0 3px var(--c-accent-dim, rgba(99,102,241,0.12));
+  }
+
+  // 削除ボタン
+  &__item-del {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: var(--radius-sm, 4px);
+    background: transparent;
+    color: var(--color-text-muted, #656d76);
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.12s, background 0.12s, color 0.12s;
+
+    .lmgr__item:hover & { opacity: 1; }
+
+    &:hover {
+      background: var(--color-danger-bg, #ffebe9);
+      color: var(--color-danger, #d1242f);
+    }
+  }
+
+  // ── 追加フォーム ────────────────────────────────────────────
+  &__add-preview-wrap {
+    min-height: 26px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  &__add-preview {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid;
+    transition: background 0.15s, color 0.15s;
+    animation: lmgr-pop 0.18s ease;
+  }
+
+  @keyframes lmgr-pop {
+    from { opacity: 0; transform: scale(0.85); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  &__add-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  &__add-input {
+    flex: 1;
+    padding: 7px 11px;
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: var(--radius-md, 6px);
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--color-card, #fff);
+    color: var(--color-text, #24292f);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    min-width: 0;
+
+    &:focus {
+      border-color: var(--color-accent, #0969da);
+      box-shadow: 0 0 0 3px var(--c-accent-dim, rgba(99,102,241,0.12));
+    }
+
+    &::placeholder { color: var(--color-text-muted, #656d76); }
+  }
+
+  &__add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 14px;
+    border: none;
+    border-radius: var(--radius-md, 6px);
+    background: var(--color-accent, #0969da);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s;
+
+    &:hover { background: var(--color-accent-hover, #0550ae); }
+  }
+
+  // ── カラーパレット ──────────────────────────────────────────
+  &__palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    align-items: center;
+  }
+
+  &__swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      transform: scale(1.2);
+      border-color: rgba(0, 0, 0, 0.2);
+    }
+
+    &.is-active {
+      border-color: var(--color-text, #24292f);
+      box-shadow:
+        0 0 0 2px var(--color-card, #fff),
+        0 0 0 4px var(--color-text, #24292f);
+    }
+
+    // カスタムカラー：虹グラデーション
+    &--custom {
+      background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+      position: relative;
+      overflow: hidden;
+      color: #fff;
+
+      svg {
+        position: relative;
+        z-index: 1;
+        pointer-events: none;
+        filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.6));
+      }
+    }
+  }
+
+  &__custom-color-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+
+  // ── カラーポップオーバー ────────────────────────────────────
+  &__color-popover {
+    position: fixed;
+    z-index: @lmgr-z + 10;
+    background: var(--color-card, #fff);
+    border: 1px solid var(--color-border, #d0d7de);
+    border-radius: var(--radius-md, 6px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    padding: 10px;
+    animation: lmgr-pop 0.14s ease;
+
+    &[hidden] { display: none; }
+  }
+
+  &__color-popover-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    width: 200px;
+    align-items: center;
+  }
+}
+
+// ── 「ラベルを管理」ボタン（共通スタイル） ───────────────────────
+.btn-manage-labels {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: var(--radius-md, 6px);
+  background: transparent;
+  color: var(--color-text-muted, #656d76);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+  svg { flex-shrink: 0; }
+
+  &:hover {
+    background: var(--color-bg, #f6f8fa);
+    border-color: var(--color-accent, #0969da);
+    color: var(--color-accent, #0969da);
+  }
+}

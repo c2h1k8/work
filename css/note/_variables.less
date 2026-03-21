@@ -1,0 +1,31 @@
+// カラーパレット → tokens.css で一元管理
+// 共通エイリアスは css/core/ui.less で定義
+// LESS vars（以下のスタイルで使用）
+@bg:          var(--c-bg);
+@card-bg:     var(--c-surface);
+@text:        var(--c-text);
+@text-sub:    var(--c-text-2);
+@text-muted:  var(--c-text-3);
+@accent:      var(--c-accent);
+@border:      var(--c-border);
+@border-l:    var(--c-border);
+@accent-d:    var(--c-accent-hover);
+@accent-l:    var(--c-accent-light);
+@green:       var(--c-success);
+@green-l:     var(--c-success-bg);
+@radius-lg:   10px;
+@radius-md:   7px;
+@radius-sm:   5px;
+@shadow:      0 1px 2px rgba(0,0,0,.05), 0 4px 12px rgba(20,28,60,.07);
+@t:           0.15s ease;
+@header-h:    52px;
+@sidebar-w:   280px;
+
+// ── body ページ固有スタイル（基本は ui.css で定義）──────────────
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+

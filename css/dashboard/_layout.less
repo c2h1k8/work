@@ -1,0 +1,225 @@
+// ── レイアウト ────────────────────────────────────────────────
+.home {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 20px;
+  align-items: start;
+  background-image: radial-gradient(circle, var(--c-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+// セクションカードの幅指定（data-width 属性で制御）
+// narrow(1/6)=span 1, auto(2/6)=span 2, w3(3/6)=span 3, wide(4/6)=span 4, w5(5/6)=span 5, full(6/6)=1/-1
+.home > .card[data-width="narrow"] { grid-column: span 1; }
+.home > .card[data-width="auto"]   { grid-column: span 2; }
+.home > .card[data-width="w3"]     { grid-column: span 3; }
+.home > .card[data-width="wide"]   { grid-column: span 4; }
+.home > .card[data-width="w5"]     { grid-column: span 5; }
+.home > .card[data-width="full"]   { grid-column: 1 / -1; }
+// 行頭開始（data-new-row 属性で制御）
+.home > .card[data-new-row="true"] { grid-column-start: 1; }
+// new-row の組み合わせ: 行頭から指定列数分
+.home > .card[data-new-row="true"][data-width="narrow"] { grid-column: 1 / span 1; }
+.home > .card[data-new-row="true"][data-width="auto"]   { grid-column: 1 / span 2; }
+.home > .card[data-new-row="true"][data-width="w3"]     { grid-column: 1 / span 3; }
+.home > .card[data-new-row="true"][data-width="wide"]   { grid-column: 1 / span 4; }
+.home > .card[data-new-row="true"][data-width="w5"]     { grid-column: 1 / span 5; }
+
+// 狭い画面では w3以上を全幅に収める
+@media (max-width: 840px) {
+  .home > .card[data-width="w3"],
+  .home > .card[data-width="wide"],
+  .home > .card[data-width="w5"],
+  .home > .card[data-width="full"] {
+    grid-column: 1 / -1;
+  }
+}
+
+// ── カード ────────────────────────────────────────────────────
+.card {
+  background: @card-bg;
+  border-radius: @radius-lg;
+  border: 1px solid @border;
+  border-left-width: 3px;
+  border-left-color: transparent;
+  box-shadow: @shadow;
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.15s, border-color 0.2s;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--c-border-2);
+    border-left-color: var(--c-accent);
+    transform: translateY(-2px);
+  }
+}
+
+.card__hd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px 13px;
+  // ヘッダー背景に極わずかな差をつけて視認性向上（ダークモード対応）
+  background: var(--c-surface-raised);
+  border-bottom: 1px solid @border-l;
+}
+
+.card__hd-icon {
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1;
+  svg { width: 16px; height: 16px; color: @accent; }
+}
+
+.card__hd-title {
+  margin: 0;
+  // uppercase をやめて普通の読めるサイズに
+  font-size: 13px;
+  font-weight: 600;
+  color: @text;
+  letter-spacing: 0;
+}
+
+// セクション空状態メッセージ
+.section-empty {
+  margin: 0;
+  padding: 20px 18px;
+  font-size: 13px;
+  color: @text-muted;
+}
+
+.card__bd {
+  padding: 4px 0;
+}
+
+// ── リスト行 ────────────────────────────────────────────────
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 18px;
+  text-decoration: none;
+  color: @text;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background @t;
+
+  & + & {
+    // セパレーターを控えめに
+    border-top: 1px solid @border-l;
+  }
+
+  &:hover {
+    background: @accent-l;
+    .row__cta { opacity: 1; }
+  }
+
+  &:active { background: var(--c-accent-dim); }
+}
+
+.row__label {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.row__hint {
+  font-size: 12px;
+  color: @text-muted;
+}
+
+.row__cta {
+  opacity: 0;
+  transition: opacity @t;
+
+  svg {
+    width: 15px;
+    height: 15px;
+    color: @text-muted;
+    display: block;
+  }
+}
+
+// ── スプレッドシートグリッド ──────────────────────────────────
+.sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  padding: 14px 16px 16px;
+  // 先頭から配置: そのカードを行の先頭に置く
+  > [data-new-row="true"] {
+    grid-column-start: 1;
+  }
+}
+
+.sheet-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  border-radius: @radius-md;
+  background: @bg;
+  border: 1.5px solid @border;
+  text-decoration: none;
+  color: @text;
+  cursor: pointer;
+  transition: background @t, border-color @t, box-shadow @t;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
+
+    .sheet-card__arrow {
+      opacity: 1;
+      transform: translate(2px, -2px);
+    }
+  }
+}
+
+.sheet-card__emoji {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sheet-card__name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-card__arrow {
+  width: 14px;
+  height: 14px;
+  color: @accent;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity @t, transform @t;
+}
+
+// コピーカードはクリップボードアイコンを常時薄く表示
+.sheet-card--copy .sheet-card__arrow {
+  opacity: 0.35;
+}
+.sheet-card--copy:hover .sheet-card__arrow {
+  opacity: 1;
+  transform: none;
+}
+
+// テンプレートカードはドキュメントアイコンを常時薄く表示
+.sheet-card--template .sheet-card__arrow {
+  opacity: 0.35;
+}
+.sheet-card--template:hover .sheet-card__arrow {
+  opacity: 1;
+  transform: none;
+}
+

@@ -25,16 +25,17 @@ jobs:
 
       - name: Build CSS from LESS
         run: |
-          npx lessc css/base/tokens.less    css/base/tokens.css
-          npx lessc css/base/ui.less        css/base/ui.css
-          npx lessc css/base/tab_style.less css/base/tab_style.css
-          npx lessc css/base/toast.less     css/base/toast.css
-          npx lessc css/base/date_picker.less  css/base/date_picker.css
-          npx lessc css/base/label_manager.less css/base/label_manager.css
-          npx lessc css/base/label_filter.less  css/base/label_filter.css
-          npx lessc css/base/custom_select.less css/base/custom_select.css
-          npx lessc css/base/bind_var_modal.less css/base/bind_var_modal.css
-          npx lessc css/base/tooltip.less       css/base/tooltip.css
+          npx lessc css/core/tokens.less          css/core/tokens.css
+          npx lessc css/core/ui.less              css/core/ui.css
+          npx lessc css/core/tab_style.less       css/core/tab_style.css
+          npx lessc css/components/toast.less          css/components/toast.css
+          npx lessc css/components/tooltip.less         css/components/tooltip.css
+          npx lessc css/components/date_picker.less     css/components/date_picker.css
+          npx lessc css/components/label_manager.less   css/components/label_manager.css
+          npx lessc css/components/label_filter.less    css/components/label_filter.css
+          npx lessc css/components/custom_select.less   css/components/custom_select.css
+          npx lessc css/components/bind_var_modal.less  css/components/bind_var_modal.css
+          npx lessc css/components/checklist.less       css/components/checklist.css
           npx lessc css/todo.less      css/todo.css
           npx lessc css/note.less      css/note.css
           npx lessc css/sql.less       css/sql.css
@@ -57,7 +58,7 @@ jobs:
             js/ \
             css/ \
             -x "css/**/*.less" \
-            -x "js/base/.gitkeep"
+            -x "js/core/.gitkeep"
 
           echo "ZIP_NAME=${ZIP_NAME}" >> "$GITHUB_ENV"
 

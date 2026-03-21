@@ -1,0 +1,390 @@
+// ── バインド変数バー ──────────────────────────────────────────────
+#bind-bar {
+  max-width: 1440px;
+  margin: 20px auto 0;
+  padding: 0 32px;
+}
+
+// bind-bar が表示されているときはホームグリッドの上余白を縮小
+#bind-bar:not([hidden]) + .home {
+  padding-top: 16px;
+}
+
+.bind-bar__inner {
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: @radius-md;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: @shadow;
+}
+
+.bind-bar__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: @text-muted;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+// .bind-bar__select: CustomSelect(css/components/custom_select.css)に移行
+
+// タブ型
+.bind-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.bind-tab {
+  padding: 5px 14px;
+  border-radius: @radius-sm;
+  border: 1.5px solid @border;
+  background: @bg;
+  color: @text-sub;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background @t, border-color @t, color @t;
+
+  &:hover:not(.is-active) {
+    background: @accent-l;
+    border-color: @accent;
+    color: @accent;
+  }
+
+  &.is-active {
+    background: @accent;
+    color: #fff;
+    border-color: @accent;
+  }
+}
+
+// セグメントコントロール型
+.bind-segment {
+  display: flex;
+  border: 1.5px solid @border;
+  border-radius: @radius-sm;
+  overflow: hidden;
+}
+
+.bind-segment__item {
+  display: flex;
+  align-items: center;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  color: @text-sub;
+  transition: background @t, color @t;
+  white-space: nowrap;
+  border-right: 1px solid @border;
+
+  &:last-child { border-right: none; }
+
+  input[type=radio] { display: none; }
+
+  &.is-active,
+  &:has(input:checked) {
+    background: @accent;
+    color: #fff;
+  }
+
+  &:hover:not(.is-active):not(:has(input:checked)) {
+    background: @accent-l;
+    color: @accent;
+  }
+}
+
+// ── 共通バインド変数 設定ビュー ───────────────────────────
+.settings-help {
+  font-size: 12px;
+  color: @text-muted;
+  margin: 0 0 10px;
+  line-height: 1.6;
+
+  code {
+    background: var(--c-bg-2);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: "SF Mono", "Consolas", monospace;
+    font-size: 11px;
+    color: @accent;
+  }
+}
+
+.bind-var-badge {
+  background: var(--c-accent-dim);
+  border: 1px solid var(--c-accent-light);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: "SF Mono", "Consolas", monospace;
+  font-size: 12px;
+  color: @accent;
+  font-weight: 600;
+}
+
+.settings-row--sm {
+  padding: 6px 8px;
+  margin-bottom: 4px;
+
+  code { font-size: 12px; }
+}
+
+// ── エクスポート/インポートバー ──────────────────────────
+.settings-io-bar {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid @border;
+}
+
+.settings-io-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: @radius-md;
+  font-size: 12px;
+  color: @text;
+
+  svg { width: 13px; height: 13px; flex-shrink: 0; fill: currentColor; }
+
+  &:hover:not(:disabled) { background: @bg; }
+}
+
+// トースト通知: css/components/toast.css に移動
+
+// ── カード折りたたみボタン ─────────────────────────────────────
+.card__collapse-btn {
+  margin-left: auto;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: @radius-sm;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: @text-muted;
+  flex-shrink: 0;
+  transition: background @t, color @t;
+
+  svg { width: 14px; height: 14px; transition: transform .2s ease; }
+
+  &:hover { background: @bg; color: @text; }
+
+  &.is-collapsed svg { transform: rotate(-90deg); }
+}
+
+// ── リストフィルター ────────────────────────────────────────
+.list-filter-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 4px;
+  border-bottom: 1px solid @border-l;
+}
+
+.list-filter-count {
+  font-size: 11px;
+  color: @text-muted;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.list-filter {
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 12px;
+  font-family: inherit;
+  color: @text;
+  background: @bg;
+  outline: none;
+  transition: border-color @t, box-shadow @t;
+
+  &:focus {
+    border-color: @accent;
+    box-shadow: 0 0 0 2px var(--c-accent-dim);
+  }
+  &::placeholder { color: @text-muted; }
+}
+
+// ── テーブルソート ──────────────────────────────────────────
+.data-table-th--sortable {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover { color: @accent; }
+}
+
+.sort-icon {
+  margin-left: 4px;
+  font-size: 10px;
+  color: @text-muted;
+  opacity: .5;
+  transition: opacity @t, color @t;
+
+  .data-table-th--sortable:hover & { opacity: 1; }
+
+  &.is-asc,
+  &.is-desc {
+    color: @accent;
+    opacity: 1;
+  }
+
+  &.is-asc::after  { content: '▲'; }
+  &.is-desc::after { content: '▼'; }
+  &.is-asc,
+  &.is-desc { font-size: 0; }  // テキスト非表示にして ::after で矢印
+}
+
+// ── メモセクション ──────────────────────────────────────────
+.memo-content {
+  padding: 14px 18px 16px;
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: @text;
+
+  br { display: block; content: ''; margin: 0; }
+
+  strong { font-weight: 600; }
+  em { font-style: italic; color: @text-sub; }
+
+  .memo-inline-code {
+    background: var(--c-bg-2);
+    border: 1px solid @border;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: "SF Mono", "Consolas", monospace;
+    font-size: 12px;
+    color: @accent;
+  }
+
+  .memo-list {
+    margin: 4px 0 8px;
+    padding-left: 20px;
+
+    li {
+      margin-bottom: 4px;
+      color: @text;
+    }
+  }
+}
+
+.settings-textarea {
+  width: 100%;
+  min-height: 160px;
+  border: 1.5px solid @border;
+  border-radius: @radius-sm;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: "SF Mono", "Consolas", monospace;
+  color: @text;
+  background: @bg;
+  outline: none;
+  box-sizing: border-box;
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color @t, background @t, box-shadow @t;
+
+  &:focus {
+    border-color: @accent;
+    background: var(--c-surface);
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
+  }
+  &::placeholder { color: @text-muted; }
+}
+
+
+// チェックリスト共通スタイルの読み込み
+@import "../components/checklist";
+
+// ダッシュボード固有のチェックリストオーバーライド
+.checklist-progress { padding: 10px 18px 8px; }
+.checklist-item { padding: 11px 18px; border-radius: 0; }
+
+// ── セクションジャンプナビ ────────────────────────────────
+.section-nav {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 200;
+}
+
+.section-nav__toggle {
+  width: 38px;
+  height: 38px;
+  border-radius: @radius-md;
+  background: @card-bg;
+  border: 1.5px solid @border;
+  box-shadow: @shadow;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: @text-sub;
+  transition: background @t, color @t, border-color @t, box-shadow @t;
+
+  svg { width: 16px; height: 16px; }
+
+  &:hover {
+    background: @accent;
+    color: #fff;
+    border-color: @accent;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+  }
+}
+
+.section-nav__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: @radius-md;
+  box-shadow: @shadow-hover;
+  padding: 4px 0;
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 70vh;
+  overflow-y: auto;
+  z-index: 200;
+}
+
+.section-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid @border-l;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-family: inherit;
+  color: @text;
+  transition: background @t, color @t;
+
+  &:first-child { border-top: none; }
+  &:hover { background: @accent-l; color: @accent; }
+}
+
+.section-nav__item-icon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}

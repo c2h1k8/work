@@ -1,0 +1,246 @@
+// チェックリスト共通スタイルの読み込み
+@import "../components/checklist";
+
+// ==================================================
+// エクスポートボタンの変更インジケーター
+// ==================================================
+.has-changes {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-danger);
+    border: 2px solid var(--color-card);
+    pointer-events: none;
+  }
+}
+
+// トースト通知: css/components/toast.css に移動
+
+// ==================================================
+// カード追加バッジ（チェックリスト・繰り返し・依存ロック）
+// ==================================================
+.card__checklist-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--c-bg-2);
+  color: var(--c-text-muted);
+
+  &--done {
+    background: var(--c-success-bg);
+    color: var(--c-success);
+  }
+}
+
+.card__repeat-badge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--c-accent);
+  opacity: 0.75;
+  line-height: 1;
+
+  svg { width: 12px; height: 12px; fill: currentColor; }
+}
+
+.card__lock-badge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--c-warning, #f59e0b);
+  opacity: 0.9;
+  line-height: 1;
+
+  svg { width: 13px; height: 13px; fill: currentColor; }
+}
+
+// ==================================================
+// チェックリスト（TODO固有の追加スタイル）
+// 共通スタイルは @import "../components/checklist" で読み込み済み
+// ==================================================
+.checklist-item__edit-input {
+  flex: 1;
+  font-size: 14px;
+  padding: 1px 4px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  outline: none;
+  font-family: inherit;
+}
+
+.checklist-item__del {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity 0.1s;
+  border-radius: var(--radius-sm);
+
+  .checklist-item:hover & { opacity: 1; }
+  &:hover { color: var(--c-danger); opacity: 1; background: var(--c-danger-bg); }
+
+  svg { width: 12px; height: 12px; fill: currentColor; }
+}
+
+.checklist-add-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.checklist-new-input {
+  flex: 1;
+  padding: 5px 10px;
+  font-size: 13px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  outline: none;
+
+  &:focus {
+    border-color: var(--color-accent);
+    border-style: solid;
+    background: var(--color-bg);
+  }
+
+  &::placeholder { color: var(--color-text-muted); }
+}
+
+// ==================================================
+// トグルスイッチ（共通）
+// ==================================================
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+
+  &__input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+
+  &__slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--c-bg-3, var(--c-bg-2));
+    border-radius: 100px;
+    transition: background var(--t);
+    border: 1.5px solid var(--color-border);
+
+    &::before {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      left: 2px;
+      top: 2px;
+      background: var(--color-text-muted);
+      border-radius: 50%;
+      transition: transform var(--t), background var(--t);
+    }
+  }
+
+  &__input:checked + &__slider {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+
+    &::before {
+      transform: translateX(16px);
+      background: #fff;
+    }
+  }
+}
+
+// ==================================================
+// 繰り返し設定（モーダル内）
+// ==================================================
+.recurring-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recurring-toggle-text {
+  font-size: 13px;
+  color: var(--color-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.recurring-interval {
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+
+// ==================================================
+// WIP上限（カラム）
+// ==================================================
+.column--wip-exceeded {
+  .column__header { border-bottom-color: var(--c-danger); }
+}
+
+.column__archive-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  transition: var(--t);
+
+  &:hover { color: var(--color-accent); background: var(--c-bg-2); }
+
+  svg { width: 14px; height: 14px; fill: currentColor; }
+}
+
+.hidden-btn {
+  display: none !important;
+}
+
+.column__wip-input {
+  width: 60px;
+  padding: 2px 4px;
+  font-size: 12px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+}

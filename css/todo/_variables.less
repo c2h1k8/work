@@ -1,0 +1,21 @@
+// ==================================================
+// GitHub インスパイア カンバンボード スタイル
+// ==================================================
+
+// カラーパレット → tokens.css で一元管理
+// 共通エイリアスは css/core/ui.less で定義。ここではページ固有のみ
+:root {
+  --color-amber:        var(--c-warning);
+  --color-amber-bg:     var(--c-warning-bg);
+  --color-done:         var(--c-success);
+  --color-column-bg:    var(--c-bg-2);
+  --color-shadow:       rgba(20,28,80,.1);
+}
+
+// body ページ固有スタイル（基本は ui.css で定義）
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}

@@ -1,0 +1,480 @@
+// ==================================================
+// マイグレーションバナー
+// ==================================================
+#migration-banner {
+  background: var(--c-info-bg, var(--c-accent-light));
+  border-bottom: 1px solid var(--c-info, var(--c-accent));
+  padding: 8px 16px;
+
+
+  .migration-banner__inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 1400px;
+    margin: 0 auto;
+    flex-wrap: wrap;
+  }
+
+  .migration-banner__icon { font-size: 16px; }
+
+  .migration-banner__text {
+    flex: 1;
+    color: var(--c-accent);
+    font-size: 13px;
+
+    small {
+      display: block;
+      color: var(--c-text-3);
+      font-size: 12px;
+    }
+  }
+
+  .migration-banner__btn {
+    padding: 4px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--c-accent);
+    background: var(--c-accent);
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: var(--color-accent-hover); }
+
+    &--dismiss {
+      background: transparent;
+      color: var(--c-accent);
+
+      &:hover { background: var(--c-accent-dim); }
+    }
+  }
+}
+
+// ==================================================
+// アプリヘッダー（基本スタイルは css/core/ui.css の共通定義を参照）
+// ==================================================
+.app-header {
+  // ── TODO 固有レイアウト（inner は ui.css 共通定義のみ使用）──
+
+  // フィルターバー（TODO 固有）
+  &__filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  // ソート選択（TODO 固有）
+  &__sort {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+}
+
+// ソート選択
+.sort-select {
+  padding: 4px 8px;
+  height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+
+  &:focus { border-color: var(--color-accent); }
+}
+
+// ==================================================
+// ボード（水平 Flex レイアウト）
+// ==================================================
+.board {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 16px;
+  padding: 20px;
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background-image: radial-gradient(circle, var(--c-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+// カラム追加ボタン（ボード末尾、自然な高さに留める）
+.add-column-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 200px;
+  min-height: 80px;
+  align-self: flex-start;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    background: var(--c-accent-dim);
+  }
+}
+
+// ==================================================
+// カラム
+// ==================================================
+.column {
+  flex: 1 1 0;       // ボード幅を均等分割
+  min-width: 220px;  // カラムが多くなっても最低幅を確保（ボードが横スクロールに切り替わる）
+  background: var(--color-column-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--color-border);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  &__title {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--c-text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: text;
+
+    // インライン編集用 input
+    &-input {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--c-text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--c-surface);
+      border: 1px solid var(--c-accent);
+      border-radius: var(--radius-sm);
+      outline: none;
+      padding: 1px 4px;
+      width: 120px;
+      box-shadow: 0 0 0 2px var(--c-accent-dim);
+    }
+  }
+
+  // ヘッダー右側（バッジ + 削除ボタン）
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__count {
+    background: var(--c-accent-dim);
+    color: var(--c-accent);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 8px;
+    border-radius: 20px;
+    min-width: 22px;
+    text-align: center;
+  }
+
+  // 完了カラムトグルボタン（期限切れ表示を抑制）
+  &__done-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+    flex-shrink: 0;
+
+    svg {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
+    }
+
+    &:hover {
+      background: var(--c-success-bg);
+      color: var(--c-success);
+    }
+
+    // 完了カラムとしてフラグが立っている場合は常時表示
+    &.is-active {
+      opacity: 1;
+      color: var(--c-success);
+    }
+  }
+
+  // カラム削除ボタン
+  &__delete-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+    flex-shrink: 0;
+
+    svg {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
+    }
+
+    &:hover {
+      background: var(--color-danger-bg);
+      color: var(--color-danger);
+    }
+  }
+
+  // ヘッダーホバー時に削除・完了トグルボタンを表示
+  &__header:hover &__delete-btn { opacity: 1; }
+  &__header:hover &__done-btn   { opacity: 1; }
+
+  &__body {
+    flex: 1;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+
+    // ドラッグオーバー時
+    &.drag-over {
+      background: var(--c-accent-light);
+      border-radius: var(--radius-md);
+    }
+  }
+
+  &__add-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    border-top: 1px solid var(--color-border);
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+    transition: background 0.15s, color 0.15s;
+
+    svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background: var(--c-accent-dim);
+      color: var(--c-accent);
+    }
+  }
+
+  // 空カラムのプレースホルダー
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    pointer-events: none;
+  }
+
+  // ドラッグゴースト
+  .sortable-ghost {
+    opacity: 0.4;
+    background: var(--c-accent-light);
+    border: 2px dashed var(--color-accent);
+    transform: rotate(2deg);
+  }
+
+  .sortable-chosen {
+    box-shadow: var(--shadow-lg);
+    transform: rotate(-1deg);
+    opacity: 0.95;
+  }
+}
+
+// ==================================================
+// カード
+// ==================================================
+.card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-left-width: 3px;
+  border-left-color: transparent;
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  cursor: grab;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+  user-select: none;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--c-border-2);
+    border-left-color: var(--c-accent);
+    transform: translateY(-1px);
+
+    .card__actions { opacity: 1; }
+  }
+
+  &:active { cursor: grabbing; }
+
+  &__labels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px;
+    min-height: 0;
+
+    &:empty { display: none; }
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text);
+    word-break: break-word;
+    line-height: 1.4;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--c-accent);
+      text-decoration: none;
+    }
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  &__due {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--color-text-muted);
+
+    &--overdue {
+      background: var(--c-danger-bg);
+      color: var(--c-danger);
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
+      font-weight: 600;
+    }
+
+    &--today {
+      background: var(--c-warning-bg);
+      color: var(--c-warning);
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
+      font-weight: 600;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  &__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    svg {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
+    }
+
+    &:hover {
+      background: var(--color-bg);
+      color: var(--color-text);
+    }
+
+    &--archive:hover {
+      background: var(--c-accent-dim);
+      color: var(--c-accent);
+    }
+
+    &--delete:hover {
+      background: var(--color-danger-bg);
+      color: var(--color-danger);
+    }
+  }
+}
+
+// ラベルチップ
+.label-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}

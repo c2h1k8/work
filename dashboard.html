@@ -13,20 +13,24 @@
         document.documentElement.setAttribute('data-theme', t);
       })();
     </script>
-    <link rel="stylesheet" href="./css/base/tokens.css" />
-    <link rel="stylesheet" href="./css/base/ui.css" />
-    <link rel="stylesheet" href="./css/base/custom_select.css" />
-    <link rel="stylesheet" href="./css/base/toast.css" />
+    <link rel="stylesheet" href="./css/core/tokens.css" />
+    <link rel="stylesheet" href="./css/core/ui.css" />
+    <link rel="stylesheet" href="./css/components/custom_select.css" />
+    <link rel="stylesheet" href="./css/components/toast.css" />
     <link rel="stylesheet" href="./css/dashboard.css" />
-    <link rel="stylesheet" href="./css/base/bind_var_modal.css" />
-    <script defer src="./js/base/utils.js"></script>
-    <script defer src="./js/base/icons.js"></script>
-    <script defer src="./js/base/toast.js"></script>
-    <script defer src="./js/base/custom_select.js"></script>
-    <script defer src="./js/base/local_storage.js"></script>
-    <script defer src="./js/base/bind_var_modal.js"></script>
+    <link rel="stylesheet" href="./css/components/bind_var_modal.css" />
+    <script defer src="./js/core/utils.js"></script>
+    <script defer src="./js/core/icons.js"></script>
+    <script defer src="./js/components/toast.js"></script>
+    <script defer src="./js/components/custom_select.js"></script>
+    <script defer src="./js/core/local_storage.js"></script>
+    <script defer src="./js/components/bind_var_modal.js"></script>
     <script defer src="./js/db/dashboard_db.js"></script>
-    <script defer src="./js/dashboard.js"></script>
+    <script defer src="./js/dashboard/constants.js"></script>
+    <script defer src="./js/dashboard/state.js"></script>
+    <script defer src="./js/dashboard/renderer.js"></script>
+    <script defer src="./js/dashboard/events.js"></script>
+    <script defer src="./js/dashboard/app.js"></script>
   </head>
   <body>
     <!-- 共通バインド変数バー（プリセット選択） -->
@@ -67,6 +71,6 @@
       </div>
     </aside>
 
-    <!-- トースト: js/base/toast.js が自動生成 -->
+    <!-- トースト: js/components/toast.js が自動生成 -->
   </body>
 </html>

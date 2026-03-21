@@ -16,7 +16,7 @@
 ## 技術スタック
 
 - **フロントエンド**: Vanilla JS（全ページ統一）
-- **スタイル**: LESS → CSS（手動コンパイル）。デザイントークンは `css/base/tokens.less` に一元管理
+- **スタイル**: LESS → CSS（手動コンパイル）。デザイントークンは `css/core/tokens.less` に一元管理
 - **デザインシステム**: インディゴ/バイオレット系カラーパレット。ライト/ダークモード対応（`[data-theme]` 属性）
 - **外部ライブラリ**: SortableJS（todo.html のみ、CDN）
 - **データ永続化**: IndexedDB（全ページ）/ localStorage（UI状態・テーマ設定）
@@ -34,46 +34,58 @@ work/
 ├── note.html           # ノート管理
 ├── wbs.html            # WBS管理（ガントチャート付き）
 ├── js/
-│   ├── base/
-│   │   ├── local_storage.js   # localStorage ユーティリティ
-│   │   ├── common.js          # 共通ユーティリティ（dashboard.html を除く全ページで使用）
-│   │   ├── utils.js           # escapeHtml / sortByPosition（全ページ共通）
-│   │   ├── icons.js           # JS生成HTML用 SVGアイコン定数（全ページ共通）
+│   ├── core/                  # 基盤ユーティリティ
+│   │   ├── utils.js           # escapeHtml / sortByPosition / getString / isValidUrl
+│   │   ├── icons.js           # JS生成HTML用 SVGアイコン定数
+│   │   └── local_storage.js   # localStorage ユーティリティ
+│   ├── components/            # 再利用可能UIコンポーネント
 │   │   ├── toast.js           # トースト通知（Toast.show）
 │   │   ├── tooltip.js         # カスタムツールチップ（Tooltip.init）
 │   │   ├── date_picker.js     # カスタムカレンダー部品（DatePicker.open）
 │   │   ├── label_manager.js   # ラベル管理ダイアログ（LabelManager.open）
 │   │   ├── label_filter.js    # ラベルフィルタードロップダウン
 │   │   ├── custom_select.js   # カスタム select コンポーネント（CustomSelect.replaceAll）
-│   │   └── bind_var_modal.js  # バインド変数 + プリセット管理モーダル（BindVarModal.open）
-│   ├── db/
-│   │   ├── kanban_db.js       # KanbanDB（todo.html 用、kanban_db）
-│   │   ├── note_db.js         # NoteDB（note.html 用、note_db）
-│   │   ├── dashboard_db.js    # DashboardDB（dashboard.html 用、dashboard_db）
-│   │   ├── sql_db.js          # SqlDB（sql.html 用、sql_db）
-│   │   └── wbs_db.js          # WbsDB（wbs.html 用、wbs_db）
-│   ├── index.js        # タブ生成・切り替えロジック・テーマ管理（IndexedDB: app_db）
-│   ├── dashboard.js    # カスタムダッシュボード（IndexedDB: dashboard_db）
-│   ├── todo.js         # Kanban ロジック（IndexedDB: kanban_db）
-│   ├── sql.js          # SQL コマンド生成（IndexedDB: sql_db）
-│   ├── note.js         # ノート管理（IndexedDB: note_db）
-│   └── wbs.js          # WBS・ガントチャート（IndexedDB: wbs_db）
+│   │   └── bind_var_modal.js  # バインド変数管理モーダル（BindVarModal.open）
+│   ├── db/                    # IndexedDB 操作クラス
+│   │   ├── kanban_db.js       # KanbanDB（todo.html 用）
+│   │   ├── note_db.js         # NoteDB（note.html 用）
+│   │   ├── dashboard_db.js    # DashboardDB（dashboard.html 用）
+│   │   ├── sql_db.js          # SqlDB（sql.html 用）
+│   │   └── wbs_db.js          # WbsDB（wbs.html 用）
+│   ├── todo/                  # TODO管理（分割）
+│   │   ├── state.js           # State + グローバルヘルパー
+│   │   ├── backup.js          # エクスポート/インポート
+│   │   ├── renderer.js        # DOM 描画
+│   │   ├── dragdrop.js        # ドラッグ&ドロップ
+│   │   └── app.js             # EventHandlers + App
+│   ├── dashboard/             # ダッシュボード（分割）
+│   │   ├── constants.js       # 定数・ユーティリティ
+│   │   ├── state.js           # State + 変数解決
+│   │   ├── renderer.js        # DOM 描画
+│   │   ├── events.js          # EventHandlers
+│   │   └── app.js             # App
+│   ├── note/                  # ノート管理（分割）
+│   │   ├── state.js           # State + ヘルパー
+│   │   ├── renderer.js        # DOM 描画
+│   │   ├── events.js          # EventHandlers
+│   │   └── app.js             # App
+│   ├── index.js               # タブ生成・切り替え・テーマ管理
+│   ├── sql.js                 # SQL コマンド生成
+│   └── wbs.js                 # WBS・ガントチャート
 └── css/
-    ├── base/
-    │   ├── tokens.{less,css}          # デザイントークン（カラー・シャドウ・ラジウス等）★
-    │   ├── ui.{less,css}              # 共通 UI コンポーネント（btn/badge 等）★
-    │   ├── tab_style.{less,css}       # タブ UI・ナビゲーション
-    │   ├── toast.{less,css}           # トースト通知
-    │   ├── tooltip.{less,css}         # カスタムツールチップ
-    │   ├── date_picker.{less,css}     # カスタムカレンダー部品
-    │   ├── label_manager.{less,css}   # ラベル管理ダイアログ
-    │   ├── label_filter.{less,css}    # ラベルフィルタードロップダウン
-    │   ├── custom_select.{less,css}   # カスタム select コンポーネント
-    │   └── bind_var_modal.{less,css}  # バインド変数 + プリセット管理モーダル
-    ├── dashboard.{less,css}
-    ├── todo.{less,css}
+    ├── core/                  # 基盤スタイル
+    │   ├── tokens.{less,css}  # デザイントークン ★
+    │   ├── ui.{less,css}      # 共通 UI（btn 等）+ カラーエイリアス ★
+    │   └── tab_style.{less,css} # タブ UI・ナビゲーション
+    ├── components/            # コンポーネントスタイル
+    │   ├── checklist.{less,css}     # チェックリスト（共通）
+    │   ├── toast / tooltip / date_picker / label_manager /
+    │   ├── label_filter / custom_select / bind_var_modal
+    │   └── (各 {less,css} ペア)
+    ├── todo.less → css/todo/_*.less  # パーシャル分割
+    ├── dashboard.less → css/dashboard/_*.less
+    ├── note.less → css/note/_*.less
     ├── sql.{less,css}
-    ├── note.{less,css}
     └── wbs.{less,css}
 ```
 
@@ -96,7 +108,7 @@ work/
 `.less` ファイルを編集後、対応する `.css` へコンパイルして反映する。
 
 ```bash
-npx lessc css/base/tokens.less css/base/tokens.css
+npx lessc css/core/tokens.less css/core/tokens.css
 npx lessc css/todo.less css/todo.css
 # ... 各ファイルに対して同様に実行
 ```

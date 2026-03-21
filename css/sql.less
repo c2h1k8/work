@@ -1,22 +1,13 @@
 // ==================================================
 // カラー・デザイントークン（todo.css と統一）
 // ==================================================
+// 共通エイリアスは css/core/ui.less で定義。ここではページ固有のみ
 :root {
-  --color-bg:           var(--c-bg);
-  --color-card:         var(--c-surface);
-  --color-border:       var(--c-border);
-  --color-text:         var(--c-text);
-  --color-text-muted:   var(--c-text-3);
-  --color-accent:       var(--c-accent);
-  --color-accent-hover: var(--c-accent-hover);
-  --color-danger:       var(--c-danger);
-  --color-danger-bg:    var(--c-danger-bg);
   --color-warning:      var(--c-warning);
   --color-warning-bg:   var(--c-warning-bg);
   --color-done:         var(--c-success);
   --color-done-bg:      var(--c-success-bg);
   --color-shadow:       rgba(20,28,80,.1);
-  // radius は tokens.css の値をそのまま使用（--radius-sm=5px / --radius-md=7px / --radius-lg=10px）
 }
 
 // ==================================================
@@ -26,7 +17,7 @@
 // ==================================================
 // ページヘッダー
 // ==================================================
-// ページヘッダー（基本スタイルは css/base/ui.css の共通定義を参照）
+// ページヘッダー（基本スタイルは css/core/ui.css の共通定義を参照）
 .page-header {
   padding: 0 24px; // SQL は左右 24px
 
@@ -462,7 +453,7 @@
   flex-wrap: wrap;
 }
 
-// .btn は css/base/ui.css で定義（共通化）
+// .btn は css/core/ui.css で定義（共通化）
 
 // スクリーンリーダー専用（視覚的に非表示）
 .sr-only {

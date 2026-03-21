@@ -1,0 +1,405 @@
+// ── ヘッダー（基本スタイルは css/core/ui.css の共通定義を参照）────
+
+// ── レイアウト ───────────────────────────────────────────────
+.note-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+// ── サイドバー（タスクリスト） ────────────────────────────────
+.note-sidebar {
+  width: @sidebar-w;
+  flex-shrink: 0;
+  background: @card-bg;
+  border-right: 1px solid @border;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.note-sidebar__search {
+  padding: 10px;
+  border-bottom: 1px solid @border-l;
+  flex-shrink: 0;
+}
+
+.note-search {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  font-size: 13px;
+  background: @bg;
+  color: @text;
+  outline: none;
+  transition: border-color @t, background @t;
+
+  &::placeholder { color: @text-muted; }
+  &:focus { border-color: @accent; background: @bg; }
+}
+
+// ── サイドバー：ソート・フィルターコントロール ────────────────
+.note-sidebar__controls {
+  padding: 8px 10px;
+  border-bottom: 1px solid @border-l;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  z-index: 10;
+}
+
+.note-controls__sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note-controls__label {
+  font-size: 11px;
+  color: @text-muted;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+// ── タイトル行数コントロール ───────────────────────────────────
+.note-controls__display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note-title-lines-group {
+  display: flex;
+  border: 1px solid @border;
+  border-radius: @radius-sm;
+  overflow: hidden;
+}
+
+.note-title-lines-btn {
+  background: none;
+  border: none;
+  border-right: 1px solid @border;
+  cursor: pointer;
+  font-size: 11px;
+  color: @text-sub;
+  padding: 2px 8px;
+  font-family: inherit;
+  transition: background @t, color @t;
+
+  &:last-child { border-right: none; }
+
+  &:hover {
+    background: @accent-l;
+    color: @accent;
+  }
+
+  &.is-active {
+    background: @accent;
+    color: #fff;
+  }
+}
+
+// ── フィルターバー（ポップオーバー方式）──────────────────────
+.note-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.note-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid @border;
+  border-radius: 99px;
+  background: @card-bg;
+  color: @text-sub;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background @t, border-color @t, color @t;
+  flex-shrink: 0;
+
+  svg { flex-shrink: 0; }
+
+  &:hover, &.is-open {
+    border-color: @accent;
+    color: @accent;
+    background: @accent-l;
+  }
+}
+
+.note-filter-btn__badge {
+  background: @accent;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 99px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+}
+
+// アクティブチップバー
+.note-filter-active-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding-top: 2px;
+}
+
+.note-filter-active-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid @accent;
+  border-radius: 99px;
+  font-size: 11px;
+  background: @accent-l;
+  color: @accent;
+}
+
+.note-filter-active-chip__text {
+  font-weight: 500;
+}
+
+.note-filter-active-chip__remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 13px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 99px;
+  line-height: 1;
+  padding: 0;
+  transition: background @t;
+
+  &:hover { background: var(--c-accent-dim); }
+}
+
+// ポップオーバーパネル（.note-sidebar-controls 基準の絶対配置）
+.note-filter-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: @card-bg;
+  border: 1px solid @border;
+  border-radius: 0 0 @radius-md @radius-md;
+  border-top: none;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-filter-popover__section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.note-filter-popover__label {
+  font-size: 10px;
+  font-weight: 700;
+  color: @text-muted;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.note-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.note-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid @border;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 500;
+  color: @text-sub;
+  background: @card-bg;
+  cursor: pointer;
+  transition: background @t, border-color @t, color @t;
+  font-family: inherit;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    color: @accent;
+  }
+
+  &.is-active {
+    background: @accent;
+    border-color: @accent;
+    color: #fff;
+  }
+}
+
+.note-task-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.note-task-list__empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: @text-muted;
+  font-size: 13px;
+}
+
+.note-task-item {
+  padding: 9px 11px;
+  border-radius: @radius-md;
+  cursor: pointer;
+  transition: background @t, border-color @t, box-shadow @t, transform @t;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid @border-l;
+  border-left: 3px solid @border-l;
+  background: @card-bg;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+
+  &:hover {
+    background: @accent-l;
+    border-color: var(--c-accent-dim);
+    border-left-color: var(--c-accent);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+  }
+
+  &.is-selected {
+    background: @accent-l;
+    border-color: @accent;
+    border-left-color: @accent;
+    box-shadow: var(--shadow);
+  }
+}
+
+.note-task-item__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: @text;
+  word-break: break-all;
+  line-height: 1.4;
+
+  // 1行省略
+  &--lines-1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: normal;
+  }
+
+  // 2行省略
+  &--lines-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-all;
+  }
+}
+
+.note-task-item__date {
+  font-size: 11px;
+  color: @text-muted;
+}
+
+// タスク一覧に表示するフィールド値バッジ
+.note-task-item__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 1px;
+}
+
+.note-task-field-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.6;
+
+  &--select {
+    background: @accent-l;
+    color: @accent;
+  }
+
+  // label タイプはインラインスタイルでカラーを設定（フォールバックのみ）
+  &--label {
+    background: var(--c-accent-dim);
+    color: var(--c-accent);
+    border-radius: 99px;
+  }
+
+  &--date {
+    background: @green-l;
+    color: @green;
+  }
+
+  &--link {
+    background: @border-l;
+    color: @text-sub;
+  }
+
+  &--text {
+    background: @border-l;
+    color: @text-sub;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.note-add-task-btn {
+  margin: 8px;
+  padding: 9px 12px;
+  background: none;
+  border: 1px dashed @border;
+  border-radius: @radius-sm;
+  color: @accent;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background @t, border-color @t, transform @t;
+  flex-shrink: 0;
+  text-align: center;
+
+  &:hover {
+    background: @accent-l;
+    border-color: @accent;
+    transform: translateY(-1px);
+  }
+}
+

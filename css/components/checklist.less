@@ -1,0 +1,91 @@
+// ==================================================
+// チェックリスト: 共通コンポーネント
+// todo.html / dashboard.html で共通使用
+// ==================================================
+
+.checklist-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: 4px;
+
+  &__bar {
+    flex: 1;
+    height: 6px;
+    background: var(--c-bg-2);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    background: var(--c-success, #2da44e);
+    border-radius: 100px;
+    transition: width .3s ease;
+  }
+
+  &__text {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--c-text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+.checklist-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  cursor: pointer;
+  transition: background var(--t);
+  border-radius: var(--radius-sm);
+
+  & + & { border-top: 1px solid var(--c-border); }
+  &:hover { background: var(--c-bg-2); }
+  &:active { background: var(--c-accent-dim); }
+
+  &.is-checked {
+    .checklist-check-icon {
+      background: var(--c-success, #2da44e);
+      border-color: var(--c-success, #2da44e);
+      svg { opacity: 1; }
+    }
+    .checklist-label {
+      color: var(--c-text-muted);
+      text-decoration: line-through;
+    }
+  }
+
+  input[type=checkbox] { display: none; }
+}
+
+.checklist-check-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--t), border-color var(--t);
+
+  svg { width: 10px; height: 10px; color: #fff; opacity: 0; transition: opacity var(--t); }
+}
+
+.checklist-label {
+  font-size: 14px;
+  font-weight: 500;
+  flex: 1;
+  color: var(--c-text);
+  transition: color var(--t);
+}
