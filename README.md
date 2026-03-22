@@ -16,6 +16,7 @@
 | `snippet.html`    | コードスニペット管理（言語・タグで整理、検索・フィルタ。ワンクリックコピー・シンタックスハイライト（highlight.js）・エクスポート/インポート対応） |
 | `diff_tool.html`  | 差分比較ツール（左右のテキストをペーストするだけでdiffをハイライト表示。行単位/文字単位切替・空白無視・折りたたみ表示。永続化なし） |
 | `ops.html`        | 運用インフラツール（ログビューア・cron式エディタ・HTTPステータスコード辞典・ポート番号リファレンス・サブネット計算機 の5ツールをタブで統合） |
+| `text.html`       | テキスト処理・変換ツール（エンコード・ケース変換・正規表現テスター・文字カウント・タイムスタンプ・TSV/CSV・フォーマッタ の7ツールをタブで統合） |
 
 ## 技術スタック
 
@@ -41,6 +42,7 @@ work/
 ├── snippet.html        # コードスニペット管理
 ├── diff_tool.html      # 差分比較ツール
 ├── ops.html            # 運用ツール（ログビューア等）
+├── text.html           # テキスト処理・変換ツール
 ├── js/
 │   ├── core/                  # 基盤ユーティリティ
 │   │   ├── utils.js           # escapeHtml / sortByPosition / getString / isValidUrl
@@ -86,7 +88,8 @@ work/
 │   ├── timer.js               # 定型作業タイマー
 │   ├── snippet.js             # コードスニペット管理
 │   ├── diff_tool.js           # 差分比較ツール
-│   └── ops.js                 # 運用インフラツール（ログビューア/cron/HTTPステータス/ポート番号/サブネット）
+│   ├── ops.js                 # 運用インフラツール（ログビューア/cron/HTTPステータス/ポート番号/サブネット）
+│   └── text.js                # テキスト処理・変換ツール（エンコード/ケース変換/正規表現/文字カウント）
 └── css/
     ├── core/                  # 基盤スタイル
     │   ├── tokens.{less,css}  # デザイントークン ★
@@ -105,7 +108,8 @@ work/
     ├── timer.{less,css}
     ├── snippet.{less,css}
     ├── diff_tool.{less,css}
-    └── ops.{less,css}
+    ├── ops.{less,css}
+    └── text.{less,css}
 ```
 
 ## 使い方

@@ -15,6 +15,7 @@
     </script>
     <link rel="stylesheet" href="./css/core/tokens.css" />
     <link rel="stylesheet" href="./css/core/ui.css" />
+    <link rel="stylesheet" href="./css/components/custom_select.css" />
     <!-- highlight.js テーマ（ライト/ダーク） -->
     <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css" />
     <link id="hljs-dark"  rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css" disabled />
@@ -25,6 +26,7 @@
     <script defer src="./js/core/icons.js"></script>
     <script defer src="./js/core/local_storage.js"></script>
     <script defer src="./js/components/toast.js"></script>
+    <script defer src="./js/components/custom_select.js"></script>
     <script defer src="./js/db/snippet_db.js"></script>
     <script defer src="./js/snippet.js"></script>
   </head>
@@ -62,7 +64,7 @@
               </svg>
               <input type="text" id="search-input" class="snippet-search__input" placeholder="検索..." autocomplete="off" />
             </div>
-            <select id="lang-filter" class="snippet-lang-select">
+            <select id="lang-filter" class="snippet-lang-select cs-target kn-select--grow">
               <option value="">すべての言語</option>
             </select>
             <div id="tag-filter-bar" class="tag-filter-bar"></div>
@@ -97,25 +99,27 @@
           <div class="form-row form-row--2col">
             <div>
               <label class="form-label" for="modal-language-input">言語</label>
-              <input type="text" id="modal-language-input" name="modal-language" class="form-input" placeholder="sql, javascript, ..." list="lang-datalist" autocomplete="off" />
-              <datalist id="lang-datalist">
-                <option value="sql">
-                <option value="javascript">
-                <option value="typescript">
-                <option value="python">
-                <option value="bash">
-                <option value="shell">
-                <option value="java">
-                <option value="go">
-                <option value="rust">
-                <option value="yaml">
-                <option value="json">
-                <option value="xml">
-                <option value="html">
-                <option value="css">
-                <option value="markdown">
-                <option value="text">
-              </datalist>
+              <select id="modal-language-input" name="modal-language" class="cs-target">
+                <option value="">（言語なし）</option>
+                <option value="sql">sql</option>
+                <option value="javascript">javascript</option>
+                <option value="typescript">typescript</option>
+                <option value="python">python</option>
+                <option value="bash">bash</option>
+                <option value="shell">shell</option>
+                <option value="java">java</option>
+                <option value="go">go</option>
+                <option value="rust">rust</option>
+                <option value="kotlin">kotlin</option>
+                <option value="swift">swift</option>
+                <option value="yaml">yaml</option>
+                <option value="json">json</option>
+                <option value="xml">xml</option>
+                <option value="html">html</option>
+                <option value="css">css</option>
+                <option value="markdown">markdown</option>
+                <option value="text">text</option>
+              </select>
             </div>
             <div>
               <label class="form-label" for="modal-tags-input">タグ（カンマ区切り）</label>

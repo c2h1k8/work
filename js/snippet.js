@@ -135,6 +135,8 @@ function updateLangSelect() {
   sel.innerHTML = '<option value="">すべての言語</option>' +
     langs.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
   sel.value = langs.includes(cur) ? cur : '';
+  // CustomSelect の表示を同期
+  sel._csInst?.render();
 }
 
 /** 詳細パネルを描画 */
@@ -229,6 +231,8 @@ function openModal(id = null) {
   }
 
   modal.hidden = false;
+  // CustomSelect の表示を選択値に同期
+  document.getElementById('modal-language-input')._csInst?.render();
   form['modal-title'].focus();
 }
 
@@ -406,8 +410,10 @@ function setupEvents() {
     }, 200);
   });
 
-  // 言語フィルタ
+  // 言語フィルタ・モーダル言語フィールド（CustomSelect に変換）
   const langFilter = document.getElementById('lang-filter');
+  CustomSelect.replaceAll(document.querySelector('.snippet-list-panel__top'));
+  CustomSelect.replaceAll(document.getElementById('snippet-modal'));
   langFilter.addEventListener('change', () => {
     State.filterLanguage = langFilter.value;
     saveToStorage(SNIPPET_FILTER_LANG, State.filterLanguage);
@@ -415,6 +421,7 @@ function setupEvents() {
     renderList();
   });
   langFilter.value = State.filterLanguage;
+  langFilter._csInst?.render();
 
   // タグフィルタ（イベント委譲）
   document.getElementById('tag-filter-bar').addEventListener('click', e => {

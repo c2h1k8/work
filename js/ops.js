@@ -353,7 +353,7 @@ function formatInTz(date, tzOffsetHours, tzLabel) {
 // ==================================================
 
 const DOW_JA  = ['日','月','火','水','木','金','土'];
-const MON_JA  = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+const MON_JA  = ['1','2','3','4','5','6','7','8','9','10','11','12'];
 
 function setToDesc(set, min, max, unit, names) {
   if (set.size === max - min + 1) return `毎${unit}`;
@@ -415,26 +415,17 @@ function describeCron(expr) {
 // ==================================================
 
 function initCronBuilder() {
-  // select のオプションを生成
-  const minFix  = document.getElementById('cron-min-fix');
-  const hourFix = document.getElementById('cron-hour-fix');
+  // 日 select のオプションを生成（分・時は number input に変更済み）
   const dayFix  = document.getElementById('cron-day-fix');
 
-  for (let i = 0; i <= 59; i++) {
-    const o = document.createElement('option');
-    o.value = o.textContent = i;
-    minFix.appendChild(o);
-  }
-  for (let i = 0; i <= 23; i++) {
-    const o = document.createElement('option');
-    o.value = o.textContent = i;
-    hourFix.appendChild(o);
-  }
   for (let i = 1; i <= 31; i++) {
     const o = document.createElement('option');
     o.value = o.textContent = i;
     dayFix.appendChild(o);
   }
+
+  // CustomSelect を適用
+  CustomSelect.replaceAll(document.getElementById('cron-builder'));
 
   // GUIビルダー → cron式 同期
   document.getElementById('cron-builder').addEventListener('change', () => {
@@ -500,7 +491,7 @@ function syncGuiFromCron(expr) {
     document.querySelector('input[name="cron-min"][value="step"]').checked = true;
     const step = minF.slice(2);
     const sel  = document.getElementById('cron-min-step');
-    if ([...sel.options].some(o => o.value === step)) sel.value = step;
+    if ([...sel.options].some(o => o.value === step)) { sel.value = step; sel._csInst?.render(); }
   } else if (!minF.includes(',') && !minF.includes('-')) {
     document.querySelector('input[name="cron-min"][value="fix"]').checked = true;
     document.getElementById('cron-min-fix').value = minF;
@@ -513,7 +504,7 @@ function syncGuiFromCron(expr) {
     document.querySelector('input[name="cron-hour"][value="step"]').checked = true;
     const step = hourF.slice(2);
     const sel  = document.getElementById('cron-hour-step');
-    if ([...sel.options].some(o => o.value === step)) sel.value = step;
+    if ([...sel.options].some(o => o.value === step)) { sel.value = step; sel._csInst?.render(); }
   } else if (!hourF.includes(',') && !hourF.includes('-')) {
     document.querySelector('input[name="cron-hour"][value="fix"]').checked = true;
     document.getElementById('cron-hour-fix').value = hourF;
@@ -524,7 +515,9 @@ function syncGuiFromCron(expr) {
     document.querySelector('input[name="cron-day"][value="*"]').checked = true;
   } else if (!dayF.includes(',') && !dayF.includes('-')) {
     document.querySelector('input[name="cron-day"][value="fix"]').checked = true;
-    document.getElementById('cron-day-fix').value = dayF;
+    const daySel = document.getElementById('cron-day-fix');
+    daySel.value = dayF;
+    daySel._csInst?.render();
   }
 
   // 月
@@ -848,7 +841,9 @@ function openPortsForm(port) {
   State.portsEditingId = port ? port.id : null;
 
   document.getElementById('ports-form-port').value    = port ? port.port    : '';
-  document.getElementById('ports-form-proto').value   = port ? port.protocol : 'TCP';
+  const protoSel = document.getElementById('ports-form-proto');
+  protoSel.value = port ? port.protocol : 'TCP';
+  protoSel._csInst?.render();
   document.getElementById('ports-form-service').value = port ? port.service : '';
   document.getElementById('ports-form-memo').value    = port ? port.memo    : '';
   formEl.hidden = false;
@@ -1047,6 +1042,9 @@ function init() {
   });
 
   // ── ポート番号リファレンス イベント ─────────────
+  // プロトコル select を CustomSelect に変換
+  CustomSelect.replaceAll(document.getElementById('ports-form'));
+
   document.getElementById('ports-search').addEventListener('input', e => {
     State.portsSearch = e.target.value;
     renderPorts();

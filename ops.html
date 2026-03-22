@@ -17,12 +17,14 @@
     <link rel="stylesheet" href="./css/core/ui.css" />
     <link rel="stylesheet" href="./css/components/toast.css" />
     <link rel="stylesheet" href="./css/components/date_picker.css" />
+    <link rel="stylesheet" href="./css/components/custom_select.css" />
     <link rel="stylesheet" href="./css/ops.css" />
     <script defer src="./js/core/utils.js"></script>
     <script defer src="./js/core/icons.js"></script>
     <script defer src="./js/core/local_storage.js"></script>
     <script defer src="./js/components/toast.js"></script>
     <script defer src="./js/components/date_picker.js"></script>
+    <script defer src="./js/components/custom_select.js"></script>
     <script defer src="./js/db/ops_db.js"></script>
     <script defer src="./js/ops.js"></script>
   </head>
@@ -201,81 +203,107 @@
             <div class="cron-builder__field">
               <div class="cron-builder__field-label">分</div>
               <div class="cron-builder__field-ctrl">
-                <label class="cron-builder__radio"><input type="radio" name="cron-min" value="*" checked /> 毎分</label>
-                <label class="cron-builder__radio"><input type="radio" name="cron-min" value="step" /> ごとに
-                  <select class="cron-builder__sel" id="cron-min-step">
-                    <option value="5">5</option><option value="10">10</option><option value="15">15</option>
-                    <option value="20">20</option><option value="30">30</option>
-                  </select>分
-                </label>
-                <label class="cron-builder__radio"><input type="radio" name="cron-min" value="fix" /> 指定
-                  <select class="cron-builder__sel" id="cron-min-fix">
-                    <!-- 0〜59 は JS で生成 -->
-                  </select>分
-                </label>
+                <div class="radio-pill-group">
+                  <label class="radio-pill">
+                    <input type="radio" name="cron-min" value="*" checked class="radio-pill__input" />
+                    <span class="radio-pill__inner">毎分</span>
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="cron-min" value="step" class="radio-pill__input" />
+                    <span class="radio-pill__inner">ごとに
+                      <select class="cs-target cs-target--sm" id="cron-min-step">
+                        <option value="5">5</option><option value="10">10</option><option value="15">15</option>
+                        <option value="20">20</option><option value="30">30</option>
+                      </select>分
+                    </span>
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="cron-min" value="fix" class="radio-pill__input" />
+                    <span class="radio-pill__inner">指定
+                      <input type="number" id="cron-min-fix" min="0" max="59" value="0" class="cron-builder__num-input" />分
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
             <!-- 時 -->
             <div class="cron-builder__field">
               <div class="cron-builder__field-label">時</div>
               <div class="cron-builder__field-ctrl">
-                <label class="cron-builder__radio"><input type="radio" name="cron-hour" value="*" checked /> 毎時</label>
-                <label class="cron-builder__radio"><input type="radio" name="cron-hour" value="step" /> ごとに
-                  <select class="cron-builder__sel" id="cron-hour-step">
-                    <option value="2">2</option><option value="3">3</option><option value="4">4</option>
-                    <option value="6">6</option><option value="8">8</option><option value="12">12</option>
-                  </select>時間
-                </label>
-                <label class="cron-builder__radio"><input type="radio" name="cron-hour" value="fix" /> 指定
-                  <select class="cron-builder__sel" id="cron-hour-fix">
-                    <!-- 0〜23 は JS で生成 -->
-                  </select>時
-                </label>
+                <div class="radio-pill-group">
+                  <label class="radio-pill">
+                    <input type="radio" name="cron-hour" value="*" checked class="radio-pill__input" />
+                    <span class="radio-pill__inner">毎時</span>
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="cron-hour" value="step" class="radio-pill__input" />
+                    <span class="radio-pill__inner">ごとに
+                      <select class="cs-target cs-target--sm" id="cron-hour-step">
+                        <option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                        <option value="6">6</option><option value="8">8</option><option value="12">12</option>
+                      </select>時間
+                    </span>
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="cron-hour" value="fix" class="radio-pill__input" />
+                    <span class="radio-pill__inner">指定
+                      <input type="number" id="cron-hour-fix" min="0" max="23" value="0" class="cron-builder__num-input" />時
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
             <!-- 日 -->
             <div class="cron-builder__field">
               <div class="cron-builder__field-label">日</div>
               <div class="cron-builder__field-ctrl">
-                <label class="cron-builder__radio"><input type="radio" name="cron-day" value="*" checked /> 毎日</label>
-                <label class="cron-builder__radio"><input type="radio" name="cron-day" value="fix" /> 指定
-                  <select class="cron-builder__sel" id="cron-day-fix">
-                    <!-- 1〜31 は JS で生成 -->
-                  </select>日
-                </label>
+                <div class="radio-pill-group">
+                  <label class="radio-pill">
+                    <input type="radio" name="cron-day" value="*" checked class="radio-pill__input" />
+                    <span class="radio-pill__inner">毎日</span>
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="cron-day" value="fix" class="radio-pill__input" />
+                    <span class="radio-pill__inner">指定
+                      <select class="cs-target cs-target--sm" id="cron-day-fix">
+                        <!-- 1〜31 は JS で生成 -->
+                      </select>日
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
             <!-- 月 -->
-            <div class="cron-builder__field">
+            <div class="cron-builder__field cron-builder__field--top">
               <div class="cron-builder__field-label">月</div>
               <div class="cron-builder__field-ctrl cron-builder__field-ctrl--wrap">
-                <label class="cron-builder__check"><input type="checkbox" id="cron-month-all" checked /> 毎月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="1" /> 1月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="2" /> 2月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="3" /> 3月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="4" /> 4月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="5" /> 5月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="6" /> 6月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="7" /> 7月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="8" /> 8月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="9" /> 9月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="10" /> 10月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="11" /> 11月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-month="12" /> 12月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" id="cron-month-all" checked class="chk-input" /><span class="chk-box"></span>毎月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="1" class="chk-input" /><span class="chk-box"></span>1月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="2" class="chk-input" /><span class="chk-box"></span>2月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="3" class="chk-input" /><span class="chk-box"></span>3月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="4" class="chk-input" /><span class="chk-box"></span>4月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="5" class="chk-input" /><span class="chk-box"></span>5月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="6" class="chk-input" /><span class="chk-box"></span>6月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="7" class="chk-input" /><span class="chk-box"></span>7月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="8" class="chk-input" /><span class="chk-box"></span>8月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="9" class="chk-input" /><span class="chk-box"></span>9月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="10" class="chk-input" /><span class="chk-box"></span>10月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="11" class="chk-input" /><span class="chk-box"></span>11月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-month="12" class="chk-input" /><span class="chk-box"></span>12月</label>
               </div>
             </div>
             <!-- 曜日 -->
-            <div class="cron-builder__field">
+            <div class="cron-builder__field cron-builder__field--top">
               <div class="cron-builder__field-label">曜日</div>
               <div class="cron-builder__field-ctrl cron-builder__field-ctrl--wrap">
-                <label class="cron-builder__check"><input type="checkbox" id="cron-dow-all" checked /> 毎日</label>
-                <label class="cron-builder__check"><input type="checkbox" data-dow="0" /> 日</label>
-                <label class="cron-builder__check"><input type="checkbox" data-dow="1" /> 月</label>
-                <label class="cron-builder__check"><input type="checkbox" data-dow="2" /> 火</label>
-                <label class="cron-builder__check"><input type="checkbox" data-dow="3" /> 水</label>
-                <label class="cron-builder__check"><input type="checkbox" data-dow="4" /> 木</label>
-                <label class="cron-builder__check"><input type="checkbox" data-dow="5" /> 金</label>
-                <label class="cron-builder__check"><input type="checkbox" data-dow="6" /> 土</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" id="cron-dow-all" checked class="chk-input" /><span class="chk-box"></span>毎日</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-dow="0" class="chk-input" /><span class="chk-box"></span>日</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-dow="1" class="chk-input" /><span class="chk-box"></span>月</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-dow="2" class="chk-input" /><span class="chk-box"></span>火</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-dow="3" class="chk-input" /><span class="chk-box"></span>水</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-dow="4" class="chk-input" /><span class="chk-box"></span>木</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-dow="5" class="chk-input" /><span class="chk-box"></span>金</label>
+                <label class="chk-label cron-builder__check"><input type="checkbox" data-dow="6" class="chk-input" /><span class="chk-box"></span>土</label>
               </div>
             </div>
           </div>
@@ -368,7 +396,7 @@
             </div>
             <div class="ports-form__field">
               <label class="ports-form__label">プロトコル</label>
-              <select id="ports-form-proto" class="ports-form__select">
+              <select id="ports-form-proto" class="cs-target">
                 <option value="TCP">TCP</option>
                 <option value="UDP">UDP</option>
                 <option value="both">TCP/UDP</option>

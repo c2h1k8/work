@@ -219,3 +219,144 @@ body {
   margin-left: auto;
   flex-shrink: 0;
 }
+
+// ── カスタムチェックボックス ───────────────────────
+// 使い方:
+//   <label class="chk-label" for="id">
+//     <input type="checkbox" id="id" class="chk-input" />
+//     <span class="chk-box"></span>
+//     ラベルテキスト
+//   </label>
+
+.chk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--c-text);
+  user-select: none;
+
+  &:hover .chk-box { border-color: var(--c-accent); }
+}
+
+.chk-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.chk-box {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 4px;
+  background: var(--c-bg);
+  position: relative;
+  transition: background var(--t), border-color var(--t);
+
+  // チェックマーク（SVG パスで描画）
+  &::after {
+    content: '';
+    position: absolute;
+    display: none;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: 2px solid #fff;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+  }
+}
+
+.chk-input:checked + .chk-box {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+
+  &::after { display: block; }
+}
+
+// ── カスタムラジオボタン（ピルスタイル） ────────────
+// 使い方:
+//   <label class="radio-pill">
+//     <input type="radio" name="group" value="x" class="radio-pill__input" />
+//     <span class="radio-pill__inner">ラベル</span>
+//   </label>
+// グループは .radio-pill-group で囲む
+
+.radio-pill-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--c-bg-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+
+.radio-pill {
+  position: relative;
+  display: inline-flex;
+
+  &__input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  &__inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 13px;
+    border-radius: calc(var(--radius-md) - 2px);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--c-text-3);
+    cursor: pointer;
+    transition: background var(--t), color var(--t), box-shadow var(--t);
+    white-space: nowrap;
+    user-select: none;
+
+    &:hover { color: var(--c-text); }
+  }
+
+  // チェック状態: 白背景 + シャドウ + アクセントカラー
+  &__input:checked + &__inner {
+    background: var(--c-surface);
+    color: var(--c-accent);
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+// スタンドアロン版（グループなし・ボーダー付き単体ピル）
+.radio-pill--standalone {
+  .radio-pill__inner {
+    padding: 5px 12px;
+    border: 1.5px solid var(--c-border);
+    border-radius: var(--radius-md);
+    background: var(--c-surface);
+    color: var(--c-text-2);
+    transition: border-color var(--t), background var(--t), color var(--t), box-shadow var(--t);
+
+    &:hover {
+      border-color: var(--c-accent);
+      color: var(--c-text);
+    }
+  }
+
+  .radio-pill__input:checked + .radio-pill__inner {
+    border-color: var(--c-accent);
+    background: var(--c-accent-dim);
+    color: var(--c-accent);
+    box-shadow: none;
+  }
+}

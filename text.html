@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>テキスト処理</title>
+    <!-- テーマ初期化（フラッシュ防止のため defer なし） -->
+    <script>
+      (function() {
+        var t = localStorage.getItem('mytools_theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
+    <link rel="stylesheet" href="./css/core/tokens.css" />
+    <link rel="stylesheet" href="./css/core/ui.css" />
+    <link rel="stylesheet" href="./css/components/toast.css" />
+    <link rel="stylesheet" href="./css/text.css" />
+    <script defer src="./js/core/utils.js"></script>
+    <script defer src="./js/core/icons.js"></script>
+    <script defer src="./js/core/local_storage.js"></script>
+    <script defer src="./js/components/toast.js"></script>
+    <script defer src="./js/db/tools_db.js"></script>
+    <script defer src="./js/text.js"></script>
+  </head>
+  <body>
+
+    <!-- ページヘッダー -->
+    <header class="page-header">
+      <div class="page-header__inner">
+        <div class="page-header__brand">
+          <svg class="page-header__icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75C0 1.784.784 1 1.75 1Zm0 1.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25Zm2.5 2.25a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm0 3a.75.75 0 0 1 .75-.75h7a.75.75 0 0 1 0 1.5h-7a.75.75 0 0 1-.75-.75Zm0 3a.75.75 0 0 1 .75-.75h4a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1-.75-.75Z"/>
+          </svg>
+          <h1 class="page-header__title">テキスト処理</h1>
+        </div>
+      </div>
+    </header>
+
+    <!-- ツール内タブナビ -->
+    <nav class="txt-tabs" id="txt-tabs">
+      <button class="txt-tab txt-tab--active" data-tool="encode">エンコード</button>
+      <button class="txt-tab" data-tool="case">ケース変換</button>
+      <button class="txt-tab" data-tool="regex">正規表現</button>
+      <button class="txt-tab" data-tool="count">文字カウント</button>
+      <button class="txt-tab" data-tool="timestamp">タイムスタンプ</button>
+      <button class="txt-tab" data-tool="tsv">TSV/CSV</button>
+      <button class="txt-tab" data-tool="format">フォーマッタ</button>
+    </nav>
+
+    <main class="page-main">
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- エンコード/デコード                          -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="txt-tool" id="tool-encode">
+
+        <!-- 方向切替 + クリア -->
+        <div class="encode-direction-bar">
+          <div class="encode-dir-toggle" id="encode-dir-toggle">
+            <button class="encode-dir-btn encode-dir-btn--active" data-dir="encode">▼ エンコード</button>
+            <button class="encode-dir-btn" data-dir="decode">▲ デコード</button>
+          </div>
+          <button class="btn btn--ghost btn--sm" id="btn-encode-clear">クリア</button>
+        </div>
+
+        <!-- 入力 -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">入力</span>
+          </div>
+          <textarea
+            id="encode-input"
+            class="txt-textarea"
+            rows="6"
+            placeholder="変換するテキストをここに入力..."
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <!-- 変換結果（全4形式） -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">変換結果</span>
+            <span class="txt-card__hint">行をホバーしてコピー</span>
+          </div>
+          <div class="encode-result-list" id="encode-result-list"></div>
+        </div>
+
+      </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- ケース変換                                   -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="txt-tool" id="tool-case" hidden>
+
+        <!-- 入力 -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">入力テキスト</span>
+            <button class="btn btn--ghost btn--sm" id="case-clear-btn">クリア</button>
+          </div>
+          <textarea
+            id="case-input"
+            class="txt-textarea"
+            rows="4"
+            placeholder="変換するテキストを入力（例: hello world / helloWorld / hello-world）..."
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <!-- 変換結果 -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">変換結果</span>
+            <span class="txt-card__hint">クリックでコピー</span>
+          </div>
+          <div id="case-result-list" class="case-result-list"></div>
+        </div>
+
+      </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- 正規表現テスター                             -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="txt-tool" id="tool-regex" hidden>
+
+        <!-- パターン入力 -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">正規表現パターン</span>
+            <button class="btn btn--ghost btn--sm" id="regex-save-btn">保存</button>
+          </div>
+          <div class="regex-pattern-row">
+            <span class="regex-delim">/</span>
+            <input
+              type="text"
+              id="regex-pattern"
+              class="regex-pattern-input"
+              placeholder="パターンを入力..."
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <span class="regex-delim">/</span>
+            <div class="regex-flags-inline" id="regex-flags">
+              <button class="regex-flag-btn regex-flag-btn--active" data-flag="g" title="グローバル（全マッチ）">g</button>
+              <button class="regex-flag-btn" data-flag="i" title="大小文字を区別しない">i</button>
+              <button class="regex-flag-btn" data-flag="m" title="複数行モード">m</button>
+              <button class="regex-flag-btn" data-flag="s" title="dotAll（改行もマッチ）">s</button>
+              <button class="regex-flag-btn" data-flag="u" title="Unicodeモード">u</button>
+            </div>
+          </div>
+          <div id="regex-error" class="regex-error" hidden></div>
+        </div>
+
+        <!-- チートシート（アコーディオン） -->
+        <div class="txt-card">
+          <button class="regex-help-toggle" id="regex-help-toggle" aria-expanded="false">
+            <span class="regex-help-toggle__label">チートシート</span>
+            <svg class="regex-help-toggle__icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M12.78 5.22a.749.749 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.06 0L3.22 6.28a.749.749 0 1 1 1.06-1.06L8 8.939l3.72-3.719a.749.749 0 0 1 1.06 0Z"/></svg>
+          </button>
+          <div class="regex-help-body" id="regex-help-body" hidden>
+            <!-- JS で生成 -->
+          </div>
+        </div>
+
+        <!-- 保存済みパターン -->
+        <div class="txt-card" id="regex-patterns-card" hidden>
+          <div class="txt-card__header">
+            <span class="txt-card__label">保存済みパターン</span>
+          </div>
+          <div id="regex-pattern-list" class="regex-pattern-list"></div>
+        </div>
+
+        <!-- テスト文字列 -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">テスト文字列</span>
+            <span id="regex-match-count" class="txt-card__badge" hidden></span>
+          </div>
+          <textarea
+            id="regex-test"
+            class="txt-textarea"
+            rows="6"
+            placeholder="テストするテキストをここに入力..."
+            spellcheck="false"
+          ></textarea>
+          <!-- マッチハイライト表示 -->
+          <div class="regex-display-wrap" id="regex-display-wrap" hidden>
+            <div class="regex-display-label">マッチ箇所のハイライト</div>
+            <pre id="regex-display" class="regex-display"></pre>
+          </div>
+        </div>
+
+        <!-- 置換 -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">置換</span>
+            <span class="txt-card__hint">$1, $2 でグループ参照</span>
+          </div>
+          <div class="regex-replace-row">
+            <input
+              type="text"
+              id="regex-replace"
+              class="regex-replace-input"
+              placeholder="置換文字列（$1, $2 でキャプチャグループを参照）..."
+              spellcheck="false"
+            />
+          </div>
+          <div class="regex-replace-result-wrap" id="regex-replace-result-wrap" hidden>
+            <div class="regex-display-label">置換結果</div>
+            <pre id="regex-replace-result" class="regex-replace-result"></pre>
+            <button class="btn btn--ghost btn--sm regex-replace-copy-btn" id="regex-replace-copy-btn">コピー</button>
+          </div>
+        </div>
+
+        <!-- マッチ一覧 -->
+        <div class="txt-card" id="regex-match-card" hidden>
+          <div class="txt-card__header">
+            <span class="txt-card__label">マッチ一覧</span>
+          </div>
+          <div id="regex-match-list" class="regex-match-list"></div>
+        </div>
+
+      </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- 文字カウント                                 -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="txt-tool" id="tool-count" hidden>
+
+        <!-- 入力 -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">テキスト</span>
+            <button class="btn btn--ghost btn--sm" id="count-clear-btn">クリア</button>
+          </div>
+          <textarea
+            id="count-input"
+            class="txt-textarea"
+            rows="8"
+            placeholder="文字数を計測するテキストをここに入力..."
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <!-- 統計グリッド -->
+        <div id="count-stats" class="count-stats"></div>
+
+      </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- タイムスタンプ変換                          -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="txt-tool" id="tool-timestamp" hidden>
+
+        <!-- 現在時刻パネル -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">現在時刻</span>
+            <span class="txt-card__hint" id="ts-now-updating">リアルタイム更新中</span>
+          </div>
+          <div class="ts-now-grid" id="ts-now-grid">
+            <!-- JS で生成 -->
+          </div>
+        </div>
+
+        <!-- Timestamp → 日時 変換 -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">タイムスタンプ → 日時</span>
+            <span class="txt-card__hint">エポック秒 / ミリ秒を自動判定</span>
+          </div>
+          <div class="ts-converter">
+            <div class="ts-converter__input-row">
+              <input type="text" id="ts-from-epoch" class="ts-input" placeholder="例: 1711234567  または  1711234567890" autocomplete="off" spellcheck="false" />
+            </div>
+            <div id="ts-from-epoch-result" class="ts-result-grid"></div>
+            <div id="ts-from-epoch-error" class="ts-error" hidden></div>
+          </div>
+        </div>
+
+        <!-- 日時 → Timestamp 変換 -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">日時 → タイムスタンプ</span>
+            <span class="txt-card__hint">YYYY-MM-DD HH:mm:ss 等</span>
+          </div>
+          <div class="ts-converter">
+            <div class="ts-converter__input-row">
+              <input type="text" id="ts-from-datetime" class="ts-input" placeholder="例: 2024-03-24 10:23:45  または  2024-03-24T10:23:45+09:00" autocomplete="off" spellcheck="false" />
+            </div>
+            <div id="ts-from-datetime-result" class="ts-result-grid"></div>
+            <div id="ts-from-datetime-error" class="ts-error" hidden></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- TSV/CSV ⇔ テーブル変換                      -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="txt-tool" id="tool-tsv" hidden>
+
+        <!-- オプションバー -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">区切り文字</span>
+          </div>
+          <div class="tsv-options">
+            <div class="tsv-delim-bar" id="tsv-delim-bar">
+              <button class="tsv-delim-btn tsv-delim-btn--active" data-delim="tab">タブ (TSV)</button>
+              <button class="tsv-delim-btn" data-delim="comma">カンマ (CSV)</button>
+              <button class="tsv-delim-btn" data-delim="pipe">パイプ (|)</button>
+            </div>
+            <label class="chk-label" for="tsv-has-header">
+              <input type="checkbox" id="tsv-has-header" class="chk-input" checked />
+              <span class="chk-box"></span>
+              1行目をヘッダーとして扱う
+            </label>
+          </div>
+        </div>
+
+        <!-- 入力エリア -->
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <span class="txt-card__label">入力（ペースト）</span>
+            <div class="tsv-input-actions">
+              <button class="btn btn--primary btn--sm" id="tsv-parse-btn">テーブルに変換</button>
+              <button class="btn btn--ghost btn--sm" id="tsv-clear-btn">クリア</button>
+            </div>
+          </div>
+          <textarea id="tsv-input" class="txt-textarea" rows="6" placeholder="TSV/CSVをここにペースト..." spellcheck="false"></textarea>
+        </div>
+
+        <!-- テーブル表示 -->
+        <div class="txt-card" id="tsv-table-card" hidden>
+          <div class="txt-card__header">
+            <span class="txt-card__label">テーブル</span>
+            <span class="txt-card__hint" id="tsv-table-info"></span>
+          </div>
+          <div class="tsv-table-wrap" id="tsv-table-wrap">
+            <table class="tsv-table" id="tsv-table"></table>
+          </div>
+          <div class="tsv-row-actions">
+            <button class="btn btn--ghost btn--sm" id="tsv-add-row-btn">＋ 行を追加</button>
+          </div>
+          <!-- エクスポートバー -->
+          <div class="tsv-export-bar">
+            <button class="btn btn--secondary btn--sm" id="tsv-export-tsv">TSV としてコピー</button>
+            <button class="btn btn--secondary btn--sm" id="tsv-export-csv">CSV としてコピー</button>
+            <button class="btn btn--ghost btn--sm" id="tsv-export-md">Markdown テーブルとしてコピー</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- フォーマッタ                                -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="txt-tool" id="tool-format" hidden>
+
+        <div class="txt-card">
+          <div class="txt-card__header">
+            <div class="fmt-toolbar">
+              <div class="fmt-seg" id="fmt-type-seg">
+                <label class="fmt-seg__item">
+                  <input type="radio" name="fmt-type" value="json" checked> JSON
+                </label>
+                <label class="fmt-seg__item">
+                  <input type="radio" name="fmt-type" value="xml"> XML
+                </label>
+              </div>
+              <div class="fmt-toolbar__actions">
+                <button class="btn btn--primary btn--sm" id="fmt-format-btn">整形</button>
+                <button class="btn btn--ghost btn--sm" id="fmt-clear-btn">クリア</button>
+              </div>
+            </div>
+          </div>
+          <textarea
+            id="fmt-input"
+            class="txt-textarea"
+            rows="10"
+            placeholder="JSON または XML をここにペースト...&#10;Ctrl+Enter で整形"
+            spellcheck="false"
+          ></textarea>
+          <div id="fmt-error" class="fmt-error" hidden></div>
+        </div>
+
+        <div class="txt-card" id="fmt-output-card" hidden>
+          <div class="txt-card__header">
+            <span class="txt-card__label">整形結果</span>
+            <button class="btn btn--ghost btn--sm" id="fmt-copy-btn">コピー</button>
+          </div>
+          <pre class="fmt-output"><code id="fmt-code"></code></pre>
+        </div>
+
+      </div>
+
+    </main>
+
+  </body>
+</html>
