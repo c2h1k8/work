@@ -75,3 +75,53 @@ window.addEventListener('message', (e) => {
     localStorage.setItem('mytools_theme', e.data.theme);
   }
 });
+
+// グローバル検索: note_db の tasks を検索して結果を返す
+window.addEventListener('message', async (e) => {
+  const { type, query, searchId } = e.data || {};
+  if (type !== 'global-search' || !query) return;
+
+  try {
+    const db = await new Promise((resolve) => {
+      const req = indexedDB.open('note_db');
+      req.onupgradeneeded = ev => { if (ev.oldVersion === 0) ev.target.transaction.abort(); };
+      req.onsuccess = ev => resolve(ev.target.result);
+      req.onerror = () => resolve(null);
+    });
+    if (!db) { parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'note.html', results: [] }, '*'); return; }
+
+    const tasks = await new Promise((res) => {
+      const req = db.transaction('tasks').objectStore('tasks').getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => res([]);
+    });
+    db.close();
+
+    const q = query.toLowerCase();
+    const results = tasks
+      .filter(t => t.title?.toLowerCase().includes(q))
+      .slice(0, 10)
+      .map(t => ({ id: t.id, title: t.title || '' }));
+
+    parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'note.html', results }, '*');
+  } catch (err) {
+    parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'note.html', results: [] }, '*');
+  }
+});
+
+// グローバル検索フォーカス: 指定 ID のノートを選択・表示する
+window.addEventListener('message', async (e) => {
+  const { type, targetId } = e.data || {};
+  if (type !== 'global-search-focus' || !targetId) return;
+  try {
+    await NoteDB.open();
+    State.tasks = await NoteDB.getAllTasks();
+    const task = State.tasks.find(t => t.id === targetId);
+    if (!task) return;
+    State.selectedTaskId = targetId;
+    State.entries = await NoteDB.getEntriesByTask(targetId);
+    Renderer.renderTaskList();
+    await Renderer.renderDetail();
+    document.querySelector(`[data-task-id="${targetId}"]`)?.scrollIntoView({ block: 'nearest' });
+  } catch (err) { /* ignore */ }
+});

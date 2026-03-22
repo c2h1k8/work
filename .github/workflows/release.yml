@@ -36,6 +36,7 @@ jobs:
           npx lessc css/components/custom_select.less   css/components/custom_select.css
           npx lessc css/components/bind_var_modal.less  css/components/bind_var_modal.css
           npx lessc css/components/checklist.less       css/components/checklist.css
+          npx lessc css/components/shortcut_help.less   css/components/shortcut_help.css
           npx lessc css/todo.less      css/todo.css
           npx lessc css/note.less      css/note.css
           npx lessc css/sql.less       css/sql.css

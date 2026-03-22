@@ -46,6 +46,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `todo/` のアーキテクチャ: `state.js`（State + グローバルヘルパー）/ `backup.js`（Backup）/ `renderer.js`（Renderer）/ `dragdrop.js`（DragDrop）/ `app.js`（EventHandlers + App）。DB層は `js/db/kanban_db.js` の `KanbanDB` クラスに分離
 - `DatePicker` は `js/components/date_picker.js` に分離された再利用可能部品。CSS は `css/components/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
 - `LabelManager` は `js/components/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/components/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`。重複名チェック（追加・リネーム両方）は LabelManager 内で処理し `Toast.show` で通知（Toast が存在する場合）。Enter キーは `isComposing` チェックで IME 変換中を無視。
+- `ShortcutHelp` は `js/components/shortcut_help.js` に分離されたショートカットキー一覧モーダル（共通部品）。CSS は `css/components/shortcut_help.{less,css}`。HTML は初回 `ShortcutHelp.show()` 時に自動生成・挿入（自己挿入型）。API: `ShortcutHelp.register(categories)` でページ固有ショートカットを登録（`[{ name: 'カテゴリ名', shortcuts: [{ keys: ['Ctrl', 'K'], description: '説明' }] }]` 形式）。`?` キーで表示、Escape/オーバーレイで閉じる。Mac では `Ctrl` → `⌘` に自動変換。input/textarea/select/contenteditable にフォーカス中は `?` キーを無視。全ページ（index/todo/note/sql/wbs/snippet/dashboard）で読み込む。z-index: 500
 - `BindVarModal` は `js/components/bind_var_modal.js` に分離されたバインド変数 + プリセット管理モーダル（共通部品）。CSS は `css/components/bind_var_modal.{less,css}`。HTML は初回 `BindVarModal.open()` 時に自動生成・挿入される。API: `BindVarModal.open({ title, varNames, presets, showBarConfig, uiType, barLabel, onAddVar, onRemoveVar, onSaveBarConfig, onAddPreset, onUpdatePreset, onDeletePreset, onMovePresetUp, onMovePresetDown, onChange })` / `BindVarModal.close()`。2カラムレイアウト（左: 変数定義 + バー設定、右: プリセット一覧/編集）。dashboard.js の共通バインド変数設定・テーブルバインド変数設定で使用。
 - `CustomSelect` は `js/components/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/components/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。**`<option data-color="#hex">` を付与すると色が自動反映される。** トリガー（選択中）: `.cs-color-badge`（カラーバッジチップ、色背景＋白文字）。ドロップダウン内アイテム: `.cs-swatch`（11px角丸スクエア、`--cs-swatch-color` CSS変数で色指定、影付き）。選択中アイテムはスウォッチにリングを付与し、既存の選択ドット（`::before`）は非表示（`:has` で制御）。 使用ページ: `index.html` / `todo.html` / `sql.html` / `note.html` / `dashboard.html`
 - `js/todo/state.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
@@ -160,6 +161,25 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - DB クラスはページ JS より前に読み込む必要がある（グローバルクラスとして参照するため）
 - 分割済みページ（todo/dashboard/note）は `js/<name>/` 配下の state → backup → renderer → dragdrop → app の順で読み込む
 
+## グローバル検索
+
+- ナビバーに `#global-search-input` 検索バーを常時表示（`Ctrl+K` / `Cmd+K` でフォーカス）
+- 入力 debounce（300ms）後に全 iframe へ `postMessage({ type: 'global-search', query, searchId })` を送信
+- 各ページは受信後に自ページの IndexedDB を検索し `parent.postMessage({ type: 'global-search-result', searchId, page, pageSrc, results })` で返信
+- 検索対象: `kanban_db.tasks`（title/description）/ `note_db.tasks`（title）/ `snippet_db.snippets`（title/description/code）
+- index.js が全結果を集約してページ別グループドロップダウンに描画（各グループ最大10件）
+- 結果クリック → タブ切替 + `postMessage({ type: 'global-search-focus', targetId })` を送信
+- 各ページは focus メッセージを受けてモーダル/詳細を開く
+- CSS: `.global-search` / `global-search__input` / `global-search__results` (tab_style.less)
+
+## データ一括バックアップ
+
+- 設定パネルの「データ管理 > 全データ一括バックアップ」セクションから実行
+- `backupAllData()`: 全 DB（app_db/kanban_db/note_db/sql_db/wbs_db/snippet_db/dashboard_db）を `{ type: 'full_backup', version: 1, timestamp, databases: {...} }` 形式でエクスポート
+- `restoreAllData()`: バックアップ JSON を読み込んで全 DB を上書き復元（確認ダイアログ → リロード）
+- ファイル名: `mytools_backup_YYYYMMDD_HHmmss.json`
+- ボタン名: 「バックアップ」（エクスポート）/ 「復元」（インポート）
+
 ## タブの追加方法
 
 ### 組み込みタブの追加（コード変更）
@@ -201,10 +221,6 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - `_toggleIconPicker(label)` / `_onSelectIcon(btn)` で制御（`_onSelectIcon` は async）
   - 組み込みタブも SVG に変更可能
   - CSS: `.icon-picker__item svg { width: 16px; height: 16px; fill: currentColor; }` で SVG サイズ統一
-- **エクスポート/インポート（全体）**: 設定パネル下部「データ管理」セクション
-  - `exportAllData()` → tab_config + dashboard_db の全インスタンスデータを JSON ダウンロード
-  - `importAllData()` → JSON ファイルを読み込んで全データを復元
-  - フォーマット: `{ type: 'app_export', version: 2, tabConfig, dashboards: [{ instanceId, sections, items, presets, bindConfig }] }`（version 1 は sections/items のみ、後方互換で読み込み可）
   - `_deleteDashboardInstance(instanceId)` → タブ削除時に共有DBからそのインスタンスのデータを削除
 
 ## dashboard/ アーキテクチャ（2026-03現在）

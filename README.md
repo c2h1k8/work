@@ -55,7 +55,8 @@ work/
 │   │   ├── label_manager.js   # ラベル管理ダイアログ（LabelManager.open）
 │   │   ├── label_filter.js    # ラベルフィルタードロップダウン
 │   │   ├── custom_select.js   # カスタム select コンポーネント（CustomSelect.replaceAll）
-│   │   └── bind_var_modal.js  # バインド変数管理モーダル（BindVarModal.open）
+│   │   ├── bind_var_modal.js  # バインド変数管理モーダル（BindVarModal.open）
+│   │   └── shortcut_help.js   # ショートカットキー一覧モーダル（ShortcutHelp.register/show）
 │   ├── db/                    # IndexedDB 操作クラス
 │   │   ├── kanban_db.js       # KanbanDB（todo.html 用）
 │   │   ├── note_db.js         # NoteDB（note.html 用）

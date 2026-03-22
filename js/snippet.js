@@ -502,6 +502,52 @@ function setupEvents() {
       }
     }
   });
+
+  // グローバル検索: snippet_db のスニペットを検索して結果を返す
+  window.addEventListener('message', async (e) => {
+    const { type, query, searchId } = e.data || {};
+    if (type !== 'global-search' || !query) return;
+    try {
+      const db = new SnippetDB();
+      await db.open();
+      const snippets = await db.getAllSnippets();
+      const q = query.toLowerCase();
+      const results = snippets
+        .filter(s =>
+          s.title?.toLowerCase().includes(q) ||
+          s.description?.toLowerCase().includes(q) ||
+          s.code?.toLowerCase().includes(q)
+        )
+        .slice(0, 10)
+        .map(s => {
+          let excerpt = '';
+          if (s.description?.toLowerCase().includes(q)) {
+            const idx = s.description.toLowerCase().indexOf(q);
+            const start = Math.max(0, idx - 20);
+            excerpt = (start > 0 ? '…' : '') + s.description.slice(start, idx + query.length + 30);
+          } else if (s.code?.toLowerCase().includes(q)) {
+            const idx = s.code.toLowerCase().indexOf(q);
+            const start = Math.max(0, idx - 20);
+            excerpt = (start > 0 ? '…' : '') + s.code.slice(start, idx + query.length + 30).replace(/\n/g, ' ');
+          }
+          return { id: s.id, title: s.title || '', excerpt };
+        });
+      parent.postMessage({ type: 'global-search-result', searchId, page: 'スニペット', pageSrc: 'snippet.html', results }, '*');
+    } catch (err) {
+      parent.postMessage({ type: 'global-search-result', searchId, page: 'スニペット', pageSrc: 'snippet.html', results: [] }, '*');
+    }
+  });
+
+  // グローバル検索フォーカス: 指定 ID のスニペットを選択・表示する
+  window.addEventListener('message', (e) => {
+    const { type, targetId } = e.data || {};
+    if (type !== 'global-search-focus' || !targetId) return;
+    const snippet = State.snippets.find(s => s.id === targetId);
+    if (!snippet) return;
+    State.selectedId = targetId;
+    renderAll();
+    document.querySelector(`[data-id="${targetId}"]`)?.scrollIntoView({ block: 'nearest' });
+  });
 }
 
 // ==================================================

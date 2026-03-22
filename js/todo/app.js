@@ -2266,3 +2266,57 @@ window.addEventListener('message', (e) => {
     localStorage.setItem('mytools_theme', e.data.theme);
   }
 });
+
+// グローバル検索: kanban_db の tasks を検索して結果を返す
+window.addEventListener('message', async (e) => {
+  const { type, query, searchId } = e.data || {};
+  if (type !== 'global-search' || !query) return;
+
+  try {
+    const db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('kanban_db');
+      req.onupgradeneeded = ev => { if (ev.oldVersion === 0) ev.target.transaction.abort(); };
+      req.onsuccess = ev => resolve(ev.target.result);
+      req.onerror = () => resolve(null);
+    });
+    if (!db) { parent.postMessage({ type: 'global-search-result', searchId, page: 'TODO', pageSrc: 'todo.html', results: [] }, '*'); return; }
+
+    const tasks = await new Promise((res) => {
+      const req = db.transaction('tasks').objectStore('tasks').getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => res([]);
+    });
+    db.close();
+
+    const q = query.toLowerCase();
+    const results = tasks
+      .filter(t => t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
+      .slice(0, 10)
+      .map(t => {
+        // 説明から抜粋を生成
+        let excerpt = '';
+        if (t.description?.toLowerCase().includes(q)) {
+          const idx = t.description.toLowerCase().indexOf(q);
+          const start = Math.max(0, idx - 20);
+          excerpt = (start > 0 ? '…' : '') + t.description.slice(start, idx + query.length + 30);
+          if (start + idx + query.length + 30 < t.description.length) excerpt += '…';
+        }
+        return { id: t.id, title: t.title || '', excerpt };
+      });
+
+    parent.postMessage({ type: 'global-search-result', searchId, page: 'TODO', pageSrc: 'todo.html', results }, '*');
+  } catch (err) {
+    parent.postMessage({ type: 'global-search-result', searchId, page: 'TODO', pageSrc: 'todo.html', results: [] }, '*');
+  }
+});
+
+// グローバル検索フォーカス: 指定 ID のタスクモーダルを開く
+window.addEventListener('message', async (e) => {
+  const { type, targetId } = e.data || {};
+  if (type !== 'global-search-focus' || !targetId) return;
+  try {
+    const dbInst = new KanbanDB();
+    await dbInst.open();
+    await Renderer.renderModal(targetId, dbInst);
+  } catch (err) { /* ignore */ }
+});

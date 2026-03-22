@@ -231,6 +231,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   buildSettingsPanel();
   _initThemeToggle();
 
+  // ショートカットキー登録（ナビゲーション共通）
+  if (typeof ShortcutHelp !== 'undefined') {
+    ShortcutHelp.register([
+      {
+        name: 'ナビゲーション',
+        shortcuts: [
+          { keys: ['Ctrl', 'K'], description: '検索バーにフォーカス' },
+        ],
+      },
+    ]);
+  }
+
   // 前回のアクティブタブを復元（なければデフォルト）
   const savedId = loadFromStorage(STORAGE_KEY_ACTIVE_TAB_ID);
   const visibleConfig = config.filter(t => t.visible);
@@ -288,6 +300,23 @@ function buildHeader(config) {
   const actions = document.createElement("div");
   actions.className = "top-nav__actions";
 
+  // グローバル検索バー
+  const searchWrap = document.createElement("div");
+  searchWrap.className = "global-search";
+  searchWrap.id = "global-search-wrap";
+  const isMac = (() => {
+    const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+    if (p) return /mac/i.test(p);
+    return /Macintosh|Mac OS X/i.test(navigator.userAgent);
+  })();
+  searchWrap.innerHTML = `
+    <svg class="global-search__icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+    <input class="global-search__input" id="global-search-input" type="text" placeholder="検索 (${isMac ? '⌘' : 'Ctrl'}+K)" autocomplete="off" aria-label="全ページを検索">
+    <span class="global-search__kbd">${isMac ? '⌘K' : 'Ctrl+K'}</span>
+    <div class="global-search__results" id="global-search-results" hidden></div>
+  `;
+  _initGlobalSearch(searchWrap);
+
   // ダークモードトグルボタン
   const themeBtn = document.createElement("button");
   themeBtn.className = "nav-icon-btn";
@@ -306,6 +335,7 @@ function buildHeader(config) {
   settingsBtn.innerHTML = Icons.gear;
   settingsBtn.addEventListener("click", openSettings);
 
+  actions.appendChild(searchWrap);
   actions.appendChild(themeBtn);
   actions.appendChild(settingsBtn);
 
@@ -423,6 +453,218 @@ function syncViewport(config) {
 }
 
 // ==================================================
+// グローバル検索
+// ==================================================
+
+// 検索ステート
+let _searchTimer     = null;    // debounce タイマー
+let _searchId        = 0;       // 進行中の検索 ID（古い結果を捨てるため）
+let _searchResults   = [];      // 集約結果
+let _searchExpected  = 0;       // 期待するレスポンス数
+let _searchReceived  = 0;       // 受信済みレスポンス数
+let _searchFocusIdx  = -1;      // キーボードフォーカス中のアイテム index
+
+/** グローバル検索バーのイベントを初期化する */
+function _initGlobalSearch(wrap) {
+  const input   = wrap.querySelector('#global-search-input');
+  const results = wrap.querySelector('#global-search-results');
+  if (!input || !results) return;
+
+  // 入力: debounce 300ms で検索実行
+  input.addEventListener('input', () => {
+    clearTimeout(_searchTimer);
+    const q = input.value.trim();
+    if (!q) { _closeSearchResults(); return; }
+    _searchTimer = setTimeout(() => _runGlobalSearch(q), 300);
+  });
+
+  // フォーカスアウト: 少し待ってから閉じる（クリックを拾うため）
+  input.addEventListener('blur', () => {
+    setTimeout(() => _closeSearchResults(), 200);
+  });
+
+  // キーボード: 上下で選択、Enter で遷移、Escape で閉じる
+  input.addEventListener('keydown', (e) => {
+    const items = results.querySelectorAll('.global-search__item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _searchFocusIdx = Math.min(_searchFocusIdx + 1, items.length - 1);
+      _updateSearchFocus(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _searchFocusIdx = Math.max(_searchFocusIdx - 1, -1);
+      _updateSearchFocus(items);
+    } else if (e.key === 'Enter') {
+      const focused = results.querySelector('.global-search__item--focused');
+      if (focused) focused.click();
+    } else if (e.key === 'Escape') {
+      _closeSearchResults();
+      input.blur();
+    }
+  });
+}
+
+/** 検索結果ドロップダウンを閉じる */
+function _closeSearchResults() {
+  const results = document.getElementById('global-search-results');
+  if (results) results.hidden = true;
+  _searchFocusIdx = -1;
+}
+
+/** キーボードフォーカスを更新する */
+function _updateSearchFocus(items) {
+  items.forEach((item, i) => {
+    item.classList.toggle('global-search__item--focused', i === _searchFocusIdx);
+    if (i === _searchFocusIdx) item.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+/** 全 iframe に検索クエリを送信して結果を集約する */
+async function _runGlobalSearch(query) {
+  const sid = ++_searchId;
+  _searchResults  = [];
+  _searchExpected = 0;
+  _searchReceived = 0;
+  _searchFocusIdx = -1;
+
+  const results = document.getElementById('global-search-results');
+  if (!results) return;
+  results.hidden = false;
+  results.innerHTML = '<div class="global-search__loading">検索中...</div>';
+
+  // 表示中の iframe のみ対象
+  const frames = Array.from(document.querySelectorAll('.tab-frame'));
+  const visibleFrames = frames.filter(f => f.contentWindow);
+  _searchExpected = visibleFrames.length;
+
+  if (visibleFrames.length === 0) {
+    _renderSearchResults(query, []);
+    return;
+  }
+
+  visibleFrames.forEach(frame => {
+    try {
+      frame.contentWindow.postMessage({ type: 'global-search', query, searchId: sid }, '*');
+    } catch (e) {
+      _searchReceived++;
+    }
+  });
+
+  // 600ms のフォールバックタイムアウト（応答しない iframe がある場合）
+  setTimeout(() => {
+    if (_searchId === sid) _renderSearchResults(query, _searchResults);
+  }, 600);
+}
+
+/** global-search-result メッセージを受信する（window.addEventListener の message ハンドラで呼ばれる） */
+function _onGlobalSearchResult(sid, page, pageSrc, results) {
+  if (sid !== _searchId) return;  // 古い検索の結果は無視
+
+  results.forEach(r => _searchResults.push({ ...r, page, pageSrc }));
+  _searchReceived++;
+
+  // 全 iframe から応答を受け取ったら即時描画
+  if (_searchReceived >= _searchExpected) {
+    const input = document.getElementById('global-search-input');
+    _renderSearchResults(input?.value?.trim() || '', _searchResults);
+  }
+}
+
+/** テキスト内の検索クエリを <mark> でハイライトする（XSS 対策: エスケープ済みテキストに適用） */
+function _highlightQuery(text, query) {
+  if (!query || !text) return escapeHtml(text || '');
+  const escaped = escapeHtml(text);
+  const q = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp(q, 'gi'), m => `<mark>${m}</mark>`);
+}
+
+/** 検索結果をページ別グループで描画する */
+function _renderSearchResults(query, allResults) {
+  const el = document.getElementById('global-search-results');
+  if (!el) return;
+  el.hidden = false;
+
+  if (allResults.length === 0) {
+    el.innerHTML = '<div class="global-search__empty">一致する結果がありません</div>';
+    return;
+  }
+
+  // ページ別グループ化（pageSrc をキーに）
+  const groups = {};
+  allResults.forEach(r => {
+    const key = r.page || r.pageSrc || 'その他';
+    if (!groups[key]) groups[key] = { page: r.page, pageSrc: r.pageSrc, items: [] };
+    groups[key].items.push(r);
+  });
+
+  let html = '';
+  Object.values(groups).forEach((group, gi) => {
+    if (gi > 0) html += '<div class="global-search__divider"></div>';
+    html += `<div class="global-search__group-label">${escapeHtml(group.page || 'その他')}</div>`;
+    group.items.slice(0, 10).forEach(item => {
+      const titleHl   = _highlightQuery(item.title || '', query);
+      const excerptHl = item.excerpt ? _highlightQuery(item.excerpt, query) : '';
+      html += `
+        <button class="global-search__item" data-page-src="${escapeHtml(item.pageSrc || '')}" data-id="${Number(item.id) || 0}">
+          <div class="global-search__item-text">
+            <div class="title">${titleHl}</div>
+            ${excerptHl ? `<div class="excerpt">${excerptHl}</div>` : ''}
+          </div>
+        </button>
+      `;
+    });
+  });
+
+  el.innerHTML = html;
+
+  // クリックで該当タブに遷移
+  el.querySelectorAll('.global-search__item').forEach(btn => {
+    btn.addEventListener('click', () => _navigateToResult(btn.dataset.pageSrc, Number(btn.dataset.id)));
+  });
+}
+
+/** 検索結果をクリックしてタブ切替 + フォーカスを送信する */
+async function _navigateToResult(pageSrc, targetId) {
+  _closeSearchResults();
+  const input = document.getElementById('global-search-input');
+  if (input) { input.value = ''; }
+
+  const config = await loadTabConfig();
+  // pageSrc が完全一致 or 先頭一致（dashboard.html?instance=... 対応）
+  const tab = config.find(t => t.visible && (t.pageSrc === pageSrc || pageSrc?.startsWith(t.pageSrc?.split('?')[0])));
+  if (!tab) return;
+
+  const tabId = `TAB-${tab.label}`;
+  activateTab(tabId);
+  saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, tabId);
+
+  const iframe = document.getElementById(`frame-${tab.label}`);
+  if (!iframe) return;
+
+  const sendFocus = () => {
+    iframe.contentWindow?.postMessage({ type: 'global-search-focus', targetId }, '*');
+  };
+  const doc = iframe.contentDocument;
+  if (!doc || doc.readyState === 'complete') {
+    sendFocus();
+  } else {
+    iframe.addEventListener('load', sendFocus, { once: true });
+  }
+}
+
+// Ctrl+K / Cmd+K でグローバル検索にフォーカス
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    const input = document.getElementById('global-search-input');
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+});
+
+// ==================================================
 // データ管理（エクスポート/インポート）
 // ==================================================
 
@@ -472,193 +714,222 @@ async function _deleteDashboardInstance(instanceId) {
   }
 }
 
-/** 全データ（タブ設定 + 全ダッシュボード）をJSONファイルにエクスポート */
-async function exportAllData() {
-  const tabConfig = await AppDB.get("tab_config") || getDefaultConfig();
+// ==================================================
+// 全データ一括バックアップ（全DB対象）
+// ==================================================
 
-  let dashboards = [];
-  try {
-    const db = await new Promise((resolve) => {
-      const req = indexedDB.open('dashboard_db');
-      req.onsuccess = e => resolve(e.target.result);
-      req.onerror = () => resolve(null);
-      req.onupgradeneeded = (e) => { if (e.oldVersion === 0) e.target.transaction.abort(); };
-    });
-    if (db && db.objectStoreNames.contains('sections')) {
-      const _getAll = (storeName) => new Promise((res) => {
-        if (!db.objectStoreNames.contains(storeName)) { res([]); return; }
-        const req = db.transaction(storeName).objectStore(storeName).getAll();
-        req.onsuccess = () => res(req.result);
-        req.onerror = () => res([]);
-      });
-      const [sections, items, presets, appConfigs] = await Promise.all([
-        _getAll('sections'), _getAll('items'), _getAll('presets'), _getAll('app_config'),
-      ]);
-      db.close();
+/** 指定 DB を開いて指定ストアの全データを取得する */
+async function _dumpDB(dbName, storeNames) {
+  return new Promise((resolve) => {
+    const req = indexedDB.open(dbName);
+    // DB が存在しない場合は作成しない（upgrade をキャンセル）
+    req.onupgradeneeded = (e) => { if (e.oldVersion === 0) { e.target.transaction.abort(); } };
+    req.onerror = () => resolve(null);
+    req.onsuccess = (e) => {
+      const db = e.target.result;
+      const data = {};
+      const existing = storeNames.filter(s => db.objectStoreNames.contains(s));
+      if (existing.length === 0) { db.close(); resolve(data); return; }
 
-      // instance_id ごとにグループ化
-      const instanceMap = {};
-      sections.forEach(s => {
-        const id = s.instance_id ?? '';
-        if (!instanceMap[id]) instanceMap[id] = { sections: [], items: [], presets: [], bindConfig: null };
-        instanceMap[id].sections.push(s);
+      let done = 0;
+      existing.forEach(storeName => {
+        const r = db.transaction(storeName).objectStore(storeName).getAll();
+        r.onsuccess = () => {
+          data[storeName] = r.result;
+          if (++done === existing.length) { db.close(); resolve(data); }
+        };
+        r.onerror = () => {
+          data[storeName] = [];
+          if (++done === existing.length) { db.close(); resolve(data); }
+        };
       });
-      items.forEach(item => {
-        const section = sections.find(s => s.id === item.section_id);
-        if (section) {
-          const id = section.instance_id ?? '';
-          if (instanceMap[id]) instanceMap[id].items.push(item);
-        }
-      });
-      presets.forEach(p => {
-        const id = p.instance_id ?? '';
-        if (instanceMap[id]) instanceMap[id].presets.push(p);
-      });
-      // app_config から bind_config_{instanceId} を取り出す
-      appConfigs.forEach(cfg => {
-        const match = cfg.name?.match(/^bind_config_(.*)$/);
-        if (match && instanceMap[match[1]]) instanceMap[match[1]].bindConfig = cfg.value;
-      });
-      dashboards = Object.entries(instanceMap).map(([instanceId, data]) => ({ instanceId, ...data }));
-    }
-  } catch (e) {
-    console.warn('dashboard_db export error:', e);
-  }
-
-  const exportData = {
-    type: 'app_export',
-    version: 2,
-    exportedAt: new Date().toISOString(),
-    tabConfig,
-    dashboards,
-  };
-  const json = JSON.stringify(exportData, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const _now = new Date(), _p = n => String(n).padStart(2, '0');
-  const _ts = `${_now.getFullYear()}${_p(_now.getMonth()+1)}${_p(_now.getDate())}_${_p(_now.getHours())}${_p(_now.getMinutes())}${_p(_now.getSeconds())}`;
-  a.download = `mytools_export_${_ts}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+    };
+  });
 }
 
-/** JSONファイルから全データ（タブ設定 + 全ダッシュボード）をインポート */
-async function importAllData() {
+/** 指定 DB を開いてストアをクリアしデータを投入する */
+async function _loadDB(dbName, version, onUpgrade, storeData) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(dbName, version);
+    req.onupgradeneeded = onUpgrade;
+    req.onerror = () => reject(req.error);
+    req.onsuccess = async (e) => {
+      const db = e.target.result;
+      try {
+        const stores = Object.keys(storeData).filter(s => db.objectStoreNames.contains(s));
+        if (stores.length > 0) {
+          await new Promise((res, rej) => {
+            const tx = db.transaction(stores, 'readwrite');
+            stores.forEach(s => {
+              tx.objectStore(s).clear();
+              (storeData[s] || []).forEach(rec => tx.objectStore(s).put(rec));
+            });
+            tx.oncomplete = res;
+            tx.onerror = () => rej(tx.error);
+          });
+        }
+        db.close();
+        resolve();
+      } catch (err) { db.close(); reject(err); }
+    };
+  });
+}
+
+/** 全 DB（app_db/kanban_db/note_db/sql_db/wbs_db/snippet_db/dashboard_db）を一括エクスポート */
+async function backupAllData() {
+  const exportBtn = document.querySelector('.settings-backup-export-btn');
+  if (exportBtn) { exportBtn.disabled = true; exportBtn.textContent = '準備中...'; }
+
+  try {
+    const [appData, kanbanData, noteData, sqlData, wbsData, snippetData, dashboardData] = await Promise.all([
+      _dumpDB('app_db',       ['settings']),
+      _dumpDB('kanban_db',    ['tasks', 'columns', 'labels', 'task_labels', 'comments', 'activities', 'task_relations', 'note_links', 'templates', 'archives', 'dependencies']),
+      _dumpDB('note_db',      ['tasks', 'fields', 'entries']),
+      _dumpDB('sql_db',       ['envs', 'table_memos']),
+      _dumpDB('wbs_db',       ['tasks']),
+      _dumpDB('snippet_db',   ['snippets']),
+      _dumpDB('dashboard_db', ['sections', 'items', 'presets', 'app_config']),
+    ]);
+
+    const backup = {
+      type: 'full_backup',
+      version: 1,
+      timestamp: new Date().toISOString(),
+      databases: {
+        app:       appData       || {},
+        kanban:    kanbanData    || {},
+        note:      noteData      || {},
+        sql:       sqlData       || {},
+        wbs:       wbsData       || {},
+        snippet:   snippetData   || {},
+        dashboard: dashboardData || {},
+      },
+    };
+
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    const now = new Date(), p = n => String(n).padStart(2, '0');
+    const ts  = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+    a.download = `mytools_backup_${ts}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    alert('全データのバックアップが完了しました。');
+  } catch (err) {
+    console.error(err);
+    alert('バックアップに失敗しました: ' + err.message);
+  } finally {
+    if (exportBtn) { exportBtn.disabled = false; exportBtn.innerHTML = `${Icons.export} バックアップ`; }
+  }
+}
+
+/** バックアップ JSON から全 DB を復元する */
+async function restoreAllData() {
   const input = document.createElement('input');
-  input.type = 'file';
+  input.type  = 'file';
   input.accept = '.json';
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     let data;
     try { data = JSON.parse(await file.text()); } catch { alert('JSONの解析に失敗しました'); return; }
-    if (data.type !== 'app_export') {
-      alert('アプリのエクスポートファイルではありません\n（ダッシュボード単体のエクスポートは各ダッシュボードの設定からインポートしてください）');
+
+    if (data.type !== 'full_backup') {
+      alert('全データバックアップファイルではありません\n（type: "full_backup" が必要です）');
       return;
     }
-    if (!confirm('現在の全設定・全ダッシュボードデータを削除してインポートしますか？\nこの操作は元に戻せません。')) return;
+    if (!confirm('現在の全データが上書きされます。この操作は元に戻せません。\nよろしいですか？')) return;
+
+    const importBtn = document.querySelector('.settings-backup-import-btn');
+    if (importBtn) { importBtn.disabled = true; importBtn.textContent = '復元中...'; }
 
     try {
-      // タブ設定を復元
-      if (data.tabConfig) await saveTabConfig(data.tabConfig);
+      const dbs = data.databases || {};
 
-      // dashboard_db を開いて全インスタンスデータを復元
-      if (data.dashboards && data.dashboards.length > 0) {
-        const db = await new Promise((resolve, reject) => {
-          const req = indexedDB.open('dashboard_db', 2);
-          req.onsuccess = e => resolve(e.target.result);
-          req.onerror = () => reject(req.error);
-          req.onupgradeneeded = (ev) => {
-            const idb = ev.target.result;
-            if (!idb.objectStoreNames.contains('sections')) {
-              const ss = idb.createObjectStore('sections', { keyPath: 'id', autoIncrement: true });
-              ss.createIndex('position', 'position');
-              ss.createIndex('instance_id', 'instance_id');
-              const is = idb.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
-              is.createIndex('section_id', 'section_id');
-              is.createIndex('position', 'position');
-            }
-            if (!idb.objectStoreNames.contains('app_config')) {
-              idb.createObjectStore('app_config', { keyPath: 'name' });
-            }
-            if (!idb.objectStoreNames.contains('presets')) {
-              const ps = idb.createObjectStore('presets', { keyPath: 'id', autoIncrement: true });
-              ps.createIndex('instance_id', 'instance_id');
-              ps.createIndex('position', 'position');
-            }
-          };
-        });
-
-        // 既存データを全削除（sections/items/presets/app_config すべてクリア）
-        await new Promise((res, rej) => {
-          const stores = ['sections', 'items', 'presets', 'app_config'];
-          const tx = db.transaction(stores, 'readwrite');
-          stores.forEach(s => tx.objectStore(s).clear());
-          tx.oncomplete = res;
-          tx.onerror = () => rej(tx.error);
-        });
-
-        // インスタンスごとにインポート
-        for (const dashboard of data.dashboards) {
-          const { instanceId, sections = [], items = [], presets = [], bindConfig } = dashboard;
-          const idMap = {};
-          for (const section of sections) {
-            const oldId = section.id;
-            const newSection = { ...section, instance_id: instanceId };
-            delete newSection.id;
-            const newId = await new Promise((res, rej) => {
-              const req = db.transaction('sections', 'readwrite').objectStore('sections').add(newSection);
-              req.onsuccess = () => res(req.result);
-              req.onerror = () => rej(req.error);
-            });
-            if (oldId !== undefined) idMap[oldId] = newId;
+      // app_db: settings ストア（TAB_CONFIG など）
+      if (dbs.app && Object.keys(dbs.app).length > 0) {
+        await _loadDB('app_db', 1, (ev) => {
+          if (!ev.target.result.objectStoreNames.contains('settings')) {
+            ev.target.result.createObjectStore('settings', { keyPath: 'name' });
           }
-          for (const item of items) {
-            const newItem = { ...item };
-            delete newItem.id;
-            if (idMap[newItem.section_id] !== undefined) {
-              newItem.section_id = idMap[newItem.section_id];
-              await new Promise((res, rej) => {
-                const req = db.transaction('items', 'readwrite').objectStore('items').add(newItem);
-                req.onsuccess = () => res();
-                req.onerror = () => rej(req.error);
-              });
-            }
-          }
-          // presets を復元（version 2 以降のみ存在）
-          for (const preset of presets) {
-            const newPreset = { ...preset, instance_id: instanceId };
-            delete newPreset.id;
-            await new Promise((res, rej) => {
-              const req = db.transaction('presets', 'readwrite').objectStore('presets').add(newPreset);
-              req.onsuccess = () => res();
-              req.onerror = () => rej(req.error);
-            });
-          }
-          // bindConfig を復元（version 2 以降のみ存在）
-          if (bindConfig) {
-            await new Promise((res, rej) => {
-              const req = db.transaction('app_config', 'readwrite').objectStore('app_config')
-                .put({ name: `bind_config_${instanceId}`, value: bindConfig });
-              req.onsuccess = () => res();
-              req.onerror = () => rej(req.error);
-            });
-          }
-        }
-        db.close();
+        }, dbs.app);
       }
 
-      // UI を更新
-      const config = await loadTabConfig();
-      rebuildNav(config);
-      renderSettingsList(config);
-      syncViewport(config);
-      alert('インポートが完了しました。各ダッシュボードタブを再読み込みすると変更が反映されます。');
+      // kanban_db
+      if (dbs.kanban && Object.keys(dbs.kanban).length > 0) {
+        await _loadDB('kanban_db', 2, (ev) => {
+          const idb = ev.target.result;
+          const stores = {
+            tasks:          () => { const s = idb.createObjectStore('tasks', { keyPath: 'id', autoIncrement: true }); s.createIndex('column', 'column'); s.createIndex('position', 'position'); },
+            comments:       () => { const s = idb.createObjectStore('comments', { keyPath: 'id', autoIncrement: true }); s.createIndex('task_id', 'task_id'); },
+            labels:         () => idb.createObjectStore('labels', { keyPath: 'id', autoIncrement: true }),
+            task_labels:    () => { const s = idb.createObjectStore('task_labels', { keyPath: ['task_id', 'label_id'] }); s.createIndex('task_id', 'task_id'); },
+            columns:        () => { const s = idb.createObjectStore('columns', { keyPath: 'id', autoIncrement: true }); s.createIndex('key', 'key', { unique: true }); s.createIndex('position', 'position'); },
+            activities:     () => { const s = idb.createObjectStore('activities', { keyPath: 'id', autoIncrement: true }); s.createIndex('task_id', 'task_id'); },
+            task_relations: () => { const s = idb.createObjectStore('task_relations', { keyPath: 'id', autoIncrement: true }); s.createIndex('task_id', 'task_id'); s.createIndex('related_id', 'related_id'); },
+            note_links:     () => { const s = idb.createObjectStore('note_links', { keyPath: 'id', autoIncrement: true }); s.createIndex('todo_task_id', 'todo_task_id'); s.createIndex('note_task_id', 'note_task_id'); },
+            templates:      () => { const s = idb.createObjectStore('templates', { keyPath: 'id', autoIncrement: true }); s.createIndex('position', 'position'); },
+            archives:       () => { const s = idb.createObjectStore('archives', { keyPath: 'id', autoIncrement: true }); s.createIndex('archived_at', 'archived_at'); },
+            dependencies:   () => { const s = idb.createObjectStore('dependencies', { keyPath: 'id', autoIncrement: true }); s.createIndex('from_task_id', 'from_task_id'); s.createIndex('to_task_id', 'to_task_id'); },
+          };
+          Object.entries(stores).forEach(([name, create]) => { if (!idb.objectStoreNames.contains(name)) create(); });
+        }, dbs.kanban);
+      }
+
+      // note_db
+      if (dbs.note && Object.keys(dbs.note).length > 0) {
+        await _loadDB('note_db', 1, (ev) => {
+          const idb = ev.target.result;
+          if (!idb.objectStoreNames.contains('tasks')) idb.createObjectStore('tasks', { keyPath: 'id', autoIncrement: true });
+          if (!idb.objectStoreNames.contains('fields')) { const s = idb.createObjectStore('fields', { keyPath: 'id', autoIncrement: true }); s.createIndex('position', 'position'); }
+          if (!idb.objectStoreNames.contains('entries')) { const s = idb.createObjectStore('entries', { keyPath: 'id', autoIncrement: true }); s.createIndex('task_id', 'task_id'); s.createIndex('field_id', 'field_id'); }
+        }, dbs.note);
+      }
+
+      // sql_db
+      if (dbs.sql && Object.keys(dbs.sql).length > 0) {
+        await _loadDB('sql_db', 2, (ev) => {
+          const idb = ev.target.result;
+          if (!idb.objectStoreNames.contains('envs')) idb.createObjectStore('envs', { keyPath: 'id', autoIncrement: true });
+          if (!idb.objectStoreNames.contains('table_memos')) { const s = idb.createObjectStore('table_memos', { keyPath: 'id', autoIncrement: true }); s.createIndex('table_name', 'table_name'); }
+        }, dbs.sql);
+      }
+
+      // wbs_db
+      if (dbs.wbs && Object.keys(dbs.wbs).length > 0) {
+        await _loadDB('wbs_db', 1, (ev) => {
+          const idb = ev.target.result;
+          if (!idb.objectStoreNames.contains('tasks')) { const s = idb.createObjectStore('tasks', { keyPath: 'id', autoIncrement: true }); s.createIndex('position', 'position'); }
+        }, dbs.wbs);
+      }
+
+      // snippet_db
+      if (dbs.snippet && Object.keys(dbs.snippet).length > 0) {
+        await _loadDB('snippet_db', 1, (ev) => {
+          const idb = ev.target.result;
+          if (!idb.objectStoreNames.contains('snippets')) { const s = idb.createObjectStore('snippets', { keyPath: 'id', autoIncrement: true }); s.createIndex('language', 'language'); s.createIndex('updated_at', 'updated_at'); }
+        }, dbs.snippet);
+      }
+
+      // dashboard_db
+      if (dbs.dashboard && Object.keys(dbs.dashboard).length > 0) {
+        await _loadDB('dashboard_db', 2, (ev) => {
+          const idb = ev.target.result;
+          if (!idb.objectStoreNames.contains('sections')) { const ss = idb.createObjectStore('sections', { keyPath: 'id', autoIncrement: true }); ss.createIndex('position', 'position'); ss.createIndex('instance_id', 'instance_id'); }
+          if (!idb.objectStoreNames.contains('items')) { const is = idb.createObjectStore('items', { keyPath: 'id', autoIncrement: true }); is.createIndex('section_id', 'section_id'); is.createIndex('position', 'position'); }
+          if (!idb.objectStoreNames.contains('app_config')) idb.createObjectStore('app_config', { keyPath: 'name' });
+          if (!idb.objectStoreNames.contains('presets')) { const ps = idb.createObjectStore('presets', { keyPath: 'id', autoIncrement: true }); ps.createIndex('instance_id', 'instance_id'); ps.createIndex('position', 'position'); }
+        }, dbs.dashboard);
+      }
+
+      alert('全データの復元が完了しました。ページを再読み込みします。');
+      location.reload();
     } catch (err) {
       console.error(err);
-      alert('インポートに失敗しました: ' + err.message);
+      alert('復元に失敗しました: ' + err.message);
+      if (importBtn) { importBtn.disabled = false; importBtn.innerHTML = `${Icons.import} 復元`; }
     }
   };
   input.click();
@@ -693,10 +964,10 @@ function buildSettingsPanel() {
           <button class="settings-add-btn">追加</button>
         </div>
         <div class="settings-io-form">
-          <h3>データ管理</h3>
-          <div class="settings-io-btns">
-            <button class="settings-io-export-btn">${Icons.export} エクスポート</button>
-            <button class="settings-io-import-btn">${Icons.import} インポート</button>
+          <h3>全データ一括バックアップ</h3>
+          <div class="settings-backup-btns">
+            <button class="settings-backup-export-btn">${Icons.export} バックアップ</button>
+            <button class="settings-backup-import-btn">${Icons.import} 復元</button>
           </div>
         </div>
       </div>
@@ -714,9 +985,9 @@ function buildSettingsPanel() {
     const urlInput = document.getElementById("new-tab-url");
     if (urlInput) urlInput.hidden = e.target.value !== "url";
   });
-  // データ管理ボタン
-  overlay.querySelector(".settings-io-export-btn").addEventListener("click", exportAllData);
-  overlay.querySelector(".settings-io-import-btn").addEventListener("click", importAllData);
+  // 全データ一括バックアップボタン
+  overlay.querySelector(".settings-backup-export-btn").addEventListener("click", backupAllData);
+  overlay.querySelector(".settings-backup-import-btn").addEventListener("click", restoreAllData);
   // リスト内のボタンはイベント委譲
   overlay.querySelector("#settings-list").addEventListener("click", _onSettingsListClick);
 
@@ -1039,6 +1310,14 @@ async function configureHomePage(label) {
 // ==================================================
 window.addEventListener('message', async (e) => {
   const { type, noteTaskId, todoTaskId } = e.data || {};
+
+  // グローバル検索結果の集約
+  if (type === 'global-search-result') {
+    const { searchId, page, pageSrc: resultPageSrc, results } = e.data;
+    _onGlobalSearchResult(searchId, page, resultPageSrc, results || []);
+    return;
+  }
+
   if (type !== 'navigate:note' && type !== 'navigate:todo') return;
 
   const config  = await loadTabConfig();
