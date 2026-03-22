@@ -1,0 +1,184 @@
+'use strict';
+
+// ==================================================
+// SQL Toolkit — アプリケーション初期化・イベントリスナー登録
+// ==================================================
+
+// ==================================================
+// テーブル定義メモの初期化
+// ==================================================
+async function initTableMemo() {
+  // 開閉状態の復元
+  const memoDetails = document.getElementById("memo-details");
+  const stored = localStorage.getItem("sql_memo_open");
+  if (stored !== null) memoDetails.open = stored === "true";
+  memoDetails.addEventListener("toggle", () => {
+    localStorage.setItem("sql_memo_open", memoDetails.open);
+  });
+
+  // リスト描画
+  await refreshMemoList();
+
+  // 検索
+  document.getElementById("memo-search").addEventListener("input", () => refreshMemoList());
+
+  // テーブルを追加
+  document.getElementById("memo-add-btn").addEventListener("click", () => openMemoModal(null));
+
+  // エクスポート
+  document.getElementById("memo-export-btn").addEventListener("click", async () => {
+    const memos = await _db.getAllTableMemos();
+    exportMemos(memos);
+  });
+
+  // インポート
+  document.getElementById("memo-import-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (file) await importMemos(file);
+    e.target.value = "";
+  });
+
+  // モーダル: カラム追加
+  document.getElementById("memo-col-add-btn").addEventListener("click", () => {
+    document.getElementById("memo-col-body").appendChild(createMemoColRow());
+  });
+
+  // モーダル: インデックス追加
+  document.getElementById("memo-idx-add-btn").addEventListener("click", () => {
+    document.getElementById("memo-idx-body").appendChild(createMemoIdxRow());
+  });
+
+  // モーダル: 保存
+  document.getElementById("memo-save-btn").addEventListener("click", saveMemoForm);
+
+  // モーダル: キャンセル・閉じる
+  document.getElementById("memo-cancel-btn").addEventListener("click", closeMemoModal);
+  document.getElementById("memo-modal-close-btn").addEventListener("click", closeMemoModal);
+  document.getElementById("memo-modal-backdrop").addEventListener("click", closeMemoModal);
+
+  // モーダル: Esc で閉じる
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !document.getElementById("memo-modal").hidden) closeMemoModal();
+  });
+}
+
+// ==================================================
+// 初期化
+// ==================================================
+window.addEventListener("load", async () => {
+  _db = new SqlDB();
+  await _db.open();
+  await ensureDefaultEnvs(_db);
+
+  // 選択済み環境キーを復元（ブラウザ固有の選択状態のため localStorage を使用）
+  const saved = localStorage.getItem("sql_selected_env");
+  const envs  = await _db.getAllEnvs();
+  selectedEnvKey = (saved && envs.some(e => e.key === saved)) ? saved : (envs[0]?.key ?? "");
+
+  // チューニング対象グリッドの描画
+  renderTuneGrid();
+
+  // チューニング対象: 検索初期化
+  initTuneSearch();
+
+  // テーブル定義メモ
+  await initTableMemo();
+
+  // チューニング対象の開閉状態を復元
+  const tuneDetails = document.getElementById("tune-details");
+  const tuneStored  = localStorage.getItem("sql_tune_open");
+  tuneDetails.open = tuneStored !== null ? tuneStored === "true" : true;
+  tuneDetails.addEventListener("toggle", () => {
+    localStorage.setItem("sql_tune_open", tuneDetails.open);
+  });
+
+  renderEnvSegCtrl(envs);
+  renderEnvList(envs);
+  renderSqlplusOptions();
+  loadParamState();
+  updateConnPreview(envs);
+
+  // 接続先変更 → プレビュー更新
+  document.getElementById("env").addEventListener("change", async () => {
+    updateConnPreview(await _db.getAllEnvs());
+  });
+  document.getElementById("sqlplus-options").addEventListener("change", async () => {
+    updateConnPreview(await _db.getAllEnvs());
+  });
+  document.getElementById("sqlplus-extra").addEventListener("input", async () => {
+    updateConnPreview(await _db.getAllEnvs());
+  });
+
+  // 接続コマンドをコピー
+  document.getElementById("conn").addEventListener("click", async () => {
+    const cmd = buildConnCommand(await _db.getAllEnvs());
+    navigator.clipboard.writeText(cmd).then(() => showToast("コピーしました"));
+  });
+
+  // バインド変数: 行追加ボタン
+  document.getElementById("param-add").addEventListener("click", () => {
+    appendParamRow();
+    saveParamState();
+  });
+
+  // バインド変数コピー
+  document.getElementById("param-copy").addEventListener("click", () => {
+    const text = buildParamText();
+    if (!text) { showToast("使用する変数がありません", 'error'); return; }
+    navigator.clipboard.writeText(text).then(() => showToast("コピーしました"));
+  });
+
+  // セッション設定コピーボタン（トーストのみ追加）
+  document.querySelectorAll(".btn.copy").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const text = getString(btn.dataset.copy, btn.dataset.params ?? null);
+      navigator.clipboard.writeText(text).then(() => showToast("コピーしました"));
+    });
+  });
+
+  // 環境追加フォーム
+  document.getElementById("env-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const key     = document.getElementById("env-key").value.trim();
+    const user    = document.getElementById("env-user").value.trim();
+    const pass    = document.getElementById("env-pass").value;
+    const host    = document.getElementById("env-host").value.trim();
+    const portRaw = document.getElementById("env-port").value.trim();
+    const service = document.getElementById("env-service").value.trim();
+
+    const err = validateEnvInputs({ key, user, host, portRaw, service });
+    if (err) { showToast(err, 'error'); return; }
+
+    const currentEnvs = await _db.getAllEnvs();
+    if (currentEnvs.some(e => e.key === key)) {
+      showToast(`環境名「${key}」はすでに存在します`, 'error');
+      return;
+    }
+
+    const port = portRaw || "1521";
+    await _db.addEnv({ key, username: user, password: pass, connect_identifier: `${host}:${port}/${service}` });
+    e.target.reset();
+    showToast(`「${key}」を追加しました`);
+    await refreshEnvs();
+  });
+
+  // JSON エクスポート
+  document.getElementById("env-export").addEventListener("click", async () => {
+    exportEnvJson(await _db.getAllEnvs());
+  });
+
+  // JSON インポート
+  document.getElementById("env-import-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (file) await importEnvJson(file);
+    e.target.value = "";
+  });
+});
+
+// テーマ変更を受け取る（親フレームからの postMessage）
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'theme-change') {
+    document.documentElement.setAttribute('data-theme', e.data.theme);
+    localStorage.setItem('mytools_theme', e.data.theme);
+  }
+});

@@ -1,0 +1,85 @@
+// ==========================================
+// 祝日設定モーダル
+// ==========================================
+.wbs-holiday-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;  // DatePicker(250)より低くしてDatePickerを前面に表示させる
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.wbs-holiday-dialog {
+  background: var(--c-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5);
+  width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.wbs-holiday-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c-text);
+  margin: 0;
+}
+
+.wbs-holiday-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wbs-holiday-input-row {
+  display: flex;
+  gap: var(--space-2);
+
+  input {
+    flex: 1;
+    height: 34px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color var(--t);
+
+    &:focus { border-color: var(--c-accent); }
+  }
+}
+
+.wbs-holiday-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wbs-holiday-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--space-3);
+  background: var(--c-bg);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+}
+
+.wbs-holiday-item-date { color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.wbs-holiday-item-name { color: var(--c-text); flex: 1; margin: 0 var(--space-3); }
+
+.wbs-holiday-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

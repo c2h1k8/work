@@ -532,9 +532,9 @@ function setupEvents() {
           }
           return { id: s.id, title: s.title || '', excerpt };
         });
-      parent.postMessage({ type: 'global-search-result', searchId, page: 'スニペット', pageSrc: 'snippet.html', results }, '*');
+      parent.postMessage({ type: 'global-search-result', searchId, page: 'スニペット', pageSrc: 'pages/snippet.html', results }, '*');
     } catch (err) {
-      parent.postMessage({ type: 'global-search-result', searchId, page: 'スニペット', pageSrc: 'snippet.html', results: [] }, '*');
+      parent.postMessage({ type: 'global-search-result', searchId, page: 'スニペット', pageSrc: 'pages/snippet.html', results: [] }, '*');
     }
   });
 

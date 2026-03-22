@@ -456,6 +456,14 @@ function init() {
   leftInput.addEventListener('input', onInput);
   rightInput.addEventListener('input', onInput);
 
+  // ショートカットキー一覧登録
+  ShortcutHelp.register([
+    { name: 'ショートカット', shortcuts: [
+      { keys: ['Ctrl', 'Enter'], description: '差分を比較' },
+      { keys: ['?'], description: 'ショートカット一覧' },
+    ]}
+  ]);
+
   // テーマ変更メッセージ受信（親フレームから）
   window.addEventListener('message', e => {
     if (e.data?.type === 'theme-change') {

@@ -2279,7 +2279,7 @@ window.addEventListener('message', async (e) => {
       req.onsuccess = ev => resolve(ev.target.result);
       req.onerror = () => resolve(null);
     });
-    if (!db) { parent.postMessage({ type: 'global-search-result', searchId, page: 'TODO', pageSrc: 'todo.html', results: [] }, '*'); return; }
+    if (!db) { parent.postMessage({ type: 'global-search-result', searchId, page: 'TODO', pageSrc: 'pages/todo.html', results: [] }, '*'); return; }
 
     const tasks = await new Promise((res) => {
       const req = db.transaction('tasks').objectStore('tasks').getAll();
@@ -2304,9 +2304,9 @@ window.addEventListener('message', async (e) => {
         return { id: t.id, title: t.title || '', excerpt };
       });
 
-    parent.postMessage({ type: 'global-search-result', searchId, page: 'TODO', pageSrc: 'todo.html', results }, '*');
+    parent.postMessage({ type: 'global-search-result', searchId, page: 'TODO', pageSrc: 'pages/todo.html', results }, '*');
   } catch (err) {
-    parent.postMessage({ type: 'global-search-result', searchId, page: 'TODO', pageSrc: 'todo.html', results: [] }, '*');
+    parent.postMessage({ type: 'global-search-result', searchId, page: 'TODO', pageSrc: 'pages/todo.html', results: [] }, '*');
   }
 });
 

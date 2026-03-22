@@ -4,19 +4,19 @@
 
 ## 概要
 
-| ページ            | 説明                                                                                                                         |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `index.html`      | タブナビゲーションのエントリポイント                                                                                         |
-| `todo.html`       | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・タスク紐づけ・エクスポート／インポート付き） |
-| `dashboard.html`  | カスタマイズ可能なホームダッシュボード（設定画面からセクション・アイテムを自由に作成。list/grid/table/command_builder/markdown/iframe/countdown/formatter でバインド変数プリセット対応） |
-| `sql.html`        | Oracle SQL\*Plusコマンド・チューニングリファレンス（接続環境管理・SQL整形・実行計画ガイド検索・テーブル定義メモをIndexedDBで管理） |
-| `note.html`       | ノート管理（設計書・テストケース・エビデンス等のリンクや備考を可変フィールドで管理。フィールド幅 narrow/auto/wide/full・DatePicker対応。リンク表示名コピー・ドロップダウンフィールド対応） |
-| `wbs.html`        | WBS管理（タスク名・予定/実績の開始日・日数・終了日（自動算出）・進捗・ステータス。土日/祝日/カスタム休業日を考慮した営業日計算。ガントチャート表示） |
-| `timer.html`      | 定型作業タイマー（ポモドーロ等のプリセット選択・作業/休憩フェーズ管理・セッションログ記録。タグ別集計で工数振り返りに対応） |
-| `snippet.html`    | コードスニペット管理（言語・タグで整理、検索・フィルタ。ワンクリックコピー・シンタックスハイライト（highlight.js）・エクスポート/インポート対応） |
-| `diff_tool.html`  | 差分比較ツール（左右のテキストをペーストするだけでdiffをハイライト表示。行単位/文字単位切替・空白無視・折りたたみ表示。永続化なし） |
-| `ops.html`        | 運用インフラツール（ログビューア・cron式エディタ・HTTPステータスコード辞典・ポート番号リファレンス・サブネット計算機 の5ツールをタブで統合） |
-| `text.html`       | テキスト処理・変換ツール（エンコード・ケース変換・正規表現テスター・文字カウント・タイムスタンプ・TSV/CSV・フォーマッタ の7ツールをタブで統合） |
+| ページ                   | 説明                                                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `index.html`             | タブナビゲーションのエントリポイント                                                                                         |
+| `pages/todo.html`        | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・タスク紐づけ・エクスポート／インポート付き） |
+| `pages/dashboard.html`   | カスタマイズ可能なホームダッシュボード（設定画面からセクション・アイテムを自由に作成。list/grid/table/command_builder/markdown/iframe/countdown/formatter でバインド変数プリセット対応） |
+| `pages/sql.html`         | Oracle SQL\*Plusコマンド・チューニングリファレンス（接続環境管理・SQL整形・実行計画ガイド検索・テーブル定義メモをIndexedDBで管理） |
+| `pages/note.html`        | ノート管理（設計書・テストケース・エビデンス等のリンクや備考を可変フィールドで管理。フィールド幅 narrow/auto/wide/full・DatePicker対応。リンク表示名コピー・ドロップダウンフィールド対応） |
+| `pages/wbs.html`         | WBS管理（タスク名・予定/実績の開始日・日数・終了日（自動算出）・進捗・ステータス。土日/祝日/カスタム休業日を考慮した営業日計算。ガントチャート表示） |
+| `pages/timer.html`       | 定型作業タイマー（ポモドーロ等のプリセット選択・作業/休憩フェーズ管理・セッションログ記録。タグ別集計で工数振り返りに対応） |
+| `pages/snippet.html`     | コードスニペット管理（言語・タグで整理、検索・フィルタ。ワンクリックコピー・シンタックスハイライト（highlight.js）・エクスポート/インポート対応） |
+| `pages/diff_tool.html`   | 差分比較ツール（左右のテキストをペーストするだけでdiffをハイライト表示。行単位/文字単位切替・空白無視・折りたたみ表示。永続化なし） |
+| `pages/ops.html`         | 運用インフラツール（ログビューア・cron式エディタ・HTTPステータスコード辞典・ポート番号リファレンス・サブネット計算機 の5ツールをタブで統合） |
+| `pages/text.html`        | テキスト処理・変換ツール（エンコード・ケース変換・正規表現テスター・文字カウント・タイムスタンプ・TSV/CSV・フォーマッタ の7ツールをタブで統合） |
 
 ## 技術スタック
 
@@ -32,17 +32,18 @@
 
 ```
 work/
-├── index.html          # エントリポイント（タブ UI）
-├── dashboard.html      # カスタムダッシュボード
-├── todo.html           # TODO管理
-├── sql.html            # SQLリファレンス
-├── note.html           # ノート管理
-├── wbs.html            # WBS管理（ガントチャート付き）
-├── timer.html          # 定型作業タイマー
-├── snippet.html        # コードスニペット管理
-├── diff_tool.html      # 差分比較ツール
-├── ops.html            # 運用ツール（ログビューア等）
-├── text.html           # テキスト処理・変換ツール
+├── index.html              # エントリポイント（タブ UI）
+├── pages/                  # 各ページ HTML（iframe で読み込み）
+│   ├── todo.html           # TODO管理
+│   ├── dashboard.html      # カスタムダッシュボード
+│   ├── sql.html            # SQLリファレンス
+│   ├── note.html           # ノート管理
+│   ├── wbs.html            # WBS管理（ガントチャート付き）
+│   ├── timer.html          # 定型作業タイマー
+│   ├── snippet.html        # コードスニペット管理
+│   ├── diff_tool.html      # 差分比較ツール
+│   ├── ops.html            # 運用ツール（ログビューア等）
+│   └── text.html           # テキスト処理・変換ツール
 ├── js/
 │   ├── core/                  # 基盤ユーティリティ
 │   │   ├── utils.js           # escapeHtml / sortByPosition / getString / isValidUrl
@@ -58,14 +59,24 @@ work/
 │   │   ├── bind_var_modal.js  # バインド変数管理モーダル（BindVarModal.open）
 │   │   └── shortcut_help.js   # ショートカットキー一覧モーダル（ShortcutHelp.register/show）
 │   ├── db/                    # IndexedDB 操作クラス
-│   │   ├── kanban_db.js       # KanbanDB（todo.html 用）
-│   │   ├── note_db.js         # NoteDB（note.html 用）
-│   │   ├── dashboard_db.js    # DashboardDB（dashboard.html 用）
-│   │   ├── sql_db.js          # SqlDB（sql.html 用）
-│   │   ├── wbs_db.js          # WbsDB（wbs.html 用）
-│   │   ├── timer_db.js        # TimerDB（timer.html 用）
-│   │   ├── snippet_db.js      # SnippetDB（snippet.html 用）
-│   │   └── ops_db.js          # OpsDB（ops.html 用: ポート番号カスタム登録）
+│   │   ├── kanban_db.js       # KanbanDB（todo 用）
+│   │   ├── note_db.js         # NoteDB（note 用）
+│   │   ├── dashboard_db.js    # DashboardDB（dashboard 用）
+│   │   ├── sql_db.js          # SqlDB（sql 用）
+│   │   ├── wbs_db.js          # WbsDB（wbs 用）
+│   │   ├── timer_db.js        # TimerDB（timer 用）
+│   │   ├── snippet_db.js      # SnippetDB（snippet 用）
+│   │   ├── ops_db.js          # OpsDB（ops 用）
+│   │   └── text_db.js         # TextDB（text 用）
+│   ├── index/                 # タブナビゲーション（分割）
+│   │   ├── constants.js       # TAB_ITEMS・ICON_PALETTE
+│   │   ├── db.js              # AppDB
+│   │   ├── theme.js           # テーマ切替
+│   │   ├── shell.js           # シェル・ナビ・ビューポート
+│   │   ├── search.js          # グローバル検索
+│   │   ├── backup.js          # 一括バックアップ
+│   │   ├── settings.js        # タブ設定パネル
+│   │   └── app.js             # App 初期化
 │   ├── todo/                  # TODO管理（分割）
 │   │   ├── state.js           # State + グローバルヘルパー
 │   │   ├── backup.js          # エクスポート/インポート
@@ -83,34 +94,66 @@ work/
 │   │   ├── renderer.js        # DOM 描画
 │   │   ├── events.js          # EventHandlers
 │   │   └── app.js             # App
-│   ├── index.js               # タブ生成・切り替え・テーマ管理
-│   ├── sql.js                 # SQL コマンド生成
-│   ├── wbs.js                 # WBS・ガントチャート
-│   ├── timer.js               # 定型作業タイマー
-│   ├── snippet.js             # コードスニペット管理
-│   ├── diff_tool.js           # 差分比較ツール
-│   ├── ops.js                 # 運用インフラツール（ログビューア/cron/HTTPステータス/ポート番号/サブネット）
-│   └── text.js                # テキスト処理・変換ツール（エンコード/ケース変換/正規表現/文字カウント）
+│   ├── sql/                   # SQL Toolkit（分割）
+│   │   ├── constants.js       # 定数（デフォルト環境・オプション・型定義・実行計画ガイド・SVGアイコン）
+│   │   ├── state.js           # State + ヘルパー
+│   │   ├── renderer.js        # DOM 描画
+│   │   ├── events.js          # CRUD操作・エクスポート/インポート
+│   │   └── app.js             # App 初期化
+│   ├── wbs/                   # WBS・ガントチャート（分割）
+│   │   ├── constants.js       # 定数・祝日計算・営業日ユーティリティ
+│   │   ├── state.js           # State + ガントレイアウト + 親子集計
+│   │   ├── renderer.js        # DOM 描画
+│   │   ├── events.js          # EventHandlers
+│   │   └── app.js             # App
+│   ├── timer/                 # 定型作業タイマー（分割）
+│   │   ├── state.js           # State + フォーマットヘルパー + 通知音
+│   │   ├── renderer.js        # DOM 描画
+│   │   ├── events.js          # EventHandlers + タイマー制御
+│   │   └── app.js             # App
+│   ├── ops/                   # 運用インフラツール（分割）
+│   │   ├── constants.js       # 定数定義（ログレベル/HTTP/ポート等）
+│   │   ├── state.js           # State + タブ切替
+│   │   ├── log_viewer.js      # ログビューア
+│   │   ├── cron.js            # cron式エディタ
+│   │   ├── http_status.js     # HTTPステータスコード辞典
+│   │   ├── ports.js           # ポート番号リファレンス
+│   │   └── app.js             # 初期化 + イベントバインド
+│   ├── text/                  # テキスト処理・変換ツール（分割）
+│   │   ├── constants.js       # 定数定義
+│   │   ├── state.js           # State + タブ切替
+│   │   ├── regex.js           # 正規表現テスター
+│   │   ├── encode.js          # エンコード/デコード
+│   │   ├── case.js            # ケース変換
+│   │   ├── count.js           # 文字カウント
+│   │   ├── format.js          # フォーマッタ（JSON/XML）
+│   │   ├── timestamp.js       # タイムスタンプ変換
+│   │   ├── tsv.js             # TSV/CSV 変換
+│   │   └── app.js             # 初期化 + イベントバインド
+│   ├── snippet.js             # コードスニペット管理（未分割）
+│   └── diff_tool.js           # 差分比較ツール（未分割）
 └── css/
     ├── core/                  # 基盤スタイル
-    │   ├── tokens.{less,css}  # デザイントークン ★
-    │   ├── ui.{less,css}      # 共通 UI（btn 等）+ カラーエイリアス ★
-    │   └── tab_style.{less,css} # タブ UI・ナビゲーション
+    │   ├── tokens.{less,css}  # デザイントークン
+    │   └── ui.{less,css}      # 共通 UI（btn 等）+ カラーエイリアス
     ├── components/            # コンポーネントスタイル
-    │   ├── checklist.{less,css}     # チェックリスト（共通）
+    │   ├── checkbox.{less,css}        # カスタムチェックボックス（.chk-label）
+    │   ├── radio_pill.{less,css}      # カスタムラジオボタン（.radio-pill）
+    │   ├── checklist.{less,css}       # チェックリスト
     │   ├── toast / tooltip / date_picker / label_manager /
-    │   ├── label_filter / custom_select / bind_var_modal
+    │   ├── label_filter / custom_select / bind_var_modal / shortcut_help
     │   └── (各 {less,css} ペア)
-    ├── todo.less → css/todo/_*.less  # パーシャル分割
-    ├── dashboard.less → css/dashboard/_*.less
-    ├── note.less → css/note/_*.less
-    ├── sql.{less,css}
-    ├── wbs.{less,css}
-    ├── timer.{less,css}
+    ├── index.less + css/index/        # タブUI・ナビ・設定・検索（パーシャル分割）
+    ├── todo.less + css/todo/          # パーシャル分割
+    ├── dashboard.less + css/dashboard/
+    ├── note.less + css/note/
+    ├── sql.less + css/sql/            # パーシャル分割
+    ├── ops.less + css/ops/            # パーシャル分割
+    ├── text.less + css/text/          # パーシャル分割
+    ├── wbs.less + css/wbs/            # パーシャル分割
+    ├── timer.less + css/timer/        # パーシャル分割
     ├── snippet.{less,css}
-    ├── diff_tool.{less,css}
-    ├── ops.{less,css}
-    └── text.{less,css}
+    └── diff_tool.{less,css}
 ```
 
 ## 使い方
@@ -139,7 +182,7 @@ work/
 - **カスタムタブ「カスタムURL」**: ラベル名と URL を指定して追加。表示/非表示切り替え・削除が可能
 - **カスタムタブ「ダッシュボード」**: 独立した IndexedDB インスタンスを持つダッシュボードを複数追加可能
 
-コードで組み込みタブを追加する場合は `js/index.js` の `TAB_ITEMS` 配列に追記する。
+コードで組み込みタブを追加する場合は `js/index/constants.js` の `TAB_ITEMS` 配列に追記する。
 
 ### LESS のコンパイル
 

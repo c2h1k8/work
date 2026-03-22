@@ -1,0 +1,114 @@
+// ==================================================
+// タイムスタンプツール
+// ==================================================
+
+.ts-now-grid {
+  padding: 6px 0;
+}
+
+.ts-now-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--c-border);
+
+  &:last-child { border-bottom: none; }
+
+  &__label {
+    min-width: 140px;
+    font-size: 12px;
+    color: var(--c-text-3);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  &__value {
+    flex: 1;
+    font-size: 13px;
+    font-family: @mono;
+    color: var(--c-text);
+    word-break: break-all;
+  }
+}
+
+// タイムスタンプ・置換コピーボタン（アイコン+テキスト）
+.ts-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+
+  svg { fill: currentColor; }
+}
+
+.ts-converter {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  &__input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+}
+
+.ts-input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-md);
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-size: 14px;
+  font-family: @mono;
+  transition: border-color var(--t);
+
+  &:focus {
+    outline: none;
+    border-color: var(--c-accent);
+  }
+}
+
+.ts-result-grid {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.ts-result-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg);
+
+  &:last-child { border-bottom: none; }
+
+  &__label {
+    min-width: 120px;
+    font-size: 11.5px;
+    color: var(--c-text-3);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  &__value {
+    flex: 1;
+    font-size: 13px;
+    font-family: @mono;
+    color: var(--c-text);
+    word-break: break-all;
+  }
+}
+
+.ts-error {
+  color: var(--c-danger);
+  font-size: 12px;
+  padding: 6px 0;
+}

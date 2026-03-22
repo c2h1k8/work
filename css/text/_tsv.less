@@ -1,0 +1,131 @@
+// ==================================================
+// TSV/CSV ⇔ テーブル変換
+// ==================================================
+
+.tsv-options {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.tsv-delim-bar {
+  display: flex;
+  gap: 6px;
+}
+
+.tsv-delim-btn {
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-md);
+  background: var(--c-bg);
+  color: var(--c-text-2);
+  cursor: pointer;
+  transition: all var(--t);
+
+  &:hover { color: var(--c-text); border-color: var(--c-border-2); }
+
+  &--active {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: #fff;
+    font-weight: 600;
+  }
+}
+
+// tsv-header-check は chk-label に移行済み（削除）
+
+.tsv-input-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tsv-table-wrap {
+  overflow-x: auto;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.tsv-table {
+  width: auto;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: @mono;
+
+  th, td {
+    border: 1px solid var(--c-border);
+    padding: 6px 10px;
+    white-space: nowrap;
+    min-width: 80px;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--c-text);
+
+    &:focus {
+      outline: 2px solid var(--c-accent);
+      outline-offset: -1px;
+      background: var(--c-accent-dim);
+      white-space: normal;
+    }
+  }
+
+  th {
+    background: var(--c-bg-2);
+    font-weight: 700;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  td { background: var(--c-surface); }
+
+  tr:hover td { background: var(--c-bg); }
+
+  &__del-col {
+    width: 32px;
+    min-width: 32px;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 4px !important;
+    text-align: center;
+  }
+}
+
+.tsv-del-row-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text-3);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all var(--t);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: var(--c-danger-bg);
+    color: var(--c-danger);
+  }
+}
+
+.tsv-row-actions {
+  padding: 10px 14px;
+  border-top: 1px solid var(--c-border);
+}
+
+.tsv-export-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--c-border);
+  flex-wrap: wrap;
+  background: var(--c-bg);
+}

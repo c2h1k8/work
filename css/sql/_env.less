@@ -1,0 +1,220 @@
+// ==================================================
+// 接続環境管理
+// ==================================================
+.env-manager {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  &__summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--color-bg);
+    cursor: pointer;
+    list-style: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    user-select: none;
+
+    &::-webkit-details-marker { display: none; }
+
+    svg:first-child {
+      width: 14px;
+      height: 14px;
+      fill: var(--color-text-muted);
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background: var(--c-bg-2);
+      color: var(--color-text);
+    }
+  }
+
+  &__chevron {
+    width: 13px;
+    height: 13px;
+    fill: var(--color-text-muted);
+    transition: transform 0.2s;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  &[open] .env-manager__chevron {
+    transform: rotate(180deg);
+  }
+
+  &__body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-card);
+  }
+}
+
+// 環境一覧
+.env-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  &__empty {
+    margin: 0;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    padding: 6px 0;
+  }
+
+  // 行: 列方向に積んで編集フォームを下に展開する
+  &__row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    border: 1px solid var(--color-border);
+    border-left-width: 3px;
+    border-left-color: transparent;
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    overflow: hidden;
+    transition: border-left-color 0.15s;
+
+    // 編集モード時に編集フォームを表示
+    &[data-editing="true"] .env-list__edit-form {
+      display: flex;
+    }
+
+    &:hover {
+      border-left-color: var(--color-accent);
+    }
+  }
+
+  // 通常表示行
+  &__view {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+
+    &:hover { background: var(--c-bg-2); }
+  }
+
+  // 上/下ボタンの縦積みコンテナ
+  &__order-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  // 上/下ボタン
+  &__order-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 17px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: 9px;
+    line-height: 1;
+
+    &:hover:not(:disabled) {
+      background: var(--color-card);
+      color: var(--color-text);
+    }
+    &:disabled { opacity: 0.25; cursor: not-allowed; }
+  }
+
+  &__info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__key {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-text);
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px 6px;
+    white-space: nowrap;
+  }
+
+  &__conn {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // 編集・削除ボタン群
+  &__btn-group {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  // インライン編集フォーム（初期非表示）
+  &__edit-form {
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 10px 10px;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-card);
+  }
+
+  // 保存・キャンセルボタン行
+  &__edit-actions {
+    display: flex;
+    gap: 6px;
+  }
+}
+
+// 環境追加フォーム
+.env-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  &__grid {
+    display: grid;
+    // 1行目: 環境名 / ユーザー名 / パスワード
+    // 2行目: ホスト / ポート / サービス名
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+
+    @media (max-width: 700px) { grid-template-columns: 1fr 1fr; }
+  }
+}
+
+// エクスポート / インポート行
+.env-io {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 2px;
+
+  // ボタンを均等幅に伸ばす
+  .btn { flex: 1; justify-content: center; }
+}

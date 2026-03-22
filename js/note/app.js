@@ -88,7 +88,7 @@ window.addEventListener('message', async (e) => {
       req.onsuccess = ev => resolve(ev.target.result);
       req.onerror = () => resolve(null);
     });
-    if (!db) { parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'note.html', results: [] }, '*'); return; }
+    if (!db) { parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'pages/note.html', results: [] }, '*'); return; }
 
     const tasks = await new Promise((res) => {
       const req = db.transaction('tasks').objectStore('tasks').getAll();
@@ -103,9 +103,9 @@ window.addEventListener('message', async (e) => {
       .slice(0, 10)
       .map(t => ({ id: t.id, title: t.title || '' }));
 
-    parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'note.html', results }, '*');
+    parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'pages/note.html', results }, '*');
   } catch (err) {
-    parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'note.html', results: [] }, '*');
+    parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'pages/note.html', results: [] }, '*');
   }
 });
 

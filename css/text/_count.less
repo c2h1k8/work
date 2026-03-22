@@ -1,0 +1,59 @@
+// ==================================================
+// 文字カウント
+// ==================================================
+
+.count-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 12px;
+}
+
+.count-stat {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: 20px 16px;
+  text-align: center;
+  transition: box-shadow var(--t);
+
+  &:hover { box-shadow: var(--shadow); }
+
+  &__value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+
+  &__label {
+    font-size: 11px;
+    color: var(--c-text-3);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+}
+
+// ==================================================
+// レスポンシブ
+// ==================================================
+
+@media (max-width: 640px) {
+  .page-main { padding: 12px; }
+  .txt-tool { gap: 10px; }
+  .txt-tabs { padding: 0 12px; }
+
+  .case-item__label { min-width: 130px; }
+  .case-item__copy { opacity: 1; } // タッチ端末では常に表示
+
+  .regex-pattern-row { flex-wrap: wrap; gap: 6px; }
+  .regex-flags-inline { flex-wrap: wrap; }
+
+  .encode-dir-btn { padding: 6px 14px; }
+
+  .count-stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .count-stat__value { font-size: 22px; }
+}

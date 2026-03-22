@@ -24,14 +24,14 @@ Claude Code がこのプロジェクトで作業する際の指針。
 | タブ設定（TAB_CONFIG） | **IndexedDB** (`app_db`) | 他ブラウザとも共有したい設定データのため |
 
 具体例:
-- `index.js`: タブ設定（TAB_CONFIG）→ IndexedDB (`app_db`)
-- `index.js`: アクティブタブ ID → `localStorage("ACTIVE_TAB_ID")`（ブラウザ固有）
-- `sql.js`: 接続環境・テーブル定義メモ → IndexedDB (`sql_db`)
-- `sql.js`: 選択中の接続環境キー → `localStorage("sql_selected_env")`（ブラウザ固有）
-- `sql.js`: チューニング詳細の開閉状態 → `localStorage("sql_tune_open")`（ブラウザ固有）
-- `sql.js`: テーブル定義メモパネルの開閉状態 → `localStorage("sql_memo_open")`（ブラウザ固有）
-- `dashboard.js`: セクション・アイテムデータ → IndexedDB (`dashboard_db`)
-- `dashboard.js`: URL コマンド履歴 → `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
+- `index/`: タブ設定（TAB_CONFIG）→ IndexedDB (`app_db`)
+- `index/`: アクティブタブ ID → `localStorage("ACTIVE_TAB_ID")`（ブラウザ固有）
+- `sql/`: 接続環境・テーブル定義メモ → IndexedDB (`sql_db`)
+- `sql/`: 選択中の接続環境キー → `localStorage("sql_selected_env")`（ブラウザ固有）
+- `sql/`: チューニング詳細の開閉状態 → `localStorage("sql_tune_open")`（ブラウザ固有）
+- `sql/`: テーブル定義メモパネルの開閉状態 → `localStorage("sql_memo_open")`（ブラウザ固有）
+- `dashboard/`: セクション・アイテムデータ → IndexedDB (`dashboard_db`)
+- `dashboard/`: URL コマンド履歴 → `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
 
 ### JavaScript
 
@@ -40,15 +40,15 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - その他ページの localStorage 操作は `js/core/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
 - `js/core/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` / `getString(origin, params)` / `isValidUrl(url)` — HTML エスケープ、position 昇順ソート、テンプレート置換、URL バリデーション
 - `js/components/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` — 統一トースト通知（自己挿入型）。CSS は `css/components/toast.{less,css}`。各ページに `showToast` ラッパーを定義する場合は `type` を必ず透過すること: `const showToast = (msg, type) => Toast.show(msg, type);`
-- `js/components/tooltip.js` を必要なページで読み込む: `Tooltip.init(container, selector?)` — カスタムツールチップ（自己挿入型・即時表示）。CSS は `css/components/tooltip.{less,css}`。`data-tooltip="テキスト"` 属性を持つ要素が対象。`title` 属性の代わりに使用することでブラウザ固有の遅延を回避できる。現在の使用ページ: `wbs.html`
+- `js/components/tooltip.js` を必要なページで読み込む: `Tooltip.init(container, selector?)` — カスタムツールチップ（自己挿入型・即時表示）。CSS は `css/components/tooltip.{less,css}`。`data-tooltip="テキスト"` 属性を持つ要素が対象。`title` 属性の代わりに使用することでブラウザ固有の遅延を回避できる。現在の使用ページ: `wbs.html` / `timer.html` / `text.html` / `note.html`
 - `js/core/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` など
 - コメントは日本語で記載する
 - `todo/` のアーキテクチャ: `state.js`（State + グローバルヘルパー）/ `backup.js`（Backup）/ `renderer.js`（Renderer）/ `dragdrop.js`（DragDrop）/ `app.js`（EventHandlers + App）。DB層は `js/db/kanban_db.js` の `KanbanDB` クラスに分離
 - `DatePicker` は `js/components/date_picker.js` に分離された再利用可能部品。CSS は `css/components/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
 - `LabelManager` は `js/components/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/components/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`。重複名チェック（追加・リネーム両方）は LabelManager 内で処理し `Toast.show` で通知（Toast が存在する場合）。Enter キーは `isComposing` チェックで IME 変換中を無視。
-- `ShortcutHelp` は `js/components/shortcut_help.js` に分離されたショートカットキー一覧モーダル（共通部品）。CSS は `css/components/shortcut_help.{less,css}`。HTML は初回 `ShortcutHelp.show()` 時に自動生成・挿入（自己挿入型）。API: `ShortcutHelp.register(categories)` でページ固有ショートカットを登録（`[{ name: 'カテゴリ名', shortcuts: [{ keys: ['Ctrl', 'K'], description: '説明' }] }]` 形式）。`?` キーで表示、Escape/オーバーレイで閉じる。Mac では `Ctrl` → `⌘` に自動変換。input/textarea/select/contenteditable にフォーカス中は `?` キーを無視。全ページ（index/todo/note/sql/wbs/snippet/dashboard）で読み込む。z-index: 500
+- `ShortcutHelp` は `js/components/shortcut_help.js` に分離されたショートカットキー一覧モーダル（共通部品）。CSS は `css/components/shortcut_help.{less,css}`。HTML は初回 `ShortcutHelp.show()` 時に自動生成・挿入（自己挿入型）。API: `ShortcutHelp.register(categories)` でページ固有ショートカットを登録（`[{ name: 'カテゴリ名', shortcuts: [{ keys: ['Ctrl', 'K'], description: '説明' }] }]` 形式）。`?` キーで表示、Escape/オーバーレイで閉じる。Mac では `Ctrl` → `⌘` に自動変換。input/textarea/select/contenteditable にフォーカス中は `?` キーを無視。全ページ（index/todo/note/sql/wbs/timer/snippet/dashboard/diff_tool/ops/text）で読み込む。z-index: 500
 - `BindVarModal` は `js/components/bind_var_modal.js` に分離されたバインド変数 + プリセット管理モーダル（共通部品）。CSS は `css/components/bind_var_modal.{less,css}`。HTML は初回 `BindVarModal.open()` 時に自動生成・挿入される。API: `BindVarModal.open({ title, varNames, presets, showBarConfig, uiType, barLabel, onAddVar, onRemoveVar, onSaveBarConfig, onAddPreset, onUpdatePreset, onDeletePreset, onMovePresetUp, onMovePresetDown, onChange })` / `BindVarModal.close()`。2カラムレイアウト（左: 変数定義 + バー設定、右: プリセット一覧/編集）。dashboard.js の共通バインド変数設定・テーブルバインド変数設定で使用。
-- `CustomSelect` は `js/components/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/components/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。**`<option data-color="#hex">` を付与すると色が自動反映される。** トリガー（選択中）: `.cs-color-badge`（カラーバッジチップ、色背景＋白文字）。ドロップダウン内アイテム: `.cs-swatch`（11px角丸スクエア、`--cs-swatch-color` CSS変数で色指定、影付き）。選択中アイテムはスウォッチにリングを付与し、既存の選択ドット（`::before`）は非表示（`:has` で制御）。 使用ページ: `index.html` / `todo.html` / `sql.html` / `note.html` / `dashboard.html`
+- `CustomSelect` は `js/components/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/components/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。**`<option data-color="#hex">` を付与すると色が自動反映される。** トリガー（選択中）: `.cs-color-badge`（カラーバッジチップ、色背景＋白文字）。ドロップダウン内アイテム: `.cs-swatch`（11px角丸スクエア、`--cs-swatch-color` CSS変数で色指定、影付き）。選択中アイテムはスウォッチにリングを付与し、既存の選択ドット（`::before`）は非表示（`:has` で制御）。 使用ページ: `index.html` / `pages/todo.html` / `pages/sql.html` / `pages/note.html` / `pages/dashboard.html`
 - `js/todo/state.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
 - `State.tasks: {}` はカラムキー → タスク配列の動的マップ（固定配列ではない）
 - `State.columns: []` は `{ id, key, name, position, done? }` の配列。`getColumnKeys()` で key 一覧を取得
@@ -76,9 +76,11 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 - **スタイルは必ず `.less` を編集すること。`.css` を直接編集してはいけない**
 - `.less` を編集したら `npx lessc <src>.less <dst>.css` で対応 `.css` を必ず再生成する
-  - 例: `npx lessc css/core/tab_style.less css/core/tab_style.css`
+  - 例: `npx lessc css/index.less css/index.css`
   - 例: `npx lessc css/todo.less css/todo.css`
-- 基盤スタイルは `css/core/` 配下に配置する（tokens, ui, tab_style）
+- 基盤スタイルは `css/core/` 配下に配置する（tokens, ui）
+- index.html のスタイルは `css/index.less`（エントリポイント）+ `css/index/` 配下にパーシャル分割（_variables, _shell, _viewport, _settings, _search）
+- 分割済みページ CSS: `css/todo/`, `css/dashboard/`, `css/note/`, `css/sql/`, `css/ops/`, `css/text/`, `css/wbs/`, `css/timer/`
 - UIコンポーネントスタイルは `css/components/` 配下に配置する
 - ページ固有スタイルは `css/<page>.{less,css}` に配置（エントリポイント）。大きいファイルは `css/<page>/` に `_*.less` パーシャルとして分割し `@import` で読み込む
 - **`.less` ファイルを追加・削除した場合は `.github/workflows/release.yml` の「Build CSS from LESS」ステップも必ず更新すること**
@@ -94,10 +96,12 @@ Claude Code がこのプロジェクトで作業する際の指針。
 ### デザインシステム（2026-03現在）
 
 - **デザイントークン**: `css/core/tokens.less` / `css/core/tokens.css` — 全ページ共通の CSS カスタムプロパティ（色・シャドウ・ラジウス・フォント・スペーシング）
-- **共通 UI**: `css/core/ui.less` / `css/core/ui.css` — 全ページ共通のスタイルを定義。`--c-*` トークンを直接参照。共通カラーエイリアス（`--color-card`, `--color-bg`, `--color-border` 等）もここで定義。全ページ（note / todo / sql / dashboard / index）で `tokens.css` の直後に読み込む
+- **共通 UI**: `css/core/ui.less` / `css/core/ui.css` — 全ページ共通のスタイルを定義。`--c-*` トークンを直接参照。共通カラーエイリアス（`--color-card`, `--color-bg`, `--color-border` 等）もここで定義。全ページで `tokens.css` の直後に読み込む
   - **リセット**: `*, *::before, *::after { box-sizing: border-box }` / `[hidden] { display: none !important }` — ページ LESS で重複定義しない。flex/grid コンテナ内での `&[hidden]` も不要
   - **body 基本**: `margin: 0; padding: 0; font-family; font-size: 14px; line-height: 1.5; color; background` — ページ LESS では layout 系（height / overflow / display）のみ上書きする
   - **ボタン**: `.btn` / `.btn--primary` / `.btn--secondary` / `.btn--danger` / `.btn--ghost` / `.btn--ghost-danger` / `.btn--sm` — ページ固有 LESS には記載しない
+- **カスタムチェックボックス**: `css/components/checkbox.{less,css}` — `.chk-label` クラス。使用ページ: `diff_tool.html` / `ops.html`
+- **カスタムラジオボタン**: `css/components/radio_pill.{less,css}` — `.radio-pill` クラス。使用ページ: `text.html`
 - **ダークモード**: `[data-theme="dark"]` を `<html>` に付与することで tokens.css のダーク用変数が有効になる
   - ライトモード時: `icon-moon` 表示、`icon-sun` 非表示
   - ダークモード時: `icon-sun` 表示、`icon-moon` 非表示
@@ -119,8 +123,9 @@ Claude Code がこのプロジェクトで作業する際の指針。
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
-  <link rel="stylesheet" href="./css/core/tokens.css" />
+  <link rel="stylesheet" href="../css/core/tokens.css" />
   ```
+  ※ `index.html`（ルート）では `./css/core/tokens.css`、`pages/` 配下のページでは `../css/core/tokens.css`
 
 ### HTML
 
@@ -132,7 +137,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 | 種別               | 配置先                                |
 | ------------------ | ------------------------------------- |
-| 新ページ           | ルートに `<name>.html`                |
+| 新ページ           | `pages/<name>.html`（index.html のみルート） |
 | ページ固有 JS      | `js/<name>.js` or `js/<name>/` (分割時) |
 | ページ固有 CSS     | `css/<name>.{less,css}` (エントリポイント) + `css/<name>/` (パーシャル) |
 | DB層 JS            | `js/db/<name>_db.js`                  |
@@ -155,11 +160,21 @@ Claude Code がこのプロジェクトで作業する際の指針。
 | `js/db/timer_db.js`       | TimerDB     | timer_db      | timer.html     |
 | `js/db/snippet_db.js`     | SnippetDB   | snippet_db    | snippet.html   |
 | `js/db/ops_db.js`         | OpsDB       | ops_db        | ops.html       |
-| `js/db/tools_db.js`       | ToolsDB     | tools_db      | text.html      |
+| `js/db/text_db.js`        | TextDB      | tools_db      | text.html      |
+| `js/db/app_db.js`         | AppDB       | app_db        | index.html     |
 
 - HTML での読み込み順: `js/core/utils.js` → `js/core/icons.js` → `js/components/*` → `js/db/<name>_db.js` → `js/<name>/*.js`
 - DB クラスはページ JS より前に読み込む必要がある（グローバルクラスとして参照するため）
-- 分割済みページ（todo/dashboard/note）は `js/<name>/` 配下の state → backup → renderer → dragdrop → app の順で読み込む
+- 分割済みページ（todo/dashboard/note/sql/wbs/timer/ops/text/index）は `js/<name>/` 配下のモジュールを読み込む:
+  - todo: state → backup → renderer → dragdrop → app
+  - dashboard: constants → state → renderer → events → app
+  - note: state → renderer → events → app
+  - sql/wbs: constants → state → renderer → events → app
+  - timer: state → renderer → events → app
+  - ops: constants → state → log_viewer → cron → http_status → ports → app
+  - text: constants → state → regex → encode → case → count → format → timestamp → tsv → app
+  - index: constants → config → theme → shell → search → backup → settings → app（`js/db/app_db.js` を先に読み込む）
+- 未分割ページ（snippet/diff_tool）は `js/<name>.js` の単一ファイル
 
 ## グローバル検索
 
@@ -170,7 +185,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - index.js が全結果を集約してページ別グループドロップダウンに描画（各グループ最大10件）
 - 結果クリック → タブ切替 + `postMessage({ type: 'global-search-focus', targetId })` を送信
 - 各ページは focus メッセージを受けてモーダル/詳細を開く
-- CSS: `.global-search` / `global-search__input` / `global-search__results` (tab_style.less)
+- CSS: `.global-search` / `global-search__input` / `global-search__results` (css/index/_search.less)
 
 ## データ一括バックアップ
 
@@ -184,10 +199,10 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ### 組み込みタブの追加（コード変更）
 
-`js/index.js` の `TAB_ITEMS` 配列に追記する。`isBuiltIn: true` で設定 UI から削除不可になる。
+`js/index/constants.js` の `TAB_ITEMS` 配列に追記する。`isBuiltIn: true` で設定 UI から削除不可になる。
 
 ```js
-{ label: "ラベル名", pageSrc: "page.html", isSelected: false }
+{ label: "ラベル名", pageSrc: "pages/page.html", isSelected: false }
 ```
 
 ### カスタムタブの追加（UI操作）
@@ -217,7 +232,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `getDefaultConfig()` → TAB_ITEMS から初期設定を生成（IndexedDB に未保存の初回用）
 - **アイコン変更**: 設定画面の各タブ行の左端アイコンボタンをクリック → SVG アイコンパレット（30種）が展開 → 選択すると即時反映
   - 選択した SVG は生の `<svg>` 文字列として `icon` フィールドに保存（TAB_ITEMS と同形式）
-  - `ICON_PALETTE` 配列（`{ id, label, svg }`）で選択肢を管理（`js/index.js`）
+  - `ICON_PALETTE` 配列（`{ id, label, svg }`）で選択肢を管理（`js/index/constants.js`）
   - `_toggleIconPicker(label)` / `_onSelectIcon(btn)` で制御（`_onSelectIcon` は async）
   - 組み込みタブも SVG に変更可能
   - CSS: `.icon-picker__item svg { width: 16px; height: 16px; fill: currentColor; }` で SVG サイズ統一
@@ -318,7 +333,20 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - **Noteページからのリンク追加**: 詳細パネルの「TODO」セクションに「＋ 追加」ボタン。`#todo-picker` ポップアップで TODO タスクを検索・選択して紐づけ
 - **TODOセクション設定**: `type: 'todo'` フィールドとして `note_db` の `fields` ストアに保存（`width` / `visible` / `position` を持つ）。フィールド管理モーダルに「TODOリンク」行（`note-field-item--builtin`）として表示し、幅・表示・並び順を設定可能。`NoteDB.ensureTodoField()` で既存ユーザー向けマイグレーション
 
-## wbs.js アーキテクチャ（2026-03現在）
+## sql/ アーキテクチャ（2026-03現在）
+
+- ファイル構成: `js/sql/constants.js`（定数）/ `state.js`（State + トースト + ヘルパー）/ `renderer.js`（DOM描画）/ `events.js`（CRUD・イベント）/ `app.js`（App初期化）
+
+- IndexedDB DB名: `sql_db` version **2**
+- ストア: `envs` + `table_memos`
+- `table_memos`: id/schema_name/table_name/comment/columns[]/indexes[]/memo/created_at/updated_at
+- バインド変数: localStorage（`sql_params`）。選択中環境キー: localStorage（`sql_selected_env`）
+- チューニング詳細の開閉状態: localStorage（`sql_tune_open`）。テーブル定義メモの開閉状態: localStorage（`sql_memo_open`）
+- モジュール構成: `SqlDB`（`js/db/sql_db.js`）/ `constants.js` / `state.js` / `renderer.js` / `events.js` / `app.js`（`js/sql/` 配下に分割）
+
+## wbs/ アーキテクチャ（2026-03現在）
+
+- ファイル構成: `js/wbs/constants.js`（定数・祝日計算・営業日ユーティリティ）/ `state.js`（State + 日付ユーティリティ + ガントレイアウト + 親子集計）/ `renderer.js`（Renderer）/ `events.js`（EventHandlers）/ `app.js`（App）
 
 - IndexedDB DB名: `wbs_db` version **1**
 - ストア: `tasks`（id/title/level/position/plan_start/plan_days/actual_start/actual_end/progress/status/memo）
@@ -326,7 +354,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `WbsDB.getAllTasks()` → position 昇順で全タスク取得
 - `WbsDB.addTask(task)` / `updateTask(task)` / `deleteTask(id)` / `bulkUpdate(tasks)`
 - `WbsDB.exportAll()` / `importAll(json)` → JSON バックアップ
-- 営業日計算ユーティリティ（wbs.js 内）:
+- 営業日計算ユーティリティ（`js/wbs/constants.js` 内）:
   - `addBusinessDays(startStr, days, customSet)` → 開始日から N 営業日後の日付
   - `countBusinessDays(startStr, endStr, customSet)` → 区間の営業日数（両端含む）
   - `isNonWorkingDay(date, customSet)` → 土日・祝日・カスタム休業日の判定
@@ -339,7 +367,41 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - バーのホバーは `Tooltip.init()` でカスタムツールチップ表示（`data-tooltip` 属性）
   - 横スクロール位置は `localStorage('wbs_gantt_scroll_x')` に記憶、初回は今日を中央に表示
   - テーブル側と縦スクロール同期。ガントヘッダーと横スクロール同期
-- モジュール構成: `WbsDB` / `State` / `Renderer` / `EventHandlers` / `App`
+- モジュール構成: `WbsDB`（`js/db/wbs_db.js`）/ `constants.js` / `state.js` / `renderer.js` / `events.js` / `app.js`（`js/wbs/` 配下に分割）
+
+## timer/ アーキテクチャ（2026-03現在）
+
+- ファイル構成: `js/timer/state.js`（State + フォーマットヘルパー + 通知音）/ `renderer.js`（描画）/ `events.js`（EventHandlers + タイマー制御）/ `app.js`（App）
+- IndexedDB DB名: `timer_db` version **1**
+- ストア: `presets`（id/name/work_sec/break_sec/position）+ `sessions`（id/task_name/tag/notes/duration_sec/started_at/ended_at）
+- モジュール構成: `TimerDB`（`js/db/timer_db.js`）/ `state.js` / `renderer.js` / `events.js` / `app.js`（`js/timer/` 配下に分割）
+- `State.mode`: `'work'` | `'break'` でフェーズ管理
+- `State.historyView`: `'today'` | `'week'` で表示期間切替。localStorage `timer_history_view` に永続化
+- アクティブプリセットID: localStorage `timer_active_preset` に永続化
+- 通知: Web Notifications API + AudioContext ビープ音
+- デフォルトプリセット: ポモドーロ（25/5）/ 短いポモドーロ（15/3）/ 長い集中（50/10）
+
+## ops/ アーキテクチャ（2026-03現在）
+
+- ファイル構成: `js/ops/constants.js`（定数定義）/ `state.js`（State + タブ切替）/ `log_viewer.js`（ログビューア）/ `cron.js`（cron式エディタ）/ `http_status.js`（HTTPステータスコード辞典）/ `ports.js`（ポート番号リファレンス）/ `app.js`（初期化 + イベントバインド）
+- IndexedDB DB名: `ops_db` version **1**
+- ストア: `ports`（id/port/protocol/service/memo/position）
+- セクション: `log-viewer` | `cron` | `http-status` | `ports`
+- `switchSection(tool)`: タブ切替 + 遅延初期化（HTTP/ポート/cronは初回表示時に初期化）
+- モジュール構成: `OpsDB`（`js/db/ops_db.js`）/ `constants.js` / `state.js` / `log_viewer.js` / `cron.js` / `http_status.js` / `ports.js` / `app.js`（`js/ops/` 配下に分割）
+
+## text/ アーキテクチャ（2026-03現在）
+
+- ファイル構成: `js/text/constants.js`（定数定義）/ `state.js`（State + タブ切替）/ `regex.js`（正規表現テスター）/ `encode.js`（エンコード/デコード）/ `case.js`（ケース変換）/ `count.js`（文字カウント）/ `format.js`（フォーマッタ）/ `timestamp.js`（タイムスタンプ変換）/ `tsv.js`（TSV/CSV変換）/ `app.js`（初期化 + イベントバインド）
+- IndexedDB DB名: `text_db` version **1**
+- セクション: `regex` | `encode` | `case` | `count` | `format` | `timestamp` | `tsv`
+- `switchSection(tool)`: タブ切替 + 遅延初期化
+- モジュール構成: `TextDB`（`js/db/text_db.js`）/ `constants.js` / `state.js` / 各ツールモジュール / `app.js`（`js/text/` 配下に分割）
+
+## index/ アーキテクチャ（2026-03現在）
+
+- ファイル構成: `js/index/constants.js`（TAB_ITEMS・ICON_PALETTE）/ `db.js`（AppDB）/ `theme.js`（テーマ切替）/ `shell.js`（シェル・ナビ・ビューポート）/ `search.js`（グローバル検索）/ `backup.js`（一括バックアップ）/ `settings.js`（タブ設定パネル）/ `app.js`（App初期化）
+- CSS: `css/index.less`（エントリポイント）+ `css/index/_variables.less` / `_shell.less` / `_viewport.less` / `_settings.less` / `_search.less`（パーシャル）
 
 ## 注意事項
 

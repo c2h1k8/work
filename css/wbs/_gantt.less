@@ -1,0 +1,232 @@
+// ==========================================
+// ガントチャート側（右）
+// ==========================================
+.wbs-gantt-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--c-surface);
+}
+
+.wbs-gantt-header {
+  height: var(--wbs-gantt-header-h);
+  overflow: hidden;
+  flex-shrink: 0;
+  border-bottom: 2px solid var(--c-border-2);
+  background: var(--c-surface-raised);
+}
+
+.wbs-gantt-header-inner {
+  position: relative;
+  height: 100%;
+}
+
+// 月ヘッダー行
+.gantt-months {
+  display: flex;
+  height: 24px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.gantt-month-cell {
+  display: flex;
+  align-items: center;
+  padding-left: var(--space-2);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-accent);
+  border-right: 1px solid var(--c-border);
+  white-space: nowrap;
+  overflow: hidden;
+  letter-spacing: 0.04em;
+  background: var(--c-surface-raised);
+  flex-shrink: 0;
+  cursor: pointer;
+  gap: 3px;
+  transition: background var(--t);
+  user-select: none;
+
+  &:hover { background: var(--c-bg-2); }
+
+  // 折りたたんだ月: 縦向きに圧縮表示
+  &.is-collapsed {
+    justify-content: center;
+    padding-left: 0;
+    color: var(--c-text-3);
+    background: var(--c-bg);
+  }
+}
+
+.gantt-month-toggle {
+  font-size: 8px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.gantt-month-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// 日ヘッダー行
+.gantt-days {
+  display: flex;
+  height: 28px;
+  position: absolute;
+  top: 24px;
+  left: 0;
+}
+
+.gantt-day-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--wbs-day-w);
+  font-size: 9.5px;
+  color: var(--c-text-3);
+  border-right: 1px solid var(--c-border);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+
+  &.is-saturday { background: var(--c-bg); color: var(--c-info); }
+  &.is-sunday   { background: var(--c-bg); color: var(--c-danger); }
+  &.is-holiday  { background: var(--c-bg); color: var(--c-warning); }
+  // 当日: アクセント（indigo）で土日・祝日と明確に区別
+  &.is-today {
+    background: color-mix(in srgb, var(--c-accent) 15%, transparent);
+    color: var(--c-accent);
+    font-weight: 700;
+  }
+  &.is-month-start { border-left: 1px solid var(--c-border-2); }
+  // 折りたたんだ月のプレースホルダー（日ヘッダー）
+  &.is-collapsed-month {
+    background: var(--c-bg);
+    border-right: 1px solid var(--c-border-2);
+    flex-shrink: 0;
+  }
+}
+
+// ガントボディ
+.wbs-gantt-body {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.wbs-gantt-body-inner {
+  position: relative;
+}
+
+// ガント行
+.gantt-row {
+  height: var(--wbs-row-h);
+  display: flex;
+  position: relative;
+  border-bottom: 1px solid var(--c-border);
+
+  &:hover {
+    background: var(--c-bg);
+    .gantt-row-bg { opacity: 0.5; }
+  }
+}
+
+// 背景セル（土日・祝日ハイライト）
+.gantt-bg-cell {
+  width: var(--wbs-day-w);
+  height: 100%;
+  border-right: 1px solid var(--c-border);
+  flex-shrink: 0;
+
+  &.is-saturday { background: color-mix(in srgb, var(--c-info) 6%, transparent); }
+  &.is-sunday   { background: color-mix(in srgb, var(--c-danger) 6%, transparent); }
+  &.is-holiday  { background: color-mix(in srgb, var(--c-warning) 8%, transparent); }
+  // 当日: アクセント（indigo）で祝日（amber）・日曜（red）と明確に区別
+  &.is-today {
+    background: color-mix(in srgb, var(--c-accent) 10%, transparent);
+  }
+  &.is-month-start { border-left: 1px solid var(--c-border-2); }
+  // 折りたたんだ月のプレースホルダー（ガント背景）
+  &.is-collapsed-month {
+    background: color-mix(in srgb, var(--c-text-3) 5%, transparent);
+    border-right: 1px solid var(--c-border-2);
+    flex-shrink: 0;
+  }
+}
+
+// ガントバー（絶対配置）
+.gantt-bar-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.gantt-bar {
+  position: absolute;
+  border-radius: var(--radius-xs);
+  pointer-events: auto;
+  cursor: default;
+  transition: opacity var(--t);
+  overflow: hidden; // 非営業日オーバーレイをバー内にクリップ
+
+  &:hover { opacity: 0.85; }
+}
+
+// 土日・祝日部分の暗化オーバーレイ（バー内の非営業日を視覚的に区別）
+.gantt-bar-nonwork {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+
+.gantt-bar--plan {
+  top: 8px;
+  height: 11px;
+  background: var(--c-accent);
+  box-shadow: 0 1px 3px var(--c-accent-dim);
+}
+
+.gantt-bar--actual {
+  top: 21px;
+  height: 11px;
+  background: var(--c-success);
+  box-shadow: 0 1px 3px var(--c-success-bg);
+  opacity: 0.85;
+}
+
+// 進行中（実績終了未入力）はバー右端を点線風にして未確定を表現
+.gantt-bar--actual.is-ongoing {
+  opacity: 0.6;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--c-success) 0px,
+    var(--c-success) 6px,
+    transparent 6px,
+    transparent 9px
+  );
+  box-shadow: none;
+}
+
+// 完了ステータスはバーを薄く
+.gantt-row.is-done .gantt-bar--plan {
+  opacity: 0.5;
+}
+
+// 今日の縦線
+.gantt-today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--c-danger);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 5;
+}

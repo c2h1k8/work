@@ -27,7 +27,7 @@ jobs:
         run: |
           npx lessc css/core/tokens.less          css/core/tokens.css
           npx lessc css/core/ui.less              css/core/ui.css
-          npx lessc css/core/tab_style.less       css/core/tab_style.css
+          npx lessc css/index.less                 css/index.css
           npx lessc css/components/toast.less          css/components/toast.css
           npx lessc css/components/tooltip.less         css/components/tooltip.css
           npx lessc css/components/date_picker.less     css/components/date_picker.css
@@ -37,6 +37,8 @@ jobs:
           npx lessc css/components/bind_var_modal.less  css/components/bind_var_modal.css
           npx lessc css/components/checklist.less       css/components/checklist.css
           npx lessc css/components/shortcut_help.less   css/components/shortcut_help.css
+          npx lessc css/components/checkbox.less        css/components/checkbox.css
+          npx lessc css/components/radio_pill.less      css/components/radio_pill.css
           npx lessc css/todo.less      css/todo.css
           npx lessc css/note.less      css/note.css
           npx lessc css/sql.less       css/sql.css
@@ -57,16 +59,7 @@ jobs:
 
           COMMON_FILES=(
             index.html
-            todo.html
-            note.html
-            sql.html
-            dashboard.html
-            wbs.html
-            timer.html
-            snippet.html
-            diff_tool.html
-            ops.html
-            text.html
+            pages/
             favicon.svg
             js/
             css/

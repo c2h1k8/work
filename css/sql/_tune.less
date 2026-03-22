@@ -1,0 +1,167 @@
+// ==================================================
+// チューニング対象
+// ==================================================
+.tune-details {
+  &__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--c-surface-raised);
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker { display: none; }
+
+    .card__title {
+      pointer-events: none;
+    }
+  }
+
+  &__chevron {
+    width: 14px;
+    height: 14px;
+    fill: var(--color-text-muted);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  &[open] .tune-details__chevron {
+    transform: rotate(180deg);
+  }
+}
+
+.tune-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.tune-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: var(--color-card);
+  border-left-width: 3px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+
+  &:hover {
+    box-shadow: var(--shadow-sm);
+  }
+
+  &--high { border-left-color: var(--color-danger); }
+  &--mid  { border-left-color: var(--color-warning); }
+  &--low  { border-left-color: var(--color-accent); }
+  &--ok   { border-left-color: var(--c-success); }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+
+  &__op {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+                 monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 1px 6px;
+    white-space: nowrap;
+  }
+
+  &__badges {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  &__desc {
+    margin: 0;
+    font-size: 12px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+  }
+}
+
+// ==================================================
+// 実行計画ガイド: ツールバー・タブ・検索
+// ==================================================
+.tune-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px 4px;
+}
+
+.tune-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tune-tab {
+  padding: 4px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+
+  &:hover {
+    background: var(--c-bg-2);
+    color: var(--color-text);
+  }
+
+  &--active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: #fff;
+
+    &:hover {
+      background: var(--color-accent);
+      color: #fff;
+    }
+  }
+}
+
+.tune-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+}
+
+.tune-search-icon {
+  width: 13px;
+  height: 13px;
+  fill: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.tune-search {
+  flex: 1;
+  max-width: 320px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-card);
+  outline: none;
+  transition: border-color 0.15s;
+
+  &:focus { border-color: var(--color-accent); }
+  &::placeholder { color: var(--color-text-muted); }
+}

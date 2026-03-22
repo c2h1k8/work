@@ -1,0 +1,181 @@
+// ==================================================
+// プリセット
+// ==================================================
+
+.preset-section {
+  padding-bottom: 16px;
+}
+
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preset-empty {
+  font-size: 13px;
+  color: var(--c-text-3);
+  text-align: center;
+  padding: 16px 0;
+}
+
+.preset-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 2px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: var(--t);
+  background: var(--c-bg);
+
+  &:hover {
+    border-color: var(--c-accent);
+    background: var(--c-accent-dim);
+  }
+
+  &--active {
+    border-color: var(--c-accent);
+    background: var(--c-accent-dim);
+
+    .preset-card__name { color: var(--c-accent); }
+  }
+
+  &__name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-text);
+  }
+
+  &__times {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--c-text-3);
+  }
+
+  &__work  { color: var(--c-accent); }
+  &__break { color: var(--c-success); }
+  &__sep   { color: var(--c-border); }
+
+  &__actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity var(--t);
+  }
+
+  &:hover &__actions { opacity: 1; }
+}
+
+// ==================================================
+// モーダル
+// ==================================================
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-panel {
+  background: var(--c-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--c-text);
+}
+
+.modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--c-text-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--t);
+
+  &:hover { background: var(--c-bg-2); color: var(--c-text); }
+}
+
+.modal-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--c-border);
+}
+
+// フォーム
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  &--2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    flex-direction: unset;
+  }
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-2);
+}
+
+.form-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-size: 13px;
+  transition: border-color var(--t), box-shadow var(--t);
+
+  &:focus {
+    outline: none;
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px var(--c-accent-dim);
+  }
+
+  &::placeholder { color: var(--c-text-3); }
+}

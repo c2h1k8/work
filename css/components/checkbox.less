@@ -1,0 +1,60 @@
+// ── カスタムチェックボックス ───────────────────────
+// 使い方:
+//   <label class="chk-label" for="id">
+//     <input type="checkbox" id="id" class="chk-input" />
+//     <span class="chk-box"></span>
+//     ラベルテキスト
+//   </label>
+
+.chk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--c-text);
+  user-select: none;
+
+  &:hover .chk-box { border-color: var(--c-accent); }
+}
+
+.chk-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.chk-box {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 4px;
+  background: var(--c-bg);
+  position: relative;
+  transition: background var(--t), border-color var(--t);
+
+  // チェックマーク（SVG パスで描画）
+  &::after {
+    content: '';
+    position: absolute;
+    display: none;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: 2px solid #fff;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+  }
+}
+
+.chk-input:checked + .chk-box {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+
+  &::after { display: block; }
+}
