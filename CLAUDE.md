@@ -379,6 +379,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `State.historyView`: `'today'` | `'week'` で表示期間切替。localStorage `timer_history_view` に永続化
 - アクティブプリセットID: localStorage `timer_active_preset` に永続化
 - 通知: Web Notifications API + AudioContext ビープ音
+- タイマーカウントダウンは Blob インライン Web Worker で実行（バックグラウンドタブでもスロットリングされず正確に発火）。`_createTimerWorker()`（`state.js`）で生成、`setupEvents()`（`events.js`）で `onmessage` を登録。Worker 内も壁時計時間ベース。`file://` 等 Worker 非対応環境では `setInterval` + 壁時計時間フォールバック
 - デフォルトプリセット: ポモドーロ（25/5）/ 短いポモドーロ（15/3）/ 長い集中（50/10）
 
 ## ops/ アーキテクチャ（2026-03現在）

@@ -133,11 +133,20 @@ function startTimer() {
   State.taskName = document.getElementById('timer-task-name').value.trim();
   State.tag      = document.getElementById('timer-tag').value.trim();
 
-  State.intervalId = setInterval(() => {
-    State.remaining--;
-    updateTimerUI();
-    if (State.remaining <= 0) onPhaseEnd();
-  }, 1000);
+  // Worker が使える場合はバックグラウンドでも正確にカウントダウン
+  if (State.worker) {
+    State.worker.postMessage({ cmd: 'start', remaining: State.remaining });
+  } else {
+    // フォールバック: 壁時計時間ベースの setInterval
+    const startedAt = Date.now();
+    const startRemaining = State.remaining;
+    State.intervalId = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      State.remaining = Math.max(0, startRemaining - elapsed);
+      updateTimerUI();
+      if (State.remaining <= 0) onPhaseEnd();
+    }, 1000);
+  }
 
   updateControlUI();
 }
@@ -149,8 +158,11 @@ function pauseTimer() {
   updateControlUI();
 }
 
-/** タイマーを停止（インターバルのみ） */
+/** タイマーを停止 */
 function stopTimer() {
+  if (State.worker) {
+    State.worker.postMessage({ cmd: 'stop' });
+  }
   if (State.intervalId) {
     clearInterval(State.intervalId);
     State.intervalId = null;
@@ -463,6 +475,17 @@ function setupEvents() {
   // エクスポート/インポート
   document.getElementById('export-btn').addEventListener('click', exportData);
   document.getElementById('import-btn').addEventListener('click', importData);
+
+  // Web Worker の初期化（バックグラウンドでも正確にカウントダウン）
+  State.worker = _createTimerWorker();
+  if (State.worker) {
+    State.worker.onmessage = (e) => {
+      if (!State.running) return;
+      State.remaining = e.data.remaining;
+      updateTimerUI();
+      if (State.remaining <= 0) onPhaseEnd();
+    };
+  }
 
   // テーマ変更
   window.addEventListener('message', e => {

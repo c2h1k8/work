@@ -1,0 +1,2 @@
+# Windows バッチファイルは常に CRLF を維持
+*.bat text eol=crlf

@@ -21,13 +21,53 @@ const State = {
   remaining: 0,            // 残り秒数
   total: 0,                // フェーズの合計秒数（進捗バー用）
   running: false,
-  intervalId: null,
+  intervalId: null,          // フォールバック用 setInterval ID
+  worker: null,              // Web Worker インスタンス
   taskName: '',
   tag: '',
   historyView: loadFromStorage(TIMER_HISTORY_VIEW_KEY) || 'today', // 'today' | 'week'
   editingPresetId: null,   // プリセットモーダル: null=新規
   sessionStartTime: null,  // 現在のセッション開始時刻
 };
+
+// ==================================================
+// Web Worker（Blob インライン生成）
+// バックグラウンドタブでもスロットリングされずに正確に動作
+// ==================================================
+
+/** タイマー用 Worker を生成。file:// 等で Worker 非対応なら null を返す */
+function _createTimerWorker() {
+  try {
+    const code = `
+      let iid = null;
+      let startedAt = 0;
+      let startRemaining = 0;
+      self.onmessage = function(e) {
+        if (e.data.cmd === 'start') {
+          if (iid) clearInterval(iid);
+          startedAt = Date.now();
+          startRemaining = e.data.remaining;
+          iid = setInterval(function() {
+            var elapsed = Math.floor((Date.now() - startedAt) / 1000);
+            var rem = Math.max(0, startRemaining - elapsed);
+            self.postMessage({ remaining: rem });
+            if (rem <= 0) { clearInterval(iid); iid = null; }
+          }, 1000);
+        } else if (e.data.cmd === 'stop') {
+          if (iid) { clearInterval(iid); iid = null; }
+        }
+      };
+    `;
+    const blob = new Blob([code], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    const w = new Worker(url);
+    URL.revokeObjectURL(url);
+    return w;
+  } catch (_) {
+    // file:// や Worker 非対応環境
+    return null;
+  }
+}
 
 // ==================================================
 // 時刻フォーマット
