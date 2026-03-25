@@ -114,11 +114,14 @@ const ShortcutHelp = (() => {
     }
   });
 
-  // 親フレームからの show-shortcut-help メッセージを受信
+  // 親フレームからの show/hide-shortcut-help メッセージを受信
   window.addEventListener('message', (e) => {
     if (e.data?.type === 'show-shortcut-help') {
       _parentCategories = e.data.categories || [];
       ShortcutHelp.show();
+    }
+    if (e.data?.type === 'hide-shortcut-help') {
+      ShortcutHelp.hide();
     }
   });
 

@@ -56,6 +56,14 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
+  // Escape: ショートカット一覧を閉じる（iframe に転送）
+  if (e.key === 'Escape') {
+    const activeFrame = document.querySelector('.tab-frame--active');
+    if (activeFrame?.contentWindow) {
+      activeFrame.contentWindow.postMessage({ type: 'hide-shortcut-help' }, '*');
+    }
+  }
+
   // Ctrl+K / Cmd+K: グローバル検索にフォーカス
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
     e.preventDefault();
