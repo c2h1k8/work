@@ -212,7 +212,14 @@ function init() {
   });
 
 
-  // ── ショートカットキー一覧登録（ページ固有ショートカットなし） ──
+  // ── キーボードショートカット ──
+  document.addEventListener('keydown', e => {
+    // Escape: 入力中ならフォーカスを外す
+    if (e.key === 'Escape') {
+      const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+      if (isInInput) { e.target.blur(); return; }
+    }
+  });
 
   // ── テーマ変更（親フレームからの postMessage） ───
   window.addEventListener('message', e => {

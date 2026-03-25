@@ -498,6 +498,12 @@ function setupEvents() {
     const modal = document.getElementById('snippet-modal');
     if (modal && !modal.hidden) return;
 
+    // Escape: 入力中ならフォーカスを外す
+    if (e.key === 'Escape' && isInInput) {
+      e.target.blur();
+      return;
+    }
+
     // Ctrl+F: 検索にフォーカス
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault();

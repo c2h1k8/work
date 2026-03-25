@@ -490,6 +490,8 @@ function setupEvents() {
   // キーボードショートカット
   document.addEventListener('keydown', e => {
     const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+    // Escape: 入力中ならフォーカスを外す
+    if (e.key === 'Escape' && isInInput) { e.target.blur(); return; }
     // モーダルが開いている場合はスキップ
     const presetModal = document.getElementById('preset-modal');
     if (presetModal && !presetModal.hidden) return;

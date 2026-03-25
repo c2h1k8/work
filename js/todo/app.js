@@ -1086,6 +1086,12 @@ const EventHandlers = {
 
     // ── モーダルが閉じている時のショートカット ──
 
+    // Escape: フィルタ入力からフォーカスを外す
+    if (e.key === 'Escape' && isInInput) {
+      e.target.blur();
+      return;
+    }
+
     // N: 最初のカラムに新規タスク追加
     if (e.key === 'n' && !isInInput && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();

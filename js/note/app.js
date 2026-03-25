@@ -80,6 +80,21 @@ document.addEventListener('DOMContentLoaded', () => App.init().catch(console.err
 // キーボードショートカット
 document.addEventListener('keydown', async (e) => {
   const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+
+  // Escape: 入力中ならフォーカスを外す、そうでなければ詳細パネルの選択を解除
+  if (e.key === 'Escape') {
+    if (isInInput) {
+      e.target.blur();
+      return;
+    }
+    if (State.selectedTaskId) {
+      State.selectedTaskId = null;
+      Renderer.renderTaskList();
+      await Renderer.renderDetail();
+    }
+    return;
+  }
+
   if (isInInput) return;
 
   // N: 新規ノート追加
@@ -96,15 +111,6 @@ document.addEventListener('keydown', async (e) => {
     return;
   }
 
-  // Escape: 詳細パネルの選択を解除
-  if (e.key === 'Escape') {
-    if (State.selectedTaskId) {
-      State.selectedTaskId = null;
-      Renderer.renderTaskList();
-      await Renderer.renderDetail();
-    }
-    return;
-  }
 });
 
 // テーマ変更を受け取る（親フレームからの postMessage）

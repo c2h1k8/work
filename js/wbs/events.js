@@ -20,7 +20,10 @@ const EventHandlers = {
     });
 
     document.addEventListener('keydown', e => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+      const isInInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA';
+      // Escape: 入力中ならフォーカスを外す
+      if (e.key === 'Escape' && isInInput) { e.target.blur(); return; }
+      if (isInInput) return;
       if (e.key === 'Tab') { e.preventDefault(); this.indentTask(e.shiftKey ? -1 : 1); }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (State.selectedId) this.deleteTask(State.selectedId);

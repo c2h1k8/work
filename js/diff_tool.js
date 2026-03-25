@@ -436,6 +436,9 @@ function init() {
   document.addEventListener('keydown', e => {
     const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
 
+    // Escape: 入力中ならフォーカスを外す
+    if (e.key === 'Escape' && isInInput) { e.target.blur(); return; }
+
     // Ctrl+Enter: 差分を比較
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();

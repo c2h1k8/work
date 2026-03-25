@@ -34,8 +34,10 @@ const App = {
 
     // キーボードショートカット
     document.addEventListener("keydown", (e) => {
-      // Escape: アイテム管理モーダルを閉じる
+      // Escape: 入力中ならフォーカスを外す / アイテム管理モーダルを閉じる
       if (e.key === "Escape") {
+        const isInInput = ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) || e.target.isContentEditable;
+        if (isInInput) { e.target.blur(); return; }
         const modal = document.getElementById("item-manager-modal");
         if (modal && !modal.hidden) {
           EventHandlers.closeItemManager();

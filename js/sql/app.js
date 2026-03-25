@@ -177,13 +177,17 @@ window.addEventListener("load", async () => {
 
 // キーボードショートカット
 document.addEventListener('keydown', (e) => {
+  // Escape: 入力中ならフォーカスを外す
+  if (e.key === 'Escape') {
+    const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+    if (isInInput) { e.target.blur(); return; }
+  }
   // Ctrl+Enter: 接続コマンドをコピー
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
     document.getElementById('conn')?.click();
     return;
   }
-  // Escape: メモモーダルを閉じる（既存処理と共存）
 });
 
 // ショートカットキー一覧登録
