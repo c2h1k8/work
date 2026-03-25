@@ -3,8 +3,8 @@
 //
 // 使い方:
 //   Toast.show('メッセージ');
-//   Toast.show('成功しました', 'success');
-//   Toast.show('エラーが発生しました', 'error');
+//   Toast.success('成功しました');
+//   Toast.error('エラーが発生しました');
 //
 // 自己挿入型: HTML に要素を配置する必要はない。
 // CSS は css/components/toast.css を読み込む。
@@ -32,5 +32,9 @@ const Toast = (() => {
     _timer = setTimeout(() => el.setAttribute('hidden', ''), 3000);
   }
 
-  return { show };
+  return {
+    show,
+    success: (msg) => show(msg, 'success'),
+    error:   (msg) => show(msg, 'error'),
+  };
 })();

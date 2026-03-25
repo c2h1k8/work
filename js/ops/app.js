@@ -152,8 +152,8 @@ function init() {
     const copyBtn = e.target.closest('[data-copy]');
     if (copyBtn) {
       navigator.clipboard.writeText(copyBtn.dataset.copy)
-        .then(() => showToast(`${copyBtn.dataset.copy} をコピーしました`, 'success'))
-        .catch(() => showToast('コピーに失敗しました', 'error'));
+        .then(() => showSuccess(`${copyBtn.dataset.copy} をコピーしました`))
+        .catch(() => showError('コピーに失敗しました'));
     }
   });
 

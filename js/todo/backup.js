@@ -17,7 +17,7 @@ const Backup = {
     localStorage.setItem('kanban_last_export_at', new Date().toISOString());
     State.isDirty = false;
     this.updateExportIndicator(false);
-    Toast.show('バックアップをエクスポートしました', 'success');
+    Toast.success('バックアップをエクスポートしました');
   },
 
   /** JSON ファイルを選択して IndexedDB を上書き復元 */
@@ -51,9 +51,9 @@ const Backup = {
         localStorage.setItem('kanban_last_export_at', new Date().toISOString());
         State.isDirty = false;
         this.updateExportIndicator(false);
-        Toast.show('バックアップを復元しました', 'success');
+        Toast.success('バックアップを復元しました');
       } catch (err) {
-        Toast.show('復元失敗: ' + err.message, 'error');
+        Toast.error('復元失敗: ' + err.message);
       }
     };
     input.click();

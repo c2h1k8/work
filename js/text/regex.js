@@ -228,7 +228,7 @@ function renderRegexPatternList() {
 
 async function saveCurrentRegexPattern() {
   const pattern = document.getElementById('regex-pattern').value.trim();
-  if (!pattern) { showToast('パターンを入力してください', 'error'); return; }
+  if (!pattern) { showError('パターンを入力してください'); return; }
 
   const name = prompt('パターン名を入力してください:');
   if (!name || !name.trim()) return;
@@ -248,7 +248,7 @@ async function saveCurrentRegexPattern() {
     await loadRegexPatterns();
     showToast('パターンを保存しました');
   } catch (e) {
-    showToast('保存に失敗しました', 'error');
+    showError('保存に失敗しました');
   }
 }
 
@@ -274,6 +274,6 @@ async function deleteRegexPattern(id) {
     await loadRegexPatterns();
     showToast('パターンを削除しました');
   } catch (e) {
-    showToast('削除に失敗しました', 'error');
+    showError('削除に失敗しました');
   }
 }

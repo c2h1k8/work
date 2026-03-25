@@ -45,7 +45,7 @@ const DragDrop = {
             return !bt || !doneKeys.has(bt.column);
           });
           if (hasBlocker) {
-            Toast.show('先行タスクが完了していないため移動できません', 'error');
+            Toast.error('先行タスクが完了していないため移動できません');
             // SortableJS が移動した DOM を元に戻す
             Renderer.renderColumn(fromCol, State.tasks[fromCol] || [], db);
             Renderer.renderColumn(toCol,   State.tasks[toCol]   || [], db);
@@ -216,6 +216,5 @@ async function _handleRecurringOnDone(task, db) {
   // ボード更新
   Renderer.renderColumn(firstCol.key, State.tasks[firstCol.key], db);
   markDirty();
-  const showToast = (msg, type) => Toast.show(msg, type);
-  showToast('繰り返しタスクを生成しました', 'success');
+  Toast.success('繰り返しタスクを生成しました');
 }

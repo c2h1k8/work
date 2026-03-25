@@ -271,7 +271,7 @@ async function renameTab(oldLabel) {
 
   const config = await loadTabConfig();
   if (config.find(t => t.label === trimmed)) {
-    Toast.show("同じラベル名のタブが既に存在します", 'error');
+    Toast.error("同じラベル名のタブが既に存在します");
     return;
   }
   const tab = config.find(t => t.label === oldLabel);
@@ -310,17 +310,17 @@ async function addTabFromForm() {
     : urlInput?.value.trim();
 
   if (!label) {
-    Toast.show("ラベル名を入力してください", 'error');
+    Toast.error("ラベル名を入力してください");
     return;
   }
   if (tabType === "url" && !pageSrc) {
-    Toast.show("URL を入力してください", 'error');
+    Toast.error("URL を入力してください");
     return;
   }
 
   const config = await loadTabConfig();
   if (config.find(t => t.label === label)) {
-    Toast.show("同じラベル名のタブが既に存在します", 'error');
+    Toast.error("同じラベル名のタブが既に存在します");
     return;
   }
 

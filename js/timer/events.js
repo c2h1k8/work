@@ -13,18 +13,18 @@
 /** 通知許可を要求する */
 async function requestNotificationPermission() {
   if (!('Notification' in window)) {
-    showToast('このブラウザは通知に対応していません', 'error');
+    showError('このブラウザは通知に対応していません');
     return;
   }
 
   if (Notification.permission === 'granted') {
-    showToast('通知はすでに許可されています', 'success');
+    showSuccess('通知はすでに許可されています');
     _updateNotificationBadge();
     return;
   }
 
   if (Notification.permission === 'denied') {
-    showToast('通知がブロックされています。ブラウザのアドレスバー左のアイコン（🔒）から「通知」を「許可」に変更してください', 'error');
+    showError('通知がブロックされています。ブラウザのアドレスバー左のアイコン（🔒）から「通知」を「許可」に変更してください');
     _updateNotificationBadge();
     return;
   }
@@ -34,18 +34,18 @@ async function requestNotificationPermission() {
     const result = await Notification.requestPermission();
     _updateNotificationBadge();
     if (result === 'granted') {
-      showToast('通知を許可しました', 'success');
+      showSuccess('通知を許可しました');
       // テスト通知を送って確認
       sendNotification('通知テスト', 'タイマー終了時にこのような通知が届きます');
     } else if (result === 'denied') {
-      showToast('通知が拒否されました。ブラウザの設定から許可できます', 'error');
+      showError('通知が拒否されました。ブラウザの設定から許可できます');
     } else {
       // iframe等でダイアログが出なかった場合（permissionが変わらない）
-      showToast('通知ダイアログが表示できませんでした。ブラウザのアドレスバーから直接許可してください', 'error');
+      showError('通知ダイアログが表示できませんでした。ブラウザのアドレスバーから直接許可してください');
     }
   } catch (err) {
     // iframeでブロックされた場合など
-    showToast('通知の許可に失敗しました。タイマーを直接開いて許可してください', 'error');
+    showError('通知の許可に失敗しました。タイマーを直接開いて許可してください');
     _updateNotificationBadge();
   }
 }
@@ -118,7 +118,7 @@ function resetTimer() {
 /** タイマーを開始 */
 function startTimer() {
   if (State.running) return;
-  if (!getActivePreset()) { showToast('プリセットを選択してください', 'error'); return; }
+  if (!getActivePreset()) { showError('プリセットを選択してください'); return; }
   if (State.remaining <= 0) resetTimer();
 
   // 初回開始時: permission が default なら許可ダイアログを出す（denied/granted は何もしない）
@@ -182,7 +182,7 @@ async function onPhaseEnd() {
     // 休憩モードに切替
     State.mode = 'break';
     const taskLabel = State.taskName ? `「${State.taskName}」` : '';
-    showToast('作業完了！休憩しましょう 🎉', 'success');
+    showSuccess('作業完了！休憩しましょう 🎉');
     sendNotification('⏰ 作業時間終了', `${taskLabel}お疲れ様でした！休憩しましょう。`);
   } else {
     // 作業モードに切替
@@ -261,9 +261,9 @@ async function savePreset() {
   const workMin  = Number(document.getElementById('preset-work-min').value);
   const breakMin = Number(document.getElementById('preset-break-min').value);
 
-  if (!name) { showToast('プリセット名を入力してください', 'error'); return; }
-  if (!workMin || workMin < 1)  { showToast('作業時間は1分以上で入力してください', 'error'); return; }
-  if (!breakMin || breakMin < 1) { showToast('休憩時間は1分以上で入力してください', 'error'); return; }
+  if (!name) { showError('プリセット名を入力してください'); return; }
+  if (!workMin || workMin < 1)  { showError('作業時間は1分以上で入力してください'); return; }
+  if (!breakMin || breakMin < 1) { showError('休憩時間は1分以上で入力してください'); return; }
 
   try {
     const preset = {
@@ -280,7 +280,7 @@ async function savePreset() {
       await State.db.updatePreset(preset);
       const idx = State.presets.findIndex(x => x.id === State.editingPresetId);
       State.presets[idx] = preset;
-      showToast('プリセットを更新しました', 'success');
+      showSuccess('プリセットを更新しました');
       // アクティブプリセットが編集された場合はタイマーをリセット
       if (State.activePresetId === State.editingPresetId && !State.running) {
         resetTimer();
@@ -293,14 +293,14 @@ async function savePreset() {
         saveToStorage(TIMER_ACTIVE_PRESET_KEY, String(added.id));
         resetTimer();
       }
-      showToast('プリセットを追加しました', 'success');
+      showSuccess('プリセットを追加しました');
     }
 
     closePresetModal();
     renderPresets();
   } catch (err) {
     console.error(err);
-    showToast('保存に失敗しました', 'error');
+    showError('保存に失敗しました');
   }
 }
 
@@ -318,11 +318,11 @@ async function deletePreset(id) {
       saveToStorage(TIMER_ACTIVE_PRESET_KEY, State.activePresetId ? String(State.activePresetId) : '');
       resetTimer();
     }
-    showToast('削除しました', 'success');
+    showSuccess('削除しました');
     renderPresets();
   } catch (err) {
     console.error(err);
-    showToast('削除に失敗しました', 'error');
+    showError('削除に失敗しました');
   }
 }
 
@@ -359,10 +359,10 @@ async function exportData() {
     a.download = `timer_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('エクスポートしました', 'success');
+    showSuccess('エクスポートしました');
   } catch (err) {
     console.error(err);
-    showToast('エクスポートに失敗しました', 'error');
+    showError('エクスポートに失敗しました');
   }
 }
 
@@ -387,10 +387,10 @@ function importData() {
       renderPresets();
       renderLog();
       resetTimer();
-      showToast('インポートしました', 'success');
+      showSuccess('インポートしました');
     } catch (err) {
       console.error(err);
-      showToast('インポートに失敗しました', 'error');
+      showError('インポートに失敗しました');
     }
   };
   input.click();
@@ -468,7 +468,7 @@ function setupEvents() {
       renderLog();
     } catch (err) {
       console.error(err);
-      showToast('削除に失敗しました', 'error');
+      showError('削除に失敗しました');
     }
   });
 

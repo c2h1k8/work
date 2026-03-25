@@ -3,6 +3,8 @@
 // ==================================================
 
 const showToast = (msg, type) => Toast.show(msg, type);
+const showSuccess = (msg) => Toast.success(msg);
+const showError = (msg) => Toast.error(msg);
 
 // ローカルストレージキー
 const DIFF_IGNORE_WS_KEY = 'diff_ignore_whitespace';
@@ -380,8 +382,8 @@ function copyDiffAsText(diff) {
     return `  ${item.left}`;
   });
   navigator.clipboard.writeText(lines.join('\n'))
-    .then(() => showToast('差分テキストをコピーしました', 'success'))
-    .catch(() => showToast('コピーに失敗しました', 'error'));
+    .then(() => showSuccess('差分テキストをコピーしました'))
+    .catch(() => showError('コピーに失敗しました'));
 }
 
 // ==================================================

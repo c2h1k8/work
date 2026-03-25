@@ -100,6 +100,8 @@ function _formatDate(dateStr) {
 
 // トースト通知: js/components/toast.js の Toast.show() を使用
 const showToast = (msg, type) => Toast.show(msg, type);
+const showSuccess = (msg) => Toast.success(msg);
+const showError = (msg) => Toast.error(msg);
 
 // 削除アイコン SVG
 

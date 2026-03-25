@@ -8,6 +8,8 @@
 // ==================================================
 
 const showToast = (msg, type) => Toast.show(msg, type);
+const showSuccess = (msg) => Toast.success(msg);
+const showError = (msg) => Toast.error(msg);
 
 const State = {
   activeSection: 'log-viewer',

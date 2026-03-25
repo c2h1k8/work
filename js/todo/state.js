@@ -102,6 +102,11 @@ function renderMarkdown(el, text, onCheckboxChange = null) {
   el.innerHTML = '';
   if (!text) return;
   el.innerHTML = marked.parse(text, { breaks: true });
+  // リンクを別タブで開く
+  el.querySelectorAll('a').forEach(a => {
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+  });
   if (onCheckboxChange) {
     el.querySelectorAll('input[type="checkbox"]').forEach((cb, index) => {
       cb.removeAttribute('disabled');

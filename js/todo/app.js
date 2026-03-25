@@ -53,9 +53,9 @@ const EventHandlers = {
     document.getElementById('modal-title').addEventListener('blur', (e) => {
       this._onTitleBlur(e, db);
     });
-    // Ctrl+Enter でタイトルを確定（blur 経由で保存）
+    // Enter でタイトルを確定（blur 経由で保存）。IME 変換中は無視
     document.getElementById('modal-title').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.target.blur(); }
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); e.target.blur(); }
     });
     document.getElementById('modal-description').addEventListener('blur', (e) => {
       this._onDescriptionBlur(e, db);
@@ -430,7 +430,7 @@ const EventHandlers = {
       State.currentTaskId = null;
     }
 
-    Toast.show(`「${task.title}」をアーカイブしました`, 'success');
+    Toast.success(`「${task.title}」をアーカイブしました`);
   },
 
   /** タスク削除（カードのボタンからもモーダルの削除ボタンからも呼ばれる） */
@@ -801,7 +801,7 @@ const EventHandlers = {
           return !bt || !doneKeys.has(bt.column);
         });
         if (hasBlocker) {
-          Toast.show('先行タスクが完了していないため移動できません', 'error');
+          Toast.error('先行タスクが完了していないため移動できません');
           e.target.value = oldCol;
           if (e.target._csInst) e.target._csInst.render();
           return;
@@ -1177,7 +1177,7 @@ const EventHandlers = {
         if (delBtn) delBtn.setAttribute('aria-label', `${newName} を削除`);
       }
       markDirty();
-      if (newName !== originalName) Toast.show(`カラム名を「${newName}」に変更しました`, 'success');
+      if (newName !== originalName) Toast.success(`カラム名を「${newName}」に変更しました`);
     };
 
     nameInput.addEventListener('keydown', (e) => {
@@ -1219,7 +1219,7 @@ const EventHandlers = {
     const colId  = parseInt(btn.dataset.columnId, 10);
     const colKey = btn.dataset.columnKey;
     if ((State.tasks[colKey] || []).length > 0) {
-      Toast.show('タスクを先に移動または削除してください', 'error');
+      Toast.error('タスクを先に移動または削除してください');
       return;
     }
     const colName = State.columns.find(c => c.id === colId)?.name || '';
@@ -1418,7 +1418,7 @@ const EventHandlers = {
       });
       noteDb.close();
     } catch (e) {
-      Toast.show('ノートDBを開けませんでした', 'error');
+      Toast.error('ノートDBを開けませんでした');
       return;
     }
 
@@ -1688,7 +1688,7 @@ const EventHandlers = {
     })();
 
     if (hasCycle) {
-      Toast.show('循環依存になるため追加できません', 'error');
+      Toast.error('循環依存になるため追加できません');
       return;
     }
 
@@ -1780,7 +1780,7 @@ const EventHandlers = {
     State.tasks[colKey] = [];
     Renderer.renderColumn(colKey, [], db);
     markDirty();
-    Toast.show(`${tasks.length} 件をアーカイブしました`, 'success');
+    Toast.success(`${tasks.length} 件をアーカイブしました`);
   },
 
   // ---- テンプレート管理モーダル ----
@@ -1892,7 +1892,7 @@ const EventHandlers = {
     // 保存ボタン
     document.getElementById('tpl-save-btn')?.addEventListener('click', async () => {
       const name  = document.getElementById('tpl-name')?.value.trim();
-      if (!name) { Toast.show('テンプレート名を入力してください', 'error'); return; }
+      if (!name) { Toast.error('テンプレート名を入力してください'); return; }
       const updTpl = {
         ...tpl,
         name,
@@ -1910,7 +1910,7 @@ const EventHandlers = {
         State._editingTemplateId = saved.id;
       }
       this._renderTemplateList();
-      Toast.show('テンプレートを保存しました', 'success');
+      Toast.success('テンプレートを保存しました');
     });
   },
 
@@ -1971,7 +1971,7 @@ const EventHandlers = {
       this._renderTemplateForm(null);
     }
     this._renderTemplateList();
-    Toast.show('テンプレートを削除しました', 'success');
+    Toast.success('テンプレートを削除しました');
   },
 
   /** 新規テンプレートフォームを表示 */
@@ -2010,7 +2010,7 @@ const EventHandlers = {
     };
     const saved = await db.addTemplate(tpl);
     State.templates.push(saved);
-    Toast.show(`「${saved.name}」をテンプレートとして保存しました`, 'success');
+    Toast.success(`「${saved.name}」をテンプレートとして保存しました`);
   },
 
   // ---- アーカイブ管理モーダル ----
@@ -2095,7 +2095,7 @@ const EventHandlers = {
     const archiveId = parseInt(btn.dataset.archiveId, 10);
     if (!archiveId) return;
 
-    if (!State.columns.length) { Toast.show('カラムが存在しません', 'error'); return; }
+    if (!State.columns.length) { Toast.error('カラムが存在しません'); return; }
 
     // アーカイブレコードを先に取得して元のカラムを確認
     const archives    = await db.getArchives();
@@ -2116,10 +2116,10 @@ const EventHandlers = {
       // 復元アクティビティを記録
       try { await db.addActivity(task.id, 'restore_archive', {}); } catch {}
       const colName = State.columns.find(c => c.key === restoredColKey)?.name ?? restoredColKey;
-      Toast.show(`「${task.title}」を「${colName}」に復元しました`, 'success');
+      Toast.success(`「${task.title}」を「${colName}」に復元しました`);
     } catch (e) {
       console.error('復元に失敗:', e);
-      Toast.show('復元に失敗しました', 'error');
+      Toast.error('復元に失敗しました');
       return;
     }
 

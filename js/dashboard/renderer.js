@@ -80,9 +80,6 @@ const Renderer = {
       case "countdown":
         Renderer.buildCountdownSection(section, items, bd);
         break;
-      case "formatter":
-        Renderer.buildFormatterSection(section, bd);
-        break;
     }
     el.appendChild(bd);
     return el;
@@ -670,7 +667,6 @@ const Renderer = {
           <option value="markdown">Markdown</option>
           <option value="iframe">iframe</option>
           <option value="countdown">カウントダウン</option>
-          <option value="formatter">フォーマッタ</option>
         </select>
       </div>
       <div class="settings-form-row" id="new-section-action-row" hidden>
@@ -874,7 +870,6 @@ const Renderer = {
     const isMarkdown = section.type === "markdown";
     const isIframe = section.type === "iframe";
     const isCountdown = section.type === "countdown";
-    const isFormatter = section.type === "formatter";
     const columns = section.columns || [];
     const items = State.itemsMap[section.id] || [];
 
@@ -1150,7 +1145,7 @@ const Renderer = {
     }
 
     // アイテム一覧（command_builder・memo・markdown・iframe・formatter 以外）
-    if (!isCmdBuilder && !isMemo && !isMarkdown && !isIframe && !isFormatter) {
+    if (!isCmdBuilder && !isMemo && !isMarkdown && !isIframe) {
       const label = isTable
         ? "行"
         : section.type === "grid"
@@ -1907,56 +1902,6 @@ const Renderer = {
       cur.setDate(cur.getDate() + 1);
     }
     return count * sign;
-  },
-
-  // ── フォーマッタセクション ────────────────────────────
-
-  buildFormatterSection(section, bd) {
-    const sId = section.id;
-    const wrap = document.createElement("div");
-    wrap.className = "formatter-wrap";
-    wrap.innerHTML = `
-      <div class="formatter-input-area">
-        <div class="formatter-toolbar">
-          <div class="formatter-seg">
-            <label class="formatter-seg__item">
-              <input type="radio" name="fmt-type-${sId}" value="json" checked> JSON
-            </label>
-            <label class="formatter-seg__item">
-              <input type="radio" name="fmt-type-${sId}" value="xml"> XML
-            </label>
-          </div>
-          <div class="formatter-toolbar__actions">
-            <button class="btn btn--primary btn--sm" data-action="format-code" data-section-id="${sId}">整形</button>
-            <button class="btn btn--sm btn--ghost" data-action="clear-formatter" data-section-id="${sId}">クリア</button>
-          </div>
-        </div>
-        <textarea class="formatter-input" id="formatter-input-${sId}" placeholder="JSON または XML をここにペーストしてください...
-Ctrl+Enter で整形"></textarea>
-      </div>
-      <div class="formatter-output-area" id="formatter-output-area-${sId}" hidden>
-        <button class="formatter-copy-btn" data-action="copy-formatter-output" data-section-id="${sId}" title="コピー">${Icons.copyFill}</button>
-        <pre class="formatter-output"><code id="formatter-code-${sId}"></code></pre>
-        <div class="formatter-error" id="formatter-error-${sId}" hidden></div>
-      </div>
-    `;
-    // オートデテクト: 入力変更時にフォーマットタイプを自動切替
-    const inputEl = wrap.querySelector(`#formatter-input-${sId}`);
-    const radioJson = wrap.querySelector(`input[value="json"]`);
-    const radioXml = wrap.querySelector(`input[value="xml"]`);
-    inputEl.addEventListener("input", () => {
-      const val = inputEl.value.trimStart();
-      if (val.startsWith("<") && radioXml) radioXml.checked = true;
-      else if ((val.startsWith("{") || val.startsWith("[")) && radioJson) radioJson.checked = true;
-    });
-    // Ctrl+Enter で整形
-    inputEl.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        EventHandlers.formatCode(sId);
-      }
-    });
-    bd.appendChild(wrap);
   },
 
   // ── メモセクション ────────────────────────────────────

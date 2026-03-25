@@ -380,7 +380,7 @@ const EventHandlers = {
 
     const label = (form.querySelector('[data-entry-label]')?.value || '').trim();
     const value = (form.querySelector('[data-entry-value]')?.value || '').trim();
-    if (!value) { showToast('URLを入力してください', 'error'); return; }
+    if (!value) { showError('URLを入力してください'); return; }
 
     const entry = await db.addEntry(State.selectedTaskId, fieldId, label, value);
     State.entries.push(entry);
@@ -403,9 +403,9 @@ const EventHandlers = {
     const url = btn.dataset.url;
     try {
       await navigator.clipboard.writeText(url);
-      showToast('URLをコピーしました', 'success');
+      showSuccess('URLをコピーしました');
     } catch {
-      showToast('コピーに失敗しました', 'error');
+      showError('コピーに失敗しました');
     }
   },
 
@@ -414,9 +414,9 @@ const EventHandlers = {
     const label = btn.dataset.label;
     try {
       await navigator.clipboard.writeText(label);
-      showToast('表示名をコピーしました', 'success');
+      showSuccess('表示名をコピーしました');
     } catch {
-      showToast('コピーに失敗しました', 'error');
+      showError('コピーに失敗しました');
     }
   },
 
@@ -448,7 +448,7 @@ const EventHandlers = {
     if (!entryEl) return;
     const label = (entryEl.querySelector('[data-edit-label]')?.value || '').trim();
     const value = (entryEl.querySelector('[data-edit-value]')?.value || '').trim();
-    if (!value) { showToast('URLを入力してください', 'error'); return; }
+    if (!value) { showError('URLを入力してください'); return; }
     const entry = State.entries.find(e => e.id === entryId);
     if (!entry) return;
     entry.label = label;
@@ -687,7 +687,7 @@ const EventHandlers = {
       onAdd: async (name, color) => {
         const opts = field.options || [];
         if (opts.some(o => o.name === name)) {
-          showToast('同名の選択肢がすでに存在します', 'error'); throw new Error('duplicate');
+          showError('同名の選択肢がすでに存在します'); throw new Error('duplicate');
         }
         opts.push({ name, color });
         field.options = opts;
@@ -804,7 +804,7 @@ const EventHandlers = {
     const nameInput = document.getElementById('new-field-name');
     const name = nameInput.value.trim();
     const type = document.getElementById('new-field-type').value;
-    if (!name) { showToast('フィールド名を入力してください', 'error'); return; }
+    if (!name) { showError('フィールド名を入力してください'); return; }
 
     // 選択肢は LabelManager で管理するため、新規作成時はすべて空で作成
     const options = [];
@@ -818,7 +818,7 @@ const EventHandlers = {
     nameInput.focus();
     Renderer.renderFieldModal();
     if (State.selectedTaskId) await Renderer.renderDetail();
-    showToast(`「${name}」を追加しました`, 'success');
+    showSuccess(`「${name}」を追加しました`);
   },
 
   async _onDeleteField(btn, db) {
@@ -839,7 +839,7 @@ const EventHandlers = {
     Renderer.renderFilterUI();
     Renderer.renderTaskList();
     if (State.selectedTaskId) await Renderer.renderDetail();
-    showToast(`「${field.name}」を削除しました`, 'success');
+    showSuccess(`「${field.name}」を削除しました`);
   },
 
   async _onMoveField(btn, dir, db) {
@@ -921,7 +921,7 @@ const EventHandlers = {
         await db.updateField(field);
         Renderer.renderFilterUI();
         if (State.selectedTaskId) await Renderer.renderDetail();
-        showToast(`フィールド名を「${newName}」に変更しました`, 'success');
+        showSuccess(`フィールド名を「${newName}」に変更しました`);
       }
       Renderer.renderFieldModal();
     };
@@ -944,10 +944,10 @@ const EventHandlers = {
     if (!input) return;
 
     const value = input.value.trim();
-    if (!value) { showToast('選択肢を入力してください', 'error'); return; }
+    if (!value) { showError('選択肢を入力してください'); return; }
 
     if (!field.options) field.options = [];
-    if (field.options.includes(value)) { showToast('すでに存在する選択肢です', 'error'); return; }
+    if (field.options.includes(value)) { showError('すでに存在する選択肢です'); return; }
 
     field.options.push(value);
     await db.updateField(field);
@@ -959,7 +959,7 @@ const EventHandlers = {
 
     Renderer.renderFilterUI(); // select/label の選択肢が増えた場合フィルターも更新
     if (State.selectedTaskId) await Renderer.renderDetail();
-    showToast(`「${value}」を追加しました`, 'success');
+    showSuccess(`「${value}」を追加しました`);
   },
 
   async _onRemoveFieldOption(btn, db) {
@@ -977,7 +977,7 @@ const EventHandlers = {
 
     Renderer.renderFilterUI();
     if (State.selectedTaskId) await Renderer.renderDetail();
-    showToast(`「${optionValue}」を削除しました`, 'success');
+    showSuccess(`「${optionValue}」を削除しました`);
   },
 
   /** TODOとの紐づけを解除 */
@@ -995,7 +995,7 @@ const EventHandlers = {
       kanbanDb.close();
       await Renderer.renderTodoLinks(State.selectedTaskId);
     } catch (e) {
-      showToast('紐づき解除に失敗しました', 'error');
+      showError('紐づき解除に失敗しました');
     }
   },
 
@@ -1033,7 +1033,7 @@ const EventHandlers = {
       });
       kanbanDb.close();
     } catch (e) {
-      showToast('TODOデータを取得できませんでした', 'error');
+      showError('TODOデータを取得できませんでした');
       return;
     }
 
@@ -1068,7 +1068,7 @@ const EventHandlers = {
       });
       kanbanDb.close();
     } catch (e) {
-      showToast('紐づけに失敗しました', 'error');
+      showError('紐づけに失敗しました');
       return;
     }
 
@@ -1111,7 +1111,7 @@ const EventHandlers = {
     a.download = `note_export_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('エクスポートしました', 'success');
+    showSuccess('エクスポートしました');
   },
 
   async _onImport(e, db) {
@@ -1133,7 +1133,7 @@ const EventHandlers = {
       Renderer.renderTaskList();
       Renderer.renderFilterUI();
       await Renderer.renderDetail();
-      showToast('インポートしました', 'success');
+      showSuccess('インポートしました');
     } catch (err) {
       alert('インポートに失敗しました: ' + err.message);
     }

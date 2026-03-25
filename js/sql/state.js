@@ -22,6 +22,8 @@ let _tuneTab = "all";
 // トースト通知（Toast コンポーネント利用）
 // ==================================================
 const showToast = (msg, type) => Toast.show(msg, type);
+const showSuccess = (msg) => Toast.success(msg);
+const showError = (msg) => Toast.error(msg);
 
 // ==================================================
 // DB が空の場合にデフォルト環境を投入

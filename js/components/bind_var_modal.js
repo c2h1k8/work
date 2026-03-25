@@ -267,7 +267,7 @@ const BindVarModal = (() => {
           await _opts.onSaveBarConfig({ uiType, barLabel });
           _state.uiType = uiType;
           _state.barLabel = barLabel;
-          if (typeof Toast !== 'undefined') Toast.show('保存しました', 'success');
+          if (typeof Toast !== 'undefined') Toast.success('保存しました');
           if (_opts.onChange) _opts.onChange();
         } catch (err) { console.error(err); }
         break;
@@ -325,7 +325,7 @@ const BindVarModal = (() => {
           _state.editingPresetId = null;
           _render(el);
           if (_opts.onChange) _opts.onChange();
-          if (typeof Toast !== 'undefined') Toast.show('保存しました', 'success');
+          if (typeof Toast !== 'undefined') Toast.success('保存しました');
         } catch (err) { console.error(err); }
         break;
       }

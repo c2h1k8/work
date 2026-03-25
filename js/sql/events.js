@@ -41,7 +41,7 @@ async function moveEnv(id, dir) {
 // ==================================================
 async function deleteEnvRow(id, key) {
   const envs = await _db.getAllEnvs();
-  if (envs.length <= 1) { showToast("最後の接続環境は削除できません", 'error'); return; }
+  if (envs.length <= 1) { showError("最後の接続環境は削除できません"); return; }
   if (!confirm(`接続環境「${key}」を削除しますか？`)) return;
 
   await _db.deleteEnv(id);
@@ -90,7 +90,7 @@ async function importEnvJson(file) {
           data.length === 0 ||
           data.some(e => !e.key || !e.username || !e.connect_identifier)
         ) {
-          showToast("無効なJSON形式です", 'error');
+          showError("無効なJSON形式です");
           resolve();
           return;
         }
@@ -110,7 +110,7 @@ async function importEnvJson(file) {
         showToast(`${data.length} 件の環境をインポートしました`);
         await refreshEnvs();
       } catch {
-        showToast("JSONの読み込みに失敗しました", 'error');
+        showError("JSONの読み込みに失敗しました");
       }
       resolve();
     };
@@ -288,7 +288,7 @@ function collectMemoFormData() {
 // ── メモを保存 ──
 async function saveMemoForm() {
   const data = collectMemoFormData();
-  if (!data.table_name) { showToast("テーブル名を入力してください", 'error'); return; }
+  if (!data.table_name) { showError("テーブル名を入力してください"); return; }
 
   if (_memoEditingId != null) {
     await _db.updateTableMemo(_memoEditingId, data);
@@ -340,7 +340,7 @@ async function importMemos(file) {
       try {
         const data = JSON.parse(e.target.result);
         if (data.type !== 'sql_table_memos_export' || !Array.isArray(data.memos)) {
-          showToast("無効なファイル形式です", 'error'); resolve(); return;
+          showError("無効なファイル形式です"); resolve(); return;
         }
         for (const m of data.memos) {
           if (m.table_name) await _db.addTableMemo(m);
@@ -348,7 +348,7 @@ async function importMemos(file) {
         showToast(`${data.memos.length} 件をインポートしました`);
         await refreshMemoList();
       } catch {
-        showToast("インポートに失敗しました", 'error');
+        showError("インポートに失敗しました");
       }
       resolve();
     };

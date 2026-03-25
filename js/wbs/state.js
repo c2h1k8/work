@@ -29,6 +29,8 @@ const STATUS_CONFIG = {
 };
 
 const TOAST = (msg, type) => Toast.show(msg, type);
+const showSuccess = (msg) => Toast.success(msg);
+const showError = (msg) => Toast.error(msg);
 
 // ==========================================
 // 日付ユーティリティ

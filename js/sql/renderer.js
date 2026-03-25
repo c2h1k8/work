@@ -176,12 +176,12 @@ function buildEnvEditForm(env, row) {
     const service = svcInp.value.trim();
 
     const err = validateEnvInputs({ key, user, host, portRaw, service });
-    if (err) { showToast(err, 'error'); return; }
+    if (err) { showError(err); return; }
 
     // キー変更時の重複チェック
     const allEnvs = await _db.getAllEnvs();
     if (key !== env.key && allEnvs.some(e => e.key === key)) {
-      showToast(`環境名「${key}」はすでに存在します`, 'error');
+      showError(`環境名「${key}」はすでに存在します`);
       return;
     }
 

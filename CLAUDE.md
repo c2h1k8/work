@@ -39,7 +39,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `todo.html` は IndexedDB（`KanbanDB` クラス）でデータ永続化。`localStorage` は使わない
 - その他ページの localStorage 操作は `js/core/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
 - `js/core/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` / `getString(origin, params)` / `isValidUrl(url)` — HTML エスケープ、position 昇順ソート、テンプレート置換、URL バリデーション
-- `js/components/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` — 統一トースト通知（自己挿入型）。CSS は `css/components/toast.{less,css}`。各ページに `showToast` ラッパーを定義する場合は `type` を必ず透過すること: `const showToast = (msg, type) => Toast.show(msg, type);`
+- `js/components/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` / `Toast.success(msg)` / `Toast.error(msg)` — 統一トースト通知（自己挿入型）。CSS は `css/components/toast.{less,css}`。各ページに `showSuccess` / `showError` ラッパーを定義して使用する: `const showSuccess = (msg) => Toast.success(msg);` / `const showError = (msg) => Toast.error(msg);`
 - `js/components/tooltip.js` を必要なページで読み込む: `Tooltip.init(container, selector?)` — カスタムツールチップ（自己挿入型・即時表示）。CSS は `css/components/tooltip.{less,css}`。`data-tooltip="テキスト"` 属性を持つ要素が対象。`title` 属性の代わりに使用することでブラウザ固有の遅延を回避できる。現在の使用ページ: `wbs.html` / `timer.html` / `text.html` / `note.html`
 - `js/core/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` など
 - コメントは日本語で記載する
@@ -249,7 +249,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `window.addEventListener('message', ...)` で親フレームからの `dashboard:open-settings` を受信して設定パネルを開く
 - `EventHandlers.closeSettings()` は設定パネルを閉じた後、親フレームに `dashboard:settings-closed` を postMessage
 - ストア: `sections`（id/instance_id/title/icon/position/type/command_template/**action_mode**/**cmd_buttons**/columns/**width**/**page_size**/**table_bind_vars**/**table_presets**/**table_vars_ui_type**/**table_vars_bar_label**/**list_bind_vars**/**list_presets**/**list_vars_ui_type**/**list_vars_bar_label**/**grid_bind_vars**/**grid_presets**/**grid_vars_ui_type**/**grid_vars_bar_label**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data/**new_row**）
-- セクションタイプ: `list` | `grid` | `command_builder` | `table` | `markdown` | `iframe` | `countdown` | `formatter`
+- セクションタイプ: `list` | `grid` | `command_builder` | `table` | `markdown` | `iframe` | `countdown`
 - アイテムタイプ: `copy` | `link` | `template`（list）/ `link` | `copy` | `template`（grid、旧 `card` は `link` 互換）/ `row`（table）
 - 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉
 - 設定ビュー: `'sections'`（一覧）/ `'edit-section'`（セクション編集）/ `'bind-settings'`（共通バインド変数）/ `'edit-preset'`（プリセット編集）→ `State.settings.view` で管理
@@ -260,7 +260,6 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - **markdown セクション**: `section.body: string` フィールドに Markdown テキストを保存。marked.js + DOMPurify（CDN）でレンダリング。カードヘッダーの編集ボタン（`.card__hd-btn`、`toggle-md-edit` アクション）でカード内インライン編集モードに切替。設定パネルからも `edit-section-body` textarea で編集・保存可能（`save-markdown-body` アクション）。リンクは `target="_blank"`。コードブロックにコピーボタン（`.md-code-copy-btn`）
 - **iframe セクション**: `section.url: string`、`section.iframe_height: number（デフォルト 400）` フィールド。sandbox 付き `<iframe>` で表示。ヘッダーに「別タブで開く」リンク。URL でバインド変数解決
 - **countdown セクション**: `section.countdown_mode: 'calendar'|'business'` フィールド。items でマイルストーン管理（`label` + `value: YYYY-MM-DD`）。カードヘッダーのトグルボタン（`.card__mode-btn`）でカレンダー日/営業日を切替（`toggle-countdown-mode` アクション）。`Renderer._countBusinessDays(start, end)` で土日除外計算。超過は赤、7日以内は警告色。マイルストーン編集フォームの目標日入力は `DatePicker` カスタムピッカー（`open-countdown-date` アクション + `EventHandlers.openCountdownDatePicker(btn)`）。`dashboard.html` に `date_picker.css` / `date_picker.js` を読み込み済み
-- **formatter セクション**: データ永続化なし（揮発性）。JSON は `JSON.parse`+`JSON.stringify`、XML は `DOMParser`+`EventHandlers._serializeXml()` で整形。`format-code` / `clear-formatter` / `copy-formatter-output` アクション。Ctrl+Enter で整形実行。入力テキストの先頭文字で JSON/XML を自動判定。エラー時は行・列番号を表示し、問題箇所をテキストエリア内でハイライト（選択状態）。入力欄に `.formatter-input--error` クラスで赤ボーダー付与
 - **セクション独自バインド変数（プリセット方式）**: table/list/grid セクションで共通の仕組み。各セクションタイプ毎に変数名・プリセットを保持し `resolveSectionVars(str, sectionId)` で解決（グローバルバインド変数より先に適用）。`resolveTableVars` は後方互換 alias。
   - **テーブル**: `section.table_bind_vars`, `section.table_presets`, `section.table_vars_ui_type`, `section.table_vars_bar_label`。アクティブプリセット: `localStorage("dashboard_table_active_preset_<sectionId>")`
   - **リスト**: `section.list_bind_vars`, `section.list_presets`, `section.list_vars_ui_type`, `section.list_vars_bar_label`。アクティブプリセット: `localStorage("dashboard_list_active_preset_<sectionId>")`。ラベル・ヒントで `{変数名}` を使って置換

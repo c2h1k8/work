@@ -155,7 +155,7 @@ async function backupAllData() {
     Toast.show('全データのバックアップが完了しました。');
   } catch (err) {
     console.error(err);
-    Toast.show('バックアップに失敗しました: ' + err.message, 'error');
+    Toast.error('バックアップに失敗しました: ' + err.message);
   } finally {
     if (exportBtn) { exportBtn.disabled = false; exportBtn.innerHTML = `${Icons.export} バックアップ`; }
   }
@@ -170,10 +170,10 @@ async function restoreAllData() {
     const file = e.target.files[0];
     if (!file) return;
     let data;
-    try { data = JSON.parse(await file.text()); } catch { Toast.show('JSONの解析に失敗しました', 'error'); return; }
+    try { data = JSON.parse(await file.text()); } catch { Toast.error('JSONの解析に失敗しました'); return; }
 
     if (data.type !== 'full_backup') {
-      Toast.show('全データバックアップファイルではありません（type: "full_backup" が必要です）', 'error');
+      Toast.error('全データバックアップファイルではありません（type: "full_backup" が必要です）');
       return;
     }
     if (!confirm('現在の全データが上書きされます。この操作は元に戻せません。\nよろしいですか？')) return;
@@ -264,7 +264,7 @@ async function restoreAllData() {
       location.reload();
     } catch (err) {
       console.error(err);
-      Toast.show('復元に失敗しました: ' + err.message, 'error');
+      Toast.error('復元に失敗しました: ' + err.message);
       if (importBtn) { importBtn.disabled = false; importBtn.innerHTML = `${Icons.import} 復元`; }
     }
   };

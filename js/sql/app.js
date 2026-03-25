@@ -124,7 +124,7 @@ window.addEventListener("load", async () => {
   // バインド変数コピー
   document.getElementById("param-copy").addEventListener("click", () => {
     const text = buildParamText();
-    if (!text) { showToast("使用する変数がありません", 'error'); return; }
+    if (!text) { showError("使用する変数がありません"); return; }
     navigator.clipboard.writeText(text).then(() => showToast("コピーしました"));
   });
 
@@ -147,11 +147,11 @@ window.addEventListener("load", async () => {
     const service = document.getElementById("env-service").value.trim();
 
     const err = validateEnvInputs({ key, user, host, portRaw, service });
-    if (err) { showToast(err, 'error'); return; }
+    if (err) { showError(err); return; }
 
     const currentEnvs = await _db.getAllEnvs();
     if (currentEnvs.some(e => e.key === key)) {
-      showToast(`環境名「${key}」はすでに存在します`, 'error');
+      showError(`環境名「${key}」はすでに存在します`);
       return;
     }
 

@@ -95,10 +95,10 @@ async function savePortsForm() {
   const memo    = document.getElementById('ports-form-memo').value.trim();
 
   if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-    showToast('ポート番号は 1〜65535 の範囲で入力してください', 'error'); return;
+    showError('ポート番号は 1〜65535 の範囲で入力してください'); return;
   }
   if (!service) {
-    showToast('サービス名を入力してください', 'error'); return;
+    showError('サービス名を入力してください'); return;
   }
 
   // 重複チェック（編集中の自分自身は除外）
@@ -121,5 +121,5 @@ async function savePortsForm() {
   State.customPorts = await opsDB.getPorts();
   document.getElementById('ports-form').hidden = true;
   renderPorts();
-  showToast('保存しました', 'success');
+  showSuccess('保存しました');
 }

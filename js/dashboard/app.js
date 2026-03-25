@@ -66,7 +66,7 @@ const App = {
         const rawVal = copyEl.dataset.value || "";
         const resolved = resolveBindVars(secId ? resolveTableVars(rawVal, secId) : rawVal);
         navigator.clipboard.writeText(resolved);
-        showToast("コピーしました", "success");
+        showSuccess("コピーしました");
         return;
       }
       // ダッシュボードのリンク行（共通バインド変数を解決してリンクを開く）
@@ -89,7 +89,7 @@ const App = {
           resolveBindVars(tplSecId ? resolveSectionVars(rawTplVal, tplSecId) : rawTplVal),
         );
         navigator.clipboard.writeText(resolved);
-        showToast("コピーしました", "success");
+        showSuccess("コピーしました");
         return;
       }
       // URLコマンドコピーボタン
@@ -183,15 +183,6 @@ const App = {
           break;
         case "open-countdown-date":
           eh.openCountdownDatePicker(btn);
-          break;
-        case "format-code":
-          eh.formatCode(sectionId);
-          break;
-        case "clear-formatter":
-          eh.clearFormatter(sectionId);
-          break;
-        case "copy-formatter-output":
-          eh.copyFormatterOutput(sectionId);
           break;
         case "toggle-jump-nav":
           eh.toggleJumpNav();

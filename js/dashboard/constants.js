@@ -13,7 +13,6 @@ const TYPE_LABELS = {
   markdown: "Markdown",
   iframe: "iframe",
   countdown: "カウントダウン",
-  formatter: "フォーマッタ",
 };
 
 /** コマンドビルダー履歴の localStorage キープレフィックス（ブラウザ固有の UI 状態） */
@@ -56,6 +55,8 @@ const escapeAttr = escapeHtml;
 
 // トースト通知: js/components/toast.js の Toast.show() を使用
 const showToast = (msg = "コピーしました", type) => Toast.show(msg, type);
+const showSuccess = (msg) => Toast.success(msg);
+const showError = (msg) => Toast.error(msg);
 
 // URLパラメータから instance ID を取得（複数ホームタブ対応）
 const _instanceId = new URLSearchParams(location.search).get("instance") || "";

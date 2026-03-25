@@ -337,7 +337,7 @@ const LabelManager = (() => {
     // 重複チェック（LabelManager 側でも弾く）
     const isDuplicate = (_config.labels || []).some(l => l.name === name);
     if (isDuplicate) {
-      if (typeof Toast !== 'undefined') Toast.show('同じ名前のラベルがすでに存在します', 'error');
+      if (typeof Toast !== 'undefined') Toast.error('同じ名前のラベルがすでに存在します');
       nameInput?.select();
       return;
     }
@@ -383,7 +383,7 @@ const LabelManager = (() => {
           l => String(l.id) !== String(label.id) && l.name === newName
         );
         if (isDuplicate) {
-          if (typeof Toast !== 'undefined') Toast.show('同じ名前のラベルがすでに存在します', 'error');
+          if (typeof Toast !== 'undefined') Toast.error('同じ名前のラベルがすでに存在します');
           _renderList();
           return;
         }

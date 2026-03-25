@@ -82,7 +82,7 @@ const EventHandlers = {
     State.tasks = await _db.getAllTasks();
     State.selectedId = id;
     Renderer.renderAll();
-    TOAST('タスクを追加しました', 'success');
+    showSuccess('タスクを追加しました');
   },
 
   async deleteTask(id) {
@@ -264,7 +264,7 @@ const EventHandlers = {
     a.download = `wbs_export_${ts}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    TOAST('エクスポートしました', 'success');
+    showSuccess('エクスポートしました');
   },
 
   async importData(e) {
@@ -276,9 +276,9 @@ const EventHandlers = {
       State.tasks = await _db.getAllTasks();
       State.selectedId = null;
       Renderer.renderAll();
-      TOAST('インポートしました', 'success');
+      showSuccess('インポートしました');
     } catch (err) {
-      TOAST('インポートに失敗しました: ' + err.message, 'error');
+      showError('インポートに失敗しました: ' + err.message);
     }
     e.target.value = '';
   },
@@ -347,9 +347,9 @@ const EventHandlers = {
     document.getElementById('hday-add-btn').addEventListener('click', () => {
       const date = document.getElementById('hday-date').value;
       const name = document.getElementById('hday-name').value.trim();
-      if (!date) { TOAST('日付を入力してください', 'error'); return; }
+      if (!date) { showError('日付を入力してください'); return; }
       const cur = loadCustomHolidays();
-      if (cur.some(h => h.date === date)) { TOAST('既に登録されています', 'error'); return; }
+      if (cur.some(h => h.date === date)) { showError('既に登録されています'); return; }
       cur.push({ date, name: name || '休業日' });
       saveCustomHolidays(cur);
       _customHolidays = loadCustomHolidays();

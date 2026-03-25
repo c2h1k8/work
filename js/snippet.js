@@ -3,6 +3,8 @@
 // ==================================================
 
 const showToast = (msg, type) => Toast.show(msg, type);
+const showSuccess = (msg) => Toast.success(msg);
+const showError = (msg) => Toast.error(msg);
 
 // ローカルストレージキー
 const SNIPPET_SELECTED_KEY   = 'snippet_selected_id';
@@ -248,8 +250,8 @@ async function saveSnippet() {
   const title = form['modal-title'].value.trim();
   const code  = form['modal-code'].value;
 
-  if (!title) { showToast('タイトルを入力してください', 'error'); form['modal-title'].focus(); return; }
-  if (!code)  { showToast('コードを入力してください', 'error'); form['modal-code'].focus(); return; }
+  if (!title) { showError('タイトルを入力してください'); form['modal-title'].focus(); return; }
+  if (!code)  { showError('コードを入力してください'); form['modal-code'].focus(); return; }
 
   const now  = new Date().toISOString();
   const tags = form['modal-tags'].value.split(',').map(t => t.trim()).filter(Boolean);
@@ -270,7 +272,7 @@ async function saveSnippet() {
       await State.db.updateSnippet(updated);
       const idx = State.snippets.findIndex(x => x.id === State.editingId);
       State.snippets[idx] = updated;
-      showToast('スニペットを更新しました', 'success');
+      showSuccess('スニペットを更新しました');
     } else {
       // 追加
       const snippet = {
@@ -286,13 +288,13 @@ async function saveSnippet() {
       State.snippets.push(added);
       State.selectedId = added.id;
       saveToStorage(SNIPPET_SELECTED_KEY, String(added.id));
-      showToast('スニペットを追加しました', 'success');
+      showSuccess('スニペットを追加しました');
     }
     closeModal();
     renderAll();
   } catch (err) {
     console.error(err);
-    showToast('保存に失敗しました', 'error');
+    showError('保存に失敗しました');
   }
 }
 
@@ -309,11 +311,11 @@ async function deleteSnippet(id) {
       State.selectedId = State.filteredSnippets.find(x => x.id !== id)?.id || null;
       saveToStorage(SNIPPET_SELECTED_KEY, State.selectedId ? String(State.selectedId) : '');
     }
-    showToast('削除しました', 'success');
+    showSuccess('削除しました');
     renderAll();
   } catch (err) {
     console.error(err);
-    showToast('削除に失敗しました', 'error');
+    showError('削除に失敗しました');
   }
 }
 
@@ -326,8 +328,8 @@ function copyCode(id) {
   const s = State.snippets.find(x => x.id === id);
   if (!s) return;
   navigator.clipboard.writeText(s.code)
-    .then(() => showToast('コードをコピーしました', 'success'))
-    .catch(() => showToast('コピーに失敗しました', 'error'));
+    .then(() => showSuccess('コードをコピーしました'))
+    .catch(() => showError('コピーに失敗しました'));
 }
 
 // ==================================================
@@ -344,10 +346,10 @@ async function exportSnippets() {
     a.download = `snippets_${new Date().toISOString().slice(0,10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('エクスポートしました', 'success');
+    showSuccess('エクスポートしました');
   } catch (err) {
     console.error(err);
-    showToast('エクスポートに失敗しました', 'error');
+    showError('エクスポートに失敗しました');
   }
 }
 
@@ -365,10 +367,10 @@ function importSnippets() {
       const count = await State.db.importAll(data, replace);
       State.snippets = await State.db.getAllSnippets();
       renderAll();
-      showToast(`${count} 件をインポートしました`, 'success');
+      showSuccess(`${count} 件をインポートしました`);
     } catch (err) {
       console.error(err);
-      showToast('インポートに失敗しました', 'error');
+      showError('インポートに失敗しました');
     }
   };
   input.click();
