@@ -16,6 +16,9 @@ const State = {
 
   // ログビューア
   logLines: [],
+  filteredLines: [],  // フィルタ済み行（仮想スクロール用）
+  _vsStart: -1,       // 仮想スクロール描画開始インデックス
+  _vsEnd: -1,         // 仮想スクロール描画終了インデックス
   filters: {
     levels: { ERROR: true, WARN: true, INFO: true, DEBUG: true, OTHER: true },
     startTime: null,

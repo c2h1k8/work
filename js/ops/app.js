@@ -18,10 +18,14 @@ function init() {
   const logInput = document.getElementById('log-input');
   logInput.addEventListener('paste', () => setTimeout(onLogInput, 0));
   logInput.addEventListener('input', onLogInput);
+  initLogScroll();
 
+  // テキストフィルタ（debounce 300ms）
+  let _logFilterTimer = null;
   document.getElementById('log-text-filter').addEventListener('input', e => {
     State.filters.text = e.target.value;
-    applyLogFilter();
+    clearTimeout(_logFilterTimer);
+    _logFilterTimer = setTimeout(applyLogFilter, 300);
   });
 
   document.querySelectorAll('.log-filter__level input[data-level]').forEach(cb => {

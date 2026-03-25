@@ -7,14 +7,18 @@ const showSuccess = (msg) => Toast.success(msg);
 const showError = (msg) => Toast.error(msg);
 
 // ローカルストレージキー
-const DIFF_IGNORE_WS_KEY = 'diff_ignore_whitespace';
-const DIFF_MODE_KEY      = 'diff_mode';
-const DIFF_REALTIME_KEY  = 'diff_realtime';
+const DIFF_IGNORE_WS_KEY    = 'diff_ignore_whitespace';
+const DIFF_IGNORE_BLANK_KEY = 'diff_ignore_blank_lines';
+const DIFF_IGNORE_TABS_KEY  = 'diff_ignore_tabs';
+const DIFF_MODE_KEY          = 'diff_mode';
+const DIFF_REALTIME_KEY      = 'diff_realtime';
 
 // 状態
 const State = {
   mode: loadFromStorage(DIFF_MODE_KEY) || 'line',        // 'line' | 'char'
   ignoreWhitespace: loadFromStorage(DIFF_IGNORE_WS_KEY) === 'true',
+  ignoreBlankLines: loadFromStorage(DIFF_IGNORE_BLANK_KEY) === 'true',
+  ignoreTabs: loadFromStorage(DIFF_IGNORE_TABS_KEY) === 'true',
   realtime: loadFromStorage(DIFF_REALTIME_KEY) === 'true',
   realtimeTimer: null,
 };
@@ -145,17 +149,32 @@ function compare() {
     return;
   }
 
-  const ignoreWS = State.ignoreWhitespace;
-  const mode     = State.mode;
+  const ignoreWS    = State.ignoreWhitespace;
+  const ignoreBlank = State.ignoreBlankLines;
+  const ignoreTabs  = State.ignoreTabs;
+  const mode        = State.mode;
 
   // 行に分割
-  const leftLines  = left.split('\n');
-  const rightLines = right.split('\n');
+  let leftLines  = left.split('\n');
+  let rightLines = right.split('\n');
 
-  // 空白無視の場合は正規化して比較
-  const normalize = s => ignoreWS ? s.replace(/\s+/g, ' ').trim() : s;
-  const normLeft  = leftLines.map(normalize);
-  const normRight = rightLines.map(normalize);
+  // 空行無視: 空行を除外（元のインデックスを保持）
+  let leftFiltered  = leftLines.map((line, i) => ({ line, idx: i }));
+  let rightFiltered = rightLines.map((line, i) => ({ line, idx: i }));
+  if (ignoreBlank) {
+    leftFiltered  = leftFiltered.filter(item => item.line.trim() !== '');
+    rightFiltered = rightFiltered.filter(item => item.line.trim() !== '');
+  }
+
+  // 正規化関数
+  const normalize = s => {
+    let r = s;
+    if (ignoreTabs) r = r.replace(/\t/g, '');
+    if (ignoreWS) r = r.replace(/\s+/g, ' ').trim();
+    return r;
+  };
+  const normLeft  = leftFiltered.map(item => normalize(item.line));
+  const normRight = rightFiltered.map(item => normalize(item.line));
 
   // diff 計算
   const rawDiff = myersDiff(normLeft, normRight);
@@ -163,9 +182,9 @@ function compare() {
   // インデックスマッピング（正規化前の元の行を表示用に使う）
   let lIdx = 0, rIdx = 0;
   const diff = rawDiff.map(item => {
-    if (item.type === 'equal')  { return { type: 'equal',  left: leftLines[lIdx++], right: rightLines[rIdx++] }; }
-    if (item.type === 'remove') { return { type: 'remove', left: leftLines[lIdx++], right: null }; }
-    if (item.type === 'add')    { return { type: 'add',    left: null, right: rightLines[rIdx++] }; }
+    if (item.type === 'equal')  { return { type: 'equal',  left: leftFiltered[lIdx++].line, right: rightFiltered[rIdx++].line }; }
+    if (item.type === 'remove') { return { type: 'remove', left: leftFiltered[lIdx++].line, right: null }; }
+    if (item.type === 'add')    { return { type: 'add',    left: null, right: rightFiltered[rIdx++].line }; }
     return item;
   });
 
@@ -391,16 +410,20 @@ function copyDiffAsText(diff) {
 // ==================================================
 
 function init() {
-  const compareBtn     = document.getElementById('compare-btn');
-  const clearBtn       = document.getElementById('clear-btn');
-  const ignoreWsCheck  = document.getElementById('ignore-whitespace');
-  const realtimeCheck  = document.getElementById('realtime-compare');
-  const modeToggle     = document.getElementById('mode-toggle');
-  const leftInput      = document.getElementById('input-left');
-  const rightInput     = document.getElementById('input-right');
+  const compareBtn       = document.getElementById('compare-btn');
+  const clearBtn         = document.getElementById('clear-btn');
+  const ignoreWsCheck    = document.getElementById('ignore-whitespace');
+  const ignoreBlankCheck = document.getElementById('ignore-blank-lines');
+  const ignoreTabsCheck  = document.getElementById('ignore-tabs');
+  const realtimeCheck    = document.getElementById('realtime-compare');
+  const modeToggle       = document.getElementById('mode-toggle');
+  const leftInput        = document.getElementById('input-left');
+  const rightInput       = document.getElementById('input-right');
 
   // 初期値をUIに反映
-  ignoreWsCheck.checked = State.ignoreWhitespace;
+  ignoreWsCheck.checked    = State.ignoreWhitespace;
+  ignoreBlankCheck.checked = State.ignoreBlankLines;
+  ignoreTabsCheck.checked  = State.ignoreTabs;
   realtimeCheck.checked = State.realtime;
   modeToggle.querySelectorAll('.diff-mode-btn').forEach(btn => {
     btn.classList.toggle('diff-mode-btn--active', btn.dataset.mode === State.mode);
@@ -428,6 +451,20 @@ function init() {
   ignoreWsCheck.addEventListener('change', () => {
     State.ignoreWhitespace = ignoreWsCheck.checked;
     saveToStorage(DIFF_IGNORE_WS_KEY, String(State.ignoreWhitespace));
+    if (State.realtime) compare();
+  });
+
+  // 空行無視オプション
+  ignoreBlankCheck.addEventListener('change', () => {
+    State.ignoreBlankLines = ignoreBlankCheck.checked;
+    saveToStorage(DIFF_IGNORE_BLANK_KEY, String(State.ignoreBlankLines));
+    if (State.realtime) compare();
+  });
+
+  // タブ無視オプション
+  ignoreTabsCheck.addEventListener('change', () => {
+    State.ignoreTabs = ignoreTabsCheck.checked;
+    saveToStorage(DIFF_IGNORE_TABS_KEY, String(State.ignoreTabs));
     if (State.realtime) compare();
   });
 

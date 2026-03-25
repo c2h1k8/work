@@ -50,6 +50,19 @@ jobs:
           npx lessc css/ops.less       css/ops.css
           npx lessc css/text.less      css/text.css
 
+      - name: Cache busting - append version to CSS/JS references
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # 全 HTML ファイルの .css" / .js" 参照に ?v=TAG を付与
+          for f in index.html pages/*.html; do
+            sed -i \
+              -e "s/\.css\"/\.css?v=${TAG}\"/g" \
+              -e "s/\.css'/\.css?v=${TAG}'/g" \
+              -e "s/\.js\"/\.js?v=${TAG}\"/g" \
+              -e "s/\.js'/\.js?v=${TAG}'/g" \
+              "$f"
+          done
+
       - name: Create release ZIPs
         run: |
           TAG="${GITHUB_REF_NAME}"

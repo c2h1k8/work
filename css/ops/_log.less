@@ -332,6 +332,7 @@
 // ==================================================
 
 .log-output {
+  position: relative;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-xl);
@@ -344,7 +345,14 @@
   overflow-y: auto;
 }
 
-// ── ログ行 ────────────────────────────────────────
+// 仮想スクロール用スペーサー
+.log-spacer {
+  position: relative;
+  width: 100%;
+  pointer-events: none;
+}
+
+// ── ログ行（仮想スクロール：絶対配置） ────────────
 
 .log-line {
   display: flex;
@@ -352,7 +360,8 @@
   gap: 10px;
   padding: 2px 14px 2px (14px + @log-border);
   border-left: @log-border solid transparent;
-  transition: filter var(--t);
+  overflow: hidden;
+  box-sizing: border-box;
 
   &--error {
     border-left-color: var(--c-danger);
@@ -389,8 +398,9 @@
 
   &__text {
     color: var(--c-text);
-    white-space: pre-wrap;
-    word-break: break-all;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     flex: 1;
     min-width: 0;
   }

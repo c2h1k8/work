@@ -15,7 +15,9 @@
     </script>
     <link rel="stylesheet" href="../css/core/tokens.css" />
     <link rel="stylesheet" href="../css/core/ui.css" />
+    <link rel="stylesheet" href="../css/components/checkbox.css" />
     <link rel="stylesheet" href="../css/components/shortcut_help.css" />
+    <link rel="stylesheet" href="../css/components/toast.css" />
     <link rel="stylesheet" href="../css/diff_tool.css" />
     <script defer src="../js/core/utils.js"></script>
     <script defer src="../js/core/icons.js"></script>
@@ -40,6 +42,16 @@
             <input type="checkbox" id="ignore-whitespace" class="chk-input" />
             <span class="chk-box"></span>
             空白を無視
+          </label>
+          <label class="chk-label diff-option">
+            <input type="checkbox" id="ignore-blank-lines" class="chk-input" />
+            <span class="chk-box"></span>
+            空行を無視
+          </label>
+          <label class="chk-label diff-option">
+            <input type="checkbox" id="ignore-tabs" class="chk-input" />
+            <span class="chk-box"></span>
+            タブを無視
           </label>
           <div class="diff-mode-toggle" id="mode-toggle">
             <button class="diff-mode-btn diff-mode-btn--active" data-mode="line">行単位</button>

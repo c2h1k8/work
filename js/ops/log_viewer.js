@@ -3,9 +3,13 @@
 // ==================================================
 // 運用ツール — ログビューア
 // ==================================================
-// ログのパース・レンダリング・フィルタリング・
+// ログのパース・仮想スクロール・フィルタリング・
 // サマリー表示
 // ==================================================
+
+// ── 仮想スクロール定数 ────────────────────────────
+const LOG_ROW_HEIGHT = 24;   // 1行の高さ(px)
+const LOG_OVERSCAN   = 20;   // ビューポート外のバッファ行数
 
 // ── レベル検出 ────────────────────────────────────
 function detectLevel(text) {
@@ -36,19 +40,125 @@ function parseLogLines(text) {
   return text.split('\n').map((lineText, i) => {
     const { level, color } = detectLevel(lineText);
     const timestamp = detectTimestamp(lineText);
-    return { lineNo: i + 1, text: lineText, level, color, timestamp };
+    return {
+      lineNo: i + 1,
+      text: lineText,
+      textLower: lineText.toLowerCase(), // フィルタ検索用キャッシュ
+      level,
+      color,
+      timestamp,
+    };
   });
 }
 
-// ── ログ行レンダリング ────────────────────────────
-function renderLogLines() {
-  const output   = document.getElementById('log-output');
-  const fragment = document.createDocumentFragment();
+// ── フィルタリング（データ層） ────────────────────
+// DOM操作なしでフィルタ済み行配列を返す
+function getFilteredLines() {
+  const { levels, startTime, endTime, text } = State.filters;
+  const needle = text.toLowerCase();
+  const counts = { ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, OTHER: 0 };
+  const filtered = [];
+
   for (const line of State.logLines) {
+    if (!levels[line.level]) continue;
+    if (needle && !line.textLower.includes(needle)) continue;
+    if (line.timestamp) {
+      const ts = line.timestamp.getTime();
+      if (startTime && ts < startTime) continue;
+      if (endTime && ts > endTime) continue;
+    }
+    filtered.push(line);
+    counts[line.level] = (counts[line.level] || 0) + 1;
+  }
+  return { filtered, counts };
+}
+
+// ── フィルター適用 ────────────────────────────────
+function applyLogFilter() {
+  const { filtered, counts } = getFilteredLines();
+  State.filteredLines = filtered;
+  updateSummary(filtered.length, counts);
+  resetVirtualScroll();
+}
+
+// ── サマリー更新 ──────────────────────────────────
+function updateSummary(visibleCount, counts) {
+  document.getElementById('log-total-count').textContent =
+    `${visibleCount.toLocaleString()} / ${State.logLines.length.toLocaleString()} 行`;
+
+  const BADGE_DEFS = [
+    { level: 'ERROR', color: 'error' },
+    { level: 'WARN',  color: 'warn'  },
+    { level: 'INFO',  color: 'info'  },
+    { level: 'DEBUG', color: 'debug' },
+  ];
+  document.getElementById('log-summary-badges').innerHTML =
+    BADGE_DEFS
+      .filter(b => counts[b.level] > 0)
+      .map(b => `<span class="log-level-badge log-level-badge--${b.color}">${b.level}: ${counts[b.level].toLocaleString()}</span>`)
+      .join('');
+}
+
+// ── 仮想スクロール ────────────────────────────────
+// ビューポート内の行のみ DOM に生成する
+
+function resetVirtualScroll() {
+  const output = document.getElementById('log-output');
+  const lines  = State.filteredLines;
+  const totalHeight = lines.length * LOG_ROW_HEIGHT;
+
+  // スペーサー要素で全体高さを確保
+  let spacer = output.querySelector('.log-spacer');
+  if (!spacer) {
+    spacer = document.createElement('div');
+    spacer.className = 'log-spacer';
+    output.innerHTML = '';
+    output.appendChild(spacer);
+  }
+  spacer.style.height = `${totalHeight}px`;
+
+  // 既存の行要素を削除（スペーサー以外）
+  const existing = output.querySelectorAll('.log-line');
+  existing.forEach(el => el.remove());
+
+  // キャッシュをリセットして再描画を強制
+  State._vsStart = -1;
+  State._vsEnd   = -1;
+  output.scrollTop = 0;
+  renderVisibleLines();
+}
+
+function renderVisibleLines() {
+  const output = document.getElementById('log-output');
+  const lines  = State.filteredLines;
+  if (!lines.length) return;
+
+  const scrollTop   = output.scrollTop;
+  const viewHeight  = output.clientHeight;
+
+  // 表示範囲を計算
+  const startIdx = Math.max(0, Math.floor(scrollTop / LOG_ROW_HEIGHT) - LOG_OVERSCAN);
+  const endIdx   = Math.min(lines.length, Math.ceil((scrollTop + viewHeight) / LOG_ROW_HEIGHT) + LOG_OVERSCAN);
+
+  // 現在描画範囲と同じなら何もしない
+  if (State._vsStart === startIdx && State._vsEnd === endIdx) return;
+  State._vsStart = startIdx;
+  State._vsEnd   = endIdx;
+
+  // 既存行要素を削除してから再描画
+  const existing = output.querySelectorAll('.log-line');
+  existing.forEach(el => el.remove());
+
+  const fragment = document.createDocumentFragment();
+  for (let i = startIdx; i < endIdx; i++) {
+    const line = lines[i];
     const div = document.createElement('div');
     div.className = `log-line log-line--${line.color}`;
-    div.dataset.level = line.level;
-    if (line.timestamp) div.dataset.ts = line.timestamp.getTime();
+    div.style.position = 'absolute';
+    div.style.top = `${i * LOG_ROW_HEIGHT}px`;
+    div.style.left = '0';
+    div.style.right = '0';
+    div.style.height = `${LOG_ROW_HEIGHT}px`;
 
     const numSpan = document.createElement('span');
     numSpan.className = 'log-line__num';
@@ -70,54 +180,7 @@ function renderLogLines() {
     div.appendChild(textSpan);
     fragment.appendChild(div);
   }
-  output.innerHTML = '';
   output.appendChild(fragment);
-}
-
-// ── サマリー更新 ──────────────────────────────────
-function updateSummary(visibleCount, counts) {
-  document.getElementById('log-total-count').textContent =
-    `${visibleCount.toLocaleString()} / ${State.logLines.length.toLocaleString()} 行`;
-
-  const BADGE_DEFS = [
-    { level: 'ERROR', color: 'error' },
-    { level: 'WARN',  color: 'warn'  },
-    { level: 'INFO',  color: 'info'  },
-    { level: 'DEBUG', color: 'debug' },
-  ];
-  document.getElementById('log-summary-badges').innerHTML =
-    BADGE_DEFS
-      .filter(b => counts[b.level] > 0)
-      .map(b => `<span class="log-level-badge log-level-badge--${b.color}">${b.level}: ${counts[b.level].toLocaleString()}</span>`)
-      .join('');
-}
-
-// ── フィルター適用 ────────────────────────────────
-function applyLogFilter() {
-  const { levels, startTime, endTime, text } = State.filters;
-  const needle  = text.toLowerCase();
-  const lines   = document.querySelectorAll('.log-line');
-  const counts  = { ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, OTHER: 0 };
-  let visibleCount = 0;
-
-  for (const el of lines) {
-    const level = el.dataset.level;
-    const ts    = el.dataset.ts ? parseInt(el.dataset.ts, 10) : null;
-    let visible = !!levels[level];
-
-    if (visible && needle) {
-      const lineText = el.querySelector('.log-line__text')?.textContent ?? '';
-      if (!lineText.toLowerCase().includes(needle)) visible = false;
-    }
-    if (visible && ts !== null) {
-      if (startTime && ts < startTime) visible = false;
-      if (endTime   && ts > endTime)   visible = false;
-    }
-
-    el.hidden = !visible;
-    if (visible) { visibleCount++; counts[level] = (counts[level] || 0) + 1; }
-  }
-  updateSummary(visibleCount, counts);
 }
 
 // ── ログ入力ハンドラ ──────────────────────────────
@@ -130,10 +193,25 @@ function onLogInput() {
   if (!text.trim()) {
     output.hidden = summary.hidden = filterBar.hidden = true;
     State.logLines = [];
+    State.filteredLines = [];
     return;
   }
   State.logLines = parseLogLines(text);
-  renderLogLines();
-  applyLogFilter();
+  // hidden を先に解除して clientHeight が取得できるようにする
   output.hidden = summary.hidden = filterBar.hidden = false;
+  applyLogFilter();
+}
+
+// ── スクロールイベント初期化 ──────────────────────
+function initLogScroll() {
+  const output = document.getElementById('log-output');
+  let rafPending = false;
+  output.addEventListener('scroll', () => {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => {
+      renderVisibleLines();
+      rafPending = false;
+    });
+  });
 }
