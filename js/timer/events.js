@@ -487,6 +487,44 @@ function setupEvents() {
     };
   }
 
+  // キーボードショートカット
+  document.addEventListener('keydown', e => {
+    const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+    // モーダルが開いている場合はスキップ
+    const presetModal = document.getElementById('preset-modal');
+    if (presetModal && !presetModal.hidden) return;
+    if (isInInput) return;
+
+    // Space: タイマー開始/停止
+    if (e.key === ' ') {
+      e.preventDefault();
+      State.running ? pauseTimer() : startTimer();
+      return;
+    }
+    // R: タイマーリセット
+    if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      if (State.running) pauseTimer();
+      State.mode = 'work';
+      State.sessionStartTime = null;
+      resetTimer();
+      return;
+    }
+    // Ctrl+→ / Ctrl+←: 次/前のプリセット切替
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      e.preventDefault();
+      const idx = State.presets.findIndex(p => p.id === State.activePresetId);
+      const next = e.key === 'ArrowRight' ? idx + 1 : idx - 1;
+      if (next >= 0 && next < State.presets.length) {
+        State.activePresetId = State.presets[next].id;
+        saveToStorage(TIMER_ACTIVE_PRESET_KEY, String(State.activePresetId));
+        if (!State.running) resetTimer();
+        renderPresets();
+      }
+      return;
+    }
+  });
+
   // テーマ変更
   window.addEventListener('message', e => {
     if (e.data?.type === 'theme-change') {

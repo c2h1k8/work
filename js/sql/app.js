@@ -175,6 +175,26 @@ window.addEventListener("load", async () => {
   });
 });
 
+// キーボードショートカット
+document.addEventListener('keydown', (e) => {
+  // Ctrl+Enter: 接続コマンドをコピー
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('conn')?.click();
+    return;
+  }
+  // Escape: メモモーダルを閉じる（既存処理と共存）
+});
+
+// ショートカットキー一覧登録
+ShortcutHelp.register([
+  { name: 'ショートカット', shortcuts: [
+    { keys: ['Ctrl', 'Enter'], description: '接続コマンドをコピー' },
+    { keys: ['Escape'], description: 'モーダルを閉じる' },
+    { keys: ['?'], description: 'ショートカット一覧' },
+  ]}
+]);
+
 // テーマ変更を受け取る（親フレームからの postMessage）
 window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'theme-change') {

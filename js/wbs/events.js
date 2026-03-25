@@ -25,6 +25,22 @@ const EventHandlers = {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (State.selectedId) this.deleteTask(State.selectedId);
       }
+      // Ctrl+↑/↓: タスクを上下に移動
+      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') {
+        e.preventDefault(); this.moveTask(-1);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowDown') {
+        e.preventDefault(); this.moveTask(1);
+      }
+      // N: 新規タスク追加
+      if (e.key === 'n' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault(); this.addTask();
+      }
+      // Ctrl+D: 選択タスクを複製
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        if (State.selectedId) this.duplicateTask(State.selectedId);
+      }
     });
 
     window.addEventListener('message', e => {
@@ -237,6 +253,22 @@ const EventHandlers = {
     await _db.updateTask(task);
     State.tasks = await _db.getAllTasks();
     Renderer.renderAll();
+  },
+
+  async duplicateTask(taskId) {
+    const src = State.tasks.find(t => t.id === taskId);
+    if (!src) return;
+    const position = src.position + 1;
+    const id = await _db.addTask({
+      title: src.title + '（コピー）', level: src.level, position,
+      plan_start: src.plan_start, plan_days: src.plan_days,
+      actual_start: '', actual_end: '',
+      progress: 0, status: 'not_started', memo: src.memo,
+    });
+    State.tasks = await _db.getAllTasks();
+    State.selectedId = id;
+    Renderer.renderAll();
+    showSuccess('タスクを複製しました');
   },
 
   async moveTask(dir) {

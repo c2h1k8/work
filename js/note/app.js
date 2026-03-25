@@ -63,10 +63,50 @@ const App = {
     // CustomSelect: ソートセレクトとフィールド追加フォームのタイプセレクトをカスタム UI に置き換え
     CustomSelect.replaceAll(document.getElementById('note-sidebar-controls'));
     CustomSelect.replaceAll(document.querySelector('.note-modal__ft'));
+
+    // ショートカットキー一覧登録
+    ShortcutHelp.register([
+      { name: 'ショートカット', shortcuts: [
+        { keys: ['N'], description: '新規ノート追加' },
+        { keys: ['F'], description: '検索にフォーカス' },
+        { keys: ['Escape'], description: '詳細パネルの選択を解除' },
+        { keys: ['?'], description: 'ショートカット一覧' },
+      ]}
+    ]);
   },
 };
 
 document.addEventListener('DOMContentLoaded', () => App.init().catch(console.error));
+
+// キーボードショートカット
+document.addEventListener('keydown', async (e) => {
+  const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+  if (isInInput) return;
+
+  // N: 新規ノート追加
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    document.getElementById('add-task-btn')?.click();
+    return;
+  }
+
+  // F: 検索にフォーカス
+  if (e.key === 'f' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    document.getElementById('task-search')?.focus();
+    return;
+  }
+
+  // Escape: 詳細パネルの選択を解除
+  if (e.key === 'Escape') {
+    if (State.selectedTaskId) {
+      State.selectedTaskId = null;
+      Renderer.renderTaskList();
+      await Renderer.renderDetail();
+    }
+    return;
+  }
+});
 
 // テーマ変更を受け取る（親フレームからの postMessage）
 window.addEventListener('message', (e) => {

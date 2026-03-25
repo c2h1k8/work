@@ -32,15 +32,38 @@ const App = {
       EventHandlers.openSettings();
     });
 
-    // Esc キーでアイテム管理モーダルを閉じる
+    // キーボードショートカット
     document.addEventListener("keydown", (e) => {
+      // Escape: アイテム管理モーダルを閉じる
       if (e.key === "Escape") {
         const modal = document.getElementById("item-manager-modal");
         if (modal && !modal.hidden) {
           EventHandlers.closeItemManager();
+          return;
         }
       }
+
+      // Ctrl+, : 設定パネル開閉
+      if ((e.ctrlKey || e.metaKey) && e.key === ",") {
+        e.preventDefault();
+        const settings = document.getElementById("home-settings");
+        if (settings && !settings.hidden) {
+          EventHandlers.closeSettings();
+        } else {
+          EventHandlers.openSettings();
+        }
+        return;
+      }
     });
+
+    // ショートカットキー一覧登録
+    ShortcutHelp.register([
+      { name: "ショートカット", shortcuts: [
+        { keys: ["Ctrl", ","], description: "設定パネル開閉" },
+        { keys: ["Escape"], description: "モーダルを閉じる" },
+        { keys: ["?"], description: "ショートカット一覧" },
+      ]}
+    ]);
 
     // 親フレームからのメッセージを受信
     window.addEventListener("message", (e) => {

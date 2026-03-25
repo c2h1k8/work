@@ -7,6 +7,26 @@
 // テーマ変更メッセージの受信
 // ==================================================
 
+/** アクティブツールの結果をコピーする */
+function _copyActiveResult() {
+  let text = '';
+  switch (State.activeSection) {
+    case 'format': {
+      text = document.getElementById('fmt-code')?.textContent || '';
+      break;
+    }
+    case 'regex': {
+      text = document.getElementById('regex-replace-result')?.textContent || '';
+      break;
+    }
+    default:
+      showError('このツールではコピー対象がありません');
+      return;
+  }
+  if (!text) { showError('コピーする結果がありません'); return; }
+  navigator.clipboard.writeText(text).then(() => showSuccess('コピーしました'));
+}
+
 function init() {
   // ━━━ タブ切替 ━━━
   document.getElementById('txt-tabs').addEventListener('click', e => {
@@ -198,10 +218,21 @@ function init() {
   // ━━━ ツールチップ初期化 ━━━
   Tooltip.init(document.body);
 
+  // ━━━ キーボードショートカット ━━━
+  document.addEventListener('keydown', e => {
+    // Ctrl+Shift+C: アクティブツールの結果をコピー
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+      e.preventDefault();
+      _copyActiveResult();
+      return;
+    }
+  });
+
   // ━━━ ショートカットキー一覧登録 ━━━
   ShortcutHelp.register([
     { name: 'ショートカット', shortcuts: [
       { keys: ['Ctrl', 'Enter'], description: '整形実行（フォーマッタ）' },
+      { keys: ['Ctrl', 'Shift', 'C'], description: 'アクティブツールの結果をコピー' },
       { keys: ['?'], description: 'ショートカット一覧' },
     ]}
   ]);

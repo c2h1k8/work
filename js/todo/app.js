@@ -1034,6 +1034,8 @@ const EventHandlers = {
   /** キーボード操作 */
   _onKeydown(e, db) {
     const modal = document.getElementById('task-modal');
+    const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+
     if (modal.classList.contains('is-open')) {
       // Esc でモーダルを閉じる（カレンダーが開いていれば先に閉じる）
       if (e.key === 'Escape') {
@@ -1079,6 +1081,34 @@ const EventHandlers = {
           if (saveBtn) this._onSaveCommentEdit(saveBtn, db);
         }
       }
+      return;
+    }
+
+    // ── モーダルが閉じている時のショートカット ──
+
+    // N: 最初のカラムに新規タスク追加
+    if (e.key === 'n' && !isInInput && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const firstCol = getColumnKeys()[0];
+      if (firstCol) this._createTaskInColumn(firstCol, {}, db);
+      return;
+    }
+
+    // F: フィルタ入力にフォーカス
+    if (e.key === 'f' && !isInInput && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      document.getElementById('filter-text')?.focus();
+      return;
+    }
+
+    // Ctrl+Shift+A: 完了カラムを一括アーカイブ
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+      e.preventDefault();
+      const doneCol = State.columns.find(c => c.done);
+      if (doneCol && State.tasks[doneCol.key]?.length > 0) {
+        this._onArchiveColumn({ dataset: { columnKey: doneCol.key } }, db).catch(console.error);
+      }
+      return;
     }
   },
 
@@ -2253,6 +2283,17 @@ const App = {
     const exportAt = localStorage.getItem('kanban_last_export_at') || '';
     State.isDirty  = dirtyAt > exportAt;
     Backup.updateExportIndicator(State.isDirty);
+
+    // ショートカットキー一覧登録
+    ShortcutHelp.register([
+      { name: 'ショートカット', shortcuts: [
+        { keys: ['N'], description: '新規タスク追加' },
+        { keys: ['F'], description: 'フィルタにフォーカス' },
+        { keys: ['Ctrl', 'Shift', 'A'], description: '完了カラムを一括アーカイブ' },
+        { keys: ['Escape'], description: 'モーダルを閉じる' },
+        { keys: ['?'], description: 'ショートカット一覧' },
+      ]}
+    ]);
   },
 };
 

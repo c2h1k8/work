@@ -491,6 +491,48 @@ function setupEvents() {
   document.getElementById('export-btn').addEventListener('click', exportSnippets);
   document.getElementById('import-btn').addEventListener('click', importSnippets);
 
+  // キーボードショートカット
+  document.addEventListener('keydown', e => {
+    const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+    // モーダルが開いている場合はスキップ
+    const modal = document.getElementById('snippet-modal');
+    if (modal && !modal.hidden) return;
+
+    // Ctrl+F: 検索にフォーカス
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      e.preventDefault();
+      document.getElementById('search-input')?.focus();
+      return;
+    }
+
+    if (isInInput) return;
+
+    // N: 新規スニペット追加
+    if (e.key === 'n' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      openModal();
+      return;
+    }
+
+    // Enter: 選択中スニペットのコードをコピー
+    if (e.key === 'Enter' && State.selectedId) {
+      e.preventDefault();
+      copyCode(State.selectedId);
+      return;
+    }
+  });
+
+  // ショートカットキー一覧登録
+  ShortcutHelp.register([
+    { name: 'ショートカット', shortcuts: [
+      { keys: ['N'], description: '新規スニペット追加' },
+      { keys: ['Enter'], description: '選択中のコードをコピー' },
+      { keys: ['Ctrl', 'F'], description: '検索にフォーカス' },
+      { keys: ['Escape'], description: 'モーダルを閉じる' },
+      { keys: ['?'], description: 'ショートカット一覧' },
+    ]}
+  ]);
+
   // テーマ変更
   window.addEventListener('message', e => {
     if (e.data?.type === 'theme-change') {

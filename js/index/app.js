@@ -18,6 +18,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         name: 'ナビゲーション',
         shortcuts: [
           { keys: ['Ctrl', 'K'], description: '検索バーにフォーカス' },
+          { keys: ['Ctrl', '1~9'], description: 'タブ N に切替' },
+          { keys: ['Ctrl', ','], description: '設定パネル開閉' },
+          { keys: ['Ctrl', 'Shift', 'E'], description: '全データ一括バックアップ' },
         ],
       },
     ]);
@@ -34,15 +37,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   activateTab(targetId);
 });
 
-// Ctrl+K / Cmd+K でグローバル検索にフォーカス
+// グローバルキーボードショートカット
 document.addEventListener('keydown', (e) => {
+  // Ctrl+K / Cmd+K: グローバル検索にフォーカス
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
     e.preventDefault();
     const input = document.getElementById('global-search-input');
-    if (input) {
-      input.focus();
-      input.select();
+    if (input) { input.focus(); input.select(); }
+    return;
+  }
+
+  // Ctrl+1~9: タブ N に切替
+  if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '9') {
+    e.preventDefault();
+    const tabs = document.querySelectorAll('.tab-btn');
+    const idx = parseInt(e.key, 10) - 1;
+    if (idx < tabs.length) {
+      const tabId = tabs[idx].htmlFor;
+      activateTab(tabId);
+      saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, tabId);
     }
+    return;
+  }
+
+  // Ctrl+, : 設定パネル開閉
+  if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+    e.preventDefault();
+    const overlay = document.getElementById('settings-overlay');
+    if (overlay && !overlay.hidden) closeSettings();
+    else openSettings();
+    return;
+  }
+
+  // Ctrl+Shift+E: 全データ一括バックアップ
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
+    e.preventDefault();
+    if (typeof backupAllData === 'function') backupAllData();
+    return;
   }
 });
 

@@ -69,6 +69,10 @@ async function init() {
   // ショートカットキー一覧登録
   ShortcutHelp.register([
     { name: 'ショートカット', shortcuts: [
+      { keys: ['Space'], description: 'タイマー開始/停止' },
+      { keys: ['R'], description: 'タイマーリセット' },
+      { keys: ['Ctrl', '←'], description: '前のプリセット' },
+      { keys: ['Ctrl', '→'], description: '次のプリセット' },
       { keys: ['Escape'], description: 'モーダルを閉じる' },
       { keys: ['?'], description: 'ショートカット一覧' },
     ]}

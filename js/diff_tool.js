@@ -432,11 +432,38 @@ function init() {
   // 比較ボタン
   compareBtn.addEventListener('click', compare);
 
-  // Ctrl+Enter でも比較
+  // キーボードショートカット
   document.addEventListener('keydown', e => {
+    const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+
+    // Ctrl+Enter: 差分を比較
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       compare();
+      return;
+    }
+
+    // Ctrl+Shift+C: テキストエリアをクリア
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+      e.preventDefault();
+      leftInput.value  = '';
+      rightInput.value = '';
+      showDiffEmpty();
+      return;
+    }
+
+    if (isInInput) return;
+
+    // M: モード切替（行単位 ↔ 文字単位）
+    if (e.key === 'm' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      State.mode = State.mode === 'line' ? 'char' : 'line';
+      saveToStorage(DIFF_MODE_KEY, State.mode);
+      modeToggle.querySelectorAll('.diff-mode-btn').forEach(b => {
+        b.classList.toggle('diff-mode-btn--active', b.dataset.mode === State.mode);
+      });
+      if (State.realtime) compare();
+      return;
     }
   });
 
@@ -499,6 +526,8 @@ function init() {
   ShortcutHelp.register([
     { name: 'ショートカット', shortcuts: [
       { keys: ['Ctrl', 'Enter'], description: '差分を比較' },
+      { keys: ['Ctrl', 'Shift', 'C'], description: 'テキストエリアをクリア' },
+      { keys: ['M'], description: 'モード切替（行/文字）' },
       { keys: ['?'], description: 'ショートカット一覧' },
     ]}
   ]);
