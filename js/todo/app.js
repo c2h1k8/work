@@ -2291,7 +2291,6 @@ const App = {
         { keys: ['F'], description: 'フィルタにフォーカス' },
         { keys: ['Ctrl', 'Shift', 'A'], description: '完了カラムを一括アーカイブ' },
         { keys: ['Escape'], description: 'モーダルを閉じる' },
-        { keys: ['?'], description: 'ショートカット一覧' },
       ]}
     ]);
   },

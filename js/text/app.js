@@ -233,7 +233,6 @@ function init() {
     { name: 'ショートカット', shortcuts: [
       { keys: ['Ctrl', 'Enter'], description: '整形実行（フォーマッタ）' },
       { keys: ['Ctrl', 'Shift', 'C'], description: 'アクティブツールの結果をコピー' },
-      { keys: ['?'], description: 'ショートカット一覧' },
     ]}
   ]);
 }

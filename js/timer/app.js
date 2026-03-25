@@ -74,7 +74,6 @@ async function init() {
       { keys: ['Ctrl', '←'], description: '前のプリセット' },
       { keys: ['Ctrl', '→'], description: '次のプリセット' },
       { keys: ['Escape'], description: 'モーダルを閉じる' },
-      { keys: ['?'], description: 'ショートカット一覧' },
     ]}
   ]);
 

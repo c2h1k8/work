@@ -61,7 +61,6 @@ const App = {
       { name: "ショートカット", shortcuts: [
         { keys: ["Ctrl", ","], description: "設定パネル開閉" },
         { keys: ["Escape"], description: "モーダルを閉じる" },
-        { keys: ["?"], description: "ショートカット一覧" },
       ]}
     ]);
 

@@ -11,20 +11,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   buildSettingsPanel();
   _initThemeToggle();
 
-  // ショートカットキー登録（ナビゲーション共通）
-  if (typeof ShortcutHelp !== 'undefined') {
-    ShortcutHelp.register([
-      {
-        name: 'ナビゲーション',
-        shortcuts: [
-          { keys: ['Ctrl', 'K'], description: '検索バーにフォーカス' },
-          { keys: ['Ctrl', '1~9'], description: 'タブ N に切替' },
-          { keys: ['Ctrl', ','], description: '設定パネル開閉' },
-          { keys: ['Ctrl', 'Shift', 'E'], description: '全データ一括バックアップ' },
-        ],
-      },
-    ]);
-  }
+  // ナビゲーションショートカット定義（親フレームから iframe へ転送用）
+  _navShortcutCategories = [
+    {
+      name: 'ナビゲーション',
+      shortcuts: [
+        { keys: ['Ctrl', 'K'], description: '検索バーにフォーカス' },
+        { keys: ['Ctrl', '1~9'], description: 'タブ N に切替' },
+        { keys: ['Ctrl', ','], description: '設定パネル開閉' },
+        { keys: ['Ctrl', 'Shift', 'E'], description: '全データ一括バックアップ' },
+      ],
+    },
+  ];
 
   // 前回のアクティブタブを復元（なければデフォルト）
   const savedId = loadFromStorage(STORAGE_KEY_ACTIVE_TAB_ID);
@@ -37,8 +35,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   activateTab(targetId);
 });
 
+// ナビゲーションショートカット定義（DOMContentLoaded 内でセット）
+let _navShortcutCategories = [];
+
 // グローバルキーボードショートカット
 document.addEventListener('keydown', (e) => {
+  // ?: ショートカット一覧をアクティブ iframe に転送して表示
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    if (!['input', 'textarea', 'select'].includes(tag) && !document.activeElement?.isContentEditable) {
+      e.preventDefault();
+      const activeFrame = document.querySelector('.tab-frame--active');
+      if (activeFrame?.contentWindow) {
+        activeFrame.contentWindow.postMessage({
+          type: 'show-shortcut-help',
+          categories: _navShortcutCategories,
+        }, '*');
+      }
+      return;
+    }
+  }
+
   // Ctrl+K / Cmd+K: グローバル検索にフォーカス
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
     e.preventDefault();

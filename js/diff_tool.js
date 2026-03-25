@@ -528,7 +528,6 @@ function init() {
       { keys: ['Ctrl', 'Enter'], description: '差分を比較' },
       { keys: ['Ctrl', 'Shift', 'C'], description: 'テキストエリアをクリア' },
       { keys: ['M'], description: 'モード切替（行/文字）' },
-      { keys: ['?'], description: 'ショートカット一覧' },
     ]}
   ]);
 

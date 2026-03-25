@@ -212,12 +212,7 @@ function init() {
   });
 
 
-  // ── ショートカットキー一覧登録 ───────────────────
-  ShortcutHelp.register([
-    { name: 'ショートカット', shortcuts: [
-      { keys: ['?'], description: 'ショートカット一覧' },
-    ]}
-  ]);
+  // ── ショートカットキー一覧登録（ページ固有ショートカットなし） ──
 
   // ── テーマ変更（親フレームからの postMessage） ───
   window.addEventListener('message', e => {

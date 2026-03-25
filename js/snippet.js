@@ -529,7 +529,6 @@ function setupEvents() {
       { keys: ['Enter'], description: '選択中のコードをコピー' },
       { keys: ['Ctrl', 'F'], description: '検索にフォーカス' },
       { keys: ['Escape'], description: 'モーダルを閉じる' },
-      { keys: ['?'], description: 'ショートカット一覧' },
     ]}
   ]);
 

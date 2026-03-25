@@ -25,7 +25,6 @@ const App = {
         { keys: ['Tab'], description: 'インデント（右へ）' },
         { keys: ['Shift', 'Tab'], description: 'インデント（左へ）' },
         { keys: ['Delete'], description: '選択タスクを削除' },
-        { keys: ['?'], description: 'ショートカット一覧' },
       ]}
     ]);
   },

@@ -70,7 +70,6 @@ const App = {
         { keys: ['N'], description: '新規ノート追加' },
         { keys: ['F'], description: '検索にフォーカス' },
         { keys: ['Escape'], description: '詳細パネルの選択を解除' },
-        { keys: ['?'], description: 'ショートカット一覧' },
       ]}
     ]);
   },

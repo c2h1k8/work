@@ -191,7 +191,6 @@ ShortcutHelp.register([
   { name: 'ショートカット', shortcuts: [
     { keys: ['Ctrl', 'Enter'], description: '接続コマンドをコピー' },
     { keys: ['Escape'], description: 'モーダルを閉じる' },
-    { keys: ['?'], description: 'ショートカット一覧' },
   ]}
 ]);
 

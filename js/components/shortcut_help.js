@@ -22,6 +22,8 @@ const ShortcutHelp = (() => {
       ],
     },
   ];
+  // 親フレームから受け取ったナビゲーションショートカット
+  let _parentCategories = [];
   let _mounted = false;
 
   // Mac 判定（userAgentData → platform → userAgent の順にフォールバック）
@@ -71,7 +73,10 @@ const ShortcutHelp = (() => {
     const body = document.getElementById('shortcut-help-body');
     if (!body) return;
 
-    body.innerHTML = _categories.map(cat => `
+    // ページ固有カテゴリ + 親フレームのナビゲーションカテゴリを統合
+    const allCategories = [..._categories, ..._parentCategories];
+
+    body.innerHTML = allCategories.map(cat => `
       <div class="shortcut-help-section">
         <h3 class="shortcut-help-category">${escapeHtml(cat.name)}</h3>
         <table class="shortcut-help-table">
@@ -106,6 +111,14 @@ const ShortcutHelp = (() => {
     }
     if (e.key === 'Escape' && overlay && !overlay.hidden) {
       ShortcutHelp.hide();
+    }
+  });
+
+  // 親フレームからの show-shortcut-help メッセージを受信
+  window.addEventListener('message', (e) => {
+    if (e.data?.type === 'show-shortcut-help') {
+      _parentCategories = e.data.categories || [];
+      ShortcutHelp.show();
     }
   });
 
