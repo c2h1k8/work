@@ -160,6 +160,10 @@ function activateTab(tabId) {
   document.querySelectorAll(".tab-frame").forEach(frame => {
     frame.classList.toggle("tab-frame--active", frame.id === `frame-${frameName}`);
   });
+
+  // アクティブ iframe にフォーカスを移す（ページ固有ショートカットを即座に有効化）
+  const activeFrame = document.getElementById(`frame-${frameName}`);
+  if (activeFrame) activeFrame.focus();
 }
 
 // ==================================================
