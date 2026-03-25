@@ -83,7 +83,7 @@ document.addEventListener('keydown', async (e) => {
 
   // Escape: 入力中ならフォーカスを外す、そうでなければ詳細パネルの選択を解除
   if (e.key === 'Escape') {
-    if (isInInput) {
+    if (isInInput && !e.isComposing) {
       e.target.blur();
       return;
     }

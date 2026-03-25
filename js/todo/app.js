@@ -1087,7 +1087,7 @@ const EventHandlers = {
     // ── モーダルが閉じている時のショートカット ──
 
     // Escape: フィルタ入力からフォーカスを外す
-    if (e.key === 'Escape' && isInInput) {
+    if (e.key === 'Escape' && isInInput && !e.isComposing) {
       e.target.blur();
       return;
     }

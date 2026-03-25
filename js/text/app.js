@@ -223,7 +223,7 @@ function init() {
     // Escape: 入力中ならフォーカスを外す
     if (e.key === 'Escape') {
       const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
-      if (isInInput) { e.target.blur(); return; }
+      if (isInInput && !e.isComposing) { e.target.blur(); return; }
     }
     // Ctrl+Shift+C: アクティブツールの結果をコピー
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {

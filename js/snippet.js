@@ -499,7 +499,7 @@ function setupEvents() {
     if (modal && !modal.hidden) return;
 
     // Escape: 入力中ならフォーカスを外す
-    if (e.key === 'Escape' && isInInput) {
+    if (e.key === 'Escape' && isInInput && !e.isComposing) {
       e.target.blur();
       return;
     }
