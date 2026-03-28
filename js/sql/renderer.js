@@ -292,8 +292,9 @@ function renderTuneGrid() {
     group.append(summary, cards);
     grid.appendChild(group);
 
-    // 開閉状態を localStorage に保存
+    // 開閉状態を localStorage に保存（「すべて」モードのときだけ）
     group.addEventListener("toggle", () => {
+      if (!document.getElementById("tune-grid").classList.contains("tune-grid--grouped")) return;
       const states = JSON.parse(localStorage.getItem("sql_tune_groups") || "{}");
       states[cat] = group.open;
       localStorage.setItem("sql_tune_groups", JSON.stringify(states));

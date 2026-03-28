@@ -44,13 +44,9 @@
   & > summary { list-style: none; }
   & > summary::-webkit-details-marker { display: none; }
 
-  // 検索時に折りたたみ中のグループを強制展開
-  &--force-open > .tune-group__cards {
-    display: grid !important;
-  }
 
 
-  // カテゴリタブ時（すべて以外）はアコーディオン無効・常時展開
+  // カテゴリタブ時（すべて以外）はヘッダーを非インタラクティブ・シェブロン非表示
   .tune-grid:not(.tune-grid--grouped) & {
     > .tune-group__header {
       cursor: default;
@@ -58,9 +54,6 @@
     }
     > .tune-group__header .tune-group__chevron {
       display: none;
-    }
-    > .tune-group__cards {
-      display: grid !important;
     }
   }
 

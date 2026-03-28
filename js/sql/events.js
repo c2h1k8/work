@@ -216,8 +216,9 @@ function applyTuneFilter() {
     // カテゴリタブ選択時: 一致しないグループは非表示
     if (!isAll && cat !== _tuneTab) { group.hidden = true; return; }
 
-    // 検索ヒット時は折りたたみ中のグループも展開（open 属性は変えず CSS クラスで制御）
-    group.classList.toggle("tune-group--force-open", !!q);
+    // カテゴリタブ選択時・検索ヒット時は強制展開
+    // （toggle リスナーが grouped モード以外では保存しないため open を変えても安全）
+    if (!isAll || (q && visible > 0)) group.open = true;
 
     // カード単位で検索フィルター
     let visible = 0;
