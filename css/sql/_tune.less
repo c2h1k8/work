@@ -44,8 +44,8 @@
   & > summary { list-style: none; }
   & > summary::-webkit-details-marker { display: none; }
 
-  // グループ間の区切り線（2番目以降）
-  & + & > .tune-group__header {
+  // グループ間の区切り線（「すべて」表示時のみ）
+  .tune-grid--grouped & + & > .tune-group__header {
     border-top: 1px solid var(--color-border);
     margin-top: 6px;
   }

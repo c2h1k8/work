@@ -207,13 +207,16 @@ function applyTuneFilter() {
   const q     = document.getElementById("tune-search").value.trim().toLowerCase();
   const isAll = _tuneTab === "all";
 
+  // 「すべて」のときだけグループ区切り線を有効化
+  document.getElementById("tune-grid").classList.toggle("tune-grid--grouped", isAll);
+
   document.querySelectorAll(".tune-group").forEach(group => {
     const cat = group.dataset.category;
 
     // カテゴリタブ選択時: 一致しないグループは非表示
     if (!isAll && cat !== _tuneTab) { group.hidden = true; return; }
 
-    // カテゴリタブ選択時は強制展開（折りたたみ状態でもカードを見せる）
+    // カテゴリタブ選択時は強制展開
     if (!isAll) group.open = true;
 
     // カード単位で検索フィルター
