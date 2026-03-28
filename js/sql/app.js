@@ -60,6 +60,25 @@ async function initTableMemo() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !document.getElementById("memo-modal").hidden) closeMemoModal();
   });
+
+  // SQL 取り込みパネル: 開閉トグル
+  document.getElementById("memo-sql-toggle-btn").addEventListener("click", () => {
+    const panel = document.getElementById("memo-sql-import");
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) document.getElementById("memo-sql-input").focus();
+  });
+
+  // SQL 取り込みパネル: 解析・反映
+  document.getElementById("memo-sql-parse-btn").addEventListener("click", () => {
+    const sql = document.getElementById("memo-sql-input").value;
+    if (!sql.trim()) { showError("SQL を入力してください"); return; }
+    const parsed = parseSqlToMemo(sql);
+    if (applyParsedMemo(parsed)) {
+      document.getElementById("memo-sql-import").hidden = true;
+      document.getElementById("memo-sql-input").value = "";
+      showToast("SQL を取り込みました");
+    }
+  });
 }
 
 // ==================================================

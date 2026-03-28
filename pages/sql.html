@@ -69,6 +69,10 @@
               <button class="tune-tab" data-tab="結合">結合</button>
               <button class="tune-tab" data-tab="処理">処理</button>
               <button class="tune-tab" data-tab="その他">その他</button>
+              <button class="tune-tab tune-tab--analyze" data-tab="analyze">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.75V13.5h13.75a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75V1.75a.75.75 0 0 1 1.5 0Zm14.28 2.53-5.25 5.25a.75.75 0 0 1-1.06 0L7 7.06 4.28 9.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.25-3.25a.75.75 0 0 1 1.06 0L9 7.94l4.72-4.72a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Z"/></svg>
+                解析
+              </button>
             </div>
             <div class="tune-search-wrap">
               <svg class="tune-search-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
@@ -76,6 +80,19 @@
             </div>
           </div>
           <div class="tune-grid" id="tune-grid"></div>
+
+          <!-- 実行計画解析パネル -->
+          <div class="tune-analyze" id="tune-analyze" hidden>
+            <div class="tune-analyze__input-area">
+              <textarea id="tune-plan-input" class="tune-analyze__textarea" rows="8"
+                placeholder="実行計画を貼り付けてください（AUTOTRACE / DBMS_XPLAN 出力）"></textarea>
+              <div class="tune-analyze__actions">
+                <button type="button" id="tune-analyze-btn" class="btn btn--primary btn--sm">解析する</button>
+                <button type="button" id="tune-analyze-clear-btn" class="btn btn--secondary btn--sm">クリア</button>
+              </div>
+            </div>
+            <div id="tune-analyze-result" class="tune-analyze__result" hidden></div>
+          </div>
         </details>
       </section>
 
@@ -172,12 +189,12 @@
           <p class="form-hint">実行前に SQL*Plus で貼り付けて実行してください。</p>
           <div class="btn-row">
             <button class="btn btn--secondary copy"
-              data-copy="SET LINESIZE 300&#13;&#10;SET PAGESIZE 0&#13;&#10;SET FEEDBACK ON&#13;&#10;SET TIMING ON&#13;&#10;SET TRIMSPOOL ON&#13;&#10;COL plan_plus_exp FORMAT A300&#13;&#10;SET AUTOTRACE TRACEONLY">
+              data-copy="SET LINESIZE 400&#13;&#10;SET PAGESIZE 0&#13;&#10;SET FEEDBACK ON&#13;&#10;SET TIMING ON&#13;&#10;SET TRIMSPOOL ON&#13;&#10;SET AUTOTRACE TRACEONLY">
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.75 1h8.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 10.25 10H7.061l-2.574 2.573A1.458 1.458 0 0 1 2 11.543V10h-.25A1.75 1.75 0 0 1 0 8.25v-5.5C0 1.784.784 1 1.75 1ZM1.5 2.75v5.5c0 .138.112.25.25.25h1a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h3.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25Zm13 2a.25.25 0 0 0-.25-.25h-.5a.75.75 0 0 1 0-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 14.25 12H14v1.543a1.458 1.458 0 0 1-2.487 1.03L9.22 12.28a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215l2.22 2.22v-2.19a.75.75 0 0 1 .75-.75h1a.25.25 0 0 0 .25-.25Z"/></svg>
               実行計画
             </button>
             <button class="btn btn--secondary copy"
-              data-copy="SET LINESIZE 300&#13;&#10;SET PAGESIZE 50000&#13;&#10;SET FEEDBACK ON&#13;&#10;SET TIMING ON&#13;&#10;SET TRIMSPOOL ON&#13;&#10;SET AUTOTRACE OFF">
+              data-copy="SET LINESIZE 400&#13;&#10;SET PAGESIZE 50000&#13;&#10;SET FEEDBACK ON&#13;&#10;SET TIMING ON&#13;&#10;SET TRIMSPOOL ON&#13;&#10;SET NULL '(null)'&#13;&#10;SET NUMWIDTH 15&#13;&#10;SET AUTOTRACE OFF">
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.75 1h8.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 10.25 10H7.061l-2.574 2.573A1.458 1.458 0 0 1 2 11.543V10h-.25A1.75 1.75 0 0 1 0 8.25v-5.5C0 1.784.784 1 1.75 1ZM1.5 2.75v5.5c0 .138.112.25.25.25h1a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h3.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25Zm13 2a.25.25 0 0 0-.25-.25h-.5a.75.75 0 0 1 0-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 14.25 12H14v1.543a1.458 1.458 0 0 1-2.487 1.03L9.22 12.28a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215l2.22 2.22v-2.19a.75.75 0 0 1 .75-.75h1a.25.25 0 0 0 .25-.25Z"/></svg>
               実行結果
             </button>
@@ -188,21 +205,22 @@
             <div class="cmd-detail__grid">
               <div>
                 <p class="cmd-detail__label">実行計画</p>
-                <pre class="cmd-preview cmd-preview--sm">SET LINESIZE 300
+                <pre class="cmd-preview cmd-preview--sm">SET LINESIZE 400
 SET PAGESIZE 0
 SET FEEDBACK ON
 SET TIMING ON
 SET TRIMSPOOL ON
-COL plan_plus_exp FORMAT A300
 SET AUTOTRACE TRACEONLY</pre>
               </div>
               <div>
                 <p class="cmd-detail__label">実行結果</p>
-                <pre class="cmd-preview cmd-preview--sm">SET LINESIZE 300
+                <pre class="cmd-preview cmd-preview--sm">SET LINESIZE 400
 SET PAGESIZE 50000
 SET FEEDBACK ON
 SET TIMING ON
 SET TRIMSPOOL ON
+SET NULL '(null)'
+SET NUMWIDTH 15
 SET AUTOTRACE OFF</pre>
               </div>
             </div>
@@ -290,11 +308,23 @@ SET AUTOTRACE OFF</pre>
       <div class="memo-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="memo-modal-title">
         <div class="memo-modal__header">
           <h2 class="memo-modal__title" id="memo-modal-title">テーブルを追加</h2>
-          <button class="btn btn--ghost btn--sm memo-modal__close" id="memo-modal-close-btn">
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
-          </button>
+          <div class="memo-modal__header-actions">
+            <button type="button" id="memo-sql-toggle-btn" class="btn btn--secondary btn--sm">SQL から取り込み</button>
+            <button class="btn btn--ghost btn--sm memo-modal__close" id="memo-modal-close-btn">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+            </button>
+          </div>
         </div>
         <div class="memo-modal__body">
+          <!-- SQL 取り込みパネル -->
+          <div id="memo-sql-import" class="memo-sql-import" hidden>
+            <textarea id="memo-sql-input" class="memo-sql-import__textarea" rows="8"
+              placeholder="CREATE TABLE / COMMENT ON / CREATE INDEX / ALTER TABLE ADD PRIMARY KEY をまとめて貼り付けてください..."></textarea>
+            <div class="memo-sql-import__actions">
+              <button type="button" id="memo-sql-parse-btn" class="btn btn--primary btn--sm">解析して取り込む</button>
+              <span class="memo-sql-import__hint">複数の SQL をまとめて貼り付けられます</span>
+            </div>
+          </div>
           <!-- 基本情報 -->
           <div class="memo-form__basics">
             <div class="memo-form__row">

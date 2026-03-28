@@ -527,6 +527,54 @@
   &::placeholder { color: var(--color-text-muted); }
 }
 
+// SQL 取り込みパネル（モーダル内）
+.memo-modal {
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.memo-sql-import {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--c-bg-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    color: var(--color-text);
+    background: var(--color-card);
+    resize: vertical;
+    outline: none;
+    line-height: 1.6;
+    transition: border-color 0.15s;
+    &:focus { border-color: var(--color-accent); }
+    &::placeholder { color: var(--color-text-muted); }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__hint {
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+}
+
 // ==================================================
 // トースト通知
 // ==================================================

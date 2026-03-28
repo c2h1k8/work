@@ -165,3 +165,90 @@
   &:focus { border-color: var(--color-accent); }
   &::placeholder { color: var(--color-text-muted); }
 }
+
+// 解析タブのアイコン付きスタイル
+.tune-tab--analyze {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+    flex-shrink: 0;
+  }
+}
+
+// ==================================================
+// 実行計画解析パネル
+// ==================================================
+.tune-analyze {
+  padding: 14px 16px;
+
+  &__input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--color-text);
+    background: var(--c-surface);
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+    line-height: 1.55;
+
+    &:focus { border-color: var(--color-accent); }
+    &::placeholder { color: var(--color-text-muted); }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  &__result {
+    margin-top: 14px;
+  }
+
+  &__summary {
+    margin-bottom: 10px;
+  }
+
+  &__counts {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  &__op-count {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-left: 4px;
+  }
+
+  &__msg {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-muted);
+
+    &--ok {
+      color: var(--c-success);
+      font-weight: 500;
+    }
+  }
+
+  &__grid {
+    padding: 0;
+    margin-top: 8px;
+  }
+}
