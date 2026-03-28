@@ -221,6 +221,7 @@ function initTuneSearch() {
     const btn = e.target.closest(".tune-tab");
     if (!btn) return;
     _tuneTab = btn.dataset.tab;
+    localStorage.setItem("sql_tune_tab", _tuneTab);
     document.querySelectorAll(".tune-tab").forEach(b =>
       b.classList.toggle("tune-tab--active", b === btn)
     );
@@ -230,6 +231,13 @@ function initTuneSearch() {
     document.querySelector(".tune-search-wrap").hidden = isAnalyze;
     if (!isAnalyze) applyTuneFilter();
   });
+
+  // 選択タブを復元
+  const savedTab = localStorage.getItem("sql_tune_tab");
+  if (savedTab && savedTab !== "all") {
+    const btn = document.querySelector(`.tune-tab[data-tab="${savedTab}"]`);
+    if (btn) btn.click();
+  }
 
   // 解析ボタン
   document.getElementById("tune-analyze-btn").addEventListener("click", () => {

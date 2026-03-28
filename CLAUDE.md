@@ -29,6 +29,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `sql/`: 接続環境・テーブル定義メモ → IndexedDB (`sql_db`)
 - `sql/`: 選択中の接続環境キー → `localStorage("sql_selected_env")`（ブラウザ固有）
 - `sql/`: チューニング詳細の開閉状態 → `localStorage("sql_tune_open")`（ブラウザ固有）
+- `sql/`: チューニングガイドの選択タブ → `localStorage("sql_tune_tab")`（ブラウザ固有）
 - `sql/`: テーブル定義メモパネルの開閉状態 → `localStorage("sql_memo_open")`（ブラウザ固有）
 - `dashboard/`: セクション・アイテムデータ → IndexedDB (`dashboard_db`)
 - `dashboard/`: URL コマンド履歴 → `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
@@ -355,7 +356,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - ストア: `envs` + `table_memos`
 - `table_memos`: id/schema_name/table_name/comment/columns[]/indexes[]/memo/created_at/updated_at
 - バインド変数: localStorage（`sql_params`）。選択中環境キー: localStorage（`sql_selected_env`）
-- チューニング詳細の開閉状態: localStorage（`sql_tune_open`）。テーブル定義メモの開閉状態: localStorage（`sql_memo_open`）
+- チューニング詳細の開閉状態: localStorage（`sql_tune_open`）。テーブル定義メモの開閉状態: localStorage（`sql_memo_open`）。チューニングガイド選択タブ: localStorage（`sql_tune_tab`）
 - モジュール構成: `SqlDB`（`js/db/sql_db.js`）/ `constants.js` / `state.js` / `renderer.js` / `events.js` / `app.js`（`js/sql/` 配下に分割）
 
 ## wbs/ アーキテクチャ（2026-03現在）
