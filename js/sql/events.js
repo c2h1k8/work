@@ -255,20 +255,24 @@ function initTuneSearch() {
 function analyzeExecutionPlan(text) {
   const lines = text.split('\n');
 
-  // ヘッダー行（"| Id | Operation | Name |..."）から Operation 列インデックスを特定
-  let opColIndex = -1;
+  // ヘッダー行（"| Id | Operation | Name |..."）から Operation・Name 列インデックスを特定
+  let opColIndex   = -1;
+  let nameColIndex = -1;
   for (const line of lines) {
     if (/\|\s*Id/i.test(line) && /Operation/i.test(line)) {
-      const parts = line.split('|');
-      opColIndex = parts.findIndex(p => /^\s*Operation\s*$/i.test(p));
+      const parts  = line.split('|');
+      opColIndex   = parts.findIndex(p => /^\s*Operation\s*$/i.test(p));
+      nameColIndex = parts.findIndex(p => /^\s*Name\s*$/i.test(p));
       break;
     }
   }
-  // 見つからない場合は2列目（Id の次）をデフォルトとする
-  const colIdx = opColIndex >= 1 ? opColIndex : 2;
+  // 見つからない場合は2・3列目をデフォルトとする
+  const colIdx  = opColIndex   >= 1 ? opColIndex   : 2;
+  const nameIdx = nameColIndex >= 1 ? nameColIndex : colIdx + 1;
 
-  // 各データ行から操作名を収集
-  const operations = new Set();
+  // 各データ行から操作名と対象テーブル/インデックス名を収集
+  // Map<op_upper, { op: string, names: Set<string> }>
+  const opMap = new Map();
   for (const line of lines) {
     if (!line.includes('|')) continue;
     // ヘッダー行・区切り行をスキップ
@@ -278,31 +282,34 @@ function analyzeExecutionPlan(text) {
     const parts = line.split('|');
     if (colIdx >= parts.length) continue;
     const op = parts[colIdx].trim();
-    if (op && op.length > 1) operations.add(op);
+    if (!op || op.length <= 1) continue;
+
+    const name = nameIdx < parts.length ? parts[nameIdx].trim() : "";
+    const key  = op.toUpperCase();
+    if (!opMap.has(key)) opMap.set(key, { op, names: new Set() });
+    if (name) opMap.get(key).names.add(name);
   }
 
   // TUNE_ITEMS とマッチング（大文字小文字を無視した完全一致）
   const matched = [];
   for (const item of TUNE_ITEMS) {
-    const upper = item.op.toUpperCase();
-    if ([...operations].some(op => op.toUpperCase() === upper)) {
-      matched.push(item);
-    }
+    const found = opMap.get(item.op.toUpperCase());
+    if (found) matched.push({ item, names: [...found.names] });
   }
 
   // 重要度順（high → mid → low → ok）にソート
   const levelOrder = { high: 0, mid: 1, low: 2, ok: 3 };
-  matched.sort((a, b) => levelOrder[a.level] - levelOrder[b.level]);
+  matched.sort((a, b) => levelOrder[a.item.level] - levelOrder[b.item.level]);
 
-  return { matched, opCount: operations.size };
+  return { matched, opCount: opMap.size };
 }
 
 function renderAnalyzeResult({ matched, opCount }) {
   const result = document.getElementById("tune-analyze-result");
   result.hidden = false;
 
-  const highCount = matched.filter(m => m.level === "high").length;
-  const midCount  = matched.filter(m => m.level === "mid").length;
+  const highCount = matched.filter(m => m.item.level === "high").length;
+  const midCount  = matched.filter(m => m.item.level === "mid").length;
 
   const lvMap = {
     high: { badge: "badge--danger",  label: "要改善" },
@@ -330,7 +337,11 @@ function renderAnalyzeResult({ matched, opCount }) {
 
   if (matched.length > 0) {
     html += '<div class="tune-grid tune-analyze__grid">';
-    for (const item of matched) {
+    for (const { item, names } of matched) {
+      // 対象テーブル/インデックス名タグ
+      const namesTags = names.length > 0
+        ? `<div class="tune-card__names">${names.map(n => `<span class="tune-card__name">${escapeHtml(n)}</span>`).join('')}</div>`
+        : '';
       html += `
         <div class="tune-card tune-card--${escapeHtml(item.level)}">
           <div class="tune-card__header">
@@ -340,6 +351,7 @@ function renderAnalyzeResult({ matched, opCount }) {
               <span class="badge ${lvMap[item.level].badge}">${lvMap[item.level].label}</span>
             </div>
           </div>
+          ${namesTags}
           <p class="tune-card__desc">${escapeHtml(item.desc)}</p>
         </div>`;
     }
