@@ -118,32 +118,41 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 10px 16px 4px;
 }
 
 .tune-tabs {
   display: flex;
+  background: var(--c-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+  gap: 2px;
+  box-shadow: var(--shadow-sm);
 }
 
 .tune-tab {
-  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: color var(--t), border-color var(--t);
+  transition: background var(--t), color var(--t);
 
-  &:hover { color: var(--color-text); }
+  &:hover { color: var(--color-text); background: var(--c-bg-2); }
 
   &--active {
+    background: var(--c-surface);
     color: var(--color-accent);
-    border-bottom-color: var(--color-accent);
-    font-weight: 600;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
   }
 
   &__badge {
