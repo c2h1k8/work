@@ -23,6 +23,10 @@ const Icons = {
   arrow: `<svg class="sheet-card__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>`,
   /** 時計（小・11px） */
   clock: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  /** 履歴（時計＋矢印） */
+  history: `<svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14" fill="currentColor"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.17-1.17A7 7 0 0 1 1.049 8.84a.75.75 0 0 1 .656-.834ZM14.295 7.995a.75.75 0 0 1-.834-.656 5.5 5.5 0 0 0-9.592-2.97l1.204 1.204a.25.25 0 0 1-.177.427H1.25a.25.25 0 0 1-.25-.25V2.104a.25.25 0 0 1 .427-.177l1.17 1.17a7 7 0 0 1 12.354 4.242.75.75 0 0 1-.656.834Z"/></svg>`,
+  /** ノートリンク（関連ノート） */
+  noteLink: `<svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14" fill="currentColor"><path d="M4.75 0A2.75 2.75 0 0 0 2 2.75v10.5A2.75 2.75 0 0 0 4.75 16h6.5A2.75 2.75 0 0 0 14 13.25v-6.5a.75.75 0 0 0-.22-.53l-5-5A.75.75 0 0 0 8.25 1H4.75ZM3.5 2.75c0-.69.56-1.25 1.25-1.25H8v3.25c0 .414.336.75.75.75H12v7.75c0 .69-.56 1.25-1.25 1.25h-6.5c-.69 0-1.25-.56-1.25-1.25ZM9.5 2.56 11.44 4.5H9.5Z"/></svg>`,
   /** URLリスト用リンクアイコン（クラス付き） */
   urlLinkIcon: `<svg class="url-history__item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
   /** テーブルカラム */

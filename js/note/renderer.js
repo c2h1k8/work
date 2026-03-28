@@ -278,11 +278,14 @@ const Renderer = {
       <div class="note-detail__header">
         <div class="note-detail__title-row">
           <h2 class="note-detail__title" id="detail-title" data-action="edit-title" title="クリックして編集">${_esc(task.title)}</h2>
-          <button class="note-icon-btn note-icon-btn--danger" data-action="delete-task" data-task-id="${task.id}" title="タスクを削除">
-            <svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14" fill="currentColor">
-              <path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/>
-            </svg>
-          </button>
+          <div class="note-detail__title-actions">
+            <button class="note-icon-btn" data-action="open-history" title="変更履歴">${Icons.history}</button>
+            <button class="note-icon-btn note-icon-btn--danger" data-action="delete-task" data-task-id="${task.id}" title="タスクを削除">
+              <svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14" fill="currentColor">
+                <path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="note-detail__meta">
           作成日: ${new Date(task.created_at).toLocaleString('ja-JP')}
@@ -295,12 +298,23 @@ const Renderer = {
           if (f.type === 'todo') {
             if (f.visible === false) return '';
             return `
-              <div class="note-todo-section" id="note-todo-links-section" data-width="${f.width || 'full'}">
+              <div class="note-todo-section" id="note-todo-links-section" data-width="${f.width || 'full'}"${f.newRow ? ' data-new-row="true"' : ''}>
                 <div class="note-todo-section__header">
                   <span class="note-field-label">TODO</span>
                   <button class="note-add-entry-btn" data-action="open-todo-picker">＋ 追加</button>
                 </div>
                 <div id="note-todo-links" class="note-todo-links"></div>
+              </div>`;
+          }
+          if (f.type === 'note_link') {
+            if (f.visible === false) return '';
+            return `
+              <div class="note-todo-section note-note-links-section" data-width="${f.width || 'full'}"${f.newRow ? ' data-new-row="true"' : ''}>
+                <div class="note-todo-section__header">
+                  <span class="note-field-label">${Icons.noteLink} 関連ノート</span>
+                  <button class="note-add-entry-btn" data-action="open-note-picker">＋ 追加</button>
+                </div>
+                <div id="note-note-links" class="note-todo-links"></div>
               </div>`;
           }
           return this._renderField(f, entryMap[f.id] || []);
@@ -313,6 +327,8 @@ const Renderer = {
 
     // TODOリンクを非同期で描画（kanban_db が存在しない場合は無視）
     this.renderTodoLinks(task.id).catch(() => {});
+    // 関連ノートリンクを非同期で描画
+    this.renderNoteLinks(task.id).catch(() => {});
   },
 
   /** 紐づきTODOタスクを描画 */
@@ -359,6 +375,32 @@ const Renderer = {
         `;
       }).join('');
     } catch (e) { /* kanban_db が存在しない場合は無視 */ }
+  },
+
+  /** 関連ノートリンクを描画 */
+  async renderNoteLinks(taskId) {
+    const container = document.getElementById('note-note-links');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const links = await NoteDB.getNoteLinks(taskId);
+    if (links.length === 0) return;
+
+    // タスクIDマップを構築（State.tasks から）
+    const taskMap = new Map(State.tasks.map(t => [t.id, t]));
+
+    container.innerHTML = links.map(link => {
+      // 双方向: 自分と相手のIDを判定
+      const linkedId = link.from_task_id === taskId ? link.to_task_id : link.from_task_id;
+      const linkedTask = taskMap.get(linkedId);
+      const title = linkedTask ? _esc(linkedTask.title) : `(ID: ${linkedId})`;
+      return `
+        <div class="note-todo-chip">
+          <button class="note-todo-chip__title" type="button" data-action="go-to-note" data-note-task-id="${linkedId}" title="ノートを開く: ${title}">${Icons.noteLink} ${title}</button>
+          <button class="note-icon-btn" data-action="remove-note-link" data-link-id="${link.id}" title="リンクを解除">×</button>
+        </div>
+      `;
+    }).join('');
   },
 
   _renderField(field, entries) {
@@ -546,7 +588,7 @@ const Renderer = {
       body.innerHTML = '<p class="note-empty-msg">フィールドがありません。下のフォームから追加してください。</p>';
       return;
     }
-    const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '単一ラベル', label: 'ラベル', dropdown: 'ドロップダウン', todo: 'TODOリンク' };
+    const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '単一ラベル', label: 'ラベル', dropdown: 'ドロップダウン', todo: 'TODOリンク', note_link: '関連ノート' };
     body.innerHTML = `<ul class="note-field-list">
       ${State.fields.map((f, i) => {
         const displayWidth = f.width || 'full';
@@ -571,7 +613,32 @@ const Renderer = {
                 <span class="note-field-item__name">TODO</span>
                 <span class="note-field-item__type" data-type="todo">TODOリンク</span>
                 ${widthSelect}
+                <label class="note-field-item__visible" title="新しい行から開始する">
+                  <input type="checkbox" data-field-new-row="${f.id}"${f.newRow ? ' checked' : ''}>
+                  行頭開始
+                </label>
                 <label class="note-field-item__visible" title="詳細パネルにTODOセクションを表示する">
+                  <input type="checkbox" data-field-visible="${f.id}"${f.visible !== false ? ' checked' : ''}>
+                  表示
+                </label>
+                <div class="note-field-item__actions">${moveButtons}</div>
+              </div>
+            </li>`;
+        }
+
+        // 関連ノートフィールド専用行（削除・名前編集不可）
+        if (f.type === 'note_link') {
+          return `
+            <li class="note-field-item note-field-item--builtin" data-field-id="${f.id}">
+              <div class="note-field-item__main">
+                <span class="note-field-item__name">関連ノート</span>
+                <span class="note-field-item__type" data-type="note_link">関連ノート</span>
+                ${widthSelect}
+                <label class="note-field-item__visible" title="新しい行から開始する">
+                  <input type="checkbox" data-field-new-row="${f.id}"${f.newRow ? ' checked' : ''}>
+                  行頭開始
+                </label>
+                <label class="note-field-item__visible" title="詳細パネルに関連ノートセクションを表示する">
                   <input type="checkbox" data-field-visible="${f.id}"${f.visible !== false ? ' checked' : ''}>
                   表示
                 </label>

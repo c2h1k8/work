@@ -309,9 +309,9 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 - ファイル構成: `js/note/state.js`（State + ヘルパー）/ `renderer.js`（Renderer）/ `events.js`（EventHandlers）/ `app.js`（App）
 
-- IndexedDB DB名: `note_db` version **1**
-- ストア: `tasks`（id/title/created_at/updated_at）+ `fields`（id/name/type/options/position/**width**/**listVisible**）+ `entries`（id/task_id/field_id/label/value/created_at）
-- フィールドタイプ: `link` | `text` | `date` | `select` | `label` | `dropdown`
+- IndexedDB DB名: `note_db` version **2**
+- ストア: `tasks`（id/title/created_at/updated_at）+ `fields`（id/name/type/options/position/**width**/**listVisible**）+ `entries`（id/task_id/field_id/label/value/created_at）+ `note_links`（id/from_task_id/to_task_id）+ `history`（id/task_id/field_id/old_value/new_value/changed_at）
+- フィールドタイプ: `link` | `text` | `date` | `select` | `label` | `dropdown` | `note_link`
 - `link`: 複数エントリ可。追加ボタンあり、表示名＋URL。表示名が設定されている場合は「表示名をコピー」ボタンも表示（`copy-entry-label`アクション）
 - `text`: 単一エントリ。メモ風インライン textarea（自動保存、debounce 600ms）
 - `date`: 単一エントリ。カスタム DatePicker（`js/components/date_picker.js`）で選択。クリッカブルな日付表示エリア
@@ -336,6 +336,9 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - モジュール構成: `NoteDB`（`js/db/note_db.js`）/ `state.js` / `renderer.js` / `events.js` / `app.js`（`js/note/` 配下に分割）
 - エクスポート/インポート: JSON形式（`type: 'note_export'`）
 - **TODOとの紐づけ**: `kanban_db` の `note_links` ストアに `{ id, todo_task_id, note_task_id }` 形式で保存。詳細パネルの「TODO」セクションに表示。`Renderer.renderTodoLinks(noteTaskId)` で描画、`_openKanbanDB()` で cross-DB アクセス
+- **ノート間リンク**: `note_db` の `note_links` ストアに `{ id, from_task_id, to_task_id }` 形式で保存。詳細パネルの「関連ノート」セクションに双方向表示。`NoteDB.addNoteLink(fromId, toId)` / `deleteNoteLink(id)` / `getNoteLinks(taskId)` で CRUD。重複チェック（A→B, B→A）あり。ノートピッカー（`#note-picker`）で検索・選択。リンク先クリックで遷移
+- **関連ノートセクション設定**: `type: 'note_link'` フィールドとして `note_db` の `fields` ストアに保存（`width` / `visible` / `position` を持つ）。フィールド管理モーダルに「関連ノート」行（`note-field-item--builtin`）として表示し、幅・表示・並び順を設定可能。`NoteDB.ensureNoteLinkField()` で既存ユーザー向けマイグレーション
+- **変更履歴**: `note_db` の `history` ストアにフィールド値変更を自動記録。`NoteDB.addHistory(record)` / `getHistory(taskId)` / `clearHistory(taskId)` / `trimHistory(taskId, maxCount)` で CRUD。タスクあたり 100 件超で古いレコードから自動削除。詳細パネルのヘッダーに履歴ボタン（`Icons.history`）→ 履歴モーダル（`#history-modal`）でタイムライン表示。日付区切り＋時刻＋フィールド名＋変更内容。「履歴をクリア」ボタンで全削除
 - `_openKanbanDB()`: `kanban_db` を開くモジュールレベルヘルパー（`js/note/state.js` 内）
 - **リアルタイム同期**: `BroadcastChannel('kanban-note-links')` で TODO↔Note 間のリンク変更を通知。todo.js がリンク追加・削除時に送信（`_noteLinksBC`）、note.js が受信して `renderTodoLinks` を再実行
 - **Noteページからのリンク追加**: 詳細パネルの「TODO」セクションに「＋ 追加」ボタン。`#todo-picker` ポップアップで TODO タスクを検索・選択して紐づけ

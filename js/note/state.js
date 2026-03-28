@@ -44,6 +44,37 @@ function _closeTodoPicker() {
   State._todoPickerCandidates = null;
 }
 
+// ── ノートピッカー ヘルパー ────────────────────────────────────────
+function _renderNotePickerList(tasks) {
+  const list = document.getElementById('note-picker-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (tasks.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'task-picker__empty';
+    empty.textContent = '選択可能なノートがありません';
+    list.appendChild(empty);
+    return;
+  }
+  for (const t of tasks) {
+    const item = document.createElement('li');
+    item.className = 'task-picker__item';
+    item.dataset.action = 'select-note-link';
+    item.dataset.taskId = t.id;
+    const titleEl = document.createElement('span');
+    titleEl.className = 'task-picker__item-title';
+    titleEl.textContent = t.title;
+    item.appendChild(titleEl);
+    list.appendChild(item);
+  }
+}
+
+function _closeNotePicker() {
+  const picker = document.getElementById('note-picker');
+  if (picker) picker.setAttribute('hidden', '');
+  State._notePickerCandidates = null;
+}
+
 // ── State ──────────────────────────────────────────────────────
 const State = {
   tasks: [],           // 全タスク
@@ -58,6 +89,7 @@ const State = {
   _filterPopoverOpen: false, // フィルターポップオーバーの開閉状態
   _labelFilters: [],        // LabelFilter インスタンス（後方互換用）
   _todoPickerCandidates: null, // TODOピッカー候補キャッシュ
+  _notePickerCandidates: null, // ノートピッカー候補キャッシュ
 };
 
 // ── フィルター状態の永続化 ──────────────────────────────────────

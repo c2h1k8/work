@@ -341,6 +341,14 @@
   &[data-width="full"],
   &:not([data-width])    { grid-column: 1 / -1; }
 
+  // 行頭開始
+  &[data-new-row="true"]                      { grid-column-start: 1; }
+  &[data-new-row="true"][data-width="narrow"] { grid-column: 1 / span 1; }
+  &[data-new-row="true"][data-width="auto"]   { grid-column: 1 / span 2; }
+  &[data-new-row="true"][data-width="w3"]     { grid-column: 1 / span 3; }
+  &[data-new-row="true"][data-width="wide"]   { grid-column: 1 / span 4; }
+  &[data-new-row="true"][data-width="w5"]     { grid-column: 1 / span 5; }
+
   &__header {
     display: flex;
     align-items: center;

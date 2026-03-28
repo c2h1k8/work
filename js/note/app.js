@@ -3,6 +3,7 @@ const App = {
     await NoteDB.open();
     await NoteDB.initDefaultFields();
     await NoteDB.ensureTodoField();
+    await NoteDB.ensureNoteLinkField();
     [State.tasks, State.fields, State.allEntries] = await Promise.all([
       NoteDB.getAllTasks(),
       NoteDB.getAllFields(),
@@ -81,8 +82,20 @@ document.addEventListener('DOMContentLoaded', () => App.init().catch(console.err
 document.addEventListener('keydown', async (e) => {
   const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
 
-  // Escape: 入力中ならフォーカスを外す、そうでなければ詳細パネルの選択を解除
+  // Escape: モーダル閉じ → 入力フォーカス解除 → 詳細パネル選択解除
   if (e.key === 'Escape') {
+    // 履歴モーダルが開いていれば閉じる
+    const historyModal = document.getElementById('history-modal');
+    if (historyModal && !historyModal.hidden) {
+      historyModal.hidden = true;
+      return;
+    }
+    // フィールド管理モーダルが開いていれば閉じる
+    const fieldModal = document.getElementById('field-modal');
+    if (fieldModal && !fieldModal.hidden) {
+      fieldModal.hidden = true;
+      return;
+    }
     if (isInInput && !e.isComposing) {
       e.target.blur();
       return;

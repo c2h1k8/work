@@ -157,7 +157,7 @@ const EventHandlers = {
 
     // フィールド幅・一覧表示設定の変更
     document.getElementById('field-modal').addEventListener('change', e => {
-      // TODOフィールドの表示切替（data-field-visible）
+      // TODO/関連ノートフィールドの表示切替（data-field-visible）
       const fv = e.target.closest('[data-field-visible]');
       if (fv) {
         const fieldId = Number(fv.dataset.fieldVisible);
@@ -233,6 +233,37 @@ const EventHandlers = {
         if (!addBtn) _closeTodoPicker();
       }
     });
+
+    // ノートピッカーの検索入力
+    document.getElementById('note-picker-input').addEventListener('input', e => {
+      const q = e.target.value.toLowerCase();
+      const candidates = (State._notePickerCandidates || []).filter(
+        t => t.title.toLowerCase().includes(q),
+      );
+      _renderNotePickerList(candidates);
+    });
+
+    // ノートピッカーのアイテムクリック
+    document.getElementById('note-picker-list').addEventListener('click', e => {
+      const item = e.target.closest('[data-action="select-note-link"]');
+      if (item) this._onSelectNoteLink(item).catch(console.error);
+    });
+
+    // ノートピッカーの外クリックで閉じる
+    document.addEventListener('click', e => {
+      const picker = document.getElementById('note-picker');
+      if (picker && !picker.hidden && !picker.contains(e.target)) {
+        const addBtn = e.target.closest('[data-action="open-note-picker"]');
+        if (!addBtn) _closeNotePicker();
+      }
+    });
+
+    // 変更履歴モーダルのクリック（イベント委譲）
+    document.getElementById('history-modal').addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      this._onDetailAction(btn, db).catch(console.error);
+    });
   },
 
   async _onSelectTask(item, db) {
@@ -274,6 +305,13 @@ const EventHandlers = {
       case 'open-todo-task':   this._onOpenTodoTask(btn); break;
       case 'open-todo-picker': await this._onOpenTodoPicker(btn); break;
       case 'select-todo-task': await this._onSelectTodoTask(btn); break;
+      case 'open-note-picker': await this._onOpenNotePicker(btn); break;
+      case 'go-to-note':       await this._onGoToNote(btn, db); break;
+      case 'remove-note-link': await this._onRemoveNoteLink(btn); break;
+      case 'select-note-link': await this._onSelectNoteLink(btn); break;
+      case 'open-history':     await this._onOpenHistory(); break;
+      case 'close-history-modal': document.getElementById('history-modal').hidden = true; break;
+      case 'clear-history':    await this._onClearHistory(); break;
     }
   },
 
@@ -385,12 +423,19 @@ const EventHandlers = {
     const entry = await db.addEntry(State.selectedTaskId, fieldId, label, value);
     State.entries.push(entry);
     State.allEntries.push(entry);
+    // 履歴: リンク追加
+    await this._recordHistory(State.selectedTaskId, fieldId, '', label ? `${label} (${value})` : value);
     await this._touchTask(db);
     await Renderer.renderDetail();
   },
 
   async _onDeleteEntry(btn, db) {
     const entryId = Number(btn.dataset.entryId);
+    const entry = State.entries.find(e => e.id === entryId);
+    if (entry) {
+      const oldVal = entry.label ? `${entry.label} (${entry.value})` : (entry.value || '');
+      await this._recordHistory(State.selectedTaskId, entry.field_id, oldVal, '');
+    }
     await db.deleteEntry(entryId);
     State.entries = State.entries.filter(e => e.id !== entryId);
     State.allEntries = State.allEntries.filter(e => e.id !== entryId);
@@ -451,17 +496,22 @@ const EventHandlers = {
     if (!value) { showError('URLを入力してください'); return; }
     const entry = State.entries.find(e => e.id === entryId);
     if (!entry) return;
+    const oldVal = entry.label ? `${entry.label} (${entry.value})` : (entry.value || '');
+    const newVal = label ? `${label} (${value})` : value;
     entry.label = label;
     entry.value = value;
     await db.updateEntry(entry);
     const cached = State.allEntries.find(e => e.id === entryId);
     if (cached) { cached.label = label; cached.value = value; }
+    await this._recordHistory(State.selectedTaskId, entry.field_id, oldVal, newVal);
     await this._touchTask(db);
     await Renderer.renderDetail();
   },
 
   // ドロップダウンフィールドの選択保存
   async _onSaveDropdownField(fieldId, entryId, value, selectEl, db) {
+    const oldEntry = entryId ? State.entries.find(e => e.id === entryId) : null;
+    const oldValue = oldEntry ? oldEntry.value : '';
     if (value === '') {
       // 空選択 → エントリ削除
       if (entryId) {
@@ -484,12 +534,15 @@ const EventHandlers = {
       State.allEntries.push(entry);
       selectEl.dataset.entryId = entry.id;
     }
+    await this._recordHistory(State.selectedTaskId, fieldId, oldValue, value);
     await this._touchTask(db);
     Renderer.renderTaskList();
   },
 
   // テキストフィールドの自動保存
   async _onSaveTextField(fieldId, entryId, value, db, textarea) {
+    const oldEntry = entryId ? State.entries.find(e => e.id === entryId) : null;
+    const oldValue = oldEntry ? oldEntry.value : '';
     if (entryId) {
       const entry = State.entries.find(e => e.id === entryId);
       if (entry) {
@@ -505,6 +558,7 @@ const EventHandlers = {
       State.allEntries.push(entry);
       if (textarea) textarea.dataset.entryId = entry.id;
     }
+    await this._recordHistory(State.selectedTaskId, fieldId, oldValue, value);
     await this._touchTask(db);
   },
 
@@ -522,6 +576,7 @@ const EventHandlers = {
     // 選択中と同じ値をクリック → 選択解除（エントリ削除）
     if (optionValue === currentValue) {
       if (entry) {
+        await this._recordHistory(State.selectedTaskId, fieldId, currentValue, '');
         await db.deleteEntry(entry.id);
         State.entries    = State.entries.filter(e => e.id !== entry.id);
         State.allEntries = State.allEntries.filter(e => e.id !== entry.id);
@@ -552,6 +607,7 @@ const EventHandlers = {
       State.allEntries.push(newEntry);
       form.dataset.entryId = newEntry.id;
     }
+    await this._recordHistory(State.selectedTaskId, fieldId, currentValue || '', optionValue);
 
     // ボタンスタイルをインプレース更新（再レンダリング不要）
     const selectField = State.fields.find(f => f.id === fieldId);
@@ -597,12 +653,14 @@ const EventHandlers = {
             State.allEntries.push(entry);
           }
         }
+        await this._recordHistory(State.selectedTaskId, fieldId, currentDate, dateStr).catch(console.error);
         await this._touchTask(db).catch(console.error);
         await Renderer.renderDetail().catch(console.error);
       },
       async () => {
         // クリア時
         if (entryId) {
+          await this._recordHistory(State.selectedTaskId, fieldId, currentDate, '').catch(console.error);
           await db.deleteEntry(entryId).catch(console.error);
           State.entries = State.entries.filter(e => e.id !== entryId);
           State.allEntries = State.allEntries.filter(e => e.id !== entryId);
@@ -627,6 +685,7 @@ const EventHandlers = {
     if (entry) {
       try { selectedLabels = JSON.parse(entry.value); } catch (e) { selectedLabels = []; }
     }
+    const oldLabels = [...selectedLabels];
 
     const idx = selectedLabels.indexOf(optionValue);
     if (idx === -1) {
@@ -653,6 +712,9 @@ const EventHandlers = {
       State.allEntries.push(newEntry);
       form.dataset.entryId = newEntry.id;
     }
+
+    // 履歴記録
+    await this._recordHistory(State.selectedTaskId, fieldId, oldLabels.join(', '), selectedLabels.join(', '));
 
     // ボタンのスタイルをインプレース更新（再レンダリング不要）
     const isActive = selectedLabels.includes(optionValue);
@@ -1047,8 +1109,14 @@ const EventHandlers = {
     _renderTodoPickerList(State._todoPickerCandidates);
 
     const rect = btn.getBoundingClientRect();
-    picker.style.top  = (rect.bottom + 4) + 'px';
-    picker.style.left = rect.left + 'px';
+    // ビューポート内に収まるよう位置を補正
+    const tPickerW = 260, tPickerH = 280;
+    let tTop = rect.bottom + 4;
+    let tLeft = rect.left;
+    if (tTop + tPickerH > window.innerHeight) tTop = Math.max(4, rect.top - tPickerH - 4);
+    if (tLeft + tPickerW > window.innerWidth) tLeft = Math.max(4, window.innerWidth - tPickerW - 4);
+    picker.style.top  = tTop + 'px';
+    picker.style.left = tLeft + 'px';
     picker.removeAttribute('hidden');
     input.focus();
   },
@@ -1082,6 +1150,145 @@ const EventHandlers = {
   _onOpenTodoTask(btn) {
     const todoTaskId = parseInt(btn.dataset.todoTaskId, 10);
     parent.postMessage({ type: 'navigate:todo', todoTaskId }, '*');
+  },
+
+  // ── ノート間リンク ─────────────────────────────────────────────
+  /** ノートピッカーを開く */
+  async _onOpenNotePicker(btn) {
+    if (!State.selectedTaskId) return;
+
+    // 既存リンクを取得して除外リストを作成
+    const existingLinks = await NoteDB.getNoteLinks(State.selectedTaskId);
+    const excludeIds = new Set();
+    excludeIds.add(State.selectedTaskId); // 自分自身を除外
+    existingLinks.forEach(l => {
+      excludeIds.add(l.from_task_id);
+      excludeIds.add(l.to_task_id);
+    });
+
+    State._notePickerCandidates = State.tasks.filter(t => !excludeIds.has(t.id));
+
+    const picker = document.getElementById('note-picker');
+    const input  = document.getElementById('note-picker-input');
+    input.value  = '';
+    _renderNotePickerList(State._notePickerCandidates);
+
+    const rect = btn.getBoundingClientRect();
+    // ビューポート内に収まるよう位置を補正
+    const pickerW = 260, pickerH = 280;
+    let top = rect.bottom + 4;
+    let left = rect.left;
+    if (top + pickerH > window.innerHeight) top = Math.max(4, rect.top - pickerH - 4);
+    if (left + pickerW > window.innerWidth) left = Math.max(4, window.innerWidth - pickerW - 4);
+    picker.style.top  = top + 'px';
+    picker.style.left = left + 'px';
+    picker.removeAttribute('hidden');
+    input.focus();
+  },
+
+  /** ノートリンクを追加 */
+  async _onSelectNoteLink(btn) {
+    const targetId = parseInt(btn.dataset.taskId, 10);
+    const currentId = State.selectedTaskId;
+    if (!targetId || !currentId) return;
+
+    const link = await NoteDB.addNoteLink(currentId, targetId);
+    if (!link) {
+      showError('このノートは既にリンクされています');
+      return;
+    }
+    _closeNotePicker();
+    await Renderer.renderNoteLinks(currentId);
+  },
+
+  /** 関連ノートに遷移 */
+  async _onGoToNote(btn, db) {
+    const noteTaskId = parseInt(btn.dataset.noteTaskId, 10);
+    if (!noteTaskId) return;
+    const task = State.tasks.find(t => t.id === noteTaskId);
+    if (!task) return;
+    State.selectedTaskId = noteTaskId;
+    State.entries = await db.getEntriesByTask(noteTaskId);
+    Renderer.renderTaskList();
+    await Renderer.renderDetail();
+    document.querySelector(`[data-task-id="${noteTaskId}"]`)?.scrollIntoView({ block: 'nearest' });
+  },
+
+  /** ノートリンクを解除 */
+  async _onRemoveNoteLink(btn) {
+    const linkId = Number(btn.dataset.linkId);
+    await NoteDB.deleteNoteLink(linkId);
+    await Renderer.renderNoteLinks(State.selectedTaskId);
+  },
+
+  // ── 変更履歴 ──────────────────────────────────────────────────
+  /** 変更履歴を記録 */
+  async _recordHistory(taskId, fieldId, oldValue, newValue) {
+    if (oldValue === newValue) return;
+    await NoteDB.addHistory({
+      task_id: taskId,
+      field_id: fieldId,
+      old_value: oldValue || '',
+      new_value: newValue || '',
+    });
+  },
+
+  /** 変更履歴モーダルを開く */
+  async _onOpenHistory() {
+    if (!State.selectedTaskId) return;
+    const history = await NoteDB.getHistory(State.selectedTaskId);
+    const body = document.getElementById('history-modal-body');
+
+    if (history.length === 0) {
+      body.innerHTML = '<p class="note-empty-msg">変更履歴はありません</p>';
+      document.getElementById('history-modal').hidden = false;
+      return;
+    }
+
+    // フィールド名マップ
+    const fieldMap = new Map(State.fields.map(f => [f.id, f.name]));
+
+    // 日付ごとにグループ化
+    const groups = new Map();
+    for (const h of history) {
+      const dateKey = new Date(h.changed_at).toLocaleDateString('ja-JP');
+      if (!groups.has(dateKey)) groups.set(dateKey, []);
+      groups.get(dateKey).push(h);
+    }
+
+    let html = '<div class="note-history-timeline">';
+    for (const [date, items] of groups) {
+      html += `<div class="note-history-date">${_esc(date)}</div>`;
+      for (const h of items) {
+        const time = new Date(h.changed_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        const fieldName = fieldMap.has(h.field_id) ? _esc(fieldMap.get(h.field_id)) : '<span class="note-history-deleted">（削除済み）</span>';
+        const oldVal = h.old_value ? _esc(h.old_value.length > 80 ? h.old_value.slice(0, 80) + '…' : h.old_value) : '<span class="note-history-empty">（空）</span>';
+        const newVal = h.new_value ? _esc(h.new_value.length > 80 ? h.new_value.slice(0, 80) + '…' : h.new_value) : '<span class="note-history-empty">（空）</span>';
+        html += `
+          <div class="note-history-item">
+            <span class="note-history-item__time">${time}</span>
+            <span class="note-history-item__field">${fieldName}</span>
+            <div class="note-history-item__change">
+              <span class="note-history-item__old">${oldVal}</span>
+              <span class="note-history-item__arrow">→</span>
+              <span class="note-history-item__new">${newVal}</span>
+            </div>
+          </div>`;
+      }
+    }
+    html += '</div>';
+
+    body.innerHTML = html;
+    document.getElementById('history-modal').hidden = false;
+  },
+
+  /** 履歴をクリア */
+  async _onClearHistory() {
+    if (!State.selectedTaskId) return;
+    if (!confirm('この操作は元に戻せません。変更履歴をすべて削除しますか？')) return;
+    await NoteDB.clearHistory(State.selectedTaskId);
+    document.getElementById('history-modal').hidden = true;
+    showSuccess('変更履歴をクリアしました');
   },
 
   // タスクの updated_at を更新し、詳細パネルのメタ情報をインプレース更新

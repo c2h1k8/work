@@ -120,7 +120,7 @@ async function backupAllData() {
     const [appData, kanbanData, noteData, sqlData, wbsData, snippetData, dashboardData] = await Promise.all([
       _dumpDB('app_db',       ['settings']),
       _dumpDB('kanban_db',    ['tasks', 'columns', 'labels', 'task_labels', 'comments', 'activities', 'task_relations', 'note_links', 'templates', 'archives', 'dependencies']),
-      _dumpDB('note_db',      ['tasks', 'fields', 'entries']),
+      _dumpDB('note_db',      ['tasks', 'fields', 'entries', 'note_links', 'history']),
       _dumpDB('sql_db',       ['envs', 'table_memos']),
       _dumpDB('wbs_db',       ['tasks']),
       _dumpDB('snippet_db',   ['snippets']),
@@ -216,11 +216,13 @@ async function restoreAllData() {
 
       // note_db
       if (dbs.note && Object.keys(dbs.note).length > 0) {
-        await _loadDB('note_db', 1, (ev) => {
+        await _loadDB('note_db', 2, (ev) => {
           const idb = ev.target.result;
           if (!idb.objectStoreNames.contains('tasks')) idb.createObjectStore('tasks', { keyPath: 'id', autoIncrement: true });
           if (!idb.objectStoreNames.contains('fields')) { const s = idb.createObjectStore('fields', { keyPath: 'id', autoIncrement: true }); s.createIndex('position', 'position'); }
           if (!idb.objectStoreNames.contains('entries')) { const s = idb.createObjectStore('entries', { keyPath: 'id', autoIncrement: true }); s.createIndex('task_id', 'task_id'); s.createIndex('field_id', 'field_id'); }
+          if (!idb.objectStoreNames.contains('note_links')) { const s = idb.createObjectStore('note_links', { keyPath: 'id', autoIncrement: true }); s.createIndex('from_task_id', 'from_task_id'); s.createIndex('to_task_id', 'to_task_id'); }
+          if (!idb.objectStoreNames.contains('history')) { const s = idb.createObjectStore('history', { keyPath: 'id', autoIncrement: true }); s.createIndex('task_id', 'task_id'); s.createIndex('changed_at', 'changed_at'); }
         }, dbs.note);
       }
 
