@@ -44,10 +44,24 @@
   & > summary { list-style: none; }
   & > summary::-webkit-details-marker { display: none; }
 
-  // カテゴリタブ・検索時に open 属性を変えずにカードを表示
-  // （open を変えると toggle が発火して localStorage の開閉状態が消えるため）
+  // 検索時に折りたたみ中のグループを強制展開
   &--force-open > .tune-group__cards {
     display: grid !important;
+  }
+
+
+  // カテゴリタブ時（すべて以外）はアコーディオン無効・常時展開
+  .tune-grid:not(.tune-grid--grouped) & {
+    > .tune-group__header {
+      cursor: default;
+      pointer-events: none;
+    }
+    > .tune-group__header .tune-group__chevron {
+      display: none;
+    }
+    > .tune-group__cards {
+      display: grid !important;
+    }
   }
 
   // グループ間の区切り線（「すべて」表示時のみ）
