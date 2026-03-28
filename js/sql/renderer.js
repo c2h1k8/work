@@ -218,8 +218,17 @@ function buildEnvEditForm(env, row) {
 // ==================================================
 function renderTuneGrid() {
   const grid = document.getElementById("tune-grid");
-  TUNE_ITEMS.forEach(item => {
-    const card   = document.createElement("div");
+
+  const lvMap = {
+    high: { badge: "badge--danger",  label: "要改善" },
+    mid:  { badge: "badge--warning", label: "要注意" },
+    low:  { badge: "badge--info",    label: "参考" },
+    ok:   { badge: "badge--success", label: "良好" },
+  };
+
+  // カード要素を生成するヘルパー
+  function createCard(item) {
+    const card = document.createElement("div");
     card.className = `tune-card tune-card--${item.level}`;
     card.dataset.category = item.category;
 
@@ -232,13 +241,6 @@ function renderTuneGrid() {
 
     const badges = document.createElement("div");
     badges.className = "tune-card__badges";
-
-    const lvMap = {
-      high: { badge: "badge--danger",  label: "要改善" },
-      mid:  { badge: "badge--warning", label: "要注意" },
-      low:  { badge: "badge--info",    label: "参考" },
-      ok:   { badge: "badge--success", label: "良好" },
-    };
     [
       { cls: "badge--neutral", text: item.category },
       { cls: lvMap[item.level].badge, text: lvMap[item.level].label },
@@ -256,7 +258,32 @@ function renderTuneGrid() {
     desc.textContent = item.desc;
 
     card.append(header, desc);
-    grid.appendChild(card);
+    return card;
+  }
+
+  // カテゴリ別グループとして描画
+  const categories = ["スキャン", "結合", "処理", "その他"];
+  categories.forEach(cat => {
+    const items = TUNE_ITEMS.filter(i => i.category === cat);
+
+    const group = document.createElement("div");
+    group.className    = "tune-group";
+    group.dataset.category = cat;
+
+    // カテゴリ見出し
+    const groupHeader = document.createElement("div");
+    groupHeader.className = "tune-group__header";
+    groupHeader.innerHTML =
+      `<span class="tune-group__label">${escapeHtml(cat)}</span>` +
+      `<span class="tune-group__count">${items.length}</span>`;
+
+    // カードコンテナ（グリッド）
+    const cards = document.createElement("div");
+    cards.className = "tune-group__cards";
+    items.forEach(item => cards.appendChild(createCard(item)));
+
+    group.append(groupHeader, cards);
+    grid.appendChild(group);
   });
 }
 

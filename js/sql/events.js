@@ -204,13 +204,30 @@ function buildParamText() {
 // 実行計画ガイド: タブ + 検索フィルター
 // ==================================================
 function applyTuneFilter() {
-  const q = document.getElementById("tune-search").value.trim().toLowerCase();
-  document.querySelectorAll(".tune-card").forEach(card => {
-    const op   = card.querySelector(".tune-card__op")?.textContent.toLowerCase()  ?? "";
-    const desc = card.querySelector(".tune-card__desc")?.textContent.toLowerCase() ?? "";
-    const matchSearch = !q || op.includes(q) || desc.includes(q);
-    const matchTab    = _tuneTab === "all" || card.dataset.category === _tuneTab;
-    card.hidden = !(matchSearch && matchTab);
+  const q     = document.getElementById("tune-search").value.trim().toLowerCase();
+  const isAll = _tuneTab === "all";
+
+  document.querySelectorAll(".tune-group").forEach(group => {
+    const cat = group.dataset.category;
+
+    // カテゴリタブ選択時: 一致しないグループは非表示
+    if (!isAll && cat !== _tuneTab) { group.hidden = true; return; }
+
+    // 「すべて」選択時のみカテゴリ見出しを表示
+    group.querySelector(".tune-group__header").hidden = !isAll;
+
+    // カード単位で検索フィルター
+    let visible = 0;
+    group.querySelectorAll(".tune-card").forEach(card => {
+      const op   = card.querySelector(".tune-card__op")?.textContent.toLowerCase()  ?? "";
+      const desc = card.querySelector(".tune-card__desc")?.textContent.toLowerCase() ?? "";
+      const show = !q || op.includes(q) || desc.includes(q);
+      card.hidden = !show;
+      if (show) visible++;
+    });
+
+    // 検索で全カードが非表示になったらグループごと隠す
+    group.hidden = visible === 0;
   });
 }
 
