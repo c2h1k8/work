@@ -8,7 +8,6 @@
     "devUrl": "http://localhost:52700"
   },
   "app": {
-    "title": "MyTools",
     "windows": [
       {
         "title": "MyTools",
