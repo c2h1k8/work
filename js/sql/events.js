@@ -387,7 +387,7 @@ function renderAnalyzeResult({ matched, opCount }) {
   html += '</div>';
 
   if (matched.length > 0) {
-    html += '<div class="tune-grid tune-analyze__grid">';
+    html += '<div class="tune-analyze__grid">';
     for (const { item, names } of matched) {
       // 対象テーブル/インデックス名タグ
       const namesTags = names.length > 0
