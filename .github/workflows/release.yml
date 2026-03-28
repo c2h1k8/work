@@ -183,6 +183,19 @@ jobs:
             rm -f "$f.bak"
           done
 
+      - name: Prepare frontend dist
+        shell: bash
+        run: |
+          mkdir -p dist/pages dist/js dist/css
+          cp index.html favicon.svg dist/
+          cp -r pages/* dist/pages/
+          cp -r js/* dist/js/
+          # CSS: .css のみコピー（.less は除外）
+          find css -name '*.css' | while read f; do
+            mkdir -p "dist/$(dirname "$f")"
+            cp "$f" "dist/$f"
+          done
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -192,9 +205,6 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-
-      - name: Install Tauri CLI
-        run: npm install -D @tauri-apps/cli@latest
 
       - name: Build Tauri app
         run: npx tauri build --target ${{ matrix.target }}
