@@ -321,8 +321,8 @@ function analyzeExecutionPlan(text) {
   const colIdx  = opColIndex   >= 1 ? opColIndex   : 2;
   const nameIdx = nameColIndex >= 1 ? nameColIndex : colIdx + 1;
 
-  // 各データ行から操作名と対象テーブル/インデックス名を収集
-  // Map<op_upper, { op: string, names: Set<string> }>
+  // 各データ行から操作名・対象名・出現回数を収集
+  // Map<op_upper, { op: string, names: Set<string>, count: number }>
   const opMap = new Map();
   for (const line of lines) {
     if (!line.includes('|')) continue;
@@ -337,15 +337,17 @@ function analyzeExecutionPlan(text) {
 
     const name = nameIdx < parts.length ? parts[nameIdx].trim() : "";
     const key  = op.toUpperCase();
-    if (!opMap.has(key)) opMap.set(key, { op, names: new Set() });
-    if (name) opMap.get(key).names.add(name);
+    if (!opMap.has(key)) opMap.set(key, { op, names: new Set(), count: 0 });
+    const entry = opMap.get(key);
+    entry.count++;
+    if (name) entry.names.add(name);
   }
 
   // TUNE_ITEMS とマッチング（大文字小文字を無視した完全一致）
   const matched = [];
   for (const item of TUNE_ITEMS) {
     const found = opMap.get(item.op.toUpperCase());
-    if (found) matched.push({ item, names: [...found.names] });
+    if (found) matched.push({ item, names: [...found.names], count: found.count });
   }
 
   // 重要度順（high → mid → low → ok）にソート
@@ -388,7 +390,11 @@ function renderAnalyzeResult({ matched, opCount }) {
 
   if (matched.length > 0) {
     html += '<div class="tune-analyze__grid">';
-    for (const { item, names } of matched) {
+    for (const { item, names, count } of matched) {
+      // 出現回数バッジ（2回以上の場合のみ表示）
+      const countBadge = count > 1
+        ? `<span class="tune-card__count">×${count}</span>`
+        : '';
       // 対象テーブル/インデックス名タグ
       const namesTags = names.length > 0
         ? `<div class="tune-card__names">${names.map(n => `<span class="tune-card__name">${escapeHtml(n)}</span>`).join('')}</div>`
@@ -396,7 +402,10 @@ function renderAnalyzeResult({ matched, opCount }) {
       html += `
         <div class="tune-card tune-card--${escapeHtml(item.level)}">
           <div class="tune-card__header">
-            <code class="tune-card__op">${escapeHtml(item.op)}</code>
+            <div class="tune-card__op-wrap">
+              <code class="tune-card__op">${escapeHtml(item.op)}</code>
+              ${countBadge}
+            </div>
             <div class="tune-card__badges">
               <span class="badge badge--neutral">${escapeHtml(item.category)}</span>
               <span class="badge ${lvMap[item.level].badge}">${lvMap[item.level].label}</span>
