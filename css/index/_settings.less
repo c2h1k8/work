@@ -331,6 +331,67 @@
   }
 }
 
+// ── Settings: Activity Log ────────────────────────────
+.settings-actlog-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--c-border);
+
+  h3 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-text);
+  }
+}
+
+.settings-actlog-desc {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+
+.settings-actlog-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settings-actlog-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px 5px 7px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--c-text-muted);
+  background: transparent;
+  user-select: none;
+  transition: background var(--t), color var(--t), border-color var(--t);
+
+  input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    cursor: pointer;
+    accent-color: var(--c-accent);
+    flex-shrink: 0;
+  }
+
+  &:has(input:checked) {
+    background: var(--c-surface);
+    color: var(--c-text);
+    border-color: var(--c-border-2);
+    font-weight: 500;
+  }
+
+  &:hover {
+    border-color: var(--c-border-2);
+    color: var(--c-text);
+  }
+}
+
 .settings-io-form {
   margin-top: 16px;
   padding-top: 16px;

@@ -1,0 +1,329 @@
+// ==================================================
+// アクティビティログモーダル
+// ==================================================
+
+.actlog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 490;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: rgba(10, 12, 25, 0.50);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  padding: 40px 16px;
+  overflow-y: auto;
+
+  &[hidden] { display: none; }
+}
+
+.actlog-modal {
+  position: relative;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  width: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 80px);
+  box-shadow: var(--shadow-lg);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--c-text);
+  }
+
+  &__close {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--c-text-muted);
+    padding: 0;
+
+    svg { width: 14px; height: 14px; }
+
+    &:hover {
+      background: var(--c-bg-2);
+      color: var(--c-text);
+    }
+  }
+
+  &__filters {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 4px 16px;
+    min-height: 0;
+  }
+}
+
+// フィルター行
+.actlog-filters {
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  &__label {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    font-weight: 500;
+    width: 36px;
+    flex-shrink: 0;
+  }
+
+  &__dates {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  &__sep {
+    color: var(--c-text-muted);
+    font-size: 12px;
+  }
+
+  &__pages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+.actlog-date-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  min-width: 100px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg-2);
+  color: var(--c-text);
+  font-size: 12px;
+  padding: 0 10px 0 8px;
+  cursor: pointer;
+  transition: border-color var(--t), background var(--t), color var(--t);
+
+  &__icon {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    color: var(--c-text-muted);
+    flex-shrink: 0;
+  }
+
+  &__text {
+    flex: 1;
+    text-align: left;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+
+    &--placeholder {
+      color: var(--c-text-muted);
+      font-weight: 400;
+      letter-spacing: 0.03em;
+    }
+  }
+
+  &:hover {
+    border-color: var(--c-border-2);
+    background: var(--c-surface);
+  }
+  &:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
+
+  &--set {
+    border-color: var(--c-accent);
+    background: var(--c-accent-dim);
+
+    .actlog-date-btn__icon { color: var(--c-accent); }
+    .actlog-date-btn__text { color: var(--c-accent); font-weight: 500; }
+  }
+}
+
+.actlog-clear-date-btn {
+  height: 28px;
+  font-size: 12px;
+}
+
+// ページチップ
+.actlog-page-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 99px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--c-text-muted);
+  background: transparent;
+  user-select: none;
+  transition: background var(--t), color var(--t), border-color var(--t);
+
+  input[type="checkbox"] { display: none; }
+
+  &__badge {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    filter: grayscale(1);
+    opacity: 0.4;
+    transition: filter var(--t), opacity var(--t);
+  }
+
+  &:has(input:checked) {
+    background: var(--c-surface);
+    color: var(--c-text);
+    border-color: var(--c-border-2);
+    font-weight: 500;
+
+    .actlog-page-chip__badge {
+      filter: none;
+      opacity: 1;
+    }
+  }
+
+  &:hover {
+    border-color: var(--c-border-2);
+    color: var(--c-text);
+  }
+}
+
+// ログリスト
+.actlog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+// 日付グループヘッダー
+.actlog-date-group {
+  padding: 10px 20px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: sticky;
+  top: 0;
+  background: var(--c-surface);
+  z-index: 1;
+}
+
+// ログアイテム
+.actlog-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  border-bottom: 1px solid var(--c-border);
+  transition: background var(--t);
+
+  &:last-child { border-bottom: none; }
+
+  &:hover { background: var(--c-bg-2); }
+
+  &__badge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  &__summary {
+    flex: 1;
+    font-size: 13px;
+    color: var(--c-text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__time {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--c-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// 読み込み中
+.actlog-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 20px;
+
+  &[hidden] { display: none; }
+
+  &__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c-accent);
+    animation: actlog-bounce 1.2s ease-in-out infinite;
+
+    &:nth-child(2) { animation-delay: 0.2s; }
+    &:nth-child(3) { animation-delay: 0.4s; }
+  }
+}
+
+@keyframes actlog-bounce {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+  40%           { transform: scale(1);   opacity: 1; }
+}
+
+// 空状態
+.actlog-empty {
+  padding: 40px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--c-text-muted);
+
+  &[hidden] { display: none; }
+}
+
+// センチネル（Intersection Observer 用）
+.actlog-sentinel {
+  height: 1px;
+}

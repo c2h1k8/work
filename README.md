@@ -57,7 +57,8 @@ work/
 │   │   ├── clipboard.js       # 環境対応クリップボード（Clipboard.copy）
 │   │   ├── notify.js          # 環境対応通知（Notify.send / requestPermission / getPermission）
 │   │   ├── icons.js           # JS生成HTML用 SVGアイコン定数
-│   │   └── local_storage.js   # localStorage ユーティリティ
+│   │   ├── local_storage.js   # localStorage ユーティリティ
+│   │   └── activity_logger.js # アクティビティログ記録（ActivityLogger.log）
 │   ├── components/            # 再利用可能UIコンポーネント
 │   │   ├── toast.js           # トースト通知（Toast.show）
 │   │   ├── tooltip.js         # カスタムツールチップ（Tooltip.init）
@@ -76,7 +77,8 @@ work/
 │   │   ├── timer_db.js        # TimerDB（timer 用）
 │   │   ├── snippet_db.js      # SnippetDB（snippet 用）
 │   │   ├── ops_db.js          # OpsDB（ops 用）
-│   │   └── text_db.js         # TextDB（text 用）
+│   │   ├── text_db.js         # TextDB（text 用）
+│   │   └── activity_db.js     # ActivityDB（アクティビティログ共通）
 │   ├── index/                 # タブナビゲーション（分割）
 │   │   ├── constants.js       # TAB_ITEMS・ICON_PALETTE
 │   │   ├── db.js              # AppDB
@@ -85,6 +87,7 @@ work/
 │   │   ├── search.js          # グローバル検索
 │   │   ├── backup.js          # 一括バックアップ
 │   │   ├── settings.js        # タブ設定パネル
+│   │   ├── activity_log.js    # アクティビティログモーダル（ActivityLogModal）
 │   │   └── app.js             # App 初期化
 │   ├── todo/                  # TODO管理（分割）
 │   │   ├── state.js           # State + グローバルヘルパー

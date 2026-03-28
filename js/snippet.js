@@ -272,6 +272,8 @@ async function saveSnippet() {
       await State.db.updateSnippet(updated);
       const idx = State.snippets.findIndex(x => x.id === State.editingId);
       State.snippets[idx] = updated;
+      // アクティビティログに記録
+      ActivityLogger.log('snippet', 'update', 'snippet', State.editingId, `スニペット「${updated.title}」を更新`);
       showSuccess('スニペットを更新しました');
     } else {
       // 追加
@@ -288,6 +290,8 @@ async function saveSnippet() {
       State.snippets.push(added);
       State.selectedId = added.id;
       saveToStorage(SNIPPET_SELECTED_KEY, String(added.id));
+      // アクティビティログに記録
+      ActivityLogger.log('snippet', 'create', 'snippet', added.id, `スニペット「${added.title}」を追加`);
       showSuccess('スニペットを追加しました');
     }
     closeModal();
@@ -305,6 +309,8 @@ async function deleteSnippet(id) {
   if (!confirm(`「${s.title}」を削除しますか？`)) return;
 
   try {
+    // アクティビティログに記録（削除前に情報保持）
+    ActivityLogger.log('snippet', 'delete', 'snippet', id, `スニペット「${s.title}」を削除`);
     await State.db.deleteSnippet(id);
     State.snippets = State.snippets.filter(x => x.id !== id);
     if (State.selectedId === id) {

@@ -43,6 +43,8 @@ async function deleteEnvRow(id, key) {
   const envs = await _db.getAllEnvs();
   if (envs.length <= 1) { showError("最後の接続環境は削除できません"); return; }
   if (!confirm(`接続環境「${key}」を削除しますか？`)) return;
+  // アクティビティログに記録（削除前に情報保持）
+  ActivityLogger.log('sql', 'delete', 'env', id, `接続環境「${key}」を削除`);
 
   await _db.deleteEnv(id);
   if (selectedEnvKey === key) {
@@ -504,9 +506,13 @@ async function saveMemoForm() {
 
   if (_memoEditingId != null) {
     await _db.updateTableMemo(_memoEditingId, data);
+    // アクティビティログに記録
+    ActivityLogger.log('sql', 'update', 'table_memo', _memoEditingId, `テーブル定義「${data.table_name}」を更新`);
     showToast(`「${data.table_name}」を更新しました`);
   } else {
-    await _db.addTableMemo(data);
+    const newMemoId = await _db.addTableMemo(data);
+    // アクティビティログに記録
+    ActivityLogger.log('sql', 'create', 'table_memo', newMemoId, `テーブル定義「${data.table_name}」を追加`);
     showToast(`「${data.table_name}」を追加しました`);
   }
   closeMemoModal();
@@ -516,6 +522,8 @@ async function saveMemoForm() {
 // ── メモを削除 ──
 async function deleteMemo(id, tableName) {
   if (!confirm(`テーブル「${tableName}」を削除しますか？`)) return;
+  // アクティビティログに記録（削除前に情報保持）
+  ActivityLogger.log('sql', 'delete', 'table_memo', id, `テーブル定義「${tableName}」を削除`);
   await _db.deleteTableMemo(id);
   showToast(`「${tableName}」を削除しました`);
   await refreshMemoList();

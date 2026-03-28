@@ -126,6 +126,8 @@ const EventHandlers = {
     data.instance_id = State.db.instanceId; // updateSection 時に instance_id が消えないよう保持
     State.sections.push(data);
     State.itemsMap[newId] = [];
+    // アクティビティログに記録
+    ActivityLogger.log('dashboard', 'create', 'section', newId, `セクション「${title}」を追加`);
 
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
@@ -141,11 +143,14 @@ const EventHandlers = {
 
   async deleteSection(sectionId) {
     const items = State.itemsMap[sectionId] || [];
+    const section = State.sections.find(s => s.id === sectionId);
     const msg =
       items.length > 0
         ? `このセクションには ${items.length} 件のアイテムがあります。削除しますか？`
         : "このセクションを削除しますか？";
     if (!confirm(msg)) return;
+    // アクティビティログに記録（削除前に情報保持）
+    if (section) ActivityLogger.log('dashboard', 'delete', 'section', sectionId, `セクション「${section.title}」を削除`);
 
     await State.db.deleteSection(sectionId);
     State.sections = State.sections.filter((s) => s.id !== sectionId);
@@ -252,6 +257,8 @@ const EventHandlers = {
     document.getElementById("settings-title").textContent =
       `${section.icon || ""} ${section.title}`;
     Renderer.renderDashboard();
+    // アクティビティログに記録
+    ActivityLogger.log('dashboard', 'update', 'section', sectionId, `セクション「${section.title}」を更新`);
     showSuccess("保存しました");
   },
 
@@ -555,6 +562,9 @@ const EventHandlers = {
     data.id = newId;
     if (!State.itemsMap[sectionId]) State.itemsMap[sectionId] = [];
     State.itemsMap[sectionId].push(data);
+    // アクティビティログに記録
+    const _secTitle = section?.title || '';
+    ActivityLogger.log('dashboard', 'create', 'item', newId, `「${_secTitle}」にアイテムを追加`);
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
   },
@@ -615,6 +625,9 @@ const EventHandlers = {
       }
     }
     await State.db.updateItem(item);
+    // アクティビティログに記録
+    const _secForEdit = State.sections.find(s => s.id === sectionId);
+    ActivityLogger.log('dashboard', 'update', 'item', itemId, `「${_secForEdit?.title || ''}」のアイテムを更新`);
     Renderer.renderDashboard();
     Renderer.renderSettingsView();
   },
@@ -781,6 +794,8 @@ const EventHandlers = {
     data.id = newId;
     if (!State.itemsMap[sectionId]) State.itemsMap[sectionId] = [];
     State.itemsMap[sectionId].push(data);
+    // アクティビティログに記録
+    ActivityLogger.log('dashboard', 'create', 'item', newId, `「${section?.title || ''}」にアイテムを追加`);
     Renderer.renderDashboard();
     this._refreshItemManager();
     if (
@@ -848,6 +863,8 @@ const EventHandlers = {
     }
 
     await State.db.updateItem(item);
+    // アクティビティログに記録
+    ActivityLogger.log('dashboard', 'update', 'item', itemId, `「${section?.title || ''}」のアイテムを更新`);
     State.itemMgr.editingId = null;
     Renderer.renderDashboard();
     this._refreshItemManager();
@@ -863,6 +880,9 @@ const EventHandlers = {
   /** アイテム管理モーダルでアイテムを削除 */
   async deleteItemInManager(itemId, sectionId) {
     if (!confirm("このアイテムを削除しますか？")) return;
+    // アクティビティログに記録（削除前に情報保持）
+    const _secForMgrDel = State.sections.find(s => s.id === sectionId);
+    ActivityLogger.log('dashboard', 'delete', 'item', itemId, `「${_secForMgrDel?.title || ''}」のアイテムを削除`);
     await State.db.deleteItem(itemId);
     State.itemsMap[sectionId] = (State.itemsMap[sectionId] || []).filter(
       (i) => i.id !== itemId,
@@ -1044,6 +1064,9 @@ const EventHandlers = {
 
   async deleteItem(itemId, sectionId) {
     if (!confirm("このアイテムを削除しますか？")) return;
+    // アクティビティログに記録（削除前に情報保持）
+    const _secForDel = State.sections.find(s => s.id === sectionId);
+    ActivityLogger.log('dashboard', 'delete', 'item', itemId, `「${_secForDel?.title || ''}」のアイテムを削除`);
     await State.db.deleteItem(itemId);
     State.itemsMap[sectionId] = (State.itemsMap[sectionId] || []).filter(
       (i) => i.id !== itemId,

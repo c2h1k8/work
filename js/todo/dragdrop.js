@@ -74,6 +74,17 @@ const DragDrop = {
           const toName   = State.columns.find(c => c.key === toCol)?.name ?? toCol;
           await db.addActivity(taskId, 'column_change', { from: fromName, to: toName });
         } catch (_) { /* アクティビティ記録失敗は無視 */ }
+        // アクティビティログに記録
+        const _sortedTask = (State.tasks[toCol] || []).find(t => t.id === taskId);
+        const _taskTitleS = _sortedTask?.title || '(無題)';
+        const _toDoneS  = State.columns.find(c => c.key === toCol)?.done;
+        if (_toDoneS) {
+          ActivityLogger.log('todo', 'complete', 'task', taskId, `タスク「${_taskTitleS}」を完了`);
+        } else {
+          const _fromName = State.columns.find(c => c.key === fromCol)?.name ?? fromCol;
+          const _toName   = State.columns.find(c => c.key === toCol)?.name ?? toCol;
+          ActivityLogger.log('todo', 'move', 'task', taskId, `タスク「${_taskTitleS}」を移動（${_fromName} → ${_toName}）`);
+        }
       }
       Renderer.renderColumn(toCol, State.tasks[toCol] || [], db);
       Renderer.updateCount(toCol);
@@ -142,6 +153,16 @@ const DragDrop = {
         const toName   = State.columns.find(c => c.key === toCol)?.name ?? toCol;
         await db.addActivity(taskId, 'column_change', { from: fromName, to: toName });
       } catch (_) { /* アクティビティ記録失敗は無視 */ }
+      // アクティビティログに記録
+      const _ddTaskTitle = updated?.title || '(無題)';
+      const _ddToDone   = State.columns.find(c => c.key === toCol)?.done;
+      if (_ddToDone) {
+        ActivityLogger.log('todo', 'complete', 'task', taskId, `タスク「${_ddTaskTitle}」を完了`);
+      } else {
+        const _ddFromName = State.columns.find(c => c.key === fromCol)?.name ?? fromCol;
+        const _ddToName   = State.columns.find(c => c.key === toCol)?.name ?? toCol;
+        ActivityLogger.log('todo', 'move', 'task', taskId, `タスク「${_ddTaskTitle}」を移動（${_ddFromName} → ${_ddToName}）`);
+      }
     }
     Renderer.updateCount(toCol);
 

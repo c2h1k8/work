@@ -24,6 +24,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     },
   ];
 
+  // 古いアクティビティログをクリーンアップ（90日以上前）
+  ActivityDB.cleanup(90).catch(() => {});
+
   // 前回のアクティブタブを復元（なければデフォルト）
   const savedId = loadFromStorage(STORAGE_KEY_ACTIVE_TAB_ID);
   const visibleConfig = config.filter(t => t.visible);

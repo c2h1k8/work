@@ -177,6 +177,8 @@ window.addEventListener("load", async () => {
     const port = portRaw || "1521";
     await _db.addEnv({ key, username: user, password: pass, connect_identifier: `${host}:${port}/${service}` });
     e.target.reset();
+    // アクティビティログに記録
+    ActivityLogger.log('sql', 'create', 'env', key, `接続環境「${key}」を追加`);
     showToast(`「${key}」を追加しました`);
     await refreshEnvs();
   });

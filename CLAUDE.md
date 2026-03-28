@@ -175,6 +175,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 | `js/db/ops_db.js`         | OpsDB       | ops_db        | ops.html       |
 | `js/db/text_db.js`        | TextDB      | tools_db      | text.html      |
 | `js/db/app_db.js`         | AppDB       | app_db        | index.html     |
+| `js/db/activity_db.js`    | ActivityDB  | activity_db   | 全ページ共通   |
 
 - HTML での読み込み順: `js/core/utils.js` → [`js/core/env.js` → `js/core/clipboard.js` / `js/core/notify.js`（使用ページのみ）] → `js/core/icons.js` → `js/components/*` → `js/db/<name>_db.js` → `js/<name>/*.js`
 - DB クラスはページ JS より前に読み込む必要がある（グローバルクラスとして参照するため）
@@ -186,7 +187,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - timer: state → renderer → events → app
   - ops: constants → state → log_viewer → cron → http_status → ports → app
   - text: constants → state → regex → encode → case → count → format → timestamp → tsv → app
-  - index: constants → config → theme → shell → search → backup → settings → app（`js/db/app_db.js` を先に読み込む）
+  - index: constants → config → theme → shell → search → backup → settings → activity_log → app（`js/db/app_db.js` / `js/db/activity_db.js` を先に読み込む）
 - 未分割ページ（snippet/diff_tool）は `js/<name>.js` の単一ファイル
 
 ## グローバル検索
@@ -199,6 +200,28 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - 結果クリック → タブ切替 + `postMessage({ type: 'global-search-focus', targetId })` を送信
 - 各ページは focus メッセージを受けてモーダル/詳細を開く
 - CSS: `.global-search` / `global-search__input` / `global-search__results` (css/index/_search.less)
+
+## アクティビティログ
+
+- **IndexedDB**: `activity_db` version 1、ストア: `logs`（id/page/action/target_type/target_id/summary/created_at）
+- インデックス: `page`、`created_at`、`[page, created_at]`（複合）
+- `ActivityLogger.log(page, action, targetType, targetId, summary)`: Fire-and-forget でログ記録（`js/core/activity_logger.js`）
+- `ActivityLogger.saveConfig(disabledPages)`: ページ単位の記録オン/オフ設定を保存。`app_db` の `settings` ストアに `activity_log_config` として保存
+- `ActivityLogger._loadConfig()`: 起動時に設定をキャッシュ。無効化されたページの `log()` 呼び出しをスキップ
+- `ActivityDB.cleanup(days=90)`: 90日以上前のログを自動削除。`App.init()` で呼び出し
+- 表示: ナビバーの履歴ボタン（`Icons.history`）→ `ActivityLogModal.show()` でモーダル表示（自己挿入型、`js/index/activity_log.js`）
+- CSS: `css/components/activity_log.less` / `css/components/activity_log.css`
+- **ページ単位の記録オン/オフ**: 設定画面の「アクティビティログ」セクションでページごとにトグル。デフォルト全ページON。`app_db` の `settings` ストアに `{ name: 'activity_log_config', value: { disabledPages: [...] } }` として保存
+- 記録対象ページ:
+  - `todo`: タスク追加/削除/移動/完了/アーカイブ/一括アーカイブ/アーカイブ復元
+  - `note`: ノート追加/削除
+  - `snippet`: スニペット追加/削除/更新
+  - `dashboard`: セクション追加/削除/更新、アイテム追加/更新/削除
+  - `sql`: 接続環境追加/削除/更新、テーブル定義追加/更新/削除
+  - `wbs`: タスク追加/削除/完了/完了から戻し
+- 各ページに `js/db/activity_db.js` + `js/core/activity_logger.js` を読み込む（DB クラスより後、ページ固有 JS より前）
+- ページ識別子: `'todo'` / `'note'` / `'snippet'` / `'dashboard'` / `'sql'` / `'wbs'`
+- アクション種別: `'create'` / `'delete'` / `'archive'` / `'complete'` / `'update'` / `'move'`
 
 ## データ一括バックアップ
 

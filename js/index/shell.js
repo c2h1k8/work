@@ -78,6 +78,15 @@ function buildHeader(config) {
     <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 5a7 7 0 1 0 0 14A7 7 0 0 0 12 5z"/></svg>
   `;
 
+  // アクティビティログボタン
+  const activityBtn = document.createElement("button");
+  activityBtn.className = "nav-icon-btn";
+  activityBtn.id = "activity-log-btn";
+  activityBtn.setAttribute("aria-label", "アクティビティログ");
+  activityBtn.title = "アクティビティログ";
+  activityBtn.innerHTML = Icons.history;
+  activityBtn.addEventListener("click", () => ActivityLogModal.show());
+
   // ギアアイコンボタン
   const settingsBtn = document.createElement("button");
   settingsBtn.className = "nav-icon-btn";
@@ -87,6 +96,7 @@ function buildHeader(config) {
 
   actions.appendChild(searchWrap);
   actions.appendChild(themeBtn);
+  actions.appendChild(activityBtn);
   actions.appendChild(settingsBtn);
 
   inner.appendChild(brand);

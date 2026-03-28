@@ -200,6 +200,8 @@ function buildEnvEditForm(env, row) {
       localStorage.setItem("sql_selected_env", selectedEnvKey);
     }
 
+    // アクティビティログに記録
+    ActivityLogger.log('sql', 'update', 'env', env.id, `接続環境「${key}」を更新`);
     showToast(`「${key}」を更新しました`);
     await refreshEnvs();
   });

@@ -101,11 +101,16 @@ const EventHandlers = {
     State.tasks = await _db.getAllTasks();
     State.selectedId = id;
     Renderer.renderAll();
+    // アクティビティログに記録
+    ActivityLogger.log('wbs', 'create', 'task', id, 'WBSタスクを追加');
     showSuccess('タスクを追加しました');
   },
 
   async deleteTask(id) {
+    const task = State.tasks.find(t => t.id === id);
     if (!confirm('このタスクを削除しますか？')) return;
+    // アクティビティログに記録（削除前に情報保持）
+    if (task) ActivityLogger.log('wbs', 'delete', 'task', id, `WBSタスク「${task.title}」を削除`);
     await _db.deleteTask(id);
     if (State.selectedId === id) State.selectedId = null;
     State.collapsed.delete(id);
@@ -211,8 +216,17 @@ const EventHandlers = {
       const opt = e.target.closest('[data-status]');
       if (!opt) return;
       picker.remove();
+      const oldStatus = task.status || 'not_started';
       task.status = opt.dataset.status;
       await _db.updateTask(task);
+      // ステータス変更をアクティビティログに記録（完了 / 完了から戻し）
+      const _title = task.title || '(無題)';
+      if (task.status === 'done') {
+        ActivityLogger.log('wbs', 'complete', 'task', task.id, `WBSタスク「${_title}」を完了`);
+      } else if (oldStatus === 'done') {
+        const newLabel = STATUS_CONFIG[task.status]?.label || task.status;
+        ActivityLogger.log('wbs', 'update', 'task', task.id, `WBSタスク「${_title}」を${newLabel}に変更`);
+      }
       State.tasks = await _db.getAllTasks();
       Renderer.renderAll();
     });

@@ -283,6 +283,8 @@ const EventHandlers = {
     State.entries = [];
     Renderer.renderTaskList();
     await Renderer.renderDetail();
+    // アクティビティログに記録
+    ActivityLogger.log('note', 'create', 'note', task.id, `ノート「${task.title}」を追加`);
   },
 
   async _onDetailAction(btn, db) {
@@ -360,6 +362,8 @@ const EventHandlers = {
     const task = State.tasks.find(t => t.id === State.selectedTaskId);
     if (!task) return;
     if (!confirm(`「${task.title}」を削除しますか？\nこのタスクのすべてのエントリも削除されます。`)) return;
+    // アクティビティログに記録（削除前に情報保持）
+    ActivityLogger.log('note', 'delete', 'note', task.id, `ノート「${task.title}」を削除`);
     await db.deleteTask(task.id);
     // kanban_db の note_links（note_task_id 参照）をカスケード削除
     _openKanbanDB().then(kanbanDb => {

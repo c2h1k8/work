@@ -382,6 +382,8 @@ const EventHandlers = {
     applyFilter();
     // 新規作成アクティビティを記録（作成日時の記録）
     try { await db.addActivity(task.id, 'task_create', {}); } catch (e) { console.error('活動履歴の記録に失敗:', e); }
+    // アクティビティログに記録
+    ActivityLogger.log('todo', 'create', 'task', task.id, `タスク「${task.title || '(無題)'}」を追加`);
     // 新規作成フラグをセット（モーダルで最初に入力するタイトル・説明はアクティビティに記録しない）
     State.newlyCreatedTaskId = task.id;
     // すぐモーダルを開く
@@ -421,6 +423,8 @@ const EventHandlers = {
     Renderer.renderColumn(column, State.tasks[column] || [], db);
     applyFilter();
     markDirty();
+    // アクティビティログに記録
+    ActivityLogger.log('todo', 'archive', 'task', taskId, `タスク「${task.title || '(無題)'}」をアーカイブ`);
 
     // モーダルが開いていれば閉じる
     const modal = document.getElementById('task-modal');
@@ -440,6 +444,13 @@ const EventHandlers = {
     if (!taskId) return;
     if (!confirm('このタスクを削除しますか？')) return;
 
+    // 削除前にタスク情報を取得（アクティビティログ用）
+    let deletedTitle = '';
+    for (const tasks of Object.values(State.tasks)) {
+      const t = tasks.find(t => t.id === taskId);
+      if (t) { deletedTitle = t.title || '(無題)'; break; }
+    }
+
     // 削除前に関係タスクを取得（アクティビティ記録用）
     const { parent, children, related } = await db.getRelationsByTask(taskId).catch(() => ({ parent: null, children: [], related: [] }));
 
@@ -454,6 +465,8 @@ const EventHandlers = {
     await db.deleteTask(taskId);
     if (column) State.tasks[column] = (State.tasks[column] || []).filter(t => t.id !== taskId);
     markDirty();
+    // アクティビティログに記録
+    ActivityLogger.log('todo', 'delete', 'task', taskId, `タスク「${deletedTitle}」を削除`);
 
     // 関連付けられていたタスクへ紐づけ解除アクティビティを記録
     const activityPromises = [];
@@ -842,8 +855,17 @@ const EventHandlers = {
       await db.addActivity(taskId, 'column_change', { from: oldColName, to: newColName });
       if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
     } catch (e) { console.error('活動履歴の記録に失敗:', e); }
-    // 完了カラムへ移動した場合、繰り返しタスクを自動生成
+    // カラム移動をアクティビティログに記録
     const newDone2 = State.columns.find(c => c.key === newCol)?.done;
+    const taskTitle2 = updated.title || '(無題)';
+    if (newDone2) {
+      ActivityLogger.log('todo', 'complete', 'task', taskId, `タスク「${taskTitle2}」を完了`);
+    } else {
+      const oldColName2 = State.columns.find(c => c.key === oldCol)?.name ?? oldCol;
+      const newColName2 = State.columns.find(c => c.key === newCol)?.name ?? newCol;
+      ActivityLogger.log('todo', 'move', 'task', taskId, `タスク「${taskTitle2}」を移動（${oldColName2} → ${newColName2}）`);
+    }
+    // 完了カラムへ移動した場合、繰り返しタスクを自動生成
     if (newDone2 && updated.recurring) {
       await _handleRecurringOnDone(updated, db);
     }
@@ -1825,6 +1847,9 @@ const EventHandlers = {
     State.tasks[colKey] = [];
     Renderer.renderColumn(colKey, [], db);
     markDirty();
+    // アクティビティログに記録
+    const colName = State.columns.find(c => c.key === colKey)?.name ?? colKey;
+    ActivityLogger.log('todo', 'archive', 'task', colKey, `「${colName}」の${tasks.length}件をアーカイブ`);
     Toast.success(`${tasks.length} 件をアーカイブしました`);
   },
 
@@ -2161,6 +2186,8 @@ const EventHandlers = {
       // 復元アクティビティを記録
       try { await db.addActivity(task.id, 'restore_archive', {}); } catch {}
       const colName = State.columns.find(c => c.key === restoredColKey)?.name ?? restoredColKey;
+      // アクティビティログに記録
+      ActivityLogger.log('todo', 'update', 'task', task.id, `タスク「${task.title || '(無題)'}」をアーカイブから復元`);
       Toast.success(`「${task.title}」を「${colName}」に復元しました`);
     } catch (e) {
       console.error('復元に失敗:', e);

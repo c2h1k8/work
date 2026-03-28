@@ -40,6 +40,7 @@ jobs:
           npx lessc css/components/shortcut_help.less   css/components/shortcut_help.css
           npx lessc css/components/checkbox.less        css/components/checkbox.css
           npx lessc css/components/radio_pill.less      css/components/radio_pill.css
+          npx lessc css/components/activity_log.less    css/components/activity_log.css
           npx lessc css/todo.less      css/todo.css
           npx lessc css/note.less      css/note.css
           npx lessc css/sql.less       css/sql.css
@@ -158,6 +159,7 @@ jobs:
           npx lessc css/components/shortcut_help.less   css/components/shortcut_help.css
           npx lessc css/components/checkbox.less        css/components/checkbox.css
           npx lessc css/components/radio_pill.less      css/components/radio_pill.css
+          npx lessc css/components/activity_log.less    css/components/activity_log.css
           npx lessc css/todo.less      css/todo.css
           npx lessc css/note.less      css/note.css
           npx lessc css/sql.less       css/sql.css

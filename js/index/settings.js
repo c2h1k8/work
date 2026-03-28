@@ -28,6 +28,11 @@ function buildSettingsPanel() {
           <input id="new-tab-url" type="text" placeholder="URL（例: mypage.html）">
           <button class="settings-add-btn">追加</button>
         </div>
+        <div class="settings-actlog-form">
+          <h3>アクティビティログ</h3>
+          <p class="settings-actlog-desc">ページごとに操作履歴の記録を切り替えます</p>
+          <div class="settings-actlog-pages" id="settings-actlog-pages"></div>
+        </div>
         <div class="settings-io-form">
           <h3>全データ一括バックアップ</h3>
           <div class="settings-backup-btns">
@@ -55,6 +60,9 @@ function buildSettingsPanel() {
   overlay.querySelector(".settings-backup-import-btn").addEventListener("click", restoreAllData);
   // リスト内のボタンはイベント委譲
   overlay.querySelector("#settings-list").addEventListener("click", _onSettingsListClick);
+
+  // アクティビティログ設定のトグルイベント
+  overlay.querySelector("#settings-actlog-pages").addEventListener("change", _onActlogToggle);
 
   document.getElementById("app").appendChild(overlay);
   // カスタムセレクトに置き換え
@@ -186,6 +194,7 @@ async function openSettings() {
   const overlay = document.getElementById("settings-overlay");
   if (!overlay) return;
   renderSettingsList(await loadTabConfig());
+  renderActlogSettings();
   overlay.hidden = false;
 }
 
@@ -348,6 +357,51 @@ async function addTabFromForm() {
     // CustomSelect の表示も更新（render() を呼ばないと UI が「ダッシュボード」のまま残る）
     typeSelect._csInst?.render();
   }
+}
+
+// ==================================================
+// アクティビティログ設定
+// ==================================================
+
+/** アクティビティログ記録対象ページの定義 */
+const ACTLOG_PAGES = [
+  { key: 'todo',      label: 'TODO' },
+  { key: 'note',      label: 'ノート' },
+  { key: 'snippet',   label: 'スニペット' },
+  { key: 'dashboard', label: 'ダッシュボード' },
+  { key: 'sql',       label: 'SQL' },
+  { key: 'wbs',       label: 'WBS' },
+];
+
+/** アクティビティログ設定のトグルUIを描画する */
+async function renderActlogSettings() {
+  const container = document.getElementById("settings-actlog-pages");
+  if (!container) return;
+
+  // 設定を読み込む
+  await ActivityLogger._loadConfig();
+  const disabled = ActivityLogger._disabledPages || new Set();
+
+  container.innerHTML = ACTLOG_PAGES.map(({ key, label }) => `
+    <label class="settings-actlog-item">
+      <input type="checkbox" value="${key}" ${disabled.has(key) ? '' : 'checked'}>
+      <span>${label}</span>
+    </label>
+  `).join('');
+}
+
+/** アクティビティログ設定のトグルイベントハンドラ */
+async function _onActlogToggle(e) {
+  if (e.target.type !== 'checkbox') return;
+  const container = document.getElementById("settings-actlog-pages");
+  if (!container) return;
+
+  // 全チェックボックスの状態から無効ページリストを構築
+  const disabledPages = [];
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    if (!cb.checked) disabledPages.push(cb.value);
+  });
+  await ActivityLogger.saveConfig(disabledPages);
 }
 
 /** ホームタブのページ設定パネルを開く */
