@@ -453,5 +453,19 @@
 
     </main>
 
+    <!-- アクティブセクション初期化（フラッシュ防止のため defer なし・ボディ末尾で実行） -->
+    <script>
+      (function() {
+        var s = localStorage.getItem('ops_active_section') || 'log-viewer';
+        if (s === 'log-viewer') return;
+        document.querySelectorAll('.ops-tab').forEach(function(btn) {
+          btn.classList.toggle('ops-tab--active', btn.dataset.tool === s);
+        });
+        document.querySelectorAll('.ops-tool').forEach(function(el) {
+          el.hidden = el.id !== 'tool-' + s;
+        });
+      })();
+    </script>
+
   </body>
 </html>
