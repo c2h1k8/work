@@ -69,14 +69,16 @@
               <button class="tune-tab" data-tab="結合">結合</button>
               <button class="tune-tab" data-tab="処理">処理</button>
               <button class="tune-tab" data-tab="その他">その他</button>
-              <button class="tune-tab tune-tab--analyze" data-tab="analyze">
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.75V13.5h13.75a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75V1.75a.75.75 0 0 1 1.5 0Zm14.28 2.53-5.25 5.25a.75.75 0 0 1-1.06 0L7 7.06 4.28 9.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.25-3.25a.75.75 0 0 1 1.06 0L9 7.94l4.72-4.72a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Z"/></svg>
-                解析
-              </button>
             </div>
-            <div class="tune-search-wrap">
-              <svg class="tune-search-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
-              <input type="text" id="tune-search" class="tune-search" placeholder="操作名・説明で検索..." />
+            <div class="tune-toolbar__right">
+              <div class="tune-search-wrap">
+                <svg class="tune-search-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+                <input type="text" id="tune-search" class="tune-search" placeholder="操作名・説明で検索..." />
+              </div>
+              <button type="button" id="tune-analyze-toggle" class="btn btn--secondary btn--sm tune-analyze-toggle">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.75V13.5h13.75a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75V1.75a.75.75 0 0 1 1.5 0Zm14.28 2.53-5.25 5.25a.75.75 0 0 1-1.06 0L7 7.06 4.28 9.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.25-3.25a.75.75 0 0 1 1.06 0L9 7.94l4.72-4.72a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Z"/></svg>
+                実行計画を解析
+              </button>
             </div>
           </div>
           <div class="tune-grid" id="tune-grid"></div>

@@ -217,6 +217,7 @@ function applyTuneFilter() {
 function initTuneSearch() {
   document.getElementById("tune-search").addEventListener("input", applyTuneFilter);
 
+  // フィルタータブ切替
   document.getElementById("tune-tabs").addEventListener("click", e => {
     const btn = e.target.closest(".tune-tab");
     if (!btn) return;
@@ -225,11 +226,7 @@ function initTuneSearch() {
     document.querySelectorAll(".tune-tab").forEach(b =>
       b.classList.toggle("tune-tab--active", b === btn)
     );
-    const isAnalyze = _tuneTab === "analyze";
-    document.getElementById("tune-grid").hidden        = isAnalyze;
-    document.getElementById("tune-analyze").hidden     = !isAnalyze;
-    document.querySelector(".tune-search-wrap").hidden = isAnalyze;
-    if (!isAnalyze) applyTuneFilter();
+    applyTuneFilter();
   });
 
   // カテゴリ別件数バッジを付与
@@ -238,7 +235,7 @@ function initTuneSearch() {
   const tabLabels = { all: "すべて", スキャン: "スキャン", 結合: "結合", 処理: "処理", その他: "その他" };
   document.querySelectorAll(".tune-tab[data-tab]").forEach(btn => {
     const tab = btn.dataset.tab;
-    if (tab === "analyze" || !(tab in counts)) return;
+    if (!(tab in counts)) return;
     btn.innerHTML = `${escapeHtml(tabLabels[tab] || tab)}<span class="tune-tab__badge">${counts[tab]}</span>`;
   });
 
@@ -248,6 +245,24 @@ function initTuneSearch() {
     const btn = document.querySelector(`.tune-tab[data-tab="${savedTab}"]`);
     if (btn) btn.click();
   }
+
+  // 解析パネル トグルボタン
+  document.getElementById("tune-analyze-toggle").addEventListener("click", () => {
+    const panel   = document.getElementById("tune-analyze");
+    const isOpen  = !panel.hidden;
+    panel.hidden  = isOpen;
+    document.getElementById("tune-analyze-toggle")
+      .classList.toggle("tune-analyze-toggle--active", !isOpen);
+    if (isOpen) {
+      // 閉じるときは結果もリセット
+      document.getElementById("tune-plan-input").value   = "";
+      const r = document.getElementById("tune-analyze-result");
+      r.hidden    = true;
+      r.innerHTML = "";
+    } else {
+      document.getElementById("tune-plan-input").focus();
+    }
+  });
 
   // 解析ボタン
   document.getElementById("tune-analyze-btn").addEventListener("click", () => {

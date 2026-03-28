@@ -203,17 +203,31 @@
   &::placeholder { color: var(--color-text-muted); }
 }
 
-// 解析タブのアイコン付きスタイル
-.tune-tab--analyze {
+// ツールバー右側（検索 + 解析ボタン）
+.tune-toolbar__right {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+// 解析パネル開閉ボタン
+.tune-analyze-toggle {
+  display: inline-flex;
+  align-items: center;
   gap: 5px;
+  white-space: nowrap;
 
   svg {
     width: 13px;
     height: 13px;
     fill: currentColor;
     flex-shrink: 0;
+  }
+
+  &--active {
+    background: var(--c-accent-dim);
+    color: var(--color-accent);
+    border-color: var(--color-accent);
   }
 }
 
