@@ -213,8 +213,8 @@ function applyTuneFilter() {
     // カテゴリタブ選択時: 一致しないグループは非表示
     if (!isAll && cat !== _tuneTab) { group.hidden = true; return; }
 
-    // 「すべて」選択時のみカテゴリ見出しを表示
-    group.querySelector(".tune-group__header").hidden = !isAll;
+    // カテゴリタブ選択時は強制展開（折りたたみ状態でもカードを見せる）
+    if (!isAll) group.open = true;
 
     // カード単位で検索フィルター
     let visible = 0;
@@ -226,8 +226,9 @@ function applyTuneFilter() {
       if (show) visible++;
     });
 
-    // 検索で全カードが非表示になったらグループごと隠す
+    // 検索で全カードが非表示になったらグループごと隠す（検索時は自動展開）
     group.hidden = visible === 0;
+    if (q && visible > 0) group.open = true;
   });
 }
 

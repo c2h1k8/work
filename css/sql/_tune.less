@@ -39,14 +39,44 @@
 }
 
 .tune-group {
+  // <details> のデフォルトマーカーを非表示
+  &[open] > summary { list-style: none; }
+  & > summary { list-style: none; }
+  & > summary::-webkit-details-marker { display: none; }
+
+  // グループ間の区切り線（2番目以降）
+  & + & > .tune-group__header {
+    border-top: 1px solid var(--color-border);
+    margin-top: 6px;
+  }
+
   &__header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 0 8px;
-    margin-top: 4px;
+    justify-content: space-between;
+    padding: 10px 0 8px;
+    cursor: pointer;
+    user-select: none;
 
-    &:first-child { margin-top: 0; }
+    &:hover .tune-group__label { color: var(--color-text); }
+  }
+
+  &__header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__chevron {
+    width: 14px;
+    height: 14px;
+    fill: var(--color-text-muted);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  &[open] &__chevron {
+    transform: rotate(180deg);
   }
 
   &__label {
@@ -55,6 +85,7 @@
     letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--color-text-muted);
+    transition: color 0.15s;
   }
 
   &__count {
@@ -67,18 +98,11 @@
     padding: 1px 6px;
   }
 
-  // グループ間の区切り線（2番目以降）
-  & + & > &__header {
-    border-top: 1px solid var(--color-border);
-    padding-top: 14px;
-    margin-top: 10px;
-  }
-
   &__cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 10px;
-    padding-bottom: 4px;
+    padding-bottom: 8px;
   }
 }
 

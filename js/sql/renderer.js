@@ -261,29 +261,43 @@ function renderTuneGrid() {
     return card;
   }
 
-  // カテゴリ別グループとして描画
+  // カテゴリ別グループとして描画（<details> で折りたたみ可能）
   const categories = ["スキャン", "結合", "処理", "その他"];
+  const savedStates = JSON.parse(localStorage.getItem("sql_tune_groups") || "{}");
+
   categories.forEach(cat => {
     const items = TUNE_ITEMS.filter(i => i.category === cat);
 
-    const group = document.createElement("div");
-    group.className    = "tune-group";
+    const group = document.createElement("details");
+    group.className       = "tune-group";
     group.dataset.category = cat;
+    // デフォルトは開いた状態。保存済みなら復元
+    group.open = savedStates[cat] !== false;
 
-    // カテゴリ見出し
-    const groupHeader = document.createElement("div");
-    groupHeader.className = "tune-group__header";
-    groupHeader.innerHTML =
-      `<span class="tune-group__label">${escapeHtml(cat)}</span>` +
-      `<span class="tune-group__count">${items.length}</span>`;
+    // カテゴリ見出し（summary）
+    const summary = document.createElement("summary");
+    summary.className = "tune-group__header";
+    summary.innerHTML =
+      `<div class="tune-group__header-left">` +
+        `<svg class="tune-group__chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.78 5.22a.749.749 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.06 0L3.22 6.28a.749.749 0 1 1 1.06-1.06L8 8.939l3.72-3.719a.749.749 0 0 1 1.06 0Z"/></svg>` +
+        `<span class="tune-group__label">${escapeHtml(cat)}</span>` +
+        `<span class="tune-group__count">${items.length}</span>` +
+      `</div>`;
 
     // カードコンテナ（グリッド）
     const cards = document.createElement("div");
     cards.className = "tune-group__cards";
     items.forEach(item => cards.appendChild(createCard(item)));
 
-    group.append(groupHeader, cards);
+    group.append(summary, cards);
     grid.appendChild(group);
+
+    // 開閉状態を localStorage に保存
+    group.addEventListener("toggle", () => {
+      const states = JSON.parse(localStorage.getItem("sql_tune_groups") || "{}");
+      states[cat] = group.open;
+      localStorage.setItem("sql_tune_groups", JSON.stringify(states));
+    });
   });
 }
 
