@@ -145,6 +145,23 @@
     border-bottom-color: var(--color-accent);
     font-weight: 600;
   }
+
+  &__badge {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    padding: 1px 5px;
+    border-radius: 100px;
+    background: var(--c-bg-2);
+    color: var(--color-text-muted);
+    min-width: 18px;
+    text-align: center;
+  }
+
+  &--active &__badge {
+    background: var(--c-accent-dim);
+    color: var(--color-accent);
+  }
 }
 
 .tune-search-wrap {

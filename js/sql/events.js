@@ -232,6 +232,16 @@ function initTuneSearch() {
     if (!isAnalyze) applyTuneFilter();
   });
 
+  // カテゴリ別件数バッジを付与
+  const counts = { all: TUNE_ITEMS.length };
+  TUNE_ITEMS.forEach(item => { counts[item.category] = (counts[item.category] || 0) + 1; });
+  const tabLabels = { all: "すべて", スキャン: "スキャン", 結合: "結合", 処理: "処理", その他: "その他" };
+  document.querySelectorAll(".tune-tab[data-tab]").forEach(btn => {
+    const tab = btn.dataset.tab;
+    if (tab === "analyze" || !(tab in counts)) return;
+    btn.innerHTML = `${escapeHtml(tabLabels[tab] || tab)}<span class="tune-tab__badge">${counts[tab]}</span>`;
+  });
+
   // 選択タブを復元
   const savedTab = localStorage.getItem("sql_tune_tab");
   if (savedTab && savedTab !== "all") {
