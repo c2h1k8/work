@@ -89,7 +89,7 @@ const App = {
         const secId = card ? Number(card.dataset.sectionId) : null;
         const rawVal = copyEl.dataset.value || "";
         const resolved = resolveBindVars(secId ? resolveTableVars(rawVal, secId) : rawVal);
-        navigator.clipboard.writeText(resolved);
+        Clipboard.copy(resolved);
         showSuccess("コピーしました");
         return;
       }
@@ -112,7 +112,7 @@ const App = {
         const resolved = resolveDateVars(
           resolveBindVars(tplSecId ? resolveSectionVars(rawTplVal, tplSecId) : rawTplVal),
         );
-        navigator.clipboard.writeText(resolved);
+        Clipboard.copy(resolved);
         showSuccess("コピーしました");
         return;
       }

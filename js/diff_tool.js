@@ -400,7 +400,7 @@ function copyDiffAsText(diff) {
     if (item.type === 'remove') return `- ${item.left}`;
     return `  ${item.left}`;
   });
-  navigator.clipboard.writeText(lines.join('\n'))
+  Clipboard.copy(lines.join('\n'))
     .then(() => showSuccess('差分テキストをコピーしました'))
     .catch(() => showError('コピーに失敗しました'));
 }

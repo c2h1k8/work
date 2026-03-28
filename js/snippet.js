@@ -327,7 +327,7 @@ async function deleteSnippet(id) {
 function copyCode(id) {
   const s = State.snippets.find(x => x.id === id);
   if (!s) return;
-  navigator.clipboard.writeText(s.code)
+  Clipboard.copy(s.code)
     .then(() => showSuccess('コードをコピーしました'))
     .catch(() => showError('コピーに失敗しました'));
 }

@@ -1719,7 +1719,7 @@ const Renderer = {
         copyBtn.innerHTML = Icons.copyFill;
         copyBtn.title = "コピー";
         copyBtn.addEventListener("click", () => {
-          navigator.clipboard.writeText(codeEl.textContent).then(() => {
+          Clipboard.copy(codeEl.textContent).then(() => {
             showToast("コピーしました");
           });
         });

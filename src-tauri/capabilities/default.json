@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/tauri-plugin-localhost/v2/schemas/schema.json",
+  "identifier": "default",
+  "description": "MyTools default capabilities",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-set-title"
+  ]
+}

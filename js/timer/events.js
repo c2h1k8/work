@@ -12,41 +12,37 @@
 
 /** 通知許可を要求する */
 async function requestNotificationPermission() {
-  if (!('Notification' in window)) {
-    showError('このブラウザは通知に対応していません');
+  const perm = Notify.getPermission();
+
+  if (perm === 'unsupported') {
+    showError('この環境は通知に対応していません');
     return;
   }
-
-  if (Notification.permission === 'granted') {
+  if (perm === 'granted') {
     showSuccess('通知はすでに許可されています');
     _updateNotificationBadge();
     return;
   }
-
-  if (Notification.permission === 'denied') {
+  if (perm === 'denied') {
     showError('通知がブロックされています。ブラウザのアドレスバー左のアイコン（🔒）から「通知」を「許可」に変更してください');
     _updateNotificationBadge();
     return;
   }
 
   // permission === 'default': ダイアログを表示
-  try {
-    const result = await Notification.requestPermission();
-    _updateNotificationBadge();
-    if (result === 'granted') {
-      showSuccess('通知を許可しました');
-      // テスト通知を送って確認
-      sendNotification('通知テスト', 'タイマー終了時にこのような通知が届きます');
-    } else if (result === 'denied') {
-      showError('通知が拒否されました。ブラウザの設定から許可できます');
-    } else {
-      // iframe等でダイアログが出なかった場合（permissionが変わらない）
-      showError('通知ダイアログが表示できませんでした。ブラウザのアドレスバーから直接許可してください');
-    }
-  } catch (err) {
-    // iframeでブロックされた場合など
+  const result = await Notify.requestPermission();
+  _updateNotificationBadge();
+  if (result === 'granted') {
+    showSuccess('通知を許可しました');
+    // テスト通知を送って確認
+    sendNotification('通知テスト', 'タイマー終了時にこのような通知が届きます');
+  } else if (result === 'denied') {
+    showError('通知が拒否されました。ブラウザの設定から許可できます');
+  } else if (result === 'unsupported') {
     showError('通知の許可に失敗しました。タイマーを直接開いて許可してください');
-    _updateNotificationBadge();
+  } else {
+    // iframe等でダイアログが出なかった場合（permissionが変わらない）
+    showError('通知ダイアログが表示できませんでした。ブラウザのアドレスバーから直接許可してください');
   }
 }
 
@@ -54,15 +50,16 @@ async function requestNotificationPermission() {
 function _updateNotificationBadge() {
   const badge = document.getElementById('notif-badge');
   if (!badge) return;
-  if (!('Notification' in window)) {
+  const perm = Notify.getPermission();
+  if (perm === 'unsupported') {
     badge.hidden = true;
     return;
   }
   badge.hidden = false;
-  if (Notification.permission === 'granted') {
+  if (perm === 'granted') {
     badge.textContent = '🔔 通知ON';
     badge.className = 'notif-badge notif-badge--on';
-  } else if (Notification.permission === 'denied') {
+  } else if (perm === 'denied') {
     badge.textContent = '🔕 通知OFF';
     badge.className = 'notif-badge notif-badge--off';
   } else {
@@ -77,9 +74,7 @@ function _updateNotificationBadge() {
  * @param {string} body  - 通知本文
  */
 function sendNotification(title, body) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const n = new Notification(title, {
-    body,
+  Notify.send(title, body, {
     icon: './favicon.svg',
     tag: 'timer-alert',      // 同じtagで上書きして重複させない
     requireInteraction: true, // ユーザーが閉じるまで通知を維持
@@ -202,7 +197,7 @@ function startTimer() {
   if (State.remaining <= 0) resetTimer();
 
   // 初回開始時: permission が default なら許可ダイアログを出す（denied/granted は何もしない）
-  if ('Notification' in window && Notification.permission === 'default') {
+  if (Notify.getPermission() === 'default') {
     requestNotificationPermission();
   }
 

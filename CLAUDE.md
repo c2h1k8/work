@@ -48,6 +48,9 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `todo.html` は IndexedDB（`KanbanDB` クラス）でデータ永続化。`localStorage` は使わない
 - その他ページの localStorage 操作は `js/core/local_storage.js` の `saveToStorage` / `loadFromStorage` / `saveToStorageWithLimit` / `loadJsonFromStorage` を使う
 - `js/core/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` / `getString(origin, params)` / `isValidUrl(url)` — HTML エスケープ、position 昇順ソート、テンプレート置換、URL バリデーション
+- `js/core/env.js` をクリップボード/通知を使うページで読み込む: `Env.type`（`'file'` / `'localhost'` / `'tauri'`）/ `Env.isTauri` / `Env.isLocalhost` / `Env.isFile` — 実行環境検出。`file://` / localhost / Tauri デスクトップアプリの3形態を判別
+- `js/core/clipboard.js` をコピー機能があるページで読み込む（`env.js` に依存）: `Clipboard.copy(text)` → Promise。localhost/Tauri では `navigator.clipboard.writeText`、`file://` では `execCommand('copy')` フォールバック。**`navigator.clipboard.writeText` を直接使わない。必ず `Clipboard.copy` を使うこと**。使用ページ: `sql.html` / `note.html` / `snippet.html` / `diff_tool.html` / `ops.html` / `dashboard.html` / `text.html`
+- `js/core/notify.js` を通知機能があるページで読み込む（`env.js` に依存）: `Notify.send(title, body, opts?)` / `Notify.requestPermission()` / `Notify.getPermission()` — 環境対応通知。`file://` では `'unsupported'`、localhost では Web Notifications API、Tauri ではネイティブ通知。**`Notification` API を直接使わない。必ず `Notify` を使うこと**。使用ページ: `timer.html`
 - `js/components/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` / `Toast.success(msg)` / `Toast.error(msg)` — 統一トースト通知（自己挿入型）。CSS は `css/components/toast.{less,css}`。各ページに `showSuccess` / `showError` ラッパーを定義して使用する: `const showSuccess = (msg) => Toast.success(msg);` / `const showError = (msg) => Toast.error(msg);`
 - `js/components/tooltip.js` を必要なページで読み込む: `Tooltip.init(container, selector?)` — カスタムツールチップ（自己挿入型・即時表示）。CSS は `css/components/tooltip.{less,css}`。`data-tooltip="テキスト"` 属性を持つ要素が対象。`title` 属性の代わりに使用することでブラウザ固有の遅延を回避できる。現在の使用ページ: `wbs.html` / `timer.html` / `text.html` / `note.html`
 - `js/core/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` など
@@ -172,7 +175,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 | `js/db/text_db.js`        | TextDB      | tools_db      | text.html      |
 | `js/db/app_db.js`         | AppDB       | app_db        | index.html     |
 
-- HTML での読み込み順: `js/core/utils.js` → `js/core/icons.js` → `js/components/*` → `js/db/<name>_db.js` → `js/<name>/*.js`
+- HTML での読み込み順: `js/core/utils.js` → [`js/core/env.js` → `js/core/clipboard.js` / `js/core/notify.js`（使用ページのみ）] → `js/core/icons.js` → `js/components/*` → `js/db/<name>_db.js` → `js/<name>/*.js`
 - DB クラスはページ JS より前に読み込む必要がある（グローバルクラスとして参照するため）
 - 分割済みページ（todo/dashboard/note/sql/wbs/timer/ops/text/index）は `js/<name>/` 配下のモジュールを読み込む:
   - todo: state → backup → renderer → dragdrop → app
@@ -419,6 +422,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 ## 注意事項
 
+- **マルチ環境対応**: `file://` / localhost / Tauri デスクトップアプリの3形態で動作する。環境差異は `js/core/env.js` / `clipboard.js` / `notify.js` で吸収。`file://` ではクリップボードが `execCommand` フォールバック、通知は非対応
 - 全ページ IndexedDB でデータを永続化するため `file://` でも動作する
 - localStorage はテーマ・UI状態（選択中タブ・スクロール位置・フィルター等）のみに使用するため、ローカルファイルアクセスでも制限なし
 - LESS ファイルを編集した場合は `npx lessc <src>.less <dst>.css` で必ず CSS を再生成する

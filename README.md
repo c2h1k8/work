@@ -27,12 +27,18 @@
 - **データ永続化**: IndexedDB（全ページ）/ localStorage（UI状態・テーマ設定）
   - IndexedDB はブラウザネイティブの構造化 DB。`file://` でも動作しインストール不要。
   - todo.html はヘッダーのエクスポート／インポートボタンで JSON バックアップを手動管理できる。
+- **マルチ環境対応**: `file://` / `localhost` / Tauri デスクトップアプリの3形態で動作。環境検出（`js/core/env.js`）で差異を吸収し、クリップボード（`js/core/clipboard.js`）・通知（`js/core/notify.js`）を環境に応じて切り替え。
 
 ## ディレクトリ構成
 
 ```
 work/
 ├── index.html              # エントリポイント（タブ UI）
+├── src-tauri/              # Tauri デスクトップアプリ設定（Rust）
+│   ├── tauri.conf.json     # アプリ設定（ウィンドウサイズ・バンドル等）
+│   ├── src/main.rs         # Rust エントリポイント
+│   ├── icons/              # アプリアイコン（.icns/.ico/.png）
+│   └── capabilities/       # セキュリティ権限定義
 ├── pages/                  # 各ページ HTML（iframe で読み込み）
 │   ├── todo.html           # TODO管理
 │   ├── dashboard.html      # カスタムダッシュボード
@@ -47,6 +53,9 @@ work/
 ├── js/
 │   ├── core/                  # 基盤ユーティリティ
 │   │   ├── utils.js           # escapeHtml / sortByPosition / getString / isValidUrl
+│   │   ├── env.js             # 環境検出（Env.type / isTauri / isLocalhost / isFile）
+│   │   ├── clipboard.js       # 環境対応クリップボード（Clipboard.copy）
+│   │   ├── notify.js          # 環境対応通知（Notify.send / requestPermission / getPermission）
 │   │   ├── icons.js           # JS生成HTML用 SVGアイコン定数
 │   │   └── local_storage.js   # localStorage ユーティリティ
 │   ├── components/            # 再利用可能UIコンポーネント
@@ -158,7 +167,13 @@ work/
 
 ## 使い方
 
-ローカルサーバーまたはブラウザで `index.html` を開く（localStorage を使用するためファイル直接開きでは一部機能が制限される場合あり）。
+3つの利用形態に対応。
+
+| 形態 | 起動方法 | 特徴 |
+|---|---|---|
+| **file://** | `index.html` をブラウザで直接開く | インストール不要。クリップボードは `execCommand` フォールバック、通知非対応 |
+| **localhost** | ローカルサーバーで起動 | 全機能利用可。Web Worker / 通知 / Clipboard API が使える |
+| **デスクトップアプリ** | Tauri ビルド済みアプリを起動 | ネイティブウィンドウ。CORS制約なし。リリースページからダウンロード |
 
 ### ローカルサーバーでの起動（推奨）
 
@@ -183,6 +198,18 @@ work/
 - **カスタムタブ「ダッシュボード」**: 独立した IndexedDB インスタンスを持つダッシュボードを複数追加可能
 
 コードで組み込みタブを追加する場合は `js/index/constants.js` の `TAB_ITEMS` 配列に追記する。
+
+### デスクトップアプリ（Tauri）
+
+Rust ツールチェーンが必要。開発時:
+
+```bash
+npm install
+npx tauri dev        # 開発サーバー + ネイティブウィンドウで起動
+npx tauri build      # 配布用バイナリを生成（src-tauri/target/release/bundle/）
+```
+
+リリース時は GitHub Actions が Mac (ARM64/x64) と Windows (x64) のバイナリを自動ビルドし、リリースページに添付する。
 
 ### LESS のコンパイル
 

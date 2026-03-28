@@ -112,7 +112,7 @@ window.addEventListener("load", async () => {
   // 接続コマンドをコピー
   document.getElementById("conn").addEventListener("click", async () => {
     const cmd = buildConnCommand(await _db.getAllEnvs());
-    navigator.clipboard.writeText(cmd).then(() => showToast("コピーしました"));
+    Clipboard.copy(cmd).then(() => showToast("コピーしました"));
   });
 
   // バインド変数: 行追加ボタン
@@ -125,14 +125,14 @@ window.addEventListener("load", async () => {
   document.getElementById("param-copy").addEventListener("click", () => {
     const text = buildParamText();
     if (!text) { showError("使用する変数がありません"); return; }
-    navigator.clipboard.writeText(text).then(() => showToast("コピーしました"));
+    Clipboard.copy(text).then(() => showToast("コピーしました"));
   });
 
   // セッション設定コピーボタン（トーストのみ追加）
   document.querySelectorAll(".btn.copy").forEach(btn => {
     btn.addEventListener("click", () => {
       const text = getString(btn.dataset.copy, btn.dataset.params ?? null);
-      navigator.clipboard.writeText(text).then(() => showToast("コピーしました"));
+      Clipboard.copy(text).then(() => showToast("コピーしました"));
     });
   });
 

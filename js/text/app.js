@@ -24,7 +24,7 @@ function _copyActiveResult() {
       return;
   }
   if (!text) { showError('コピーする結果がありません'); return; }
-  navigator.clipboard.writeText(text).then(() => showSuccess('コピーしました'));
+  Clipboard.copy(text).then(() => showSuccess('コピーしました'));
 }
 
 function init() {
@@ -74,7 +74,7 @@ function init() {
   document.getElementById('encode-result-list').addEventListener('click', e => {
     const btn = e.target.closest('.encode-result-item__copy');
     if (!btn || btn.disabled) return;
-    navigator.clipboard.writeText(btn.dataset.value).then(() => showSuccess('コピーしました'));
+    Clipboard.copy(btn.dataset.value).then(() => showSuccess('コピーしました'));
   });
 
   // ━━━ ケース変換 ━━━
@@ -87,7 +87,7 @@ function init() {
   document.getElementById('case-result-list').addEventListener('click', e => {
     const btn = e.target.closest('.case-item__copy');
     if (!btn || btn.disabled) return;
-    navigator.clipboard.writeText(btn.dataset.value).then(() => showSuccess('コピーしました'));
+    Clipboard.copy(btn.dataset.value).then(() => showSuccess('コピーしました'));
   });
 
   // ━━━ 正規表現テスター ━━━
@@ -121,7 +121,7 @@ function init() {
   document.getElementById('regex-replace-copy-btn').addEventListener('click', () => {
     const val = document.getElementById('regex-replace-result').textContent;
     if (!val) return;
-    navigator.clipboard.writeText(val).then(() => showSuccess('コピーしました'));
+    Clipboard.copy(val).then(() => showSuccess('コピーしました'));
   });
 
   // ━━━ 文字カウント ━━━
@@ -143,7 +143,7 @@ function init() {
   document.getElementById('tool-timestamp').addEventListener('click', e => {
     const btn = e.target.closest('.ts-copy-btn');
     if (!btn) return;
-    navigator.clipboard.writeText(btn.dataset.value).then(() => showSuccess('コピーしました'));
+    Clipboard.copy(btn.dataset.value).then(() => showSuccess('コピーしました'));
   });
 
   // ━━━ TSV/CSV ━━━
@@ -178,15 +178,15 @@ function init() {
   });
   document.getElementById('tsv-export-tsv').addEventListener('click', () => {
     const out = _exportTsv();
-    navigator.clipboard.writeText(out).then(() => showSuccess('TSVをコピーしました'));
+    Clipboard.copy(out).then(() => showSuccess('TSVをコピーしました'));
   });
   document.getElementById('tsv-export-csv').addEventListener('click', () => {
     const out = _exportCsv();
-    navigator.clipboard.writeText(out).then(() => showSuccess('CSVをコピーしました'));
+    Clipboard.copy(out).then(() => showSuccess('CSVをコピーしました'));
   });
   document.getElementById('tsv-export-md').addEventListener('click', () => {
     const out = _exportMarkdown();
-    navigator.clipboard.writeText(out).then(() => showSuccess('Markdownテーブルをコピーしました'));
+    Clipboard.copy(out).then(() => showSuccess('Markdownテーブルをコピーしました'));
   });
 
   // ━━━ 正規表現パターン保存 ━━━
@@ -214,7 +214,7 @@ function init() {
   document.getElementById('fmt-copy-btn').addEventListener('click', () => {
     const text = document.getElementById('fmt-code').textContent;
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => showSuccess('コピーしました'));
+    Clipboard.copy(text).then(() => showSuccess('コピーしました'));
   });
   document.getElementById('fmt-input').addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {

@@ -1,5 +1,6 @@
 {
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
     "less": "^4.5.1"
   }
 }

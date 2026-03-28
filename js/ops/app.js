@@ -178,7 +178,7 @@ function init() {
     // コードコピー
     const copyBtn = e.target.closest('[data-copy]');
     if (copyBtn) {
-      navigator.clipboard.writeText(copyBtn.dataset.copy)
+      Clipboard.copy(copyBtn.dataset.copy)
         .then(() => showSuccess(`${copyBtn.dataset.copy} をコピーしました`))
         .catch(() => showError('コピーに失敗しました'));
     }

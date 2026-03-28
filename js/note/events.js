@@ -447,7 +447,7 @@ const EventHandlers = {
   async _onCopyEntryUrl(btn) {
     const url = btn.dataset.url;
     try {
-      await navigator.clipboard.writeText(url);
+      await Clipboard.copy(url);
       showSuccess('URLをコピーしました');
     } catch {
       showError('コピーに失敗しました');
@@ -458,7 +458,7 @@ const EventHandlers = {
   async _onCopyEntryLabel(btn) {
     const label = btn.dataset.label;
     try {
-      await navigator.clipboard.writeText(label);
+      await Clipboard.copy(label);
       showSuccess('表示名をコピーしました');
     } catch {
       showError('コピーに失敗しました');

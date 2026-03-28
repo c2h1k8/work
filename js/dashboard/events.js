@@ -1143,7 +1143,7 @@ const EventHandlers = {
     if (actionMode === "open") {
       if (result) window.open(result, "_blank");
     } else {
-      navigator.clipboard.writeText(result);
+      Clipboard.copy(result);
       showSuccess("コピーしました");
     }
 
