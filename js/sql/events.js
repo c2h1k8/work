@@ -210,15 +210,19 @@ function applyTuneFilter() {
   // 「すべて」のときだけグループ区切り線を有効化
   document.getElementById("tune-grid").classList.toggle("tune-grid--grouped", isAll);
 
+  // 「すべて」に戻る際は localStorage から開閉状態を復元
+  const savedStates = isAll
+    ? JSON.parse(localStorage.getItem("sql_tune_groups") || "{}")
+    : null;
+
   document.querySelectorAll(".tune-group").forEach(group => {
     const cat = group.dataset.category;
 
     // カテゴリタブ選択時: 一致しないグループは非表示
     if (!isAll && cat !== _tuneTab) { group.hidden = true; return; }
 
-    // カテゴリタブ選択時・検索ヒット時は強制展開
-    // （toggle リスナーが grouped モード以外では保存しないため open を変えても安全）
-    if (!isAll || (q && visible > 0)) group.open = true;
+    // カテゴリタブ選択時は強制展開
+    if (!isAll) group.open = true;
 
     // カード単位で検索フィルター
     let visible = 0;
@@ -232,6 +236,9 @@ function applyTuneFilter() {
 
     // 検索で全カードが非表示になったらグループごと隠す
     group.hidden = visible === 0;
+
+    // 「すべて」表示時: 開閉状態を復元（検索中はすべて展開）
+    if (isAll) group.open = q ? true : (savedStates[cat] !== false);
   });
 }
 
