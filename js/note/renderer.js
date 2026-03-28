@@ -15,9 +15,26 @@ const Renderer = {
   _filterTasks(tasks) {
     let result = tasks;
 
-    // テキスト検索
+    // テキスト検索（タイトル + リンク表示名・URL + テキスト内容）
     if (State.searchText) {
-      result = result.filter(t => t.title.includes(State.searchText));
+      const q = State.searchText.toLowerCase();
+      result = result.filter(t => {
+        if (t.title.toLowerCase().includes(q)) return true;
+        // エントリ検索（link: 表示名・URL、text: 内容）
+        return State.allEntries.some(e => {
+          if (e.task_id !== t.id) return false;
+          const f = State.fields.find(ff => ff.id === e.field_id);
+          if (!f) return false;
+          if (f.type === 'link') {
+            return (e.label && e.label.toLowerCase().includes(q)) ||
+                   (e.value && e.value.toLowerCase().includes(q));
+          }
+          if (f.type === 'text') {
+            return e.value && e.value.toLowerCase().includes(q);
+          }
+          return false;
+        });
+      });
     }
 
     // フィールドフィルタ

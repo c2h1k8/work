@@ -83,8 +83,12 @@ async function init() {
   // 初期描画
   renderPresets();
   renderLog();
-  resetTimer();
-  updateControlUI();
+
+  // タイマー状態の復元を試みる（タブ破棄からの復帰用）
+  if (!_restoreTimerState()) {
+    resetTimer();
+    updateControlUI();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);

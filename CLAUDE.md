@@ -46,7 +46,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `todo/` のアーキテクチャ: `state.js`（State + グローバルヘルパー）/ `backup.js`（Backup）/ `renderer.js`（Renderer）/ `dragdrop.js`（DragDrop）/ `app.js`（EventHandlers + App）。DB層は `js/db/kanban_db.js` の `KanbanDB` クラスに分離
 - `DatePicker` は `js/components/date_picker.js` に分離された再利用可能部品。CSS は `css/components/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
 - `LabelManager` は `js/components/label_manager.js` に分離されたラベル管理ダイアログ（共通部品）。CSS は `css/components/label_manager.{less,css}`。HTML は初回 `LabelManager.open()` 時に自動生成・挿入される。API: `LabelManager.open({ title, labels: [{id,name,color}], onAdd, onUpdate, onDelete, onChange })`。重複名チェック（追加・リネーム両方）は LabelManager 内で処理し `Toast.show` で通知（Toast が存在する場合）。Enter キーは `isComposing` チェックで IME 変換中を無視。
-- `ShortcutHelp` は `js/components/shortcut_help.js` に分離されたショートカットキー一覧モーダル（共通部品）。CSS は `css/components/shortcut_help.{less,css}`。HTML は初回 `ShortcutHelp.show()` 時に自動生成・挿入（自己挿入型）。API: `ShortcutHelp.register(categories)` でページ固有ショートカットを登録（`[{ name: 'カテゴリ名', shortcuts: [{ keys: ['Ctrl', 'K'], description: '説明' }] }]` 形式）。`?` キーで表示、Escape/オーバーレイで閉じる。Mac では `Ctrl` → `⌘` に自動変換。input/textarea/select/contenteditable にフォーカス中は `?` キーを無視。全ページ（index/todo/note/sql/wbs/timer/snippet/dashboard/diff_tool/ops/text）で読み込む。z-index: 500
+- `ShortcutHelp` は `js/components/shortcut_help.js` に分離されたショートカットキー一覧モーダル（共通部品）。CSS は `css/components/shortcut_help.{less,css}`。HTML は初回 `ShortcutHelp.show()` 時に自動生成・挿入（自己挿入型）。API: `ShortcutHelp.register(categories)` でページ固有ショートカットを登録（`[{ name: 'カテゴリ名', shortcuts: [{ keys: ['Ctrl', 'K'], description: '説明' }] }]` 形式）。`?` キーで表示、Escape/オーバーレイで閉じる。Mac では `Ctrl` → `⌘` に自動変換。input/textarea/select/contenteditable にフォーカス中は `?` キーを無視。全ページ（index/todo/note/sql/wbs/timer/snippet/dashboard/diff_tool/ops/text）で読み込む。z-index: 500。親フレームから `register-parent-shortcuts` メッセージでナビゲーションショートカット定義を事前登録（iframe 内で `?` を押した際にも表示される）
 - `BindVarModal` は `js/components/bind_var_modal.js` に分離されたバインド変数 + プリセット管理モーダル（共通部品）。CSS は `css/components/bind_var_modal.{less,css}`。HTML は初回 `BindVarModal.open()` 時に自動生成・挿入される。API: `BindVarModal.open({ title, varNames, presets, showBarConfig, uiType, barLabel, onAddVar, onRemoveVar, onSaveBarConfig, onAddPreset, onUpdatePreset, onDeletePreset, onMovePresetUp, onMovePresetDown, onChange })` / `BindVarModal.close()`。2カラムレイアウト（左: 変数定義 + バー設定、右: プリセット一覧/編集）。dashboard.js の共通バインド変数設定・テーブルバインド変数設定で使用。
 - `CustomSelect` は `js/components/custom_select.js` に分離されたカスタム select コンポーネント。CSS は `css/components/custom_select.{less,css}`。ネイティブ `<select>` に `cs-target` クラスを付与し `CustomSelect.replaceAll(container)` で一括置換。サイズ: `kn-select--sm` / 幅拡張: `kn-select--grow`。動的生成 HTML の場合は `innerHTML` 設定後に `replaceAll(container)` を呼ぶ。`create()` 後は `selectEl._csInst` にインスタンス参照が保持されるため、オプション変更後は `selectEl._csInst.render()` で表示を更新できる。CSS 変数は `--c-*` トークンを直接参照（ページ固有エイリアス不要）。**`<option data-color="#hex">` を付与すると色が自動反映される。** トリガー（選択中）: `.cs-color-badge`（カラーバッジチップ、色背景＋白文字）。ドロップダウン内アイテム: `.cs-swatch`（11px角丸スクエア、`--cs-swatch-color` CSS変数で色指定、影付き）。選択中アイテムはスウォッチにリングを付与し、既存の選択ドット（`::before`）は非表示（`:has` で制御）。 使用ページ: `index.html` / `pages/todo.html` / `pages/sql.html` / `pages/note.html` / `pages/dashboard.html`
 - `js/todo/state.js` のグローバルヘルパー: `getColumnKeys()` / `sortTasksArray()` / `markDirty()` / `applyFilter()` / `renderFilterLabels()` / `renderTextWithLinks()` / `_resetMdEditor(editor)`
@@ -181,7 +181,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - ナビバーに `#global-search-input` 検索バーを常時表示（`Ctrl+K` / `Cmd+K` でフォーカス）
 - 入力 debounce（300ms）後に全 iframe へ `postMessage({ type: 'global-search', query, searchId })` を送信
 - 各ページは受信後に自ページの IndexedDB を検索し `parent.postMessage({ type: 'global-search-result', searchId, page, pageSrc, results })` で返信
-- 検索対象: `kanban_db.tasks`（title/description）/ `note_db.tasks`（title）/ `snippet_db.snippets`（title/description/code）
+- 検索対象: `kanban_db.tasks`（title/description）/ `note_db.tasks`（title）+ `entries`（link: label/value、text: value）/ `snippet_db.snippets`（title/description/code）
 - index.js が全結果を集約してページ別グループドロップダウンに描画（各グループ最大10件）
 - 結果クリック → タブ切替 + `postMessage({ type: 'global-search-focus', targetId })` を送信
 - 各ページは focus メッセージを受けてモーダル/詳細を開く
@@ -321,7 +321,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `EventHandlers._refreshDetailMeta(task)`: 詳細パネルの `.note-detail__meta` をインプレース更新（再レンダリング不要）
 - フィールド名変更: フィールド管理モーダルのフィールド名をクリックしてインライン編集可能。`_onEditFieldName(btn, db)` で処理
 - `Renderer.renderFilterUI()`: `listVisible=true` な select/label フィールドのフィルター UI を動的生成
-- `Renderer._sortTasks()` / `Renderer._filterTasks()`: ソート・フィルター処理
+- `Renderer._sortTasks()` / `Renderer._filterTasks()`: ソート・フィルター処理。テキスト検索はタイトルに加え、リンク表示名・URL・テキスト内容も対象
 - `Renderer._renderFieldBadge()`: フィールドタイプ別バッジ HTML 生成
 - CSS: `note.less` に `:root { --color-card, --color-border, ... }` を追加（DatePicker が参照）
 - モジュール構成: `NoteDB`（`js/db/note_db.js`）/ `state.js` / `renderer.js` / `events.js` / `app.js`（`js/note/` 配下に分割）
@@ -379,6 +379,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - アクティブプリセットID: localStorage `timer_active_preset` に永続化
 - 通知: Web Notifications API + AudioContext ビープ音
 - タイマーカウントダウンは Blob インライン Web Worker で実行（バックグラウンドタブでもスロットリングされず正確に発火）。`_createTimerWorker()`（`state.js`）で生成、`setupEvents()`（`events.js`）で `onmessage` を登録。Worker 内も壁時計時間ベース。`file://` 等 Worker 非対応環境では `setInterval` + 壁時計時間フォールバック
+- **タイマー状態永続化**: タイマーの実行状態（残り時間・モード・タスク名・タグ等）を localStorage `timer_running_state` に毎秒保存。ブラウザのタブ破棄（Memory Saver）やページリロード時に `_restoreTimerState()` で復元。経過時間は壁時計時間ベースで補正。タイマーが破棄中に完了していた場合は `onPhaseEnd()` を実行
 - デフォルトプリセット: ポモドーロ（25/5）/ 短いポモドーロ（15/3）/ 長い集中（50/10）
 
 ## ops/ アーキテクチャ（2026-03現在）
@@ -402,6 +403,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 - ファイル構成: `js/index/constants.js`（TAB_ITEMS・ICON_PALETTE）/ `db.js`（AppDB）/ `theme.js`（テーマ切替）/ `shell.js`（シェル・ナビ・ビューポート）/ `search.js`（グローバル検索）/ `backup.js`（一括バックアップ）/ `settings.js`（タブ設定パネル）/ `app.js`（App初期化）
 - CSS: `css/index.less`（エントリポイント）+ `css/index/_variables.less` / `_shell.less` / `_viewport.less` / `_settings.less` / `_search.less`（パーシャル）
+- **iframe ショートカット転送**: `_attachIframeShortcuts(frame)`（`shell.js`）で各 iframe の `contentDocument` に keydown リスナーを付与。iframe にフォーカスがあっても Ctrl+K / Ctrl+1-9 / Ctrl+, / Ctrl+Shift+E が親フレーム側で処理され `e.preventDefault()` でブラウザデフォルト動作を抑制。iframe load 時に `register-parent-shortcuts` メッセージでナビゲーションショートカット定義も送信
 
 ## 注意事項
 

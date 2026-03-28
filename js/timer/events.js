@@ -95,6 +95,85 @@ function flashTimerCard() {
 }
 
 // ==================================================
+// タイマー状態永続化（タブ破棄・リロード時の復元用）
+// ==================================================
+
+/** タイマーの実行状態を localStorage に保存する */
+function _saveTimerState() {
+  saveToStorage(TIMER_RUNNING_STATE_KEY, JSON.stringify({
+    activePresetId: State.activePresetId,
+    mode: State.mode,
+    remaining: State.remaining,
+    total: State.total,
+    running: State.running,
+    taskName: State.taskName,
+    tag: State.tag,
+    sessionStartTime: State.sessionStartTime,
+    savedAt: Date.now(),
+  }));
+}
+
+/** 保存済みタイマー状態をクリアする */
+function _clearTimerState() {
+  localStorage.removeItem(TIMER_RUNNING_STATE_KEY);
+}
+
+/**
+ * タイマーの実行状態を localStorage から復元する。
+ * タブ破棄からの復帰時に呼ばれる。復元した場合は true を返す。
+ */
+function _restoreTimerState() {
+  const raw = loadFromStorage(TIMER_RUNNING_STATE_KEY);
+  if (!raw) return false;
+  _clearTimerState();
+
+  let data;
+  try { data = JSON.parse(raw); } catch (_) { return false; }
+  if (!data?.savedAt) return false;
+
+  // プリセットが変わっていたら復元しない
+  if (data.activePresetId !== State.activePresetId) return false;
+
+  // 完全にリセットされた状態（remaining === total で停止中）なら復元不要
+  if (!data.running && data.remaining === data.total) return false;
+
+  State.mode = data.mode || 'work';
+  State.total = data.total || 0;
+  State.sessionStartTime = data.sessionStartTime || null;
+  State.taskName = data.taskName || '';
+  State.tag = data.tag || '';
+
+  // UI にタスク名・タグを反映
+  const taskInput = document.getElementById('timer-task-name');
+  const tagInput = document.getElementById('timer-tag');
+  if (taskInput) taskInput.value = State.taskName;
+  if (tagInput) tagInput.value = State.tag;
+
+  if (data.running) {
+    // 経過時間を計算して残り時間を補正
+    const elapsed = Math.floor((Date.now() - data.savedAt) / 1000);
+    State.remaining = Math.max(0, data.remaining - elapsed);
+
+    if (State.remaining > 0) {
+      updateTimerUI();
+      startTimer();
+    } else {
+      // タイマーが完了していた → フェーズ終了処理
+      State.remaining = 0;
+      updateTimerUI();
+      onPhaseEnd();
+    }
+  } else {
+    // 一時停止中だった
+    State.remaining = data.remaining;
+    updateTimerUI();
+    updateControlUI();
+  }
+
+  return true;
+}
+
+// ==================================================
 // タイマーロジック
 // ==================================================
 
@@ -113,6 +192,7 @@ function resetTimer() {
   State.sessionStartTime = null;
   updateTimerUI();
   document.title = '定型作業タイマー';
+  _clearTimerState();
 }
 
 /** タイマーを開始 */
@@ -144,11 +224,13 @@ function startTimer() {
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       State.remaining = Math.max(0, startRemaining - elapsed);
       updateTimerUI();
+      _saveTimerState();
       if (State.remaining <= 0) onPhaseEnd();
     }, 1000);
   }
 
   updateControlUI();
+  _saveTimerState();
 }
 
 /** タイマーを一時停止 */
@@ -156,6 +238,7 @@ function pauseTimer() {
   if (!State.running) return;
   stopTimer();
   updateControlUI();
+  _saveTimerState();
 }
 
 /** タイマーを停止 */
@@ -200,6 +283,7 @@ async function onPhaseEnd() {
   updateTimerUI();
   updateControlUI();
   document.title = '定型作業タイマー';
+  _saveTimerState();
 }
 
 /** 次のフェーズにスキップ */
@@ -218,6 +302,7 @@ async function skipPhase() {
   State.sessionStartTime = null;
   updateTimerUI();
   updateControlUI();
+  _saveTimerState();
 }
 
 /** 作業セッションをDBに保存 */
@@ -483,6 +568,7 @@ function setupEvents() {
       if (!State.running) return;
       State.remaining = e.data.remaining;
       updateTimerUI();
+      _saveTimerState();
       if (State.remaining <= 0) onPhaseEnd();
     };
   }
@@ -524,6 +610,18 @@ function setupEvents() {
         renderPresets();
       }
       return;
+    }
+  });
+
+  // ページ非表示・アンロード時にタイマー状態を保存（タブ破棄対策）
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && (State.running || State.remaining !== State.total)) {
+      _saveTimerState();
+    }
+  });
+  window.addEventListener('beforeunload', () => {
+    if (State.running || State.remaining !== State.total) {
+      _saveTimerState();
     }
   });
 

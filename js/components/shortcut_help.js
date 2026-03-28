@@ -114,8 +114,12 @@ const ShortcutHelp = (() => {
     }
   });
 
-  // 親フレームからの show/hide-shortcut-help メッセージを受信
+  // 親フレームからのメッセージを受信
   window.addEventListener('message', (e) => {
+    // ナビゲーションショートカット定義の事前登録（?キー一覧表示用）
+    if (e.data?.type === 'register-parent-shortcuts') {
+      _parentCategories = e.data.categories || [];
+    }
     if (e.data?.type === 'show-shortcut-help') {
       _parentCategories = e.data.categories || [];
       ShortcutHelp.show();

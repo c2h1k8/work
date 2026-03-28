@@ -884,12 +884,21 @@ const EventHandlers = {
     await db.updateTask(taskId, { due_date: dateStr });
     markDirty();
 
-    // タスクキャッシュ更新
+    // タスクキャッシュ更新 + 再描画
     for (const col of getColumnKeys()) {
       const idx = (State.tasks[col] || []).findIndex(t => t.id === taskId);
-      if (idx !== -1) { State.tasks[col][idx].due_date = dateStr; break; }
+      if (idx !== -1) {
+        State.tasks[col][idx].due_date = dateStr;
+        // ソートが期限日順の場合はカラム再描画で並び順を更新
+        if (State.sort.field === 'due_date') {
+          await Renderer.renderColumn(col, State.tasks[col], db);
+          applyFilter();
+        } else {
+          await Renderer.refreshCard(taskId, db);
+        }
+        break;
+      }
     }
-    await Renderer.refreshCard(taskId, db);
     // 作業履歴（非同期、失敗してもUIに影響しない）
     if (oldDue !== dateStr) {
       try {

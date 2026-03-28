@@ -138,7 +138,68 @@ function _createIframe(label, pageSrc) {
   frame.className = "tab-frame";
   frame.title = label;
   frame.setAttribute("role", "tabpanel");
+  _attachIframeShortcuts(frame);
   return frame;
+}
+
+/**
+ * iframe 内のキーイベントを親フレームのナビゲーションショートカットにバインドする。
+ * iframe にフォーカスがあると親の keydown が発火しないため、
+ * contentDocument に直接リスナーを付けて補完する。
+ */
+function _attachIframeShortcuts(frame) {
+  frame.addEventListener('load', () => {
+    try {
+      const doc = frame.contentDocument;
+      if (!doc) return;
+
+      doc.addEventListener('keydown', (e) => {
+        // Ctrl+K / Cmd+K: グローバル検索にフォーカス
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          const input = document.getElementById('global-search-input');
+          if (input) { input.focus(); input.select(); }
+          return;
+        }
+        // Ctrl+1~9: タブ N に切替
+        if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '9') {
+          e.preventDefault();
+          const tabs = document.querySelectorAll('.tab-btn');
+          const idx = parseInt(e.key, 10) - 1;
+          if (idx < tabs.length) {
+            const tabId = tabs[idx].htmlFor;
+            activateTab(tabId);
+            saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, tabId);
+          }
+          return;
+        }
+        // Ctrl+,: 設定パネル開閉
+        if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+          e.preventDefault();
+          const overlay = document.getElementById('settings-overlay');
+          if (overlay && !overlay.hidden) closeSettings();
+          else openSettings();
+          return;
+        }
+        // Ctrl+Shift+E: 全データ一括バックアップ
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
+          e.preventDefault();
+          if (typeof backupAllData === 'function') backupAllData();
+          return;
+        }
+      });
+
+      // ナビゲーションショートカット定義を iframe に送信（?キーの一覧表示用）
+      if (typeof _navShortcutCategories !== 'undefined' && _navShortcutCategories.length) {
+        frame.contentWindow.postMessage({
+          type: 'register-parent-shortcuts',
+          categories: _navShortcutCategories,
+        }, '*');
+      }
+    } catch (_) {
+      // cross-origin iframe（カスタムURLタブ等）の場合は無視
+    }
+  });
 }
 
 // ==================================================

@@ -10,8 +10,9 @@ const showSuccess = (msg) => Toast.success(msg);
 const showError = (msg) => Toast.error(msg);
 
 // ローカルストレージキー
-const TIMER_ACTIVE_PRESET_KEY = 'timer_active_preset';
-const TIMER_HISTORY_VIEW_KEY  = 'timer_history_view';
+const TIMER_ACTIVE_PRESET_KEY  = 'timer_active_preset';
+const TIMER_HISTORY_VIEW_KEY   = 'timer_history_view';
+const TIMER_RUNNING_STATE_KEY  = 'timer_running_state';
 
 // タイマー状態
 const State = {

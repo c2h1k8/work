@@ -767,12 +767,14 @@ const EventHandlers = {
         }
       },
       onReorder: async (newLabels) => {
-        // ラベル/選択肢の並び順を DB に保存し、詳細パネルを即時更新
+        // ラベル/選択肢の並び順を DB に保存し、全UIを即時更新
         field.options = newLabels.map(l => ({ name: l.name, color: l.color }));
         await db.updateField(field);
         if (State.selectedTaskId) {
           await Renderer.renderDetail();
         }
+        Renderer.renderFilterUI();
+        Renderer.renderTaskList();
       },
       onChange: async () => {
         State.fields = await db.getAllFields();

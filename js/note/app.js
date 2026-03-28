@@ -135,16 +135,47 @@ window.addEventListener('message', async (e) => {
     });
     if (!db) { parent.postMessage({ type: 'global-search-result', searchId, page: 'ノート', pageSrc: 'pages/note.html', results: [] }, '*'); return; }
 
+    const tx = db.transaction(['tasks', 'entries', 'fields']);
     const tasks = await new Promise((res) => {
-      const req = db.transaction('tasks').objectStore('tasks').getAll();
+      const req = tx.objectStore('tasks').getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => res([]);
+    });
+    const entries = await new Promise((res) => {
+      const req = tx.objectStore('entries').getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => res([]);
+    });
+    const fields = await new Promise((res) => {
+      const req = tx.objectStore('fields').getAll();
       req.onsuccess = () => res(req.result);
       req.onerror = () => res([]);
     });
     db.close();
 
+    // フィールドタイプのルックアップ
+    const fieldTypeMap = {};
+    fields.forEach(f => { fieldTypeMap[f.id] = f.type; });
+
     const q = query.toLowerCase();
+    // タスクIDごとにマッチしたエントリ情報を収集
+    const entryMatchMap = {};
+    for (const e of entries) {
+      const ft = fieldTypeMap[e.field_id];
+      if (ft === 'link') {
+        if ((e.label && e.label.toLowerCase().includes(q)) ||
+            (e.value && e.value.toLowerCase().includes(q))) {
+          entryMatchMap[e.task_id] = true;
+        }
+      } else if (ft === 'text') {
+        if (e.value && e.value.toLowerCase().includes(q)) {
+          entryMatchMap[e.task_id] = true;
+        }
+      }
+    }
+
     const results = tasks
-      .filter(t => t.title?.toLowerCase().includes(q))
+      .filter(t => t.title?.toLowerCase().includes(q) || entryMatchMap[t.id])
       .slice(0, 10)
       .map(t => ({ id: t.id, title: t.title || '' }));
 
