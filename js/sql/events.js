@@ -216,8 +216,10 @@ function applyTuneFilter() {
     // カテゴリタブ選択時: 一致しないグループは非表示
     if (!isAll && cat !== _tuneTab) { group.hidden = true; return; }
 
-    // カテゴリタブ選択時は強制展開
-    if (!isAll) group.open = true;
+    // カテゴリタブ・検索時は open 属性を変えずに CSS クラスで強制展開
+    // （open を直接変えると toggle イベントが発火して localStorage が上書きされるため）
+    const forceOpen = !isAll || !!q;
+    group.classList.toggle("tune-group--force-open", forceOpen);
 
     // カード単位で検索フィルター
     let visible = 0;
@@ -229,9 +231,8 @@ function applyTuneFilter() {
       if (show) visible++;
     });
 
-    // 検索で全カードが非表示になったらグループごと隠す（検索時は自動展開）
+    // 検索で全カードが非表示になったらグループごと隠す
     group.hidden = visible === 0;
-    if (q && visible > 0) group.open = true;
   });
 }
 

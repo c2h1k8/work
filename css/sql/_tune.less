@@ -44,6 +44,12 @@
   & > summary { list-style: none; }
   & > summary::-webkit-details-marker { display: none; }
 
+  // カテゴリタブ・検索時に open 属性を変えずにカードを表示
+  // （open を変えると toggle が発火して localStorage の開閉状態が消えるため）
+  &--force-open > .tune-group__cards {
+    display: grid !important;
+  }
+
   // グループ間の区切り線（「すべて」表示時のみ）
   .tune-grid--grouped & + & > .tune-group__header {
     border-top: 1px solid var(--color-border);
