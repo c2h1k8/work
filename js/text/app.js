@@ -28,6 +28,23 @@ function _copyActiveResult() {
 }
 
 function init() {
+  // ━━━ 保存された状態を復元 ━━━
+  switchSection(State.activeSection);
+
+  // エンコード方向ボタンの表示を復元
+  document.querySelectorAll('.encode-dir-btn').forEach(b =>
+    b.classList.toggle('encode-dir-btn--active', b.dataset.dir === State.encodeDir)
+  );
+
+  // TSV 区切り文字ボタンの表示を復元
+  const savedDelimKey = _DELIM_KEY_MAP[State.tsv.delimiter] || 'tab';
+  document.querySelectorAll('.tsv-delim-btn').forEach(b =>
+    b.classList.toggle('tsv-delim-btn--active', b.dataset.delim === savedDelimKey)
+  );
+
+  // TSV ヘッダーチェックボックスを復元
+  document.getElementById('tsv-has-header').checked = State.tsv.hasHeader;
+
   // ━━━ タブ切替 ━━━
   document.getElementById('txt-tabs').addEventListener('click', e => {
     const btn = e.target.closest('.txt-tab');
@@ -40,6 +57,7 @@ function init() {
     const btn = e.target.closest('.encode-dir-btn');
     if (!btn) return;
     State.encodeDir = btn.dataset.dir;
+    saveToStorage('text_encode_dir', State.encodeDir);
     document.querySelectorAll('.encode-dir-btn').forEach(b =>
       b.classList.toggle('encode-dir-btn--active', b.dataset.dir === State.encodeDir)
     );
@@ -132,14 +150,15 @@ function init() {
   document.getElementById('tsv-delim-bar').addEventListener('click', e => {
     const btn = e.target.closest('.tsv-delim-btn');
     if (!btn) return;
-    const delimMap = { tab: '\t', comma: ',', pipe: '|' };
-    State.tsv.delimiter = delimMap[btn.dataset.delim] || '\t';
+    State.tsv.delimiter = _DELIM_VAL_MAP[btn.dataset.delim] || '\t';
+    saveToStorage('text_tsv_delimiter', btn.dataset.delim);
     document.querySelectorAll('.tsv-delim-btn').forEach(b =>
       b.classList.toggle('tsv-delim-btn--active', b.dataset.delim === btn.dataset.delim)
     );
   });
   document.getElementById('tsv-has-header').addEventListener('change', e => {
     State.tsv.hasHeader = e.target.checked;
+    saveToStorage('text_tsv_has_header', State.tsv.hasHeader);
     if (State.tsv.data.length > 0) renderTsvTable();
   });
   document.getElementById('tsv-parse-btn').addEventListener('click', parseTsvInput);

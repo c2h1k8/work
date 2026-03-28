@@ -12,13 +12,17 @@ const showError = (msg) => Toast.error(msg);
 // 状態管理
 // ==================================================
 
+/** TSV 区切り文字のキーマップ */
+const _DELIM_KEY_MAP = { '\t': 'tab', ',': 'comma', '|': 'pipe' };
+const _DELIM_VAL_MAP = { tab: '\t', comma: ',', pipe: '|' };
+
 const State = {
-  activeSection: 'encode',
-  encodeDir: 'encode', // 'encode' | 'decode'
+  activeSection: loadFromStorage('text_active_section') || 'encode',
+  encodeDir: loadFromStorage('text_encode_dir') || 'encode', // 'encode' | 'decode'
   regexFlags: { g: true, i: false, m: false, s: false, u: false },
   tsv: {
-    delimiter: '\t', // 現在の区切り文字
-    hasHeader: true,
+    delimiter: _DELIM_VAL_MAP[loadFromStorage('text_tsv_delimiter')] || '\t', // 現在の区切り文字
+    hasHeader: loadFromStorage('text_tsv_has_header') !== 'false',
     data: [],        // string[][] - テーブルデータ
   },
   _timestampTimer: null,
@@ -32,6 +36,7 @@ const State = {
 
 function switchSection(tool) {
   State.activeSection = tool;
+  saveToStorage('text_active_section', tool);
   document.querySelectorAll('.txt-tab').forEach(btn => {
     btn.classList.toggle('txt-tab--active', btn.dataset.tool === tool);
   });

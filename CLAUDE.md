@@ -32,6 +32,15 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `sql/`: テーブル定義メモパネルの開閉状態 → `localStorage("sql_memo_open")`（ブラウザ固有）
 - `dashboard/`: セクション・アイテムデータ → IndexedDB (`dashboard_db`)
 - `dashboard/`: URL コマンド履歴 → `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
+- `ops/`: アクティブセクション → `localStorage("ops_active_section")`（ブラウザ固有）
+- `ops/`: cron TZ 切替 → `localStorage("ops_cron_tz")`（ブラウザ固有）
+- `ops/`: ポートフィルタータブ → `localStorage("ops_ports_filter")`（ブラウザ固有）
+- `ops/`: HTTP スターフィルター → `localStorage("ops_http_star_only")`（ブラウザ固有）
+- `ops/`: HTTP アコーディオン開閉 → `localStorage("ops_http_open_cats")`（ブラウザ固有）
+- `text/`: アクティブセクション → `localStorage("text_active_section")`（ブラウザ固有）
+- `text/`: エンコード方向 → `localStorage("text_encode_dir")`（ブラウザ固有）
+- `text/`: TSV 区切り文字 → `localStorage("text_tsv_delimiter")`（ブラウザ固有）
+- `text/`: TSV ヘッダー有無 → `localStorage("text_tsv_has_header")`（ブラウザ固有）
 
 ### JavaScript
 

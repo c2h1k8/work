@@ -8,6 +8,26 @@
 // ==================================================
 
 function init() {
+  // ── 保存された状態を復元 ────────────────────────
+  switchSection(State.activeSection);
+
+  // cron TZ ボタンの表示を復元
+  document.querySelectorAll('.cron-tz-btn').forEach(b => {
+    b.classList.toggle('cron-tz-btn--active', b.dataset.tz === State.cronTz);
+  });
+
+  // ポートフィルタータブの表示を復元
+  document.querySelectorAll('.ops-filter-tab').forEach(b => {
+    b.classList.toggle('ops-filter-tab--active', b.dataset.filter === State.portsFilter);
+  });
+
+  // HTTP スターフィルターの表示を復元
+  if (State.httpStarOnly) {
+    const starBtn = document.getElementById('http-star-toggle');
+    starBtn.setAttribute('aria-pressed', 'true');
+    starBtn.classList.add('http-star-btn--active');
+  }
+
   // ── タブ切替 ────────────────────────────────────
   document.getElementById('ops-tabs').addEventListener('click', e => {
     const btn = e.target.closest('.ops-tab');
@@ -87,6 +107,7 @@ function init() {
     const btn = e.target.closest('.cron-tz-btn');
     if (!btn) return;
     State.cronTz = btn.dataset.tz;
+    saveToStorage('ops_cron_tz', State.cronTz);
     document.querySelectorAll('.cron-tz-btn').forEach(b => {
       b.classList.toggle('cron-tz-btn--active', b.dataset.tz === State.cronTz);
     });
@@ -133,6 +154,7 @@ function init() {
 
   document.getElementById('http-star-toggle').addEventListener('click', e => {
     State.httpStarOnly = !State.httpStarOnly;
+    saveToStorage('ops_http_star_only', State.httpStarOnly);
     e.currentTarget.setAttribute('aria-pressed', State.httpStarOnly);
     e.currentTarget.classList.toggle('http-star-btn--active', State.httpStarOnly);
     renderHttpAccordion();
@@ -150,6 +172,7 @@ function init() {
       chev.classList.toggle('http-cat__chevron--open', isOpen);
       if (isOpen) State.httpOpenCats.add(cat);
       else        State.httpOpenCats.delete(cat);
+      _saveHttpOpenCats();
       return;
     }
     // コードコピー
@@ -174,6 +197,7 @@ function init() {
     const btn = e.target.closest('.ops-filter-tab');
     if (!btn) return;
     State.portsFilter = btn.dataset.filter;
+    saveToStorage('ops_ports_filter', State.portsFilter);
     document.querySelectorAll('.ops-filter-tab').forEach(b => {
       b.classList.toggle('ops-filter-tab--active', b === btn);
     });

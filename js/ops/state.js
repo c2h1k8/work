@@ -12,7 +12,7 @@ const showSuccess = (msg) => Toast.success(msg);
 const showError = (msg) => Toast.error(msg);
 
 const State = {
-  activeSection: 'log-viewer',
+  activeSection: loadFromStorage('ops_active_section') || 'log-viewer',
 
   // ログビューア
   logLines: [],
@@ -27,23 +27,35 @@ const State = {
   },
 
   // cron式エディタ
-  cronTz: 'UTC', // 'UTC' | 'JST'
+  cronTz: loadFromStorage('ops_cron_tz') || 'UTC', // 'UTC' | 'JST'
 
   // ポート番号
-  portsFilter:    'all',   // 'all' | 'builtin' | 'custom'
+  portsFilter:    loadFromStorage('ops_ports_filter') || 'all',   // 'all' | 'builtin' | 'custom'
   portsSearch:    '',
   customPorts:    [],      // IndexedDB から読み込んだカスタムポート
   portsEditingId: null,    // 編集中のカスタムポート ID
 
   // HTTP ステータス
   httpSearch:    '',
-  httpStarOnly:  false,
-  httpOpenCats:  new Set(['1xx','2xx','3xx','4xx','5xx']), // デフォルト全展開
+  httpStarOnly:  loadFromStorage('ops_http_star_only') === 'true',
+  httpOpenCats:  _loadHttpOpenCats(), // localStorage から復元
 
 };
 
+/** HTTP アコーディオン開閉状態を localStorage から復元 */
+function _loadHttpOpenCats() {
+  const saved = loadJsonFromStorage('ops_http_open_cats');
+  return saved ? new Set(saved) : new Set(['1xx','2xx','3xx','4xx','5xx']);
+}
+
+/** HTTP アコーディオン開閉状態を localStorage に保存 */
+function _saveHttpOpenCats() {
+  localStorage.setItem('ops_http_open_cats', JSON.stringify([...State.httpOpenCats]));
+}
+
 function switchSection(tool) {
   State.activeSection = tool;
+  saveToStorage('ops_active_section', tool);
 
   // タブの active を切り替え
   document.querySelectorAll('.ops-tab').forEach(btn => {
