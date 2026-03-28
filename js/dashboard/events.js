@@ -1085,7 +1085,6 @@ const EventHandlers = {
       m.hidden = true;
     });
     if (wasHidden) {
-      // position:fixed でカードの overflow:hidden をバイパス
       const btn = document.querySelector(
         `[data-action="toggle-table-col-menu"][data-section-id="${sectionId}"]`,
       );
@@ -1095,6 +1094,8 @@ const EventHandlers = {
         menu.style.right = `${window.innerWidth - rect.right}px`;
         menu.style.left = "auto";
       }
+      // body に移動して card の overflow:hidden + transform の影響を回避
+      document.body.appendChild(menu);
       menu.hidden = false;
     }
   },

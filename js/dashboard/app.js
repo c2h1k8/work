@@ -391,7 +391,10 @@ const App = {
 
     // テーブル列メニューの外クリックで閉じる
     document.addEventListener("click", (e) => {
-      if (!e.target.closest(".data-table-col-toggle-wrap")) {
+      if (
+        !e.target.closest(".data-table-col-toggle-wrap") &&
+        !e.target.closest(".data-table-col-menu")
+      ) {
         document.querySelectorAll(".data-table-col-menu").forEach((m) => {
           m.hidden = true;
         });
