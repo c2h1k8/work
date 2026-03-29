@@ -344,8 +344,11 @@ const EventHandlers = {
     const save = async () => {
       const newTitle = input.value.trim();
       if (newTitle && newTitle !== task.title) {
+        const oldTitle = task.title;
         task.title = newTitle;
         await db.updateTask(task).catch(console.error);
+        // タイトル変更を履歴に記録
+        await this._recordHistory(task.id, '__title__', oldTitle, newTitle);
         Renderer.renderTaskList();
       }
       restore(task.title);
@@ -1053,6 +1056,21 @@ const EventHandlers = {
     const linkId = Number(btn.dataset.linkId);
     try {
       const kanbanDb = await _openKanbanDB();
+      // 削除前にリンク先タスク名を取得（履歴用）
+      const linkRecord = await new Promise((resolve) => {
+        const req = kanbanDb.transaction('note_links').objectStore('note_links').get(linkId);
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = () => resolve(null);
+      });
+      let todoTitle = '';
+      if (linkRecord) {
+        const todoTask = await new Promise((resolve) => {
+          const req = kanbanDb.transaction('tasks').objectStore('tasks').get(linkRecord.todo_task_id);
+          req.onsuccess = e => resolve(e.target.result);
+          req.onerror = () => resolve(null);
+        });
+        todoTitle = todoTask ? todoTask.title : `ID: ${linkRecord.todo_task_id}`;
+      }
       await new Promise((resolve, reject) => {
         const req = kanbanDb.transaction('note_links', 'readwrite')
           .objectStore('note_links')
@@ -1061,6 +1079,10 @@ const EventHandlers = {
         req.onerror   = e => reject(e.target.error);
       });
       kanbanDb.close();
+      // 履歴に記録
+      if (todoTitle) {
+        await this._recordHistory(State.selectedTaskId, '__todo_link__', todoTitle, '');
+      }
       await Renderer.renderTodoLinks(State.selectedTaskId);
     } catch (e) {
       showError('紐づき解除に失敗しました');
@@ -1131,8 +1153,16 @@ const EventHandlers = {
     const noteTaskId = State.selectedTaskId;
     if (!todoTaskId || !noteTaskId) return;
 
+    let todoTitle = '';
     try {
       const kanbanDb = await _openKanbanDB();
+      // リンク先タスク名を取得（履歴用）
+      const todoTask = await new Promise((resolve) => {
+        const req = kanbanDb.transaction('tasks').objectStore('tasks').get(todoTaskId);
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror = () => resolve(null);
+      });
+      todoTitle = todoTask ? todoTask.title : `ID: ${todoTaskId}`;
       await new Promise((resolve, reject) => {
         const record = { todo_task_id: todoTaskId, note_task_id: noteTaskId };
         const tx  = kanbanDb.transaction('note_links', 'readwrite');
@@ -1146,6 +1176,8 @@ const EventHandlers = {
       return;
     }
 
+    // 履歴に記録
+    await this._recordHistory(noteTaskId, '__todo_link__', '', todoTitle);
     _closeTodoPicker();
     await Renderer.renderTodoLinks(noteTaskId);
   },
@@ -1201,6 +1233,10 @@ const EventHandlers = {
       showError('このノートは既にリンクされています');
       return;
     }
+    // 履歴に記録
+    const targetTask = State.tasks.find(t => t.id === targetId);
+    const targetTitle = targetTask ? targetTask.title : `ID: ${targetId}`;
+    await this._recordHistory(currentId, '__note_link__', '', targetTitle);
     _closeNotePicker();
     await Renderer.renderNoteLinks(currentId);
   },
@@ -1221,7 +1257,20 @@ const EventHandlers = {
   /** ノートリンクを解除 */
   async _onRemoveNoteLink(btn) {
     const linkId = Number(btn.dataset.linkId);
+    // 削除前にリンク先タスク名を取得（履歴用）
+    const links = await NoteDB.getNoteLinks(State.selectedTaskId);
+    const targetLink = links.find(l => l.id === linkId);
+    let targetTitle = '';
+    if (targetLink) {
+      const linkedId = targetLink.from_task_id === State.selectedTaskId ? targetLink.to_task_id : targetLink.from_task_id;
+      const linkedTask = State.tasks.find(t => t.id === linkedId);
+      targetTitle = linkedTask ? linkedTask.title : `ID: ${linkedId}`;
+    }
     await NoteDB.deleteNoteLink(linkId);
+    // 履歴に記録
+    if (targetTitle) {
+      await this._recordHistory(State.selectedTaskId, '__note_link__', targetTitle, '');
+    }
     await Renderer.renderNoteLinks(State.selectedTaskId);
   },
 
@@ -1249,8 +1298,9 @@ const EventHandlers = {
       return;
     }
 
-    // フィールド名マップ
+    // フィールド名マップ（特殊フィールド含む）
     const fieldMap = new Map(State.fields.map(f => [f.id, f.name]));
+    const specialFieldNames = { '__title__': 'タイトル', '__todo_link__': 'TODOリンク', '__note_link__': '関連ノート' };
 
     // 日付ごとにグループ化
     const groups = new Map();
@@ -1265,18 +1315,30 @@ const EventHandlers = {
       html += `<div class="note-history-date">${_esc(date)}</div>`;
       for (const h of items) {
         const time = new Date(h.changed_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-        const fieldName = fieldMap.has(h.field_id) ? _esc(fieldMap.get(h.field_id)) : '<span class="note-history-deleted">（削除済み）</span>';
-        const oldVal = h.old_value ? _esc(h.old_value.length > 80 ? h.old_value.slice(0, 80) + '…' : h.old_value) : '<span class="note-history-empty">（空）</span>';
-        const newVal = h.new_value ? _esc(h.new_value.length > 80 ? h.new_value.slice(0, 80) + '…' : h.new_value) : '<span class="note-history-empty">（空）</span>';
+        const fieldName = specialFieldNames[h.field_id]
+          ? specialFieldNames[h.field_id]
+          : fieldMap.has(h.field_id) ? _esc(fieldMap.get(h.field_id)) : '<span class="note-history-deleted">（削除済み）</span>';
+        const _truncEsc = (v) => _esc(v.length > 80 ? v.slice(0, 80) + '…' : v);
+
+        // 追加/削除（old_value か new_value の片方のみ）は ＋/－ 形式で表示
+        let changeHtml;
+        if (!h.old_value && h.new_value) {
+          changeHtml = `<span class="note-history-item__add">＋ ${_truncEsc(h.new_value)}</span>`;
+        } else if (h.old_value && !h.new_value) {
+          changeHtml = `<span class="note-history-item__remove">－ ${_truncEsc(h.old_value)}</span>`;
+        } else {
+          const oldVal = h.old_value ? _truncEsc(h.old_value) : '<span class="note-history-empty">（空）</span>';
+          const newVal = h.new_value ? _truncEsc(h.new_value) : '<span class="note-history-empty">（空）</span>';
+          changeHtml = `
+            <span class="note-history-item__old">${oldVal}</span>
+            <span class="note-history-item__arrow">→</span>
+            <span class="note-history-item__new">${newVal}</span>`;
+        }
         html += `
           <div class="note-history-item">
             <span class="note-history-item__time">${time}</span>
             <span class="note-history-item__field">${fieldName}</span>
-            <div class="note-history-item__change">
-              <span class="note-history-item__old">${oldVal}</span>
-              <span class="note-history-item__arrow">→</span>
-              <span class="note-history-item__new">${newVal}</span>
-            </div>
+            <div class="note-history-item__change">${changeHtml}</div>
           </div>`;
       }
     }

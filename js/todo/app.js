@@ -154,6 +154,24 @@ const EventHandlers = {
       this._dispatch(item.dataset.action, item, db);
     });
 
+    // インライン追加フォームのキーイベント
+    document.getElementById('board').addEventListener('keydown', (e) => {
+      const input = e.target.closest('.column__add-input');
+      if (!input) return;
+      if (e.isComposing) return;
+      const form = input.closest('.column__add-form');
+      const column = form?.dataset.column;
+      if (!column) return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const confirmBtn = form.querySelector('[data-action="confirm-add-task"]');
+        if (confirmBtn) this._dispatch('confirm-add-task', confirmBtn, db);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        this._hideAddForm(column);
+      }
+    });
+
     // アーカイブ検索入力
     document.getElementById('archive-search-input')?.addEventListener('input', (e) => {
       this._onArchiveSearch(e.target.value, db);
@@ -267,6 +285,8 @@ const EventHandlers = {
       case 'save-as-template':     this._onSaveAsTemplate(db).catch(console.error); break;
       case 'use-template':         this._onUseTemplate(btn, db).catch(console.error); break;
       case 'skip-template':        this._onSkipTemplate(btn, db).catch(console.error); break;
+      case 'confirm-add-task':     this._onConfirmAddTask(btn, db).catch(console.error); break;
+      case 'cancel-add-task':      this._onCancelAddTask(btn); break;
       // アーカイブ
       case 'open-archive-modal':  this._onOpenArchiveModal(db).catch(console.error); break;
       case 'close-archive-modal': this._closeArchiveModal(); break;
@@ -275,7 +295,7 @@ const EventHandlers = {
     }
   },
 
-  /** タスク追加 */
+  /** タスク追加（インラインフォームを表示） */
   async _onAddTask(btn, db) {
     const column = btn.dataset.column;
 
@@ -286,7 +306,82 @@ const EventHandlers = {
       return;
     }
 
-    await this._createTaskInColumn(column, {}, db);
+    this._showAddForm(column);
+  },
+
+  /** インライン追加フォームを表示 */
+  _showAddForm(column, templateData) {
+    // 他のカラムのフォームを閉じる
+    document.querySelectorAll('.column__add-form:not([hidden])').forEach(f => {
+      f.setAttribute('hidden', '');
+      const col = f.dataset.column;
+      const btn = document.querySelector(`.column__add-btn[data-column="${col}"]`);
+      if (btn) btn.removeAttribute('hidden');
+    });
+
+    const form  = document.querySelector(`.column__add-form[data-column="${column}"]`);
+    const addBtn = document.querySelector(`.column__add-btn[data-column="${column}"]`);
+    if (!form) return;
+
+    // テンプレートデータを保持
+    if (templateData) {
+      form._templateData = templateData;
+    } else {
+      delete form._templateData;
+    }
+
+    form.removeAttribute('hidden');
+    if (addBtn) addBtn.setAttribute('hidden', '');
+
+    const input = form.querySelector('.column__add-input');
+    input.value = templateData?.title || '';
+    input.focus();
+  },
+
+  /** インライン追加フォームを非表示 */
+  _hideAddForm(column) {
+    const form = document.querySelector(`.column__add-form[data-column="${column}"]`);
+    const addBtn = document.querySelector(`.column__add-btn[data-column="${column}"]`);
+    if (form) {
+      form.setAttribute('hidden', '');
+      delete form._templateData;
+    }
+    if (addBtn) addBtn.removeAttribute('hidden');
+  },
+
+  /** インラインフォームの確定 */
+  async _onConfirmAddTask(btn, db) {
+    const column = btn.dataset.column;
+    const form = document.querySelector(`.column__add-form[data-column="${column}"]`);
+    if (!form) return;
+    const input = form.querySelector('.column__add-input');
+    const title = input.value.trim();
+    if (!title) {
+      input.focus();
+      return;
+    }
+
+    const templateData = form._templateData || {};
+    const data = { ...templateData, title };
+    const labelIds = templateData.label_ids || [];
+
+    this._hideAddForm(column);
+    const task = await this._createTaskInColumn(column, data, db);
+
+    // テンプレートのラベルを付与
+    if (labelIds.length > 0) {
+      for (const labelId of labelIds) {
+        await db.addTaskLabel(task.id, labelId).catch(() => {});
+        if (!State.taskLabels.has(task.id)) State.taskLabels.set(task.id, new Set());
+        State.taskLabels.get(task.id).add(labelId);
+      }
+    }
+  },
+
+  /** インラインフォームのキャンセル */
+  _onCancelAddTask(btn) {
+    const column = btn.dataset.column;
+    this._hideAddForm(column);
   },
 
   /** テンプレート選択ポップアップを表示 */
@@ -326,7 +421,7 @@ const EventHandlers = {
     picker.style.left = rect.left + 'px';
   },
 
-  /** テンプレートを使用してタスク作成 */
+  /** テンプレートを使用してタスク作成（インラインフォームを表示） */
   async _onUseTemplate(btn, db) {
     const tplId  = parseInt(btn.dataset.templateId, 10);
     const column = State._templatePickerColumn;
@@ -338,30 +433,22 @@ const EventHandlers = {
 
     // チェックリストの done をリセット
     const checklist = (tpl.checklist || []).map(c => ({ ...c, done: false }));
-    const data = {
+    const templateData = {
       title:       tpl.title       || '',
       description: tpl.description || '',
       checklist,
+      label_ids:   tpl.label_ids || [],
     };
-    const task = await this._createTaskInColumn(column, data, db);
-
-    // ラベルを付与
-    if (tpl.label_ids && tpl.label_ids.length > 0) {
-      for (const labelId of tpl.label_ids) {
-        await db.addTaskLabel(task.id, labelId).catch(() => {});
-        if (!State.taskLabels.has(task.id)) State.taskLabels.set(task.id, new Set());
-        State.taskLabels.get(task.id).add(labelId);
-      }
-    }
+    this._showAddForm(column, templateData);
   },
 
-  /** テンプレートをスキップして空白タスクを作成 */
+  /** テンプレートをスキップして空白タスクを作成（インラインフォームを表示） */
   async _onSkipTemplate(btn, db) {
     const column = State._templatePickerColumn;
     document.getElementById('template-picker').setAttribute('hidden', '');
     State._templatePickerColumn = null;
     if (!column) return;
-    await this._createTaskInColumn(column, {}, db);
+    this._showAddForm(column);
   },
 
   /** 指定カラムにタスクを作成してモーダルを開く共通処理 */
@@ -384,8 +471,6 @@ const EventHandlers = {
     try { await db.addActivity(task.id, 'task_create', {}); } catch (e) { console.error('活動履歴の記録に失敗:', e); }
     // アクティビティログに記録
     ActivityLogger.log('todo', 'create', 'task', task.id, `タスク「${task.title || '(無題)'}」を追加`);
-    // 新規作成フラグをセット（モーダルで最初に入力するタイトル・説明はアクティビティに記録しない）
-    State.newlyCreatedTaskId = task.id;
     // すぐモーダルを開く
     await Renderer.renderModal(task.id, db);
     return task;
@@ -957,8 +1042,7 @@ const EventHandlers = {
     }
     await Renderer.refreshCard(taskId, db);
     // 作業履歴（非同期、失敗してもUIに影響しない）
-    // 新規作成直後の初回編集はアクティビティに記録しない
-    if (oldTitle !== title && taskId !== State.newlyCreatedTaskId) {
+    if (oldTitle !== title) {
       try {
         await db.addActivity(taskId, 'title_change', { to: title });
         if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
@@ -998,8 +1082,7 @@ const EventHandlers = {
     descView.removeAttribute('hidden');
     if (descBtn) descBtn.removeAttribute('hidden');
     // 作業履歴（非同期、失敗してもUIに影響しない）
-    // 新規作成直後の初回編集・変更なしはアクティビティに記録しない
-    if (taskId !== State.newlyCreatedTaskId && description !== State._descriptionBeforeEdit) {
+    if (description !== State._descriptionBeforeEdit) {
       try {
         await db.addActivity(taskId, 'description_change', {});
         if (State.timelineFilter === 'all') await Renderer.renderComments(taskId, db);
@@ -1123,11 +1206,11 @@ const EventHandlers = {
       return;
     }
 
-    // N: 最初のカラムに新規タスク追加
+    // N: 最初のカラムにインライン追加フォームを表示
     if (e.key === 'n' && !isInInput && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       const firstCol = getColumnKeys()[0];
-      if (firstCol) this._createTaskInColumn(firstCol, {}, db);
+      if (firstCol) this._showAddForm(firstCol);
       return;
     }
 

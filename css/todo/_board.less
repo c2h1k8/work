@@ -316,6 +316,42 @@
     }
   }
 
+  // インライン追加フォーム
+  &__add-form {
+    padding: 8px 12px;
+    border-top: 1px solid var(--color-border);
+
+    &[hidden] { display: none; }
+  }
+
+  &__add-input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-card);
+    color: var(--c-text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color var(--t), box-shadow var(--t);
+
+    &:focus {
+      border-color: var(--c-accent);
+      box-shadow: 0 0 0 3px var(--c-accent-dim);
+    }
+
+    &::placeholder {
+      color: var(--color-text-muted);
+    }
+  }
+
+  &__add-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
   // 空カラムのプレースホルダー
   &__empty {
     display: flex;

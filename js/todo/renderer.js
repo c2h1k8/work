@@ -88,8 +88,21 @@ const Renderer = {
     addBtn.dataset.column = col.key;
     addBtn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg> タスクを追加';
 
+    // インライン追加フォーム
+    const addForm = document.createElement('div');
+    addForm.className = 'column__add-form';
+    addForm.dataset.column = col.key;
+    addForm.setAttribute('hidden', '');
+    addForm.innerHTML =
+      '<input type="text" class="column__add-input" placeholder="タスク名を入力…" />' +
+      '<div class="column__add-actions">' +
+        '<button class="btn btn--primary btn--sm" data-action="confirm-add-task" data-column="' + escapeHtml(col.key) + '">追加</button>' +
+        '<button class="btn btn--ghost btn--sm" data-action="cancel-add-task" data-column="' + escapeHtml(col.key) + '">キャンセル</button>' +
+      '</div>';
+
     section.appendChild(header);
     section.appendChild(body);
+    section.appendChild(addForm);
     section.appendChild(addBtn);
     return section;
   },
@@ -296,8 +309,6 @@ const Renderer = {
 
   /** モーダルを特定タスクで開く */
   async renderModal(taskId, db) {
-    // 別タスクを開いたら新規作成フラグをクリア
-    if (State.newlyCreatedTaskId !== taskId) State.newlyCreatedTaskId = null;
     State.currentTaskId = taskId;
 
     const allTasks = await db.getAllTasks();

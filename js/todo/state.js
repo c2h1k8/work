@@ -22,7 +22,6 @@ const State = {
   sort:           { field: '', dir: 'asc' },                  // ソート状態
   timelineFilter: 'comments',                                 // 'comments' | 'all'
   timeAbsolute:   false,                                      // 時刻表示形式（false=相対, true=絶対）
-  newlyCreatedTaskId: null,                                   // 新規作成直後のタスクID（初回編集をアクティビティに記録しない）
   _descriptionBeforeEdit: null,                              // 説明編集開始時の元テキスト（変更なし判定用）
   _checklistSortable: null,                                  // チェックリスト SortableJS インスタンス
   _templateSortable:  null,                                  // テンプレート一覧 SortableJS インスタンス
