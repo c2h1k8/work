@@ -41,6 +41,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 // ナビゲーションショートカット定義（DOMContentLoaded 内でセット）
 let _navShortcutCategories = [];
 
+// iframe がページ設定を処理したかのフラグ
+let _pageSettingsHandled = false;
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'page-settings-handled') _pageSettingsHandled = true;
+});
+
 // グローバルキーボードショートカット
 document.addEventListener('keydown', (e) => {
   // ?: ショートカット一覧をアクティブ iframe に転送して表示
@@ -59,13 +65,8 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  // Escape: タブ設定パネルを閉じる / ショートカット一覧を閉じる（iframe に転送）
+  // Escape: ショートカット一覧を閉じる（iframe に転送）
   if (e.key === 'Escape') {
-    const overlay = document.getElementById('settings-overlay');
-    if (overlay && !overlay.hidden) {
-      closeSettings();
-      return;
-    }
     const activeFrame = document.querySelector('.tab-frame--active');
     if (activeFrame?.contentWindow) {
       activeFrame.contentWindow.postMessage({ type: 'hide-shortcut-help' }, '*');
@@ -93,12 +94,23 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  // Ctrl+, : 設定パネル開閉
+  // Ctrl+, : 設定パネル開閉（タブ設定が開いていれば閉じる、そうでなければ iframe に転送）
   if ((e.ctrlKey || e.metaKey) && e.key === ',') {
     e.preventDefault();
     const overlay = document.getElementById('settings-overlay');
-    if (overlay && !overlay.hidden) closeSettings();
-    else openSettings();
+    if (overlay && !overlay.hidden) {
+      closeSettings();
+    } else {
+      const activeFrame = document.querySelector('.tab-frame--active');
+      if (activeFrame?.contentWindow) {
+        // iframe にページ設定トグルを要求し、未対応なら親のタブ設定を開く
+        _pageSettingsHandled = false;
+        activeFrame.contentWindow.postMessage({ type: 'toggle-page-settings' }, '*');
+        setTimeout(() => { if (!_pageSettingsHandled) openSettings(); }, 50);
+      } else {
+        openSettings();
+      }
+    }
     return;
   }
 

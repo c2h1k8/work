@@ -19,7 +19,10 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "headers": {
+        "Cache-Control": "no-store"
+      }
     }
   },
   "bundle": {

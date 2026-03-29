@@ -145,11 +145,24 @@ document.addEventListener('keydown', async (e) => {
 
 });
 
-// テーマ変更を受け取る（親フレームからの postMessage）
+// テーマ変更・設定トグルを受け取る（親フレームからの postMessage）
 window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'theme-change') {
     document.documentElement.setAttribute('data-theme', e.data.theme);
     localStorage.setItem('mytools_theme', e.data.theme);
+  }
+  // Ctrl+, : フィールド管理モーダル開閉（親フレームから転送）
+  if (e.data && e.data.type === 'toggle-page-settings') {
+    parent.postMessage({ type: 'page-settings-handled' }, '*');
+    const modal = document.getElementById('field-modal');
+    if (modal && !modal.hidden) {
+      modal.hidden = true;
+    } else {
+      Renderer.renderFieldModal();
+      document.getElementById('field-modal').hidden = false;
+      document.getElementById('new-field-options-row').hidden = true;
+      document.getElementById('new-field-options').value = '';
+    }
   }
 });
 

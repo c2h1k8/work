@@ -75,6 +75,16 @@ const App = {
       if (e.data?.type === "dashboard:open-settings") {
         EventHandlers.openSettings();
       }
+      // Ctrl+, : 設定パネル開閉（親フレームから転送）
+      if (e.data?.type === "toggle-page-settings") {
+        parent.postMessage({ type: "page-settings-handled" }, "*");
+        const settings = document.getElementById("home-settings");
+        if (settings && !settings.hidden) {
+          EventHandlers.closeSettings();
+        } else {
+          EventHandlers.openSettings();
+        }
+      }
       // テーマ変更を受け取る
       if (e.data?.type === "theme-change") {
         document.documentElement.setAttribute("data-theme", e.data.theme);

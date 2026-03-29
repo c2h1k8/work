@@ -444,6 +444,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - ファイル構成: `js/index/constants.js`（TAB_ITEMS・ICON_PALETTE）/ `db.js`（AppDB）/ `theme.js`（テーマ切替）/ `shell.js`（シェル・ナビ・ビューポート）/ `search.js`（グローバル検索）/ `backup.js`（一括バックアップ）/ `settings.js`（タブ設定パネル）/ `app.js`（App初期化）
 - CSS: `css/index.less`（エントリポイント）+ `css/index/_variables.less` / `_shell.less` / `_viewport.less` / `_settings.less` / `_search.less`（パーシャル）
 - **iframe ショートカット転送**: `_attachIframeShortcuts(frame)`（`shell.js`）で各 iframe の `contentDocument` に keydown リスナーを付与。iframe にフォーカスがあっても Ctrl+K / Ctrl+1-9 / Ctrl+Shift+E が親フレーム側で処理され `e.preventDefault()` でブラウザデフォルト動作を抑制。Ctrl+, は転送せずページ側に委譲（ダッシュボード等のページ固有設定パネルを優先するため）。iframe load 時に `register-parent-shortcuts` メッセージでナビゲーションショートカット定義も送信
+- **Ctrl+, 設定パネル開閉**: 親フレームにフォーカスがある場合、`postMessage({ type: 'toggle-page-settings' })` をアクティブ iframe に送信。iframe がページ固有設定を処理した場合は `parent.postMessage({ type: 'page-settings-handled' })` で応答。50ms 以内に応答がなければ親のタブ設定パネルを開く。タブ設定パネルは Ctrl+, の再入力で閉じる（ESC では閉じない）。対応ページ: note（フィールド管理）/ dashboard（設定パネル）
 
 ## 注意事項
 
