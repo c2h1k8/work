@@ -87,8 +87,11 @@ function renderTextWithLinks(el, text) {
 // ==================================================
 function toggleCheckboxInMarkdown(text, index, checked) {
   let count = 0;
-  return text.replace(/- \[(x| )\]/gi, (match) => {
-    if (count++ === index) return checked ? '- [x]' : '- [ ]';
+  // 箇条書き（-/*/+）と番号付きリスト（1. 等）の両方に対応
+  return text.replace(/(?:[*+-]|\d+[.)]) +\[(x| )\]/gi, (match) => {
+    if (count++ === index) {
+      return match.replace(/\[(x| )\]/i, checked ? '[x]' : '[ ]');
+    }
     return match;
   });
 }
