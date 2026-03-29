@@ -19,12 +19,7 @@
       }
     ],
     "security": {
-      "csp": null,
-      "headers": {
-        "tauri://localhost": {
-          "Cache-Control": "no-store"
-        }
-      }
+      "csp": null
     }
   },
   "bundle": {
