@@ -2228,6 +2228,9 @@ const EventHandlers = {
 // ==================================================
 const App = {
   async init() {
+    // Tauri: <a target="_blank"> をネイティブで開く
+    Opener.intercept(document);
+
     const db = new KanbanDB();
     await db.open();
 

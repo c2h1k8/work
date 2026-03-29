@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       shortcuts: [
         { keys: ['Ctrl', 'K'], description: '検索バーにフォーカス' },
         { keys: ['Ctrl', '1~9'], description: 'タブ N に切替' },
-        { keys: ['Ctrl', ','], description: '設定パネル開閉' },
+        { keys: ['Ctrl', ','], description: 'タブ設定 / ページ設定' },
         { keys: ['Ctrl', 'Shift', 'E'], description: '全データ一括バックアップ' },
       ],
     },
@@ -59,8 +59,13 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  // Escape: ショートカット一覧を閉じる（iframe に転送）
+  // Escape: タブ設定パネルを閉じる / ショートカット一覧を閉じる（iframe に転送）
   if (e.key === 'Escape') {
+    const overlay = document.getElementById('settings-overlay');
+    if (overlay && !overlay.hidden) {
+      closeSettings();
+      return;
+    }
     const activeFrame = document.querySelector('.tab-frame--active');
     if (activeFrame?.contentWindow) {
       activeFrame.contentWindow.postMessage({ type: 'hide-shortcut-help' }, '*');

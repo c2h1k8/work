@@ -183,14 +183,6 @@ function _attachIframeShortcuts(frame) {
           }
           return;
         }
-        // Ctrl+,: 設定パネル開閉
-        if ((e.ctrlKey || e.metaKey) && e.key === ',') {
-          e.preventDefault();
-          const overlay = document.getElementById('settings-overlay');
-          if (overlay && !overlay.hidden) closeSettings();
-          else openSettings();
-          return;
-        }
         // Ctrl+Shift+E: 全データ一括バックアップ
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
           e.preventDefault();

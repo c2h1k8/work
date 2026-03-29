@@ -20,6 +20,9 @@ const App = {
       State.activePresetId = savedPresetId;
     }
 
+    // Tauri: <a target="_blank"> をネイティブで開く
+    Opener.intercept(document);
+
     Renderer.renderEnvBar();
     Renderer.renderDashboard();
     Renderer.renderJumpNav();
@@ -100,7 +103,7 @@ const App = {
         const secId = card ? Number(card.dataset.sectionId) : null;
         const rawVal = linkEl.dataset.value || "";
         const url = resolveBindVars(secId ? resolveTableVars(rawVal, secId) : rawVal);
-        if (url) window.open(url, "_blank");
+        if (url) Opener.open(url);
         return;
       }
       // ダッシュボードのテンプレートカード（日付変数・バインド変数を解決してコピー）

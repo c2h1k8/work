@@ -51,6 +51,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `js/core/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` / `getString(origin, params)` / `isValidUrl(url)` — HTML エスケープ、position 昇順ソート、テンプレート置換、URL バリデーション
 - `js/core/env.js` をクリップボード/通知を使うページで読み込む: `Env.type`（`'file'` / `'localhost'` / `'tauri'`）/ `Env.isTauri` / `Env.isLocalhost` / `Env.isFile` — 実行環境検出。`file://` / localhost / Tauri デスクトップアプリの3形態を判別
 - `js/core/clipboard.js` をコピー機能があるページで読み込む（`env.js` に依存）: `Clipboard.copy(text)` → Promise。localhost/Tauri では `navigator.clipboard.writeText`、`file://` では `execCommand('copy')` フォールバック。**`navigator.clipboard.writeText` を直接使わない。必ず `Clipboard.copy` を使うこと**。使用ページ: `sql.html` / `note.html` / `snippet.html` / `diff_tool.html` / `ops.html` / `dashboard.html` / `text.html`
+- `js/core/opener.js` を外部URLを開くページで読み込む（`env.js` に依存）: `Opener.open(url)` → Promise。Tauri では `tauri-plugin-opener` でOS既定ブラウザを使用、それ以外は `window.open`。`Opener.intercept(root)` で `<a target="_blank">` をTauri環境でインターセプト。**`window.open` を直接使わない。必ず `Opener.open` を使うこと**。使用ページ: `todo.html` / `note.html` / `dashboard.html`
 - `js/core/notify.js` を通知機能があるページで読み込む（`env.js` に依存）: `Notify.send(title, body, opts?)` / `Notify.requestPermission()` / `Notify.getPermission()` — 環境対応通知。`file://` では `'unsupported'`、localhost では Web Notifications API、Tauri ではネイティブ通知。**`Notification` API を直接使わない。必ず `Notify` を使うこと**。使用ページ: `timer.html`
 - `js/components/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` / `Toast.success(msg)` / `Toast.error(msg)` — 統一トースト通知（自己挿入型）。CSS は `css/components/toast.{less,css}`。各ページに `showSuccess` / `showError` ラッパーを定義して使用する: `const showSuccess = (msg) => Toast.success(msg);` / `const showError = (msg) => Toast.error(msg);`
 - `js/components/tooltip.js` を必要なページで読み込む: `Tooltip.init(container, selector?)` — カスタムツールチップ（自己挿入型・即時表示）。CSS は `css/components/tooltip.{less,css}`。`data-tooltip="テキスト"` 属性を持つ要素が対象。`title` 属性の代わりに使用することでブラウザ固有の遅延を回避できる。現在の使用ページ: `wbs.html` / `timer.html` / `text.html` / `note.html`
@@ -442,7 +443,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 - ファイル構成: `js/index/constants.js`（TAB_ITEMS・ICON_PALETTE）/ `db.js`（AppDB）/ `theme.js`（テーマ切替）/ `shell.js`（シェル・ナビ・ビューポート）/ `search.js`（グローバル検索）/ `backup.js`（一括バックアップ）/ `settings.js`（タブ設定パネル）/ `app.js`（App初期化）
 - CSS: `css/index.less`（エントリポイント）+ `css/index/_variables.less` / `_shell.less` / `_viewport.less` / `_settings.less` / `_search.less`（パーシャル）
-- **iframe ショートカット転送**: `_attachIframeShortcuts(frame)`（`shell.js`）で各 iframe の `contentDocument` に keydown リスナーを付与。iframe にフォーカスがあっても Ctrl+K / Ctrl+1-9 / Ctrl+, / Ctrl+Shift+E が親フレーム側で処理され `e.preventDefault()` でブラウザデフォルト動作を抑制。iframe load 時に `register-parent-shortcuts` メッセージでナビゲーションショートカット定義も送信
+- **iframe ショートカット転送**: `_attachIframeShortcuts(frame)`（`shell.js`）で各 iframe の `contentDocument` に keydown リスナーを付与。iframe にフォーカスがあっても Ctrl+K / Ctrl+1-9 / Ctrl+Shift+E が親フレーム側で処理され `e.preventDefault()` でブラウザデフォルト動作を抑制。Ctrl+, は転送せずページ側に委譲（ダッシュボード等のページ固有設定パネルを優先するため）。iframe load 時に `register-parent-shortcuts` メッセージでナビゲーションショートカット定義も送信
 
 ## 注意事項
 

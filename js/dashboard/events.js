@@ -1164,7 +1164,7 @@ const EventHandlers = {
     const result = resolveBindVars(template.replace("{INPUT}", inputVal));
 
     if (actionMode === "open") {
-      if (result) window.open(result, "_blank");
+      if (result) Opener.open(result);
     } else {
       Clipboard.copy(result);
       showSuccess("コピーしました");

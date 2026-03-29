@@ -1,5 +1,8 @@
 const App = {
   async init() {
+    // Tauri: <a target="_blank"> をネイティブで開く
+    Opener.intercept(document);
+
     await NoteDB.open();
     await NoteDB.initDefaultFields();
     await NoteDB.ensureTodoField();
@@ -68,6 +71,7 @@ const App = {
     // ショートカットキー一覧登録
     ShortcutHelp.register([
       { name: 'ショートカット', shortcuts: [
+        { keys: ['Ctrl', ','], description: 'フィールド管理' },
         { keys: ['N'], description: '新規ノート追加' },
         { keys: ['F'], description: '検索にフォーカス' },
         { keys: ['Escape'], description: '詳細パネルの選択を解除' },
@@ -81,6 +85,21 @@ document.addEventListener('DOMContentLoaded', () => App.init().catch(console.err
 // キーボードショートカット
 document.addEventListener('keydown', async (e) => {
   const isInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
+
+  // Ctrl+, : フィールド管理モーダル開閉
+  if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+    e.preventDefault();
+    const modal = document.getElementById('field-modal');
+    if (modal && !modal.hidden) {
+      modal.hidden = true;
+    } else {
+      Renderer.renderFieldModal();
+      document.getElementById('field-modal').hidden = false;
+      document.getElementById('new-field-options-row').hidden = true;
+      document.getElementById('new-field-options').value = '';
+    }
+    return;
+  }
 
   // Escape: モーダル閉じ → 入力フォーカス解除 → 詳細パネル選択解除
   if (e.key === 'Escape') {
