@@ -21,7 +21,9 @@
     "security": {
       "csp": null,
       "headers": {
-        "Cache-Control": "no-store"
+        "tauri://localhost": {
+          "Cache-Control": "no-store"
+        }
       }
     }
   },
