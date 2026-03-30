@@ -11,6 +11,7 @@ const DragDrop = {
       const sortable = Sortable.create(el, {
         group:       'kanban',           // カラム間移動を許可
         animation:   150,
+        forceFallback: true,             // Tauri WebView 対応（ネイティブ DnD API を使わない）
         ghostClass:  'sortable-ghost',
         chosenClass: 'sortable-chosen',
         // ソート条件あり時は列内並び替えを無効化

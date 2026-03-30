@@ -185,6 +185,17 @@ jobs:
             rm -f "$f.bak"
           done
 
+      - name: Sync app version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # tauri.conf.json のバージョンを更新
+          sed -i.bak "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
+          rm -f src-tauri/tauri.conf.json.bak
+          # Cargo.toml のバージョンを更新
+          sed -i.bak "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml
+          rm -f src-tauri/Cargo.toml.bak
+
       - name: Prepare frontend dist
         shell: bash
         run: |
