@@ -14,6 +14,7 @@ let _nextParamId   = 1;
 let _memoEditingId = null; // null = 追加, number = 編集対象ID
 let _memoColCount  = 0;
 let _memoIdxCount  = 0;
+let _memoViewMode  = 'table'; // 'table' | 'column'
 
 // 実行計画ガイドのタブ状態
 let _tuneTab = "all";

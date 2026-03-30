@@ -757,3 +757,64 @@ function applyParsedMemo(parsed) {
 
   return true;
 }
+
+// ==================================================
+// テーブル比較モーダル
+// ==================================================
+
+// ── 比較モーダルを開く ──
+async function openCompareModal() {
+  const memos = await _db.getAllTableMemos();
+  if (memos.length < 2) {
+    showError("比較するには 2 つ以上のテーブルが必要です");
+    return;
+  }
+
+  const selA = document.getElementById("memo-compare-a");
+  const selB = document.getElementById("memo-compare-b");
+  selA.innerHTML = "";
+  selB.innerHTML = "";
+  memos.forEach(m => {
+    const name = m.schema_name ? `${m.schema_name}.${m.table_name}` : m.table_name;
+    selA.insertAdjacentHTML("beforeend", `<option value="${m.id}">${escapeHtml(name)}</option>`);
+    selB.insertAdjacentHTML("beforeend", `<option value="${m.id}">${escapeHtml(name)}</option>`);
+  });
+  // デフォルトで別のテーブルを選択
+  if (memos.length >= 2) selB.value = String(memos[1].id);
+
+  document.getElementById("memo-compare-body").innerHTML = '<p class="memo-list__empty">テーブルを選択して「比較」を押してください</p>';
+  document.getElementById("memo-compare-modal").hidden = false;
+  // メモキャッシュ
+  document.getElementById("memo-compare-modal")._memos = memos;
+}
+
+// ── 比較を実行 ──
+function executeCompare() {
+  const modal = document.getElementById("memo-compare-modal");
+  const memos = modal._memos;
+  if (!memos) return;
+  const idA = Number(document.getElementById("memo-compare-a").value);
+  const idB = Number(document.getElementById("memo-compare-b").value);
+  if (idA === idB) { showError("異なるテーブルを選択してください"); return; }
+  const memoA = memos.find(m => m.id === idA);
+  const memoB = memos.find(m => m.id === idB);
+  if (!memoA || !memoB) return;
+  renderCompareResult(memoA, memoB);
+}
+
+// ── 比較モーダルを閉じる ──
+function closeCompareModal() {
+  document.getElementById("memo-compare-modal").hidden = true;
+}
+
+// ==================================================
+// ビュー切替（テーブル / カラム一覧）
+// ==================================================
+function switchMemoView(mode) {
+  _memoViewMode = mode;
+  // ボタンのアクティブ状態を更新
+  document.querySelectorAll('.memo-view-btn').forEach(btn => {
+    btn.classList.toggle('memo-view-btn--active', btn.dataset.view === mode);
+  });
+  refreshMemoList();
+}

@@ -58,7 +58,10 @@ async function initTableMemo() {
 
   // モーダル: Esc で閉じる
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !document.getElementById("memo-modal").hidden) closeMemoModal();
+    if (e.key === "Escape") {
+      if (!document.getElementById("memo-compare-modal").hidden) { closeCompareModal(); return; }
+      if (!document.getElementById("memo-modal").hidden) closeMemoModal();
+    }
   });
 
   // SQL 取り込みパネル: 開閉トグル
@@ -79,6 +82,17 @@ async function initTableMemo() {
       showToast("SQL を取り込みました");
     }
   });
+
+  // ビュー切替ボタン
+  document.querySelectorAll('.memo-view-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchMemoView(btn.dataset.view));
+  });
+
+  // テーブル比較モーダル
+  document.getElementById("memo-compare-btn").addEventListener("click", openCompareModal);
+  document.getElementById("memo-compare-exec-btn").addEventListener("click", executeCompare);
+  document.getElementById("memo-compare-close-btn").addEventListener("click", closeCompareModal);
+  document.getElementById("memo-compare-backdrop").addEventListener("click", closeCompareModal);
 }
 
 // ==================================================

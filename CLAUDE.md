@@ -384,6 +384,12 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - バインド変数: localStorage（`sql_params`）。選択中環境キー: localStorage（`sql_selected_env`）
 - チューニング詳細の開閉状態: localStorage（`sql_tune_open`）。テーブル定義メモの開閉状態: localStorage（`sql_memo_open`）。チューニングガイド選択タブ: localStorage（`sql_tune_tab`）
 - モジュール構成: `SqlDB`（`js/db/sql_db.js`）/ `constants.js` / `state.js` / `renderer.js` / `events.js` / `app.js`（`js/sql/` 配下に分割）
+- **テーブル定義メモ拡張機能**:
+  - **カラム横断検索**: テーブル名・スキーマ名だけでなく、カラム名・型・コメント・インデックス名・メモ本文も検索対象。ヒット箇所を `<mark class="memo-highlight">` でハイライト、カラム/インデックス/メモにヒットした場合は `<details>` を自動展開
+  - **カラム一覧ビュー**: `_memoViewMode` (`'table'` | `'column'`) でビュー切替。カラムビューは全テーブルのカラムをフラットなグリッドで横断表示。ツールバーのアイコンボタンで切替
+  - **テーブル間リレーション**: `_buildColumnRelations(memos)` で同名カラムを持つテーブルを自動検出。各テーブルの展開詳細に「関連テーブル」セクションを表示
+  - **カラムコピー**: カラム定義セクションのタイトル行に「カラム名」「SELECT文」コピーボタンを配置。`Clipboard.copy` を使用
+  - **テーブル比較**: 比較モーダル（`#memo-compare-modal`）で 2 テーブルを選択し差分表示。`renderCompareResult(memoA, memoB)` でカラム有無・型・NULL可・PK・コメントを比較。差分は色分け表示（only-a=赤、only-b=青、diff=黄）
 
 ## wbs/ アーキテクチャ（2026-03現在）
 

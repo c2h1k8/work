@@ -576,6 +576,288 @@
 }
 
 // ==================================================
+// 検索ハイライト
+// ==================================================
+.memo-highlight {
+  background: var(--c-warning-bg, rgba(255, 200, 0, 0.3));
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+// ==================================================
+// ビュー切替ボタン
+// ==================================================
+.memo-toolbar__views {
+  display: flex;
+  gap: 2px;
+  background: var(--c-bg-2);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.memo-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { background: var(--color-card); color: var(--color-text); }
+  &--active {
+    background: var(--color-card);
+    color: var(--color-accent);
+    box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  }
+
+  svg { fill: currentColor; }
+}
+
+// ==================================================
+// カラム一覧ビュー
+// ==================================================
+.memo-col-view__count {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.memo-col-view {
+  display: grid;
+  grid-template-columns: 1.2fr 28px 1fr 1fr 40px 1.2fr;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: 12px;
+
+  &__head {
+    display: contents;
+
+    span {
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      background: var(--c-surface-raised);
+      border-bottom: 1px solid var(--color-border);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+  }
+
+  &__row {
+    display: contents;
+
+    span {
+      padding: 5px 8px;
+      color: var(--color-text);
+      border-bottom: 1px solid var(--c-bg-2);
+      display: flex;
+      align-items: center;
+
+      svg { fill: var(--color-accent); }
+    }
+
+    &:last-child span { border-bottom: 0; }
+    &:hover span { background: var(--color-bg); }
+  }
+}
+
+// ==================================================
+// コピーボタン群
+// ==================================================
+.memo-row__detail-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.memo-copy-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.memo-copy-btn {
+  gap: 3px;
+  font-size: 11px;
+
+  svg {
+    width: 11px;
+    height: 11px;
+    fill: currentColor;
+  }
+}
+
+// ==================================================
+// リレーション表示
+// ==================================================
+.memo-relation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.memo-relation-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  background: var(--c-bg-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+
+  &__name {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-weight: 600;
+    color: var(--color-accent);
+    white-space: nowrap;
+  }
+
+  &__cols {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+}
+
+.memo-row__detail-title svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+
+// ==================================================
+// テーブル比較モーダル
+// ==================================================
+.memo-modal__dialog--wide {
+  max-width: 920px;
+}
+
+.memo-compare-selectors {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.memo-compare-sel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 160px;
+
+  .memo-form__label {
+    min-width: auto;
+    white-space: nowrap;
+  }
+
+  select {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--color-text);
+    background: var(--color-card);
+    outline: none;
+    &:focus { border-color: var(--color-accent); }
+  }
+}
+
+.memo-compare-vs {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.memo-compare-summary {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    strong { color: var(--color-text); }
+  }
+}
+
+.memo-compare-table {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1.3fr 120px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-size: 12px;
+
+  &__head {
+    display: contents;
+
+    span {
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      background: var(--c-surface-raised);
+      border-bottom: 1px solid var(--color-border);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+  }
+
+  &__row {
+    display: contents;
+
+    span {
+      padding: 5px 8px;
+      color: var(--color-text);
+      border-bottom: 1px solid var(--c-bg-2);
+      display: flex;
+      align-items: center;
+    }
+
+    &:last-child span { border-bottom: 0; }
+    &:hover span { background: var(--color-bg); }
+  }
+}
+
+.memo-compare-cell {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.memo-compare-status {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+// 比較差分カラー
+.memo-compare--only-a span { background: rgba(255, 99, 71, 0.08); }
+.memo-compare--only-b span { background: rgba(100, 149, 237, 0.08); }
+.memo-compare--diff span { background: rgba(255, 200, 0, 0.08); }
+
+.memo-compare--only-a { color: var(--color-danger); }
+.memo-compare--only-b { color: var(--color-accent); }
+.memo-compare--diff { color: var(--c-warning-text, #b8860b); }
+
+// ==================================================
 // トースト通知
 // ==================================================
 .toast {

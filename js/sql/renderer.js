@@ -528,15 +528,64 @@ function createParamRow(no, s = {}) {
 // ==================================================
 // メモリスト描画
 // ==================================================
+
+// ── テキスト内のクエリをハイライトする ──
+function _highlightText(text, query) {
+  if (!query || !text) return escapeHtml(text ?? '');
+  const escaped = escapeHtml(text);
+  const q = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp(`(${q})`, 'gi'), '<mark class="memo-highlight">$1</mark>');
+}
+
+// ── メモが検索クエリにマッチするか判定（マッチ箇所も返す） ──
+function _matchMemo(memo, query) {
+  if (!query) return { match: true, areas: [] };
+  const q = query.toLowerCase();
+  const areas = [];
+  if (memo.table_name?.toLowerCase().includes(q)) areas.push('name');
+  if (memo.schema_name?.toLowerCase().includes(q)) areas.push('name');
+  if (memo.comment?.toLowerCase().includes(q)) areas.push('name');
+  if (memo.columns?.some(c => c.name?.toLowerCase().includes(q) || c.comment?.toLowerCase().includes(q) || c.type?.toLowerCase().includes(q))) areas.push('columns');
+  if (memo.indexes?.some(i => i.name?.toLowerCase().includes(q) || i.cols?.toLowerCase().includes(q) || i.comment?.toLowerCase().includes(q))) areas.push('indexes');
+  if (memo.memo?.toLowerCase().includes(q)) areas.push('memo');
+  return { match: areas.length > 0, areas };
+}
+
+// ── 同名カラムを持つテーブルを検出 ──
+function _buildColumnRelations(memos) {
+  const colMap = {}; // { colName: [{ tableName, schemaName, memoId }] }
+  for (const m of memos) {
+    if (!m.columns?.length) continue;
+    const tblName = m.schema_name ? `${m.schema_name}.${m.table_name}` : m.table_name;
+    for (const col of m.columns) {
+      const key = col.name.toLowerCase();
+      if (!colMap[key]) colMap[key] = [];
+      colMap[key].push({ tableName: tblName, memoId: m.id });
+    }
+  }
+  return colMap;
+}
+
 function renderMemoList(memos) {
   const list    = document.getElementById("memo-list");
   const query   = document.getElementById("memo-search").value.trim().toLowerCase();
-  const filtered = query
-    ? memos.filter(m => (m.table_name?.toLowerCase().includes(query) || m.schema_name?.toLowerCase().includes(query)))
-    : memos;
+  const viewMode = _memoViewMode; // 'table' | 'column'
 
   list.innerHTML = "";
-  if (filtered.length === 0) {
+
+  if (viewMode === 'column') {
+    _renderColumnView(list, memos, query);
+    return;
+  }
+
+  // テーブルビュー（デフォルト）
+  const results = [];
+  for (const m of memos) {
+    const r = _matchMemo(m, query);
+    if (r.match) results.push({ memo: m, areas: r.areas });
+  }
+
+  if (results.length === 0) {
     const empty = document.createElement("p");
     empty.className   = "memo-list__empty";
     empty.textContent = query ? "該当するテーブルがありません" : "テーブルが登録されていません";
@@ -544,29 +593,89 @@ function renderMemoList(memos) {
     return;
   }
 
-  filtered.forEach(memo => list.appendChild(createMemoRow(memo)));
+  const colRelations = _buildColumnRelations(memos);
+  results.forEach(({ memo, areas }) => list.appendChild(createMemoRow(memo, query, areas, colRelations, memos)));
+}
+
+// ── カラム一覧ビュー ──
+function _renderColumnView(list, memos, query) {
+  // 全カラムをフラットに展開
+  const rows = [];
+  for (const m of memos) {
+    if (!m.columns?.length) continue;
+    const tblName = m.schema_name ? `${m.schema_name}.${m.table_name}` : m.table_name;
+    for (const col of m.columns) {
+      rows.push({ tblName, tblComment: m.comment, memoId: m.id, ...col });
+    }
+  }
+
+  // フィルタ
+  const filtered = query
+    ? rows.filter(r => r.tblName.toLowerCase().includes(query) || r.name?.toLowerCase().includes(query) || r.type?.toLowerCase().includes(query) || r.comment?.toLowerCase().includes(query))
+    : rows;
+
+  if (filtered.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "memo-list__empty";
+    empty.textContent = query ? "該当するカラムがありません" : "カラムが登録されていません";
+    list.appendChild(empty);
+    return;
+  }
+
+  // カウント表示
+  const countEl = document.createElement("p");
+  countEl.className = "memo-col-view__count";
+  countEl.textContent = `${filtered.length} 件のカラム（${new Set(filtered.map(r => r.tblName)).size} テーブル）`;
+  list.appendChild(countEl);
+
+  // テーブルヘッダー
+  const wrap = document.createElement("div");
+  wrap.className = "memo-col-view";
+
+  const head = document.createElement("div");
+  head.className = "memo-col-view__head";
+  head.innerHTML = `<span>テーブル</span><span>PK</span><span>カラム名</span><span>型(桁数)</span><span>NULL可</span><span>コメント</span>`;
+  wrap.appendChild(head);
+
+  filtered.forEach(r => {
+    const row = document.createElement("div");
+    row.className = "memo-col-view__row";
+    row.innerHTML = `
+      <span class="memo-detail-table__code">${_highlightText(r.tblName, query)}</span>
+      <span>${r.pk ? Icons.lock : ''}</span>
+      <span class="memo-detail-table__code">${_highlightText(r.name, query)}</span>
+      <span class="memo-detail-table__code">${_highlightText(r.type, query)}</span>
+      <span>${r.nullable ? '○' : '✕'}</span>
+      <span>${_highlightText(r.comment, query)}</span>`;
+    wrap.appendChild(row);
+  });
+
+  list.appendChild(wrap);
 }
 
 // ── メモ1行（<details>）を生成 ──
-function createMemoRow(memo) {
+function createMemoRow(memo, query = '', matchAreas = [], colRelations = {}, allMemos = []) {
   const details = document.createElement("details");
   details.className = "memo-row";
+  // カラム・インデックス・メモにヒットした場合は自動展開
+  if (query && matchAreas.some(a => a !== 'name')) details.open = true;
 
   // サマリー（ヘッダー）
   const summary = document.createElement("summary");
   summary.className = "memo-row__summary";
 
   const nameEl = document.createElement("span");
-  nameEl.className   = "memo-row__name";
-  nameEl.textContent = memo.schema_name ? `${memo.schema_name}.${memo.table_name}` : memo.table_name;
+  nameEl.className = "memo-row__name";
+  const fullName = memo.schema_name ? `${memo.schema_name}.${memo.table_name}` : memo.table_name;
+  nameEl.innerHTML = query ? _highlightText(fullName, query) : escapeHtml(fullName);
 
   const metaEl = document.createElement("span");
   metaEl.className = "memo-row__meta";
 
   if (memo.comment) {
     const cmtEl = document.createElement("span");
-    cmtEl.className   = "memo-row__comment";
-    cmtEl.textContent = memo.comment;
+    cmtEl.className = "memo-row__comment";
+    cmtEl.innerHTML = query ? _highlightText(memo.comment, query) : escapeHtml(memo.comment);
     metaEl.appendChild(cmtEl);
   }
 
@@ -601,18 +710,52 @@ function createMemoRow(memo) {
   actions.append(editBtn, delBtn);
   summary.append(nameEl, metaEl, actions);
 
-  // 展開コンテンツ（カラム・インデックス・メモ）
+  // 展開コンテンツ
   const detail = document.createElement("div");
   detail.className = "memo-row__detail";
 
+  // カラム定義セクション
   if (memo.columns?.length) {
     const sec = document.createElement("div");
     sec.className = "memo-row__detail-sec";
 
+    const titleRow = document.createElement("div");
+    titleRow.className = "memo-row__detail-title-row";
+
     const title = document.createElement("p");
     title.className   = "memo-row__detail-title";
     title.textContent = "カラム定義";
-    sec.appendChild(title);
+    titleRow.appendChild(title);
+
+    // コピーボタン群
+    const copyBtns = document.createElement("div");
+    copyBtns.className = "memo-copy-btns";
+
+    const copyColsBtn = document.createElement("button");
+    copyColsBtn.type = "button";
+    copyColsBtn.className = "btn btn--ghost btn--sm memo-copy-btn";
+    copyColsBtn.innerHTML = `${Icons.copyFill} カラム名`;
+    copyColsBtn.title = "カラム名一覧をコピー";
+    copyColsBtn.addEventListener("click", () => {
+      const text = memo.columns.map(c => c.name).join('\n');
+      Clipboard.copy(text).then(() => showToast("カラム名をコピーしました"));
+    });
+
+    const copySelectBtn = document.createElement("button");
+    copySelectBtn.type = "button";
+    copySelectBtn.className = "btn btn--ghost btn--sm memo-copy-btn";
+    copySelectBtn.innerHTML = `${Icons.copyFill} SELECT文`;
+    copySelectBtn.title = "SELECT文をコピー";
+    copySelectBtn.addEventListener("click", () => {
+      const cols = memo.columns.map(c => c.name).join('\n  , ');
+      const tbl = memo.schema_name ? `${memo.schema_name}.${memo.table_name}` : memo.table_name;
+      const text = `SELECT\n    ${cols}\nFROM\n    ${tbl}\n;`;
+      Clipboard.copy(text).then(() => showToast("SELECT文をコピーしました"));
+    });
+
+    copyBtns.append(copyColsBtn, copySelectBtn);
+    titleRow.appendChild(copyBtns);
+    sec.appendChild(titleRow);
 
     const tbl = document.createElement("div");
     tbl.className = "memo-detail-table";
@@ -626,17 +769,18 @@ function createMemoRow(memo) {
       const row = document.createElement("div");
       row.className = "memo-detail-table__row";
       row.innerHTML = `
-        <span>${col.pk ? '<svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12"><path d="M4 4a4 4 0 0 1 8 0v2h.25c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25v-5.5C2 6.784 2.784 6 3.75 6H4Zm8.25 3.5h-8.5a.25.25 0 0 0-.25.25v5.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25ZM10.5 6V4a2.5 2.5 0 0 0-5 0v2Z"/></svg>' : ''}</span>
-        <span class="memo-detail-table__code">${escapeHtml(col.name)}</span>
-        <span class="memo-detail-table__code">${escapeHtml(col.type)}</span>
+        <span>${col.pk ? Icons.lock : ''}</span>
+        <span class="memo-detail-table__code">${_highlightText(col.name, query)}</span>
+        <span class="memo-detail-table__code">${_highlightText(col.type, query)}</span>
         <span>${col.nullable ? '○' : '✕'}</span>
-        <span>${escapeHtml(col.comment ?? '')}</span>`;
+        <span>${_highlightText(col.comment ?? '', query)}</span>`;
       tbl.appendChild(row);
     });
     sec.appendChild(tbl);
     detail.appendChild(sec);
   }
 
+  // インデックスセクション
   if (memo.indexes?.length) {
     const sec = document.createElement("div");
     sec.className = "memo-row__detail-sec";
@@ -658,16 +802,17 @@ function createMemoRow(memo) {
       const row = document.createElement("div");
       row.className = "memo-detail-table__row";
       row.innerHTML = `
-        <span class="memo-detail-table__code">${escapeHtml(idx.name)}</span>
+        <span class="memo-detail-table__code">${_highlightText(idx.name, query)}</span>
         <span>${idx.unique ? '○' : ''}</span>
-        <span class="memo-detail-table__code">${escapeHtml(idx.cols)}</span>
-        <span>${escapeHtml(idx.comment ?? '')}</span>`;
+        <span class="memo-detail-table__code">${_highlightText(idx.cols, query)}</span>
+        <span>${_highlightText(idx.comment ?? '', query)}</span>`;
       tbl.appendChild(row);
     });
     sec.appendChild(tbl);
     detail.appendChild(sec);
   }
 
+  // メモセクション
   if (memo.memo) {
     const sec = document.createElement("div");
     sec.className = "memo-row__detail-sec";
@@ -678,10 +823,52 @@ function createMemoRow(memo) {
     sec.appendChild(title);
 
     const pre = document.createElement("pre");
-    pre.className   = "memo-detail-memo";
-    pre.textContent = memo.memo;
+    pre.className = "memo-detail-memo";
+    if (query) {
+      pre.innerHTML = _highlightText(memo.memo, query);
+    } else {
+      pre.textContent = memo.memo;
+    }
     sec.appendChild(pre);
     detail.appendChild(sec);
+  }
+
+  // リレーション（関連テーブル）セクション
+  if (memo.columns?.length && colRelations) {
+    const relatedTables = new Map(); // tableName → [colName]
+    const myTblName = memo.schema_name ? `${memo.schema_name}.${memo.table_name}` : memo.table_name;
+    for (const col of memo.columns) {
+      const key = col.name.toLowerCase();
+      const others = colRelations[key];
+      if (!others) continue;
+      for (const o of others) {
+        if (o.memoId === memo.id) continue;
+        if (!relatedTables.has(o.tableName)) relatedTables.set(o.tableName, []);
+        relatedTables.get(o.tableName).push(col.name);
+      }
+    }
+    if (relatedTables.size > 0) {
+      const sec = document.createElement("div");
+      sec.className = "memo-row__detail-sec";
+
+      const title = document.createElement("p");
+      title.className   = "memo-row__detail-title";
+      title.innerHTML = `${Icons.relation} 関連テーブル`;
+      sec.appendChild(title);
+
+      const relList = document.createElement("div");
+      relList.className = "memo-relation-list";
+
+      for (const [tblName, cols] of relatedTables) {
+        const item = document.createElement("div");
+        item.className = "memo-relation-item";
+        item.innerHTML = `<span class="memo-relation-item__name">${escapeHtml(tblName)}</span>
+          <span class="memo-relation-item__cols">${cols.map(c => escapeHtml(c)).join(', ')}</span>`;
+        relList.appendChild(item);
+      }
+      sec.appendChild(relList);
+      detail.appendChild(sec);
+    }
   }
 
   details.append(summary, detail);
@@ -784,4 +971,91 @@ function createMemoIdxRow(idx = {}) {
 
   row.append(nameInp, uniqueCb, colsInp, cmtInp, delBtn);
   return row;
+}
+
+// ==================================================
+// テーブル比較: 結果を描画
+// ==================================================
+function renderCompareResult(memoA, memoB) {
+  const body = document.getElementById("memo-compare-body");
+  body.innerHTML = "";
+
+  const nameA = memoA.schema_name ? `${memoA.schema_name}.${memoA.table_name}` : memoA.table_name;
+  const nameB = memoB.schema_name ? `${memoB.schema_name}.${memoB.table_name}` : memoB.table_name;
+
+  // カラム名でマップ化
+  const colsA = new Map((memoA.columns ?? []).map(c => [c.name.toLowerCase(), c]));
+  const colsB = new Map((memoB.columns ?? []).map(c => [c.name.toLowerCase(), c]));
+  const allColNames = [...new Set([...colsA.keys(), ...colsB.keys()])];
+
+  // 統計
+  let onlyA = 0, onlyB = 0, diffCount = 0, sameCount = 0;
+
+  // テーブルヘッダー
+  const tbl = document.createElement("div");
+  tbl.className = "memo-compare-table";
+
+  const head = document.createElement("div");
+  head.className = "memo-compare-table__head";
+  head.innerHTML = `<span>カラム名</span><span>${escapeHtml(nameA)}</span><span>${escapeHtml(nameB)}</span><span>状態</span>`;
+  tbl.appendChild(head);
+
+  for (const key of allColNames) {
+    const a = colsA.get(key);
+    const b = colsB.get(key);
+    const row = document.createElement("div");
+    row.className = "memo-compare-table__row";
+
+    let statusClass = '';
+    let statusLabel = '';
+
+    if (a && !b) {
+      statusClass = 'memo-compare--only-a';
+      statusLabel = `${escapeHtml(nameA)} のみ`;
+      onlyA++;
+    } else if (!a && b) {
+      statusClass = 'memo-compare--only-b';
+      statusLabel = `${escapeHtml(nameB)} のみ`;
+      onlyB++;
+    } else {
+      // 両方に存在 → 差分チェック
+      const diffs = [];
+      if (a.type !== b.type) diffs.push('型');
+      if (a.nullable !== b.nullable) diffs.push('NULL可');
+      if (a.pk !== b.pk) diffs.push('PK');
+      if ((a.comment ?? '') !== (b.comment ?? '')) diffs.push('コメント');
+      if (diffs.length > 0) {
+        statusClass = 'memo-compare--diff';
+        statusLabel = diffs.join(', ');
+        diffCount++;
+      } else {
+        statusClass = '';
+        statusLabel = '一致';
+        sameCount++;
+      }
+    }
+
+    const colName = (a ?? b).name;
+    const cellA = a ? `${escapeHtml(a.type)} ${a.pk ? '🔑' : ''} ${a.nullable ? 'NULL可' : 'NOT NULL'}` : '—';
+    const cellB = b ? `${escapeHtml(b.type)} ${b.pk ? '🔑' : ''} ${b.nullable ? 'NULL可' : 'NOT NULL'}` : '—';
+
+    row.className = `memo-compare-table__row ${statusClass}`;
+    row.innerHTML = `
+      <span class="memo-detail-table__code">${escapeHtml(colName)}</span>
+      <span class="memo-compare-cell">${cellA}</span>
+      <span class="memo-compare-cell">${cellB}</span>
+      <span class="memo-compare-status">${statusLabel}</span>`;
+    tbl.appendChild(row);
+  }
+
+  // サマリー
+  const summary = document.createElement("div");
+  summary.className = "memo-compare-summary";
+  summary.innerHTML = `
+    <span class="memo-compare-summary__item">一致: <strong>${sameCount}</strong></span>
+    <span class="memo-compare-summary__item memo-compare--diff">差異: <strong>${diffCount}</strong></span>
+    <span class="memo-compare-summary__item memo-compare--only-a">${escapeHtml(nameA)} のみ: <strong>${onlyA}</strong></span>
+    <span class="memo-compare-summary__item memo-compare--only-b">${escapeHtml(nameB)} のみ: <strong>${onlyB}</strong></span>`;
+
+  body.append(summary, tbl);
 }
