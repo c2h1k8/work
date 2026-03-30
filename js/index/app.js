@@ -18,6 +18,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       shortcuts: [
         { keys: ['Ctrl', 'K'], description: '検索バーにフォーカス' },
         { keys: ['Ctrl', '1~9'], description: 'タブ N に切替' },
+        { keys: ['Ctrl', '['], description: '前のタブに切替' },
+        { keys: ['Ctrl', ']'], description: '次のタブに切替' },
         { keys: ['Ctrl', ','], description: 'タブ設定 / ページ設定' },
         { keys: ['Ctrl', 'Shift', 'E'], description: '全データ一括バックアップ' },
       ],
@@ -91,6 +93,13 @@ document.addEventListener('keydown', (e) => {
       activateTab(tabId);
       saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, tabId);
     }
+    return;
+  }
+
+  // Ctrl+[ / Ctrl+]: 前後のタブに切替
+  if ((e.ctrlKey || e.metaKey) && (e.key === '[' || e.key === ']')) {
+    e.preventDefault();
+    _switchTabRelative(e.key === ']' ? 1 : -1);
     return;
   }
 

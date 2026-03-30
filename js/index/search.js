@@ -11,6 +11,7 @@ let _searchResults   = [];      // 集約結果
 let _searchExpected  = 0;       // 期待するレスポンス数
 let _searchReceived  = 0;       // 受信済みレスポンス数
 let _searchFocusIdx  = -1;      // キーボードフォーカス中のアイテム index
+let _searchQuery     = '';      // 現在の検索クエリ（インクリメンタル描画用）
 
 /** グローバル検索バーのイベントを初期化する */
 function _initGlobalSearch(wrap) {
@@ -18,12 +19,15 @@ function _initGlobalSearch(wrap) {
   const results = wrap.querySelector('#global-search-results');
   if (!input || !results) return;
 
-  // 入力: debounce 300ms で検索実行
+  // 入力: タブ候補は即時、iframe 検索は debounce 150ms
   input.addEventListener('input', () => {
     clearTimeout(_searchTimer);
     const q = input.value.trim();
     if (!q) { _closeSearchResults(); return; }
-    _searchTimer = setTimeout(() => _runGlobalSearch(q), 300);
+    // タブ候補を即時表示
+    _renderSearchResults(q, _searchResults);
+    // iframe 検索は debounce
+    _searchTimer = setTimeout(() => _runGlobalSearch(q), 150);
   });
 
   // フォーカスアウト: 少し待ってから閉じる（クリックを拾うため）
@@ -74,11 +78,11 @@ async function _runGlobalSearch(query) {
   _searchExpected = 0;
   _searchReceived = 0;
   _searchFocusIdx = -1;
+  _searchQuery    = query;
 
   const results = document.getElementById('global-search-results');
   if (!results) return;
   results.hidden = false;
-  results.innerHTML = '<div class="global-search__loading">検索中...</div>';
 
   // 表示中の iframe のみ対象
   const frames = Array.from(document.querySelectorAll('.tab-frame'));
@@ -90,6 +94,9 @@ async function _runGlobalSearch(query) {
     return;
   }
 
+  // タブ候補だけ先に表示（iframe 結果は空）
+  _renderSearchResults(query, []);
+
   visibleFrames.forEach(frame => {
     try {
       frame.contentWindow.postMessage({ type: 'global-search', query, searchId: sid }, '*');
@@ -98,10 +105,10 @@ async function _runGlobalSearch(query) {
     }
   });
 
-  // 600ms のフォールバックタイムアウト（応答しない iframe がある場合）
+  // 400ms のフォールバックタイムアウト（応答しない iframe がある場合）
   setTimeout(() => {
     if (_searchId === sid) _renderSearchResults(query, _searchResults);
-  }, 600);
+  }, 400);
 }
 
 /** global-search-result メッセージを受信する（window.addEventListener の message ハンドラで呼ばれる） */
@@ -111,11 +118,8 @@ function _onGlobalSearchResult(sid, page, pageSrc, results) {
   results.forEach(r => _searchResults.push({ ...r, page, pageSrc }));
   _searchReceived++;
 
-  // 全 iframe から応答を受け取ったら即時描画
-  if (_searchReceived >= _searchExpected) {
-    const input = document.getElementById('global-search-input');
-    _renderSearchResults(input?.value?.trim() || '', _searchResults);
-  }
+  // 結果が届くたびにインクリメンタル描画
+  _renderSearchResults(_searchQuery || '', _searchResults);
 }
 
 /** テキスト内の検索クエリを <mark> でハイライトする（XSS 対策: エスケープ済みテキストに適用） */
@@ -126,15 +130,52 @@ function _highlightQuery(text, query) {
   return escaped.replace(new RegExp(q, 'gi'), m => `<mark>${m}</mark>`);
 }
 
+/** タブ名にマッチするタブ候補を返す */
+function _matchTabs(query) {
+  if (!query) return [];
+  const q = query.toLowerCase();
+  const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+  return tabs
+    .filter(btn => {
+      const label = btn.textContent.trim().toLowerCase();
+      return label.includes(q);
+    })
+    .map(btn => ({
+      label: btn.textContent.trim(),
+      tabId: btn.htmlFor,
+    }));
+}
+
 /** 検索結果をページ別グループで描画する */
 function _renderSearchResults(query, allResults) {
   const el = document.getElementById('global-search-results');
   if (!el) return;
   el.hidden = false;
 
-  if (allResults.length === 0) {
+  // タブ候補を先頭に表示
+  const tabMatches = _matchTabs(query);
+
+  if (allResults.length === 0 && tabMatches.length === 0) {
     el.innerHTML = '<div class="global-search__empty">一致する結果がありません</div>';
     return;
+  }
+
+  let html = '';
+
+  // タブ候補グループ
+  if (tabMatches.length > 0) {
+    html += '<div class="global-search__group-label">タブ</div>';
+    tabMatches.forEach(tab => {
+      const titleHl = _highlightQuery(tab.label, query);
+      html += `
+        <button class="global-search__item global-search__item--tab" data-tab-id="${escapeHtml(tab.tabId)}">
+          <div class="global-search__item-text">
+            <div class="title">${titleHl}</div>
+            <div class="excerpt">タブに切替</div>
+          </div>
+        </button>
+      `;
+    });
   }
 
   // ページ別グループ化（pageSrc をキーに）
@@ -145,9 +186,8 @@ function _renderSearchResults(query, allResults) {
     groups[key].items.push(r);
   });
 
-  let html = '';
-  Object.values(groups).forEach((group, gi) => {
-    if (gi > 0) html += '<div class="global-search__divider"></div>';
+  Object.values(groups).forEach((group) => {
+    if (html) html += '<div class="global-search__divider"></div>';
     html += `<div class="global-search__group-label">${escapeHtml(group.page || 'その他')}</div>`;
     group.items.slice(0, 10).forEach(item => {
       const titleHl   = _highlightQuery(item.title || '', query);
@@ -165,8 +205,19 @@ function _renderSearchResults(query, allResults) {
 
   el.innerHTML = html;
 
-  // クリックで該当タブに遷移
-  el.querySelectorAll('.global-search__item').forEach(btn => {
+  // タブ候補クリックでタブ切替
+  el.querySelectorAll('.global-search__item--tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _closeSearchResults();
+      const input = document.getElementById('global-search-input');
+      if (input) input.value = '';
+      activateTab(btn.dataset.tabId);
+      saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, btn.dataset.tabId);
+    });
+  });
+
+  // コンテンツ結果クリックで該当タブに遷移
+  el.querySelectorAll('.global-search__item:not(.global-search__item--tab)').forEach(btn => {
     btn.addEventListener('click', () => _navigateToResult(btn.dataset.pageSrc, Number(btn.dataset.id)));
   });
 }

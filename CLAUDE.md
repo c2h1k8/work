@@ -198,6 +198,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - 各ページは受信後に自ページの IndexedDB を検索し `parent.postMessage({ type: 'global-search-result', searchId, page, pageSrc, results })` で返信
 - 検索対象: `kanban_db.tasks`（title/description）/ `note_db.tasks`（title）+ `entries`（link: label/value、text: value）/ `snippet_db.snippets`（title/description/code）
 - index.js が全結果を集約してページ別グループドロップダウンに描画（各グループ最大10件）
+- **タブ名マッチ**: 検索クエリがタブ名に一致する場合、結果の先頭に「タブ」グループとして表示。クリックでタブ切替。`_matchTabs(query)` で `'.tab-btn'` のラベルテキストをフィルタ
 - 結果クリック → タブ切替 + `postMessage({ type: 'global-search-focus', targetId })` を送信
 - 各ページは focus メッセージを受けてモーダル/詳細を開く
 - CSS: `.global-search` / `global-search__input` / `global-search__results` (css/index/_search.less)
@@ -451,7 +452,8 @@ Claude Code がこのプロジェクトで作業する際の指針。
 
 - ファイル構成: `js/index/constants.js`（TAB_ITEMS・ICON_PALETTE）/ `db.js`（AppDB）/ `theme.js`（テーマ切替）/ `shell.js`（シェル・ナビ・ビューポート）/ `search.js`（グローバル検索）/ `backup.js`（一括バックアップ）/ `settings.js`（タブ設定パネル）/ `app.js`（App初期化）
 - CSS: `css/index.less`（エントリポイント）+ `css/index/_variables.less` / `_shell.less` / `_viewport.less` / `_settings.less` / `_search.less`（パーシャル）
-- **iframe ショートカット転送**: `_attachIframeShortcuts(frame)`（`shell.js`）で各 iframe の `contentDocument` に keydown リスナーを付与。iframe にフォーカスがあっても Ctrl+K / Ctrl+1-9 / Ctrl+Shift+E が親フレーム側で処理され `e.preventDefault()` でブラウザデフォルト動作を抑制。Ctrl+, は転送せずページ側に委譲（ダッシュボード等のページ固有設定パネルを優先するため）。iframe load 時に `register-parent-shortcuts` メッセージでナビゲーションショートカット定義も送信
+- **iframe ショートカット転送**: `_attachIframeShortcuts(frame)`（`shell.js`）で各 iframe の `contentDocument` に keydown リスナーを付与。iframe にフォーカスがあっても Ctrl+K / Ctrl+1-9 / Ctrl+[ / Ctrl+] / Ctrl+Shift+E が親フレーム側で処理され `e.preventDefault()` でブラウザデフォルト動作を抑制。Ctrl+, は転送せずページ側に委譲（ダッシュボード等のページ固有設定パネルを優先するため）。iframe load 時に `register-parent-shortcuts` メッセージでナビゲーションショートカット定義も送信
+- **Ctrl+[ / Ctrl+]**: 前後のタブに循環切替。`_switchTabRelative(delta)`（`shell.js`）で実装。タブが何個あっても対応可能
 - **Ctrl+, 設定パネル開閉**: 親フレームにフォーカスがある場合、`postMessage({ type: 'toggle-page-settings' })` をアクティブ iframe に送信。iframe がページ固有設定を処理した場合は `parent.postMessage({ type: 'page-settings-handled' })` で応答。50ms 以内に応答がなければ親のタブ設定パネルを開く。タブ設定パネルは Ctrl+, の再入力で閉じる（ESC では閉じない）。対応ページ: note（フィールド管理）/ dashboard（設定パネル）
 
 ## 注意事項

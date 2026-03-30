@@ -183,6 +183,12 @@ function _attachIframeShortcuts(frame) {
           }
           return;
         }
+        // Ctrl+[ / Ctrl+]: 前後のタブに切替
+        if ((e.ctrlKey || e.metaKey) && (e.key === '[' || e.key === ']')) {
+          e.preventDefault();
+          _switchTabRelative(e.key === ']' ? 1 : -1);
+          return;
+        }
         // Ctrl+Shift+E: 全データ一括バックアップ
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'E') {
           e.preventDefault();
@@ -255,6 +261,17 @@ function rebuildNav(config) {
     activateTab(activeId);
     saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, activeId);
   }
+}
+
+/** 現在のタブから相対位置 delta で切替（循環） */
+function _switchTabRelative(delta) {
+  const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+  if (tabs.length === 0) return;
+  const currentIdx = tabs.findIndex(btn => btn.classList.contains('tab-btn--active'));
+  const nextIdx = (currentIdx + delta + tabs.length) % tabs.length;
+  const tabId = tabs[nextIdx].htmlFor;
+  activateTab(tabId);
+  saveToStorage(STORAGE_KEY_ACTIVE_TAB_ID, tabId);
 }
 
 /** 新規タブの iframe を viewport に追加する（既存 iframe は変えない） */
