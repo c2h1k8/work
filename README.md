@@ -23,7 +23,7 @@
 - **フロントエンド**: Vanilla JS（全ページ統一）
 - **スタイル**: LESS → CSS（手動コンパイル）。デザイントークンは `css/core/tokens.less` に一元管理
 - **デザインシステム**: インディゴ/バイオレット系カラーパレット。ライト/ダークモード対応（`[data-theme]` 属性）
-- **外部ライブラリ**: SortableJS（todo.html のみ、CDN）、marked.js + DOMPurify（dashboard.html の Markdown セクション、CDN）、highlight.js（snippet.html のシンタックスハイライト、CDN）
+- **外部ライブラリ**: SortableJS（todo/note/dashboard、CDN）、marked.js + DOMPurify（dashboard.html の Markdown セクション、CDN）、highlight.js（snippet.html のシンタックスハイライト、CDN）
 - **データ永続化**: IndexedDB（全ページ）/ localStorage（UI状態・テーマ設定）
   - IndexedDB はブラウザネイティブの構造化 DB。`file://` でも動作しインストール不要。
   - todo.html はヘッダーのエクスポート／インポートボタンで JSON バックアップを手動管理できる。

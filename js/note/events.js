@@ -931,6 +931,26 @@ const EventHandlers = {
     if (State.selectedTaskId) await Renderer.renderDetail();
   },
 
+  // ドラッグ＆ドロップによるフィールド並び替え
+  async _onReorderFields(evt) {
+    const db = await NoteDB.open();
+    const items = evt.from.querySelectorAll('.note-field-item');
+    const updates = [];
+    items.forEach((li, i) => {
+      const fieldId = Number(li.dataset.fieldId);
+      const field = State.fields.find(f => f.id === fieldId);
+      if (field && field.position !== i) {
+        field.position = i;
+        updates.push(db.updateField(field));
+      }
+    });
+    if (updates.length) {
+      await Promise.all(updates);
+      State.fields = sortByPosition(State.fields);
+      if (State.selectedTaskId) await Renderer.renderDetail();
+    }
+  },
+
   // フィールド幅の変更（ダッシュボードと同仕様: auto/wide/full）
   async _onChangeFieldWidth(fieldId, width, db) {
     const field = State.fields.find(f => f.id === fieldId);

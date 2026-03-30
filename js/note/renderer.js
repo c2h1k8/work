@@ -411,10 +411,15 @@ const Renderer = {
     let bodyHtml = '';
 
     if (field.type === 'link') {
-      // リンクは複数可 → 追加ボタンあり
+      // リンクは複数可 → 追加ボタンあり（表示名順にソート）
+      const sorted = [...entries].sort((a, b) => {
+        const la = (a.label || a.value || '').toLowerCase();
+        const lb = (b.label || b.value || '').toLowerCase();
+        return la.localeCompare(lb, 'ja');
+      });
       bodyHtml = `
         <div class="note-field__entries" id="entries-${field.id}">
-          ${entries.map(e => this._renderLinkEntry(e)).join('')}
+          ${sorted.map(e => this._renderLinkEntry(e)).join('')}
         </div>
         <button class="note-add-entry-btn" data-action="add-entry" data-field-id="${field.id}" data-field-type="link">＋ 追加</button>
         <div class="note-entry-form" id="entry-form-${field.id}" hidden>
@@ -589,7 +594,7 @@ const Renderer = {
       return;
     }
     const typeLabels = { link: 'リンク', text: 'テキスト', date: '日付', select: '単一ラベル', label: 'ラベル', dropdown: 'ドロップダウン', todo: 'TODOリンク', note_link: '関連ノート' };
-    body.innerHTML = `<ul class="note-field-list">
+    body.innerHTML = `<ul class="note-field-list" id="note-field-sortable">
       ${State.fields.map((f, i) => {
         const displayWidth = f.width || 'full';
         const widthSelect = `
@@ -601,15 +606,14 @@ const Renderer = {
             <option value="w5"     ${displayWidth === 'w5'     ? 'selected' : ''}>5/6</option>
             <option value="full"   ${displayWidth === 'full'   ? 'selected' : ''}>6/6（全幅）</option>
           </select>`;
-        const moveButtons = `
-          <button class="note-icon-btn" data-action="move-field-up"   data-field-id="${f.id}" ${i === 0 ? 'disabled' : ''} title="上へ">↑</button>
-          <button class="note-icon-btn" data-action="move-field-down" data-field-id="${f.id}" ${i === State.fields.length - 1 ? 'disabled' : ''} title="下へ">↓</button>`;
+        const dragHandle = `<span class="note-field-item__drag-handle" title="ドラッグして並び替え">${Icons.grip}</span>`;
 
         // TODOフィールド専用行（削除・名前編集不可）
         if (f.type === 'todo') {
           return `
             <li class="note-field-item note-field-item--builtin" data-field-id="${f.id}">
               <div class="note-field-item__main">
+                ${dragHandle}
                 <span class="note-field-item__name">TODO</span>
                 <span class="note-field-item__type" data-type="todo">TODOリンク</span>
                 ${widthSelect}
@@ -621,7 +625,6 @@ const Renderer = {
                   <input type="checkbox" data-field-visible="${f.id}"${f.visible !== false ? ' checked' : ''}>
                   表示
                 </label>
-                <div class="note-field-item__actions">${moveButtons}</div>
               </div>
             </li>`;
         }
@@ -631,6 +634,7 @@ const Renderer = {
           return `
             <li class="note-field-item note-field-item--builtin" data-field-id="${f.id}">
               <div class="note-field-item__main">
+                ${dragHandle}
                 <span class="note-field-item__name">関連ノート</span>
                 <span class="note-field-item__type" data-type="note_link">関連ノート</span>
                 ${widthSelect}
@@ -642,7 +646,6 @@ const Renderer = {
                   <input type="checkbox" data-field-visible="${f.id}"${f.visible !== false ? ' checked' : ''}>
                   表示
                 </label>
-                <div class="note-field-item__actions">${moveButtons}</div>
               </div>
             </li>`;
         }
@@ -654,6 +657,7 @@ const Renderer = {
         return `
           <li class="note-field-item" data-field-id="${f.id}">
             <div class="note-field-item__main">
+              ${dragHandle}
               <span class="note-field-item__name note-field-item__name--editable" data-action="edit-field-name" data-field-id="${f.id}" title="クリックしてフィールド名を変更">${_esc(f.name)}</span>
               <span class="note-field-item__type" data-type="${f.type}">${typeLabels[f.type] || f.type}</span>
               ${widthSelect}
@@ -666,7 +670,6 @@ const Renderer = {
                 一覧表示
               </label>
               <div class="note-field-item__actions">
-                ${moveButtons}
                 ${hasSelectOptions ? `
                   <button class="note-icon-btn" data-action="toggle-field-options" data-field-id="${f.id}" title="選択肢を管理">
                     <svg viewBox="0 0 16 16" aria-hidden="true" width="12" height="12" fill="currentColor">
@@ -714,6 +717,24 @@ const Renderer = {
     </ul>`;
     // カスタムセレクトに置き換え
     CustomSelect.replaceAll(body);
+    // ドラッグ＆ドロップ並び替えを初期化
+    this._initFieldSortable();
+  },
+
+  _initFieldSortable() {
+    const list = document.getElementById('note-field-sortable');
+    if (!list || typeof Sortable === 'undefined') return;
+    Sortable.create(list, {
+      handle: '.note-field-item__drag-handle',
+      animation: 150,
+      forceFallback: true,
+      ghostClass: 'note-field-item--ghost',
+      chosenClass: 'note-field-item--chosen',
+      onEnd: (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        EventHandlers._onReorderFields(evt);
+      },
+    });
   },
 };
 

@@ -5,6 +5,25 @@
 
 const Opener = (() => {
   /**
+   * Tauri opener プラグインの参照を取得する。
+   * iframe 内では自身の window に __TAURI__ がない場合があるため、
+   * 親フレームからも取得を試みる。
+   */
+  function _getOpenUrl() {
+    // 自ウィンドウ
+    if (window.__TAURI__?.opener?.openUrl) {
+      return window.__TAURI__.opener.openUrl;
+    }
+    // 親フレーム（iframe 内の場合）
+    try {
+      if (window.parent !== window && window.parent.__TAURI__?.opener?.openUrl) {
+        return window.parent.__TAURI__.opener.openUrl;
+      }
+    } catch (_) { /* cross-origin の場合は無視 */ }
+    return null;
+  }
+
+  /**
    * 外部URLをブラウザ/OSのデフォルトアプリで開く
    * @param {string} url - 開くURL
    * @returns {Promise<void>}
@@ -13,8 +32,14 @@ const Opener = (() => {
     if (!url) return Promise.resolve();
 
     // Tauri: ネイティブ opener プラグイン
-    if (Env.isTauri && window.__TAURI__?.opener?.openUrl) {
-      return window.__TAURI__.opener.openUrl(url);
+    if (Env.isTauri) {
+      const openUrl = _getOpenUrl();
+      if (openUrl) {
+        return openUrl(url).catch(() => {
+          // フォールバック: プラグイン失敗時は window.open
+          window.open(url, '_blank');
+        });
+      }
     }
 
     // ブラウザ: window.open

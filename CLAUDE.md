@@ -51,11 +51,11 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `js/core/utils.js` を全ページで読み込む: `escapeHtml(str)` / `sortByPosition(arr)` / `getString(origin, params)` / `isValidUrl(url)` — HTML エスケープ、position 昇順ソート、テンプレート置換、URL バリデーション
 - `js/core/env.js` をクリップボード/通知を使うページで読み込む: `Env.type`（`'file'` / `'localhost'` / `'tauri'`）/ `Env.isTauri` / `Env.isLocalhost` / `Env.isFile` — 実行環境検出。`file://` / localhost / Tauri デスクトップアプリの3形態を判別
 - `js/core/clipboard.js` をコピー機能があるページで読み込む（`env.js` に依存）: `Clipboard.copy(text)` → Promise。localhost/Tauri では `navigator.clipboard.writeText`、`file://` では `execCommand('copy')` フォールバック。**`navigator.clipboard.writeText` を直接使わない。必ず `Clipboard.copy` を使うこと**。使用ページ: `sql.html` / `note.html` / `snippet.html` / `diff_tool.html` / `ops.html` / `dashboard.html` / `text.html`
-- `js/core/opener.js` を外部URLを開くページで読み込む（`env.js` に依存）: `Opener.open(url)` → Promise。Tauri では `tauri-plugin-opener` でOS既定ブラウザを使用、それ以外は `window.open`。`Opener.intercept(root)` で `<a target="_blank">` をTauri環境でインターセプト。**`window.open` を直接使わない。必ず `Opener.open` を使うこと**。使用ページ: `todo.html` / `note.html` / `dashboard.html`
+- `js/core/opener.js` を外部URLを開くページで読み込む（`env.js` に依存）: `Opener.open(url)` → Promise。Tauri では `tauri-plugin-opener` でOS既定ブラウザを使用（iframe 内では親フレームの `__TAURI__` にフォールバック）、それ以外は `window.open`。`Opener.intercept(root)` で `<a target="_blank">` をTauri環境でインターセプト。**`window.open` を直接使わない。必ず `Opener.open` を使うこと**。使用ページ: `todo.html` / `note.html` / `dashboard.html`
 - `js/core/notify.js` を通知機能があるページで読み込む（`env.js` に依存）: `Notify.send(title, body, opts?)` / `Notify.requestPermission()` / `Notify.getPermission()` — 環境対応通知。`file://` では `'unsupported'`、localhost では Web Notifications API、Tauri ではネイティブ通知。**`Notification` API を直接使わない。必ず `Notify` を使うこと**。使用ページ: `timer.html`
 - `js/components/toast.js` を全ページで読み込む: `Toast.show(msg, type?)` / `Toast.success(msg)` / `Toast.error(msg)` — 統一トースト通知（自己挿入型）。CSS は `css/components/toast.{less,css}`。各ページに `showSuccess` / `showError` ラッパーを定義して使用する: `const showSuccess = (msg) => Toast.success(msg);` / `const showError = (msg) => Toast.error(msg);`
 - `js/components/tooltip.js` を必要なページで読み込む: `Tooltip.init(container, selector?)` — カスタムツールチップ（自己挿入型・即時表示）。CSS は `css/components/tooltip.{less,css}`。`data-tooltip="テキスト"` 属性を持つ要素が対象。`title` 属性の代わりに使用することでブラウザ固有の遅延を回避できる。現在の使用ページ: `wbs.html` / `timer.html` / `text.html` / `note.html`
-- `js/core/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` など
+- `js/core/icons.js` を全ページで読み込む: JS生成HTML内で使う共通SVGアイコン定数。**JS生成HTMLにSVGを直書きしてはいけない。必ず `Icons.<name>` を使うこと。** 新しいアイコンが必要な場合は `icons.js` に追記してから参照する。主なアイコン: `Icons.export` / `Icons.import` / `Icons.gear` / `Icons.copyFill` / `Icons.edit` / `Icons.close` / `Icons.grip` など
 - コメントは日本語で記載する
 - `todo/` のアーキテクチャ: `state.js`（State + グローバルヘルパー）/ `backup.js`（Backup）/ `renderer.js`（Renderer）/ `dragdrop.js`（DragDrop）/ `app.js`（EventHandlers + App）。DB層は `js/db/kanban_db.js` の `KanbanDB` クラスに分離
 - `DatePicker` は `js/components/date_picker.js` に分離された再利用可能部品。CSS は `css/components/date_picker.{less,css}`。HTML は初回 `DatePicker.open()` 時に自動生成・挿入される（各ページへの HTML 配置不要、ページ側のクリックリスナー登録も不要）
@@ -144,7 +144,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 ### HTML
 
 - `lang="ja"` を指定する
-- 外部ライブラリは CDN で読み込む（todo.html のみ SortableJS を使用。）
+- 外部ライブラリは CDN で読み込む（SortableJS は todo/note/dashboard で使用）
 - `defer` 属性を script タグに付ける
 
 ## ファイル配置ルール
@@ -288,7 +288,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - ストア: `sections`（id/instance_id/title/icon/position/type/command_template/**action_mode**/**cmd_buttons**/columns/**width**/**page_size**/**table_bind_vars**/**table_presets**/**table_vars_ui_type**/**table_vars_bar_label**/**list_bind_vars**/**list_presets**/**list_vars_ui_type**/**list_vars_bar_label**/**grid_bind_vars**/**grid_presets**/**grid_vars_ui_type**/**grid_vars_bar_label**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data/**new_row**）
 - セクションタイプ: `list` | `grid` | `command_builder` | `table` | `markdown` | `iframe` | `countdown`
 - アイテムタイプ: `copy` | `link` | `template`（list）/ `link` | `copy` | `template`（grid、旧 `card` は `link` 互換）/ `row`（table）
-- 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉
+- 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉。セクション一覧はドラッグ＆ドロップ（SortableJS）で並び替え可能。`_onReorderSections(evt)` で position を一括更新
 - 設定ビュー: `'sections'`（一覧）/ `'edit-section'`（セクション編集）/ `'bind-settings'`（共通バインド変数）/ `'edit-preset'`（プリセット編集）→ `State.settings.view` で管理
 - テーブルセクションの列定義は `section.columns: [{id, label, type: 'text'|'copy'|'link'}]` で保持
 - テーブル行の値は `item.row_data: {[col_id]: string}` で保持
@@ -357,6 +357,8 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `EventHandlers._touchTask(db)`: 選択中タスクの `updated_at` を更新し、詳細パネルのメタ情報をインプレース更新。エントリ追加・更新・削除時に呼ぶ
 - `EventHandlers._refreshDetailMeta(task)`: 詳細パネルの `.note-detail__meta` をインプレース更新（再レンダリング不要）
 - フィールド名変更: フィールド管理モーダルのフィールド名をクリックしてインライン編集可能。`_onEditFieldName(btn, db)` で処理
+- フィールド並び替え: フィールド管理モーダルでドラッグ＆ドロップ（SortableJS）で並び替え可能。ドラッグハンドル（`Icons.grip`）で操作。`_onReorderFields(evt)` で position を一括更新
+- リンクエントリの表示順: リンクタイプのエントリは表示名（label、未設定時は URL）の昇順でソートして表示
 - `Renderer.renderFilterUI()`: `listVisible=true` な select/label フィールドのフィルター UI を動的生成
 - `Renderer._sortTasks()` / `Renderer._filterTasks()`: ソート・フィルター処理。テキスト検索はタイトルに加え、リンク表示名・URL・テキスト内容も対象
 - `Renderer._renderFieldBadge()`: フィールドタイプ別バッジ HTML 生成

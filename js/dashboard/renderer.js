@@ -599,6 +599,26 @@ const Renderer = {
     }
     // カスタムセレクトに置き換え
     CustomSelect.replaceAll(body);
+    // セクション一覧表示時はDnD並び替えを初期化
+    if (view === "sections") {
+      this._initSectionSortable();
+    }
+  },
+
+  _initSectionSortable() {
+    const list = document.getElementById("settings-section-list");
+    if (!list || typeof Sortable === "undefined") return;
+    Sortable.create(list, {
+      handle: ".settings-row__drag-handle",
+      animation: 150,
+      forceFallback: true,
+      ghostClass: "settings-row--ghost",
+      chosenClass: "settings-row--chosen",
+      onEnd: (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        EventHandlers._onReorderSections(evt);
+      },
+    });
   },
 
   buildSectionsView() {
@@ -626,12 +646,11 @@ const Renderer = {
     sections.forEach((section, idx) => {
       html += `
       <div class="settings-row" data-section-id="${section.id}">
+        <span class="settings-row__drag-handle" title="ドラッグして並び替え">${Icons.grip}</span>
         <span class="settings-row__icon">${escapeHtml(section.icon || "📋")}</span>
         <span class="settings-row__title">${escapeHtml(section.title)}</span>
         <span class="settings-row__badge">${TYPE_LABELS[section.type] || section.type}</span>
         <div class="settings-row__actions">
-          <button class="settings-btn" data-action="move-section-up" data-section-id="${section.id}" ${idx === 0 ? "disabled" : ""}>↑</button>
-          <button class="settings-btn" data-action="move-section-down" data-section-id="${section.id}" ${idx === sections.length - 1 ? "disabled" : ""}>↓</button>
           <button class="settings-btn settings-btn--primary" data-action="edit-section" data-section-id="${section.id}">編集</button>
           <button class="settings-btn settings-btn--danger" data-action="delete-section" data-section-id="${section.id}">削除</button>
         </div>

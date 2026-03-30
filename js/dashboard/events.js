@@ -193,6 +193,25 @@ const EventHandlers = {
     Renderer.renderSettingsView();
   },
 
+  // ドラッグ＆ドロップによるセクション並び替え
+  async _onReorderSections(evt) {
+    const items = evt.from.querySelectorAll(".settings-row");
+    const updates = [];
+    items.forEach((row, i) => {
+      const sectionId = Number(row.dataset.sectionId);
+      const section = State.sections.find((s) => s.id === sectionId);
+      if (section && section.position !== i) {
+        section.position = i;
+        updates.push(State.db.updateSection(section));
+      }
+    });
+    if (updates.length) {
+      await Promise.all(updates);
+      State.sections = sortByPosition(State.sections);
+      Renderer.renderDashboard();
+    }
+  },
+
   async saveSectionMeta(sectionId) {
     const section = State.sections.find((s) => s.id === sectionId);
     if (!section) return;

@@ -198,8 +198,38 @@
     &[data-type="todo"]     { background: var(--c-info-bg); color: var(--c-info); }
   }
 
-  // 組み込みアイテム（削除・移動不可）
-  // opacity を使うと stacking context が生まれ fixed 子要素の z-index が効かなくなるため使わない
+  // ドラッグハンドル
+  &__drag-handle {
+    display: flex;
+    align-items: center;
+    cursor: grab;
+    color: @text-muted;
+    flex-shrink: 0;
+    padding: 2px;
+    border-radius: 3px;
+    transition: color @t, background @t;
+
+    &:hover {
+      color: @text-sub;
+      background: @border-l;
+    }
+
+    svg { display: block; }
+  }
+
+  // DnD ゴースト（ドラッグ先のプレースホルダー）
+  &--ghost {
+    background: var(--c-accent-light);
+    border-radius: @radius-sm;
+    opacity: 0.4;
+  }
+
+  // DnD 選択中
+  &--chosen {
+    box-shadow: var(--shadow-md);
+  }
+
+  // 組み込みアイテム（削除・名前編集不可）
   &--builtin {
     border-top: 1px dashed @border;
     margin-top: 4px;
