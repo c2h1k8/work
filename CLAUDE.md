@@ -33,6 +33,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `sql/`: テーブル定義メモパネルの開閉状態 → `localStorage("sql_memo_open")`（ブラウザ固有）
 - `dashboard/`: セクション・アイテムデータ → IndexedDB (`dashboard_db`)
 - `dashboard/`: URL コマンド履歴 → `localStorage("dashboard_url_history_<sectionId>")`（ブラウザ固有）
+- `dashboard/`: 使用頻度順ソート → `localStorage("dashboard_sort_by_usage_<sectionId>")`（ブラウザ固有）
 - `ops/`: アクティブセクション → `localStorage("ops_active_section")`（ブラウザ固有）
 - `ops/`: cron TZ 切替 → `localStorage("ops_cron_tz")`（ブラウザ固有）
 - `ops/`: ポートフィルタータブ → `localStorage("ops_ports_filter")`（ブラウザ固有）
@@ -286,7 +287,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `sections` ストアに `instance_id` フィールド（インデックス付き）を持ち、このIDでフィルタリング
 - `window.addEventListener('message', ...)` で親フレームからの `dashboard:open-settings` を受信して設定パネルを開く
 - `EventHandlers.closeSettings()` は設定パネルを閉じた後、親フレームに `dashboard:settings-closed` を postMessage
-- ストア: `sections`（id/instance_id/title/icon/position/type/command_template/**action_mode**/**cmd_buttons**/columns/**width**/**page_size**/**table_bind_vars**/**table_presets**/**table_vars_ui_type**/**table_vars_bar_label**/**list_bind_vars**/**list_presets**/**list_vars_ui_type**/**list_vars_bar_label**/**grid_bind_vars**/**grid_presets**/**grid_vars_ui_type**/**grid_vars_bar_label**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data/**new_row**）
+- ストア: `sections`（id/instance_id/title/icon/position/type/command_template/**action_mode**/**cmd_buttons**/columns/**width**/**page_size**/**table_bind_vars**/**table_presets**/**table_vars_ui_type**/**table_vars_bar_label**/**list_bind_vars**/**list_presets**/**list_vars_ui_type**/**list_vars_bar_label**/**grid_bind_vars**/**grid_presets**/**grid_vars_ui_type**/**grid_vars_bar_label**）+ `items`（id/section_id/position/item_type/label/hint/value/emoji/row_data/**new_row**/**use_count**）
 - セクションタイプ: `list` | `grid` | `command_builder` | `table` | `markdown` | `iframe` | `countdown`
 - アイテムタイプ: `copy` | `link` | `template`（list）/ `link` | `copy` | `template`（grid、旧 `card` は `link` 互換）/ `row`（table）
 - 設定パネル: 右スライドオーバーレイ（`#home-settings`）、ギアボタン（`.home-gear-btn`）で開閉。セクション一覧はドラッグ＆ドロップ（SortableJS）で並び替え可能。`_onReorderSections(evt)` で position を一括更新
@@ -332,6 +333,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - 相対指定単位: `d`=日 `w`=週 `M`=月 `y`=年 `h`=時間 `m`=分
   - フォーマットトークン: `YYYY` `MM` `DD` `HH` `mm` `ss` `ddd`（月）`dddd`（月曜日）
   - `resolveDateVars(str)`: テンプレート内の日付変数を解決するユーティリティ関数（`js/dashboard/state.js`）
+- **使用頻度順ソート**: list/grid/table セクションのアイテムクリック回数（`use_count`）を IndexedDB に記録。カードヘッダーのソートボタン（`Icons.sortUsage`）で使用頻度順に並べ替え可能（トグル式）。テーブルでは列ソートが優先。セクション設定画面の「使用回数をリセット」ボタンで `use_count` を一括クリア。ソート状態: `localStorage(SORT_BY_USAGE_PREFIX + sectionId)`（ブラウザ固有）。`DashboardDB.incrementUseCount(itemId)` / `clearUseCounts(sectionId)` で DB 操作
 
 
 ## note/ アーキテクチャ（2026-03現在）

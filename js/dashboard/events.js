@@ -1730,6 +1730,39 @@ const EventHandlers = {
     Renderer.buildTableSection(section, items, bd);
   },
 
+  // ── 使用頻度順ソート ─────────────────────────────────
+
+  toggleSortByUsage(sectionId) {
+    const key = SORT_BY_USAGE_PREFIX + sectionId;
+    const current = localStorage.getItem(key) === "1";
+    if (current) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, "1");
+    }
+    // カード全体を再描画（ヘッダーボタン状態 + ボディ並び順を更新）
+    const section = State.sections.find((s) => s.id === sectionId);
+    const items = State.itemsMap[sectionId] || [];
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (!card || !section) return;
+    const newCard = Renderer.buildSectionCard(section, items);
+    card.replaceWith(newCard);
+  },
+
+  async clearUseCounts(sectionId) {
+    await State.db.clearUseCounts(sectionId);
+    const items = State.itemsMap[sectionId] || [];
+    items.forEach((item) => { item.use_count = 0; });
+    // カードを再描画
+    const section = State.sections.find((s) => s.id === sectionId);
+    const card = document.querySelector(`.card[data-section-id="${sectionId}"]`);
+    if (card && section) {
+      const newCard = Renderer.buildSectionCard(section, items);
+      card.replaceWith(newCard);
+    }
+    showSuccess("使用回数をリセットしました");
+  },
+
   // ── Markdown 編集 ─────────────────────────────────────
 
   toggleMarkdownEdit(sectionId) {

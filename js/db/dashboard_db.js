@@ -65,6 +65,7 @@
 //     emoji         絵文字 (string, gridのみ)
 //     row_data      行データ ({[col_id]: string}, tableのみ)
 //     new_row       新規行フラグ (boolean, table編集用)
+//     use_count     使用回数 (number, デフォルト0)
 //     index: section_id, position
 //
 //     item_type 一覧:
@@ -272,6 +273,31 @@ class DashboardDB {
   }
   deleteItem(id) {
     return this._delete("items", id);
+  }
+
+  // ── 使用回数 ─────────────────────────────
+
+  /** アイテムの use_count をインクリメント */
+  async incrementUseCount(itemId) {
+    const item = await this._get("items", itemId);
+    if (!item) return;
+    item.use_count = (item.use_count || 0) + 1;
+    return this._put("items", item);
+  }
+
+  /** セクション内の全アイテムの use_count をリセット */
+  async clearUseCounts(sectionId) {
+    const items = await this.getItemsBySection(sectionId);
+    const tx = this.db.transaction("items", "readwrite");
+    const store = tx.objectStore("items");
+    items.forEach((item) => {
+      item.use_count = 0;
+      store.put(item);
+    });
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   }
 
   // ── 共通バインド変数プリセット ──────────────────────────

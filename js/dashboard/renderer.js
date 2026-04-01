@@ -40,6 +40,12 @@ const Renderer = {
         <button class="card__mode-btn" data-action="toggle-countdown-mode" data-section-id="${section.id}" title="カレンダー日 / 営業日を切り替え">
           ${section.countdown_mode === "business" ? "営業日" : "カレンダー日"}
         </button>` : ""}
+      ${["list", "grid", "table"].includes(section.type) ? (() => {
+        const isUsageSorted = localStorage.getItem(SORT_BY_USAGE_PREFIX + section.id) === "1";
+        return `<button class="card__hd-btn${isUsageSorted ? " is-active" : ""}" data-action="toggle-sort-by-usage" data-section-id="${section.id}" title="使用頻度順${isUsageSorted ? " (ON)" : ""}">
+          ${Icons.sortUsage}
+        </button>`;
+      })() : ""}
       <button class="card__collapse-btn${isCollapsed ? " is-collapsed" : ""}"
               data-action="toggle-collapse" data-section-id="${section.id}"
               title="${isCollapsed ? "展開" : "折りたたむ"}">
@@ -137,6 +143,12 @@ const Renderer = {
     // ローカル変数解決（セクション独自 + グローバルバインド変数）
     const localResolve = (v) => resolveBindVars(resolveSectionVars(v, section.id));
 
+    // 使用頻度順ソート
+    const isUsageSorted = localStorage.getItem(SORT_BY_USAGE_PREFIX + section.id) === "1";
+    if (isUsageSorted) {
+      items = [...items].sort((a, b) => (b.use_count || 0) - (a.use_count || 0));
+    }
+
     const rowsWrap = document.createElement("div");
     rowsWrap.className = "list-rows";
     items.forEach((item) => {
@@ -145,13 +157,17 @@ const Renderer = {
       row.className = `row ${item.item_type === "copy" ? "js-copy" : isTemplate ? "js-template" : "js-link"}`;
       row.href = "javascript:void(0);";
       row.dataset.value = item.value || "";
+      row.dataset.itemId = item.id;
       let cta;
       if (item.item_type === "copy") cta = Icons.clipboard;
       else if (isTemplate) cta = Icons.templateDoc;
       else cta = Icons.external;
+      const useBadge = isUsageSorted && (item.use_count || 0) > 0
+        ? `<span class="use-count-badge">×${item.use_count}</span>` : "";
       row.innerHTML = `
         <span class="row__label">${escapeHtml(localResolve(item.label || ""))}</span>
         ${item.hint ? `<span class="row__hint">${escapeHtml(localResolve(item.hint))}</span>` : ""}
+        ${useBadge}
         <span class="row__cta">${cta}</span>
       `;
       rowsWrap.appendChild(row);
@@ -210,6 +226,12 @@ const Renderer = {
       bd.appendChild(presetBarEl);
     }
 
+    // 使用頻度順ソート
+    const isUsageSorted = localStorage.getItem(SORT_BY_USAGE_PREFIX + section.id) === "1";
+    if (isUsageSorted) {
+      items = [...items].sort((a, b) => (b.use_count || 0) - (a.use_count || 0));
+    }
+
     // ローカル変数解決（セクション独自 + グローバルバインド変数）
     const localResolve = (v) => resolveBindVars(resolveSectionVars(v, section.id));
 
@@ -226,6 +248,7 @@ const Renderer = {
       card.className = cardClass;
       card.href = "javascript:void(0);";
       card.dataset.value = item.value || "";
+      card.dataset.itemId = item.id;
       if (item.new_row) card.dataset.newRow = "true";
       let arrowIcon;
       if (isCopy)
@@ -240,9 +263,12 @@ const Renderer = {
         );
       else arrowIcon = Icons.arrow;
       const defaultEmoji = isCopy ? "📋" : isTemplate ? "📝" : "🔗";
+      const gridUseBadge = isUsageSorted && (item.use_count || 0) > 0
+        ? `<span class="use-count-badge">&times;${item.use_count}</span>` : "";
       card.innerHTML = `
         <span class="sheet-card__emoji">${escapeHtml(item.emoji || defaultEmoji)}</span>
         <span class="sheet-card__name">${escapeHtml(localResolve(item.label || ""))}</span>
+        ${gridUseBadge}
         ${arrowIcon}
       `;
       grid.appendChild(card);
@@ -429,12 +455,20 @@ const Renderer = {
     const table = document.createElement("table");
     table.className = "data-table";
 
+    const sort = State.tableSortState[section.id];
+    const usageSorted = localStorage.getItem(SORT_BY_USAGE_PREFIX + section.id) === "1";
+
     // ヘッダー
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
+    if (usageSorted) {
+      const ucTh = document.createElement("th");
+      ucTh.className = "data-table-th--use-count";
+      ucTh.textContent = "回数";
+      headerRow.appendChild(ucTh);
+    }
     columns.forEach((col) => {
       const th = document.createElement("th");
-      const sort = State.tableSortState[section.id];
       const isSorted = sort?.colId === col.id;
       const dir = isSorted ? sort.dir : "";
       th.className = "data-table-th--sortable";
@@ -450,7 +484,6 @@ const Renderer = {
 
     // ボディ（ソート＋ページネーション適用）
     const tbody = document.createElement("tbody");
-    const sort = State.tableSortState[section.id];
     const sortedItems = sort
       ? [...items].sort((a, b) => {
           const va = ((a.row_data || {})[sort.colId] || "").toLowerCase();
@@ -459,7 +492,9 @@ const Renderer = {
             ? va.localeCompare(vb, "ja")
             : vb.localeCompare(va, "ja");
         })
-      : items;
+      : usageSorted
+        ? [...items].sort((a, b) => (b.use_count || 0) - (a.use_count || 0))
+        : items;
 
     // ページネーション
     const pageSize = section.page_size || 0;
@@ -476,9 +511,17 @@ const Renderer = {
     sortedItems.forEach((item, index) => {
       const row_data = item.row_data || {};
       const tr = document.createElement("tr");
+      tr.dataset.itemId = item.id;
       // ページネーション: 現在ページ外の行を非表示
       if (pageSize > 0 && Math.floor(index / pageSize) !== currentPage) {
         tr.hidden = true;
+      }
+      if (usageSorted) {
+        const ucTd = document.createElement("td");
+        ucTd.className = "data-table__td--use-count";
+        const cnt = item.use_count || 0;
+        if (cnt > 0) ucTd.textContent = `×${cnt}`;
+        tr.appendChild(ucTd);
       }
       columns.forEach((col) => {
         const td = document.createElement("td");
@@ -970,7 +1013,11 @@ const Renderer = {
         }
         <div class="settings-form-row">
           <button class="settings-btn settings-btn--primary" data-action="save-section-meta" data-section-id="${section.id}">保存</button>
-        </div>`;
+        </div>
+        ${["list", "grid", "table"].includes(section.type) ? `
+        <div class="settings-form-row">
+          <button class="settings-btn settings-btn--ghost-danger" data-action="clear-use-counts" data-section-id="${section.id}">使用回数をリセット</button>
+        </div>` : ""}`;
 
     if (isMemo) {
       html += `

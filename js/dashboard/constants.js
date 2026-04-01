@@ -39,6 +39,9 @@ const LIST_ACTIVE_PRESET_PREFIX = "dashboard_list_active_preset_";
 /** グリッドセクション独自バインド変数のアクティブプリセット保存用 localStorage キープレフィックス（ブラウザ固有） */
 const GRID_ACTIVE_PRESET_PREFIX = "dashboard_grid_active_preset_";
 
+/** 使用回数ソート状態の localStorage キープレフィックス（ブラウザ固有） */
+const SORT_BY_USAGE_PREFIX = "dashboard_sort_by_usage_";
+
 /** 選択中のプリセットID の localStorage キー（ブラウザ固有の UI 状態） */
 const ACTIVE_PRESET_KEY_PREFIX = "dashboard_active_preset_";
 
