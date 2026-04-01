@@ -230,7 +230,7 @@ const Renderer = {
       const actualEndRaw = agg ? agg.actual_end : task.actual_end;
       const actualEnd = actualEndRaw || (isOngoing ? today : '');
 
-      const actualBarCls = isOngoing ? 'gantt-bar--actual is-ongoing' : 'gantt-bar--actual';
+      const actualBarCls = 'gantt-bar--actual' + (isOngoing ? ' is-ongoing' : '') + (isOverrun ? ' is-overrun' : '');
       const planBar   = this._buildBar(period, planStart, planEnd, 'gantt-bar--plan', layout);
       const actualBar = this._buildBar(period, actualStart, actualEnd, actualBarCls, layout);
 

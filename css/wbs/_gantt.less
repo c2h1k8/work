@@ -201,6 +201,12 @@
   opacity: 0.85;
 }
 
+// 超過（実績工数 > 予定工数）
+.gantt-bar--actual.is-overrun {
+  background: var(--c-danger);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--c-danger) 30%, transparent);
+}
+
 // 進行中（実績終了未入力）はバー右端を点線風にして未確定を表現
 .gantt-bar--actual.is-ongoing {
   opacity: 0.6;
@@ -212,6 +218,17 @@
     transparent 9px
   );
   box-shadow: none;
+}
+
+// 進行中かつ超過
+.gantt-bar--actual.is-ongoing.is-overrun {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--c-danger) 0px,
+    var(--c-danger) 6px,
+    transparent 6px,
+    transparent 9px
+  );
 }
 
 // 完了ステータスはバーを薄く
