@@ -229,6 +229,9 @@ const Renderer = {
       const isOngoing   = agg ? agg._isOngoing    : (!!task.actual_start && !task.actual_end);
       const actualEndRaw = agg ? agg.actual_end : task.actual_end;
       const actualEnd = actualEndRaw || (isOngoing ? today : '');
+      const planDays  = agg ? agg.plan_days : (task.plan_days || 0);
+      const actualDays = actualStart ? countBusinessDays(actualStart, actualEnd, _customSet) : 0;
+      const isOverrun = planDays > 0 && actualDays > planDays;
 
       const actualBarCls = 'gantt-bar--actual' + (isOngoing ? ' is-ongoing' : '') + (isOverrun ? ' is-overrun' : '');
       const planBar   = this._buildBar(period, planStart, planEnd, 'gantt-bar--plan', layout);
