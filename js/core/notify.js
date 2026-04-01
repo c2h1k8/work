@@ -1,21 +1,24 @@
 // ==================================================
 // notify: 環境対応通知ラッパー
 // ==================================================
-// Env.js に依存。file:// では通知非対応、Tauri ではネイティブ通知に拡張可能
+// Env.js に依存。file:// では通知非対応、Tauri ではネイティブ通知を使用
 
 const Notify = (() => {
+  // Tauri プラグイン invoke ヘルパー
+  function _invoke(cmd, args) {
+    const invoke = window.__TAURI__?.core?.invoke;
+    if (!invoke) return Promise.reject(new Error('Tauri invoke not available'));
+    return invoke(`plugin:notification|${cmd}`, args);
+  }
+
   /**
    * 現在の通知許可状態を返す
    * @returns {'granted'|'denied'|'default'|'unsupported'}
    */
   function getPermission() {
-    // Tauri: ネイティブ通知
+    // Tauri: プラグインが登録されていれば granted 扱い（OS レベルで許可管理）
     if (Env.isTauri) {
-      // Tauri 通知プラグインが利用可能な場合
-      if (window.__TAURI__?.notification?.isPermissionGranted) {
-        return 'granted'; // Tauri は OS レベルで許可管理
-      }
-      return 'unsupported';
+      return window.__TAURI__?.core?.invoke ? 'granted' : 'unsupported';
     }
 
     // file:// では通知 API が使えない
@@ -31,6 +34,17 @@ const Notify = (() => {
    * @returns {Promise<'granted'|'denied'|'default'|'unsupported'>}
    */
   async function requestPermission() {
+    if (Env.isTauri) {
+      try {
+        const result = await _invoke('is_permission_granted');
+        if (result) return 'granted';
+        await _invoke('request_permission');
+        return 'granted';
+      } catch {
+        return 'unsupported';
+      }
+    }
+
     const current = getPermission();
     if (current === 'unsupported' || current === 'granted' || current === 'denied') {
       return current;
@@ -56,8 +70,8 @@ const Notify = (() => {
     if (perm !== 'granted') return;
 
     // Tauri: ネイティブ通知
-    if (Env.isTauri && window.__TAURI__?.notification?.sendNotification) {
-      window.__TAURI__.notification.sendNotification({ title, body });
+    if (Env.isTauri) {
+      _invoke('notify', { notification: { title, body } }).catch(() => {});
       return;
     }
 

@@ -947,6 +947,7 @@ const EventHandlers = {
     if (updates.length) {
       await Promise.all(updates);
       State.fields = sortByPosition(State.fields);
+      Renderer.renderFieldModal();
       if (State.selectedTaskId) await Renderer.renderDetail();
     }
   },
