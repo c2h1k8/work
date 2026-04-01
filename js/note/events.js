@@ -933,7 +933,6 @@ const EventHandlers = {
 
   // ドラッグ＆ドロップによるフィールド並び替え
   async _onReorderFields(evt) {
-    const db = await NoteDB.open();
     const items = evt.from.querySelectorAll('.note-field-item');
     const updates = [];
     items.forEach((li, i) => {
@@ -941,7 +940,7 @@ const EventHandlers = {
       const field = State.fields.find(f => f.id === fieldId);
       if (field && field.position !== i) {
         field.position = i;
-        updates.push(db.updateField(field));
+        updates.push(NoteDB.updateField(field));
       }
     });
     if (updates.length) {
