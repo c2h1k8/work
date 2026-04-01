@@ -4,9 +4,19 @@
 // Env.js に依存。file:// では通知非対応、Tauri ではネイティブ通知を使用
 
 const Notify = (() => {
-  // Tauri プラグイン invoke ヘルパー
+  // Tauri プラグイン invoke ヘルパー（iframe 内では親フレームからも取得を試みる）
+  function _getInvoke() {
+    if (window.__TAURI__?.core?.invoke) return window.__TAURI__.core.invoke;
+    try {
+      if (window.parent !== window && window.parent.__TAURI__?.core?.invoke) {
+        return window.parent.__TAURI__.core.invoke;
+      }
+    } catch (_) { /* cross-origin の場合は無視 */ }
+    return null;
+  }
+
   function _invoke(cmd, args) {
-    const invoke = window.__TAURI__?.core?.invoke;
+    const invoke = _getInvoke();
     if (!invoke) return Promise.reject(new Error('Tauri invoke not available'));
     return invoke(`plugin:notification|${cmd}`, args);
   }
@@ -18,7 +28,7 @@ const Notify = (() => {
   function getPermission() {
     // Tauri: プラグインが登録されていれば granted 扱い（OS レベルで許可管理）
     if (Env.isTauri) {
-      return window.__TAURI__?.core?.invoke ? 'granted' : 'unsupported';
+      return _getInvoke() ? 'granted' : 'unsupported';
     }
 
     // file:// では通知 API が使えない

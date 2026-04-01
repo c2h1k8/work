@@ -10,9 +10,12 @@ const Clipboard = (() => {
    * @returns {Promise<void>}
    */
   function copy(text) {
-    // Tauri: ネイティブクリップボード API
-    if (Env.isTauri && window.__TAURI__?.clipboard?.writeText) {
-      return window.__TAURI__.clipboard.writeText(text);
+    // Tauri: ネイティブクリップボード API（iframe 内では親フレームからも取得を試みる）
+    if (Env.isTauri) {
+      const cb = window.__TAURI__?.clipboard || ((() => {
+        try { return window.parent !== window && window.parent.__TAURI__?.clipboard; } catch (_) { return null; }
+      })());
+      if (cb?.writeText) return cb.writeText(text);
     }
 
     // localhost: Clipboard API（安全なコンテキスト）
