@@ -27,7 +27,7 @@
 - **データ永続化**: IndexedDB（全ページ）/ localStorage（UI状態・テーマ設定）
   - IndexedDB はブラウザネイティブの構造化 DB。`file://` でも動作しインストール不要。
   - todo.html はヘッダーのエクスポート／インポートボタンで JSON バックアップを手動管理できる。
-- **マルチ環境対応**: `file://` / `localhost` / Tauri デスクトップアプリの3形態で動作。環境検出（`js/core/env.js`）で差異を吸収し、クリップボード（`js/core/clipboard.js`）・通知（`js/core/notify.js`）・URL開封（`js/core/opener.js`）を環境に応じて切り替え。
+- **マルチ環境対応**: `file://` / `localhost` / Tauri デスクトップアプリの3形態で動作。環境検出（`js/core/env.js`）で差異を吸収し、クリップボード（`js/core/clipboard.js`）・通知（`js/core/notify.js`）・URL開封（`js/core/opener.js`）・ファイル保存（`js/core/file_saver.js`）を環境に応じて切り替え。
 
 ## ディレクトリ構成
 
@@ -57,6 +57,7 @@ work/
 │   │   ├── clipboard.js       # 環境対応クリップボード（Clipboard.copy）
 │   │   ├── notify.js          # 環境対応通知（Notify.send / requestPermission / getPermission）
 │   │   ├── opener.js          # 環境対応URL開封（Opener.open / intercept）
+│   │   ├── file_saver.js      # 環境対応ファイル保存（FileSaver.save）
 │   │   ├── icons.js           # JS生成HTML用 SVGアイコン定数
 │   │   ├── local_storage.js   # localStorage ユーティリティ
 │   │   └── activity_logger.js # アクティビティログ記録（ActivityLogger.log）

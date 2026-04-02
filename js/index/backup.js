@@ -143,16 +143,10 @@ async function backupAllData() {
     };
 
     const json = JSON.stringify(backup, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
     const now = new Date(), p = n => String(n).padStart(2, '0');
     const ts  = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
-    a.download = `mytools_backup_${ts}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    Toast.show('全データのバックアップが完了しました。');
+    const saved = await FileSaver.save(json, `mytools_backup_${ts}.json`);
+    if (saved) Toast.show('全データのバックアップが完了しました。');
   } catch (err) {
     console.error(err);
     Toast.error('バックアップに失敗しました: ' + err.message);

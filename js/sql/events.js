@@ -58,24 +58,16 @@ async function deleteEnvRow(id, key) {
 // ==================================================
 // JSON エクスポート（ファイルダウンロード）
 // ==================================================
-function exportEnvJson(envs) {
+async function exportEnvJson(envs) {
   // 内部管理フィールド（id/position）は除外してエクスポート
   const data = envs.map(({ key, username, password, connect_identifier }) =>
     ({ key, username, password, connect_identifier })
   );
   const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
   const now  = new Date();
   const pad  = n => String(n).padStart(2, "0");
   const ts   = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-  a.download = `sql_envs_${ts}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 100);
+  await FileSaver.save(json, `sql_envs_${ts}.json`);
 }
 
 // ==================================================
@@ -536,20 +528,12 @@ async function refreshMemoList() {
 }
 
 // ── エクスポート ──
-function exportMemos(memos) {
+async function exportMemos(memos) {
   const data = JSON.stringify({ type: 'sql_table_memos_export', version: 1, memos }, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
   const now  = new Date();
   const pad  = n => String(n).padStart(2, "0");
   const ts   = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-  a.download = `sql_table_memos_${ts}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 100);
+  await FileSaver.save(data, `sql_table_memos_${ts}.json`);
 }
 
 // ── インポート ──

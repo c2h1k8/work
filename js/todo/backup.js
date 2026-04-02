@@ -5,14 +5,11 @@ const Backup = {
   /** IndexedDB の全データを JSON ファイルとしてダウンロード */
   async export(db) {
     const data = await db.exportAll();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement('a'), {
-      href: url,
-      download: (() => { const n = new Date(), p = x => String(x).padStart(2,'0'); return `kanban_backup_${n.getFullYear()}${p(n.getMonth()+1)}${p(n.getDate())}_${p(n.getHours())}${p(n.getMinutes())}${p(n.getSeconds())}.json`; })(),
-    });
-    a.click();
-    URL.revokeObjectURL(url);
+    const json = JSON.stringify(data, null, 2);
+    const n = new Date(), p = x => String(x).padStart(2,'0');
+    const fname = `kanban_backup_${n.getFullYear()}${p(n.getMonth()+1)}${p(n.getDate())}_${p(n.getHours())}${p(n.getMinutes())}${p(n.getSeconds())}.json`;
+    const saved = await FileSaver.save(json, fname);
+    if (!saved) return;
     // エクスポート日時を保存してインジケーターを消す
     localStorage.setItem('kanban_last_export_at', new Date().toISOString());
     State.isDirty = false;

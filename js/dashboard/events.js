@@ -1219,16 +1219,10 @@ const EventHandlers = {
           null,
           2,
         );
-        const blob = new Blob([json], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
         const _now = new Date(),
           _p = (n) => String(n).padStart(2, "0");
         const _ts = `${_now.getFullYear()}${_p(_now.getMonth() + 1)}${_p(_now.getDate())}_${_p(_now.getHours())}${_p(_now.getMinutes())}${_p(_now.getSeconds())}`;
-        a.download = `dashboard_${_instanceId || "default"}_${_ts}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        await FileSaver.save(json, `dashboard_${_instanceId || "default"}_${_ts}.json`);
       })
       .catch(console.error);
   },

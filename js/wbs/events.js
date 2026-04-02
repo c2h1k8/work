@@ -304,16 +304,10 @@ const EventHandlers = {
 
   async exportData() {
     const json = await _db.exportAll();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
     const now = new Date();
     const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-    a.download = `wbs_export_${ts}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showSuccess('エクスポートしました');
+    const saved = await FileSaver.save(json, `wbs_export_${ts}.json`);
+    if (saved) showSuccess('エクスポートしました');
   },
 
   async importData(e) {

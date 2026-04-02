@@ -345,14 +345,9 @@ function copyCode(id) {
 async function exportSnippets() {
   try {
     const data = await State.db.exportAll();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `snippets_${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showSuccess('エクスポートしました');
+    const json = JSON.stringify(data, null, 2);
+    const saved = await FileSaver.save(json, `snippets_${new Date().toISOString().slice(0,10)}.json`);
+    if (saved) showSuccess('エクスポートしました');
   } catch (err) {
     console.error(err);
     showError('エクスポートに失敗しました');
