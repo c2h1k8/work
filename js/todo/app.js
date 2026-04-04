@@ -924,6 +924,21 @@ const EventHandlers = {
       // done ステータスが変わる場合は期限切れ表示が変わるため両カラムを再描画
       Renderer.renderColumn(oldCol, State.tasks[oldCol] || [], db);
       Renderer.renderColumn(newCol, State.tasks[newCol] || [], db);
+      // 後続タスク（このタスクに blockedBy されている）のロックアイコンを更新
+      const movedDeps = State.dependencies.get(taskId);
+      if (movedDeps && movedDeps.blocking.size > 0) {
+        const allTasks = Object.values(State.tasks).flat();
+        const colsToRefresh = new Set();
+        for (const blockedId of movedDeps.blocking) {
+          const bt = allTasks.find(t => t.id === blockedId);
+          if (bt && bt.column !== oldCol && bt.column !== newCol) {
+            colsToRefresh.add(bt.column);
+          }
+        }
+        for (const col of colsToRefresh) {
+          Renderer.renderColumn(col, State.tasks[col] || [], db);
+        }
+      }
     } else {
       const newBody = document.querySelector(`[data-column-body="${newCol}"]`);
       const card    = document.querySelector(`.card[data-id="${taskId}"]`);

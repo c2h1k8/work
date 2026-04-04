@@ -87,6 +87,25 @@ const DragDrop = {
           ActivityLogger.log('todo', 'move', 'task', taskId, `タスク「${_taskTitleS}」を移動（${_fromName} → ${_toName}）`);
         }
       }
+      const fromDoneS = State.columns.find(c => c.key === fromCol)?.done;
+      const toDoneS   = State.columns.find(c => c.key === toCol)?.done;
+      if (fromCol !== toCol && fromDoneS !== toDoneS) {
+        Renderer.renderColumn(fromCol, State.tasks[fromCol] || [], db);
+        // 後続タスクのロックアイコンを更新
+        const movedDepsS = State.dependencies.get(taskId);
+        if (movedDepsS && movedDepsS.blocking.size > 0) {
+          const colsToRefreshS = new Set();
+          for (const blockedId of movedDepsS.blocking) {
+            const bt = Object.values(State.tasks).flat().find(t => t.id === blockedId);
+            if (bt && bt.column !== fromCol && bt.column !== toCol) {
+              colsToRefreshS.add(bt.column);
+            }
+          }
+          for (const col of colsToRefreshS) {
+            Renderer.renderColumn(col, State.tasks[col] || [], db);
+          }
+        }
+      }
       Renderer.renderColumn(toCol, State.tasks[toCol] || [], db);
       Renderer.updateCount(toCol);
       markDirty();
@@ -147,6 +166,21 @@ const DragDrop = {
       if (fromDone !== toDone) {
         Renderer.renderColumn(fromCol, State.tasks[fromCol] || [], db);
         Renderer.renderColumn(toCol,   State.tasks[toCol]   || [], db);
+        // 後続タスク（このタスクに blockedBy されている）のロックアイコンを更新
+        const movedDeps = State.dependencies.get(taskId);
+        if (movedDeps && movedDeps.blocking.size > 0) {
+          const allTasks = Object.values(State.tasks).flat();
+          const colsToRefresh = new Set();
+          for (const blockedId of movedDeps.blocking) {
+            const bt = allTasks.find(t => t.id === blockedId);
+            if (bt && bt.column !== fromCol && bt.column !== toCol) {
+              colsToRefresh.add(bt.column);
+            }
+          }
+          for (const col of colsToRefresh) {
+            Renderer.renderColumn(col, State.tasks[col] || [], db);
+          }
+        }
       }
       // 作業履歴（非同期、失敗しても無視）
       try {
