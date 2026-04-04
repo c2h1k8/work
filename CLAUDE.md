@@ -334,7 +334,7 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - 相対指定単位: `d`=日 `w`=週 `M`=月 `y`=年 `h`=時間 `m`=分
   - フォーマットトークン: `YYYY` `MM` `DD` `HH` `mm` `ss` `ddd`（月）`dddd`（月曜日）
   - `resolveDateVars(str)`: テンプレート内の日付変数を解決するユーティリティ関数（`js/dashboard/state.js`）
-- **使用頻度順ソート**: list/grid/table セクションのアイテムクリック回数（`use_count`）を IndexedDB に記録。カードヘッダーのソートボタン（`Icons.sortUsage`）で使用頻度順に並べ替え可能（トグル式）。テーブルでは列ソートが優先。セクション設定画面の「使用回数をリセット」ボタンで `use_count` を一括クリア。ソート状態: `localStorage(SORT_BY_USAGE_PREFIX + sectionId)`（ブラウザ固有）。`DashboardDB.incrementUseCount(itemId)` / `clearUseCounts(sectionId)` で DB 操作
+- **使用頻度順ソート**: list/table セクションのアイテムクリック回数（`use_count`）を IndexedDB に記録。カードヘッダーのソートボタン（`Icons.sortUsage`）で使用頻度順に並べ替え可能（トグル式）。テーブルでは列ソートが優先。セクション設定画面の「使用回数をリセット」ボタンで `use_count` を一括クリア。ソート状態: `localStorage(SORT_BY_USAGE_PREFIX + sectionId)`（ブラウザ固有）。`DashboardDB.incrementUseCount(itemId)` / `clearUseCounts(sectionId)` で DB 操作。**grid セクションは使用頻度ソート・カウント対象外**
 
 
 ## note/ アーキテクチャ（2026-03現在）

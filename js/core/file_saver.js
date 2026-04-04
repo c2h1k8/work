@@ -18,7 +18,7 @@ const FileSaver = (() => {
     if (!w) return null;
     const dialog = w.__TAURI__?.dialog;
     const fs = w.__TAURI__?.fs;
-    if (!dialog?.save || !fs?.writeFile) return null;
+    if (!dialog?.save || !fs?.writeTextFile) return null;
     return { dialog, fs };
   }
 
@@ -53,8 +53,7 @@ const FileSaver = (() => {
     });
     if (!path) return false; // キャンセル
 
-    const encoder = new TextEncoder();
-    await apis.fs.writeFile(path, encoder.encode(content));
+    await apis.fs.writeTextFile(path, content);
     return true;
   }
 

@@ -220,15 +220,15 @@ const Renderer = {
       }
     }
 
-    // チェックリストバッジ
-    const footer = card.querySelector('.card__footer');
+    // チェックリスト・繰り返しバッジ（タイトル直下の独立行に表示）
+    const badgesEl = card.querySelector('.card__badges');
     if (task.checklist && task.checklist.length > 0) {
       const total = task.checklist.length;
       const done  = task.checklist.filter(i => i.done).length;
       const badge = document.createElement('span');
       badge.className = 'card__checklist-badge' + (done === total ? ' card__checklist-badge--done' : '');
       badge.textContent = `✓ ${done}/${total}`;
-      footer.insertBefore(badge, footer.firstChild);
+      badgesEl.appendChild(badge);
     }
 
     // 繰り返しバッジ
@@ -237,7 +237,7 @@ const Renderer = {
       repBadge.className = 'card__repeat-badge';
       repBadge.innerHTML = Icons.repeat;
       repBadge.title = `繰り返し（${task.recurring.interval === 'daily' ? '毎日' : task.recurring.interval === 'weekly' ? '毎週' : '毎月'}）`;
-      footer.insertBefore(repBadge, footer.firstChild);
+      badgesEl.appendChild(repBadge);
     }
 
     // 依存ロックアイコン（blockedBy に未完了タスクがある場合）
@@ -255,7 +255,7 @@ const Renderer = {
         lockEl.className = 'card__lock-badge';
         lockEl.innerHTML = Icons.lock;
         lockEl.title = '先行タスクが未完了';
-        card.querySelector('.card__actions').prepend(lockEl);
+        card.querySelector('.card__status').appendChild(lockEl);
       }
     }
 

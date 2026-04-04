@@ -1204,7 +1204,7 @@ const EventHandlers = {
   exportData() {
     State.db
       .exportInstance()
-      .then((data) => {
+      .then(async (data) => {
         const json = JSON.stringify(
           {
             type: "dashboard_export",

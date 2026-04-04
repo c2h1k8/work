@@ -149,7 +149,7 @@ async function backupAllData() {
     if (saved) Toast.show('全データのバックアップが完了しました。');
   } catch (err) {
     console.error(err);
-    Toast.error('バックアップに失敗しました: ' + err.message);
+    Toast.error('バックアップに失敗しました: ' + (err instanceof Error ? err.message : String(err)));
   } finally {
     if (exportBtn) { exportBtn.disabled = false; exportBtn.innerHTML = `${Icons.export} バックアップ`; }
   }

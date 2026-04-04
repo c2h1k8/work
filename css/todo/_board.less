@@ -384,6 +384,7 @@
 // カード
 // ==================================================
 .card {
+  position: relative;
   background: var(--color-card);
   border: 1px solid var(--color-border);
   border-left-width: 3px;
@@ -404,6 +405,18 @@
   }
 
   &:active { cursor: grabbing; }
+
+  // ステータスアイコン（常時表示・右上固定）
+  &__status {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    &:empty { display: none; }
+  }
 
   &__labels {
     display: flex;
@@ -429,11 +442,21 @@
     }
   }
 
+  // チェックリスト・繰り返しバッジ行（タイトル直下、バッジがないときは非表示）
+  &__badges {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+
+    &:empty { display: none; }
+  }
+
   &__footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 8px;
+    margin-top: 6px;
   }
 
   &__due {
@@ -442,6 +465,8 @@
     gap: 4px;
     font-size: 11px;
     color: var(--color-text-muted);
+
+    &:empty { display: none; }
 
     &--overdue {
       background: var(--c-danger-bg);
@@ -463,6 +488,7 @@
   &__actions {
     display: flex;
     gap: 4px;
+    margin-left: auto;
     opacity: 0;
     transition: opacity 0.15s;
   }

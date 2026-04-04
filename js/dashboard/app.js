@@ -104,9 +104,10 @@ const App = {
         const resolved = resolveBindVars(secId ? resolveTableVars(rawVal, secId) : rawVal);
         Clipboard.copy(resolved);
         showSuccess("コピーしました");
-        // 使用回数をインクリメント
+        // 使用回数をインクリメント（グリッドは対象外）
         const itemEl = copyEl.closest("[data-item-id]");
-        if (itemEl && secId) {
+        const secType = secId ? State.sections.find(s => s.id === secId)?.type : null;
+        if (itemEl && secId && secType !== "grid") {
           const iid = Number(itemEl.dataset.itemId);
           if (iid) State.db.incrementUseCount(iid).then(() => {
             const items = State.itemsMap[secId];
@@ -123,9 +124,10 @@ const App = {
         const rawVal = linkEl.dataset.value || "";
         const url = resolveBindVars(secId ? resolveTableVars(rawVal, secId) : rawVal);
         if (url) Opener.open(url);
-        // 使用回数をインクリメント
+        // 使用回数をインクリメント（グリッドは対象外）
         const itemEl = linkEl.closest("[data-item-id]");
-        if (itemEl && secId) {
+        const secType = secId ? State.sections.find(s => s.id === secId)?.type : null;
+        if (itemEl && secId && secType !== "grid") {
           const iid = Number(itemEl.dataset.itemId);
           if (iid) State.db.incrementUseCount(iid).then(() => {
             const items = State.itemsMap[secId];
@@ -145,15 +147,7 @@ const App = {
         );
         Clipboard.copy(resolved);
         showSuccess("コピーしました");
-        // 使用回数をインクリメント
-        const tplItemEl = templateEl.closest("[data-item-id]");
-        if (tplItemEl && tplSecId) {
-          const iid = Number(tplItemEl.dataset.itemId);
-          if (iid) State.db.incrementUseCount(iid).then(() => {
-            const items = State.itemsMap[tplSecId];
-            if (items) { const it = items.find(i => i.id === iid); if (it) it.use_count = (it.use_count || 0) + 1; }
-          });
-        }
+        // テンプレートはグリッド専用のため使用回数インクリメントは行わない
         return;
       }
       // URLコマンドコピーボタン
