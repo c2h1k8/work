@@ -4,21 +4,15 @@
 // Env.js に依存。file:// では通知非対応、Tauri ではネイティブ通知を使用
 
 const Notify = (() => {
-  // Tauri プラグイン invoke ヘルパー（iframe 内では親フレームからも取得を試みる）
-  function _getInvoke() {
-    if (window.__TAURI__?.core?.invoke) return window.__TAURI__.core.invoke;
+  // Tauri notification プラグイン API の参照を取得（iframe 内では親フレームからも取得を試みる）
+  function _getNotifApi() {
+    if (window.__TAURI__?.notification) return window.__TAURI__.notification;
     try {
-      if (window.parent !== window && window.parent.__TAURI__?.core?.invoke) {
-        return window.parent.__TAURI__.core.invoke;
+      if (window.parent !== window && window.parent.__TAURI__?.notification) {
+        return window.parent.__TAURI__.notification;
       }
     } catch (_) { /* cross-origin の場合は無視 */ }
     return null;
-  }
-
-  function _invoke(cmd, args) {
-    const invoke = _getInvoke();
-    if (!invoke) return Promise.reject(new Error('Tauri invoke not available'));
-    return invoke(`plugin:notification|${cmd}`, args);
   }
 
   /**
@@ -26,9 +20,9 @@ const Notify = (() => {
    * @returns {'granted'|'denied'|'default'|'unsupported'}
    */
   function getPermission() {
-    // Tauri: プラグインが登録されていれば granted 扱い（OS レベルで許可管理）
+    // Tauri: プラグイン API が取得できれば granted 扱い（OS レベルで許可管理）
     if (Env.isTauri) {
-      return _getInvoke() ? 'granted' : 'unsupported';
+      return _getNotifApi() ? 'granted' : 'unsupported';
     }
 
     // file:// では通知 API が使えない
@@ -45,11 +39,13 @@ const Notify = (() => {
    */
   async function requestPermission() {
     if (Env.isTauri) {
+      const api = _getNotifApi();
+      if (!api) return 'unsupported';
       try {
-        const result = await _invoke('is_permission_granted');
-        if (result) return 'granted';
-        await _invoke('request_permission');
-        return 'granted';
+        const granted = await api.isPermissionGranted();
+        if (granted) return 'granted';
+        const result = await api.requestPermission();
+        return result === 'granted' ? 'granted' : 'denied';
       } catch {
         return 'unsupported';
       }
@@ -79,9 +75,13 @@ const Notify = (() => {
     const perm = getPermission();
     if (perm !== 'granted') return;
 
-    // Tauri: ネイティブ通知
+    // Tauri: ネイティブ通知（高レベル API 経由）
     if (Env.isTauri) {
-      _invoke('notify', { notification: { title, body } }).catch(() => {});
+      const api = _getNotifApi();
+      if (api) {
+        // sendNotification は void を返すため catch 不要
+        try { api.sendNotification({ title, body }); } catch (_) {}
+      }
       return;
     }
 

@@ -55,6 +55,11 @@ async function init() {
     b.classList.toggle('log-tab-btn--active', b.dataset.view === State.historyView);
   });
 
+  // Tauri: OS通知権限を確認・未取得の場合はリクエスト
+  if (Env.isTauri) {
+    Notify.requestPermission().then(() => _updateNotificationBadge()).catch(() => {});
+  }
+
   // 通知バッジの初期表示
   _updateNotificationBadge();
 
