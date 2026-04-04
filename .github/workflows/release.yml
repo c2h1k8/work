@@ -78,6 +78,7 @@ jobs:
             favicon.svg
             js/
             css/
+            vendor/
           )
           COMMON_EXCLUDE=(
             -x "css/**/*.less"

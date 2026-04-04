@@ -146,7 +146,12 @@ Claude Code がこのプロジェクトで作業する際の指針。
 ### HTML
 
 - `lang="ja"` を指定する
-- 外部ライブラリは CDN で読み込む（SortableJS は todo/note/dashboard で使用）
+- 外部ライブラリは `vendor/` フォルダにローカル配置して読み込む（CDN 不使用）
+  - `vendor/sortable.min.js` — SortableJS 1.15.2（todo/note/dashboard）
+  - `vendor/marked.min.js` — marked 最新版（dashboard）
+  - `vendor/marked4.min.js` — marked v4（todo）
+  - `vendor/dompurify.min.js` — DOMPurify 最新版（dashboard）
+  - ライブラリを更新する場合は `vendor/` のファイルを差し替える
 - `defer` 属性を script タグに付ける
 
 ## ファイル配置ルール
