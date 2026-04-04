@@ -1,4 +1,5 @@
 *.css
+!vendor/*.css
 .DS_Store
 node_modules/
 plan/

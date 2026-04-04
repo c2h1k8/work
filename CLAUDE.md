@@ -151,6 +151,9 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - `vendor/marked.min.js` — marked 最新版（dashboard）
   - `vendor/marked4.min.js` — marked v4（todo）
   - `vendor/dompurify.min.js` — DOMPurify 最新版（dashboard）
+  - `vendor/highlight.min.js` — highlight.js 11.10.0（snippet）
+  - `vendor/highlight-github.min.css` — highlight.js ライトテーマ（snippet）
+  - `vendor/highlight-github-dark.min.css` — highlight.js ダークテーマ（snippet）
   - ライブラリを更新する場合は `vendor/` のファイルを差し替える
 - `defer` 属性を script タグに付ける
 
