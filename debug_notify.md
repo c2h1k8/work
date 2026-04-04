@@ -1,10 +1,13 @@
 # タイマー通知デバッグ手順（Windows アプリ）
 
-アプリを起動し、タイマーページを開いた状態で DevTools を起動する。
+## DevTools の開き方
 
-**DevTools の開き方**: アプリウィンドウ上で `Ctrl+Shift+I`
+本番ビルドは DevTools が無効のため、このバージョン（v1.0.14）から `devtools` 機能を有効にした。
+アプリを起動後、タイマーページの **iframe 内を右クリック →「要素を検証」** で DevTools が開く。
 
-DevTools が開いたら **Console タブ** を選択し、以下を順番に実行する。
+> `Ctrl+Shift+I` は動作しない。右クリックメニューから開くこと。
+
+DevTools が開いたら **Console タブ** を選択する。
 
 ---
 
@@ -40,7 +43,7 @@ window.parent.__TAURI__.notification.isPermissionGranted().then(r => console.log
 ```
 
 - `true` → OS側で権限あり
-- `false` → OS側で権限なし（Windows の通知設定でアプリがブロックされている可能性）
+- `false` → OS側で権限なし → 下記「Windows 通知設定の確認」へ
 
 ---
 
@@ -58,6 +61,22 @@ window.parent.__TAURI__.core.invoke('plugin:notification|notify', {
 
 ---
 
+## Windows 通知設定の確認
+
+DevTools が使えない場合でも以下を確認できる。
+
+1. **Windows の通知設定を開く**
+   `設定 → システム → 通知` （または検索バーで「通知」）
+
+2. **アプリ一覧に MyTools が表示されているか確認**
+   - 表示されている → 通知がオンになっているか確認
+   - 表示されていない → アプリを一度起動してタイマーを動かすと登録される場合がある
+
+3. **集中モード（フォーカスアシスト）が有効になっていないか確認**
+   タスクバー右下の通知センターアイコンから確認できる。
+
+---
+
 ## 結果の共有
 
-上記コマンドの出力結果を Claude に共有してください。
+上記コマンドの出力結果、または Windows 通知設定の状態を Claude に共有してください。
