@@ -7,6 +7,7 @@
     "core:default",
     "core:window:default",
     "core:window:allow-set-title",
+    "window-state:default",
     "opener:default",
     "notification:default",
     "dialog:default",
