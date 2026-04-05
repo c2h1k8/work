@@ -427,6 +427,8 @@ Claude Code がこのプロジェクトで作業する際の指針。
   - 横スクロール位置は `localStorage('wbs_gantt_scroll_x')` に記憶、初回は今日を中央に表示
   - テーブル側と縦スクロール同期。ガントヘッダーと横スクロール同期
 - モジュール構成: `WbsDB`（`js/db/wbs_db.js`）/ `constants.js` / `state.js` / `renderer.js` / `events.js` / `app.js`（`js/wbs/` 配下に分割）
+- **DnD（SortableJS）**: 各行左端のドラッグハンドル（`Icons.grip`）でドラッグ＆ドロップ並び替え。SortableJS `vendor/sortable.min.js` を使用。`EventHandlers.initDragDrop()` で初期化
+- **グループ移動**: 上下ボタン（`moveTask`）は選択タスク + 全子孫を一括移動。`_getDescendantsEnd(idx)` で末尾インデックスを算出してグループをまとめて splice
 
 ## timer/ アーキテクチャ（2026-03現在）
 

@@ -11,6 +11,7 @@ const App = {
     State._collapsedMonths = loadCollapsedMonths();
     Renderer.renderAll();
     Renderer.initScrollSync();
+    EventHandlers.initDragDrop();
     Tooltip.init(document.getElementById('wbs-gantt-body'));
     Tooltip.init(document.getElementById('wbs-table-body'));
     EventHandlers.bindAll();
@@ -19,8 +20,8 @@ const App = {
     ShortcutHelp.register([
       { name: 'ショートカット', shortcuts: [
         { keys: ['N'], description: '新規タスク追加' },
-        { keys: ['Ctrl', '↑'], description: 'タスクを上に移動' },
-        { keys: ['Ctrl', '↓'], description: 'タスクを下に移動' },
+        { keys: ['Ctrl', '↑'], description: 'タスクを上に移動（子も一緒）' },
+        { keys: ['Ctrl', '↓'], description: 'タスクを下に移動（子も一緒）' },
         { keys: ['Ctrl', 'D'], description: '選択タスクを複製' },
         { keys: ['Tab'], description: 'インデント（右へ）' },
         { keys: ['Shift', 'Tab'], description: 'インデント（左へ）' },

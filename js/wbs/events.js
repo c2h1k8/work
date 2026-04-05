@@ -3,14 +3,48 @@
 // ==========================================
 // WBS イベントハンドラー
 // ==========================================
+
+/**
+ * タスク idx（State.tasks 内インデックス）のグループ末尾インデックスを返す
+ * グループ = タスク自身 + 連続する子孫（level が大きいもの）
+ */
+function _getDescendantsEnd(idx) {
+  const tasks = State.tasks;
+  const parentLevel = tasks[idx].level;
+  let end = idx;
+  while (end + 1 < tasks.length && tasks[end + 1].level > parentLevel) {
+    end++;
+  }
+  return end;
+}
+
+/**
+ * visible タスク ID 一覧の中で、parentId のグループ（自身 + visible な子孫）を返す
+ * level ベースで判定: parentId 以降で level が大きい連続タスクが子孫
+ */
+function _getVisibleGroupIds(parentId, visibleIds) {
+  const parentIdx = visibleIds.indexOf(parentId);
+  if (parentIdx < 0) return [parentId];
+  const parent = State._taskMap.get(parentId);
+  if (!parent) return [parentId];
+  const group = [parentId];
+  for (let i = parentIdx + 1; i < visibleIds.length; i++) {
+    const task = State._taskMap.get(visibleIds[i]);
+    if (!task || task.level <= parent.level) break;
+    group.push(visibleIds[i]);
+  }
+  return group;
+}
+
+// 追加直後でまだタイトルが確定していないタスクの ID Set（ログ記録を遅延するため）
+const _pendingNewTaskIds = new Set();
+
 const EventHandlers = {
 
   bindAll() {
     document.getElementById('add-task-btn').addEventListener('click', () => this.addTask());
     document.getElementById('indent-in-btn').addEventListener('click', () => this.indentTask(1));
     document.getElementById('indent-out-btn').addEventListener('click', () => this.indentTask(-1));
-    document.getElementById('move-up-btn').addEventListener('click', () => this.moveTask(-1));
-    document.getElementById('move-down-btn').addEventListener('click', () => this.moveTask(1));
     document.getElementById('export-btn').addEventListener('click', () => this.exportData());
     document.getElementById('import-file').addEventListener('change', e => this.importData(e));
     document.getElementById('holiday-btn').addEventListener('click', () => this.openHolidayModal());
@@ -98,17 +132,24 @@ const EventHandlers = {
       progress: 0, status: 'not_started', memo: '',
     });
 
+    // タイトル確定後にアクティビティを記録するため、pending として登録
+    _pendingNewTaskIds.add(id);
     State.tasks = await _db.getAllTasks();
     State.selectedId = id;
     Renderer.renderAll();
-    // アクティビティログに記録
-    ActivityLogger.log('wbs', 'create', 'task', id, 'WBSタスクを追加');
-    showSuccess('タスクを追加しました');
+
+    // 追加直後にタイトルセルを自動で編集モードに
+    requestAnimationFrame(() => {
+      const row = document.querySelector(`[data-task-id="${id}"]`);
+      const titleCell = row?.querySelector('[data-field="title"]');
+      if (titleCell) this.startEditing(id, 'title', titleCell);
+    });
   },
 
   async deleteTask(id) {
     const task = State.tasks.find(t => t.id === id);
     if (!confirm('このタスクを削除しますか？')) return;
+    _pendingNewTaskIds.delete(id); // 未確定タスクを削除した場合はログしない
     // アクティビティログに記録（削除前に情報保持）
     if (task) ActivityLogger.log('wbs', 'delete', 'task', id, `WBSタスク「${task.title}」を削除`);
     await _db.deleteTask(id);
@@ -171,25 +212,38 @@ const EventHandlers = {
       if (_saved) return;
       _saved = true;
       let newVal = input.value;
-      if (field === 'plan_days') {
+      if (field === 'title') {
+        newVal = newVal.trim() || 'タスク名';
+      } else if (field === 'plan_days') {
         newVal = Math.max(0, parseInt(newVal || '0', 10)) || 0;
       } else if (field === 'progress') {
         newVal = Math.min(100, Math.max(0, parseInt(newVal || '0', 10))) || 0;
       }
       task[field] = newVal;
       await _db.updateTask(task);
+      // 新規タスクのタイトル確定時にアクティビティ記録とトーストを表示
+      if (field === 'title' && _pendingNewTaskIds.has(taskId)) {
+        _pendingNewTaskIds.delete(taskId);
+        ActivityLogger.log('wbs', 'create', 'task', taskId, `WBSタスク「${newVal}」を追加`);
+        showSuccess(`「${newVal}」を追加しました`);
+      }
       State.tasks = await _db.getAllTasks();
       Renderer.renderAll();
     };
 
     input.addEventListener('blur', save);
     input.addEventListener('keydown', e => {
-      if (field === 'title') {
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); input.blur(); }
-        if (e.key === 'Escape') { _saved = true; Renderer.renderAll(); }
-      } else {
-        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-        if (e.key === 'Escape') { _saved = true; Renderer.renderAll(); }
+      if (e.isComposing) return; // IME 変換中は無視
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') {
+        _saved = true;
+        // Escape でキャンセルしても新規タスクならログ記録とトーストを表示
+        if (field === 'title' && _pendingNewTaskIds.has(taskId)) {
+          _pendingNewTaskIds.delete(taskId);
+          ActivityLogger.log('wbs', 'create', 'task', taskId, `WBSタスク「${task.title}」を追加`);
+          showSuccess(`「${task.title}」を追加しました`);
+        }
+        Renderer.renderAll();
       }
     });
   },
@@ -292,14 +346,143 @@ const EventHandlers = {
     if (!State.selectedId) return;
     const idx = State.tasks.findIndex(t => t.id === State.selectedId);
     if (idx < 0) return;
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= State.tasks.length) return;
-    const a = State.tasks[idx];
-    const b = State.tasks[newIdx];
-    [a.position, b.position] = [b.position, a.position];
-    await _db.bulkUpdate([a, b]);
+
+    // 選択タスクのグループ範囲（自身 + 子孫）を求める
+    const groupEnd = _getDescendantsEnd(idx);
+    const groupSize = groupEnd - idx + 1;
+    const newTasks = [...State.tasks];
+
+    if (dir < 0) {
+      // 上に移動: グループ全体をひとつ前のアイテムの上に
+      if (idx === 0) return;
+      const group = newTasks.splice(idx, groupSize);
+      newTasks.splice(idx - 1, 0, ...group);
+    } else {
+      // 下に移動: グループ全体を次のアイテムのグループの後ろへ
+      if (groupEnd + 1 >= newTasks.length) return;
+      const nextGroupEnd = _getDescendantsEnd(groupEnd + 1);
+      const group = newTasks.splice(idx, groupSize);
+      // splice 後、次グループ末尾の相対位置に挿入
+      newTasks.splice(idx + nextGroupEnd - groupEnd, 0, ...group);
+    }
+
+    newTasks.forEach((t, i) => { t.position = i; });
+    await _db.bulkUpdate(newTasks);
     State.tasks = await _db.getAllTasks();
     Renderer.renderAll();
+  },
+
+  initDragDrop() {
+    const tbody = document.getElementById('wbs-table-body');
+    if (!tbody || typeof Sortable === 'undefined') return;
+
+    Sortable.create(tbody, {
+      handle: '.wbs-drag-handle',
+      animation: 150,
+      ghostClass: 'wbs-row-ghost',
+      dragClass: 'wbs-row-dragging',
+      onStart: (evt) => {
+        const draggedId = Number(evt.item.dataset.taskId);
+        const visibleIds = State._visibleTasks.map(t => t.id);
+        const groupIds = _getVisibleGroupIds(draggedId, visibleIds);
+        // 親以外の visible な子孫行にグループドラッグ中スタイルを付与
+        for (const id of groupIds) {
+          if (id === draggedId) continue;
+          const row = tbody.querySelector(`[data-task-id="${id}"]`);
+          if (row) row.classList.add('wbs-row--drag-group');
+        }
+      },
+      onEnd: async (evt) => {
+        // グループ中スタイルを解除（renderAll でも消えるが念のため即時解除）
+        tbody.querySelectorAll('.wbs-row--drag-group').forEach(r => r.classList.remove('wbs-row--drag-group'));
+
+        if (evt.oldIndex === evt.newIndex) return;
+
+        const draggedId = Number(evt.item.dataset.taskId);
+
+        // ドラッグ前の visible 順序（renderAll() 前なので State._visibleTasks が元の状態）
+        const oldVisibleIds = State._visibleTasks.map(t => t.id);
+
+        // ドラッグされたタスクの visible グループ（自身 + visible な子孫）
+        const draggedGroupIds = _getVisibleGroupIds(draggedId, oldVisibleIds);
+        const draggedGroupSet = new Set(draggedGroupIds);
+
+        // グループを除いた残り visible タスク列
+        const remaining = oldVisibleIds.filter(id => !draggedGroupSet.has(id));
+
+        // SortableJS が変えた DOM から親の新しい位置を取得し、
+        // グループの後ろに来るべき最初のアイテム（insertBefore）を特定
+        const domOrder = [...tbody.querySelectorAll('[data-task-id]')].map(r => Number(r.dataset.taskId));
+        const newParentDomIdx = domOrder.indexOf(draggedId);
+        let insertBefore = null;
+        for (let i = newParentDomIdx + 1; i < domOrder.length; i++) {
+          if (!draggedGroupSet.has(domOrder[i])) {
+            insertBefore = domOrder[i];
+            break;
+          }
+        }
+
+        // グループを正しい位置に挿入して新しい visible 順序を作る
+        const newVisibleOrder = [];
+        let inserted = false;
+        for (const id of remaining) {
+          if (id === insertBefore && !inserted) {
+            newVisibleOrder.push(...draggedGroupIds);
+            inserted = true;
+          }
+          newVisibleOrder.push(id);
+        }
+        if (!inserted) newVisibleOrder.push(...draggedGroupIds);
+
+        // 自動レベル調整: ドロップ直前のタスクより浅い場合、グループ全体のレベルをシフト
+        const draggedRootLevel = State._taskMap.get(draggedId)?.level ?? 0;
+        const groupStartIdx = newVisibleOrder.indexOf(draggedGroupIds[0]);
+        const prevId = groupStartIdx > 0 ? newVisibleOrder[groupStartIdx - 1] : null;
+        const prevTask = prevId ? State._taskMap.get(prevId) : null;
+        const levelDelta = prevTask ? Math.max(0, prevTask.level - draggedRootLevel) : 0;
+
+        if (levelDelta > 0) {
+          // グループ全体（折りたたみ中の非表示の子孫も含む）のレベルをシフト
+          const shiftLevels = (taskId) => {
+            const task = State._taskMap.get(taskId);
+            if (!task) return;
+            task.level = Math.min(4, task.level + levelDelta);
+            for (const childId of (State._childrenMap.get(taskId) || [])) shiftLevels(childId);
+          };
+          shiftLevels(draggedId);
+        }
+
+        // full task 配列を再構築
+        // visible タスクは newVisibleOrder の順に、折りたたみで非表示の子孫は親直後に配置
+        const visibleSet = new Set(newVisibleOrder);
+        const added = new Set();
+        const newTasks = [];
+
+        const addWithHiddenDescendants = (taskId) => {
+          if (added.has(taskId)) return;
+          const task = State._taskMap.get(taskId);
+          if (!task) return;
+          newTasks.push(task);
+          added.add(taskId);
+          // 折りたたみで非表示（visibleSet に含まれない）子孫のみ追加
+          const childIds = State._childrenMap.get(taskId) || [];
+          for (const childId of childIds) {
+            if (!added.has(childId) && !visibleSet.has(childId)) {
+              addWithHiddenDescendants(childId);
+            }
+          }
+        };
+
+        for (const visId of newVisibleOrder) {
+          addWithHiddenDescendants(visId);
+        }
+
+        newTasks.forEach((t, i) => { t.position = i; });
+        await _db.bulkUpdate(newTasks);
+        State.tasks = await _db.getAllTasks();
+        Renderer.renderAll();
+      },
+    });
   },
 
   async exportData() {

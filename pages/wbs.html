@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="../css/components/date_picker.css" />
     <link rel="stylesheet" href="../css/components/custom_select.css" />
     <link rel="stylesheet" href="../css/wbs.css" />
+    <script defer src="../vendor/sortable.min.js"></script>
     <script defer src="../js/core/utils.js"></script>
     <script defer src="../js/core/env.js"></script>
     <script defer src="../js/core/file_saver.js"></script>
@@ -86,9 +87,6 @@
           親へ
         </button>
         <div class="wbs-toolbar__sep"></div>
-        <button class="btn btn--secondary btn--sm" id="move-up-btn" title="上へ移動">↑ 上へ</button>
-        <button class="btn btn--secondary btn--sm" id="move-down-btn" title="下へ移動">↓ 下へ</button>
-        <div class="wbs-toolbar__sep"></div>
         <button class="btn btn--secondary btn--sm" id="today-btn">
           <svg viewBox="0 0 16 16" aria-hidden="true" style="width:13px;height:13px;fill:currentColor"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.5-3.5H3a.5.5 0 0 0-.5.5v1.5h11V4.5a.5.5 0 0 0-.5-.5Z"/></svg>
           今日へ
@@ -117,6 +115,7 @@
         <div class="wbs-table-section" id="wbs-table-section">
           <!-- テーブルヘッダー -->
           <div class="wbs-table-head">
+            <div class="wbs-th th-drag"></div>
             <div class="wbs-th th-no">No</div>
             <div class="wbs-th th-title">タスク名</div>
             <div class="wbs-th th-date" title="予定開始日（カレンダーで入力）">予定開始</div>

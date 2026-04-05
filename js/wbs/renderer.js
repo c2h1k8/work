@@ -132,6 +132,9 @@ const Renderer = {
       return `<div class="wbs-row wbs-row--l${task.level}${isSelected ? ' is-selected' : ''}${agg ? ' is-parent-agg' : ''}"
                    data-task-id="${task.id}"
                    data-status="${task.status || 'not_started'}">
+        <div class="wbs-cell cell-drag">
+          <span class="wbs-drag-handle" title="ドラッグして並び替え">${Icons.grip}</span>
+        </div>
         <div class="wbs-cell cell-no">${idx + 1}</div>
         <div class="wbs-cell cell-title is-clickable" data-field="title" data-tooltip="${escapeHtml(titleTooltip)}"${isDelayed ? ' data-tooltip-type="danger"' : isDueSoon ? ' data-tooltip-type="warning"' : ''}>
           <div class="wbs-title-indent">

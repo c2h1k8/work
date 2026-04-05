@@ -42,6 +42,7 @@
     padding-left: var(--space-2);
   }
 
+  &.th-drag   { width: 20px; padding: 0; }
   &.th-no     { width: 32px; }
   &.th-title  { flex: 1; min-width: 140px; justify-content: flex-start; padding-left: var(--space-2); }
   &.th-date   { width: 82px; }   // YYYY/M/D 表示のため幅確保
@@ -72,8 +73,7 @@
 
   &.is-selected {
     background: var(--c-accent-dim);
-    border-left-color: var(--c-accent);
-    border-left-width: 4px;
+    border-left-width: 4px; // 幅を広げて選択状態を示す（色はレベル色を維持）
   }
 }
 
@@ -125,6 +125,7 @@
     color: var(--c-text-2);
     background: var(--c-bg);
   }
+  &.cell-drag   { width: 20px; padding: 0; cursor: default; }
   &.cell-no     { width: 32px; color: var(--c-text-3); font-size: 11px; }
   &.cell-title  {
     flex: 1;
@@ -352,6 +353,47 @@
       opacity: 1;
     }
   }
+}
+
+// ドラッグハンドル
+.wbs-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--c-text-3);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity var(--t);
+
+  svg { pointer-events: none; }
+  &:active { cursor: grabbing; }
+}
+
+.wbs-row:hover .wbs-drag-handle,
+.wbs-row.is-selected .wbs-drag-handle {
+  opacity: 1;
+}
+
+// SortableJS ゴースト・ドラッグ中
+.wbs-row-ghost {
+  opacity: 0.35;
+  background: var(--c-accent-dim) !important;
+}
+
+.wbs-row-dragging {
+  background: var(--c-surface) !important;
+  box-shadow: var(--shadow-md);
+  opacity: 0.9;
+  z-index: 10;
+}
+
+// 親をドラッグ中、子行をグループとして追従しているように見せる
+.wbs-row--drag-group {
+  opacity: 0.35;
+  background: var(--c-accent-dim) !important;
+  pointer-events: none;
 }
 
 // インライン編集
