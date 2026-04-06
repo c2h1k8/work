@@ -63,6 +63,11 @@ jobs:
               -e "s/\.js\"/\.js?v=${TAG}\"/g" \
               -e "s/\.js'/\.js?v=${TAG}'/g" \
               "$f"
+            # vendor/ 配下はクエリパラメータ不要（Tauri アセットサーバーがクエリ付きで解決できないため）
+            sed -i \
+              -e "s|vendor/\([^\"']*\)\.js?v=${TAG}|vendor/\1.js|g" \
+              -e "s|vendor/\([^\"']*\)\.css?v=${TAG}|vendor/\1.css|g" \
+              "$f"
           done
 
       - name: Create release ZIPs
@@ -182,6 +187,12 @@ jobs:
               -e "s/\.css'/\.css?v=${TAG}'/g" \
               -e "s/\.js\"/\.js?v=${TAG}\"/g" \
               -e "s/\.js'/\.js?v=${TAG}'/g" \
+              "$f"
+            rm -f "$f.bak"
+            # vendor/ 配下はクエリパラメータ不要（Tauri アセットサーバーがクエリ付きで解決できないため）
+            sed -i.bak \
+              -e "s|vendor/\([^\"']*\)\.js?v=${TAG}|vendor/\1.js|g" \
+              -e "s|vendor/\([^\"']*\)\.css?v=${TAG}|vendor/\1.css|g" \
               "$f"
             rm -f "$f.bak"
           done
