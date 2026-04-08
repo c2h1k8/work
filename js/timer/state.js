@@ -13,6 +13,9 @@ const showError = (msg) => Toast.error(msg);
 const TIMER_ACTIVE_PRESET_KEY  = 'timer_active_preset';
 const TIMER_HISTORY_VIEW_KEY   = 'timer_history_view';
 const TIMER_RUNNING_STATE_KEY  = 'timer_running_state';
+const TIMER_DAILY_GOAL_KEY     = 'timer_daily_goal';
+const TIMER_CUSTOM_FROM_KEY    = 'timer_custom_from';
+const TIMER_CUSTOM_TO_KEY      = 'timer_custom_to';
 
 // タイマー状態
 const State = {
@@ -28,9 +31,15 @@ const State = {
   worker: null,              // Web Worker インスタンス
   taskName: '',
   tag: '',
-  historyView: loadFromStorage(TIMER_HISTORY_VIEW_KEY) || 'today', // 'today' | 'week'
+  historyView: loadFromStorage(TIMER_HISTORY_VIEW_KEY) || 'today', // 'today' | 'week' | 'month' | 'last-month' | 'custom'
   editingPresetId: null,   // プリセットモーダル: null=新規
   sessionStartTime: null,  // 現在のセッション開始時刻
+  // 分析機能
+  dailyGoalSec:  Number(loadFromStorage(TIMER_DAILY_GOAL_KEY))  || 0,   // 1日の目標秒数（0=未設定）
+  customFrom:    loadFromStorage(TIMER_CUSTOM_FROM_KEY) || '',           // カスタム期間 開始日 YYYY-MM-DD
+  customTo:      loadFromStorage(TIMER_CUSTOM_TO_KEY)   || '',           // カスタム期間 終了日 YYYY-MM-DD
+  streakDays:    0,                                                       // 連続達成日数
+  todayTotalSec: 0,                                                       // 今日の合計作業秒数（目標達成率用）
 };
 
 // ==================================================

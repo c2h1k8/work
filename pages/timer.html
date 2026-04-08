@@ -18,6 +18,8 @@
     <link rel="stylesheet" href="../css/components/toast.css" />
     <link rel="stylesheet" href="../css/components/tooltip.css" />
     <link rel="stylesheet" href="../css/components/shortcut_help.css" />
+    <link rel="stylesheet" href="../css/components/date_picker.css" />
+    <link rel="stylesheet" href="../css/components/custom_select.css" />
     <link rel="stylesheet" href="../css/timer.css" />
     <script defer src="../js/core/utils.js"></script>
     <script defer src="../js/core/env.js"></script>
@@ -28,6 +30,8 @@
     <script defer src="../js/components/toast.js"></script>
     <script defer src="../js/components/tooltip.js"></script>
     <script defer src="../js/components/shortcut_help.js"></script>
+    <script defer src="../js/components/date_picker.js"></script>
+    <script defer src="../js/components/custom_select.js"></script>
     <script defer src="../js/db/timer_db.js"></script>
     <script defer src="../js/timer/state.js"></script>
     <script defer src="../js/timer/renderer.js"></script>
@@ -93,8 +97,14 @@
 
             <!-- タスク名・タグ入力 -->
             <div class="timer-meta">
-              <input type="text" id="timer-task-name" class="timer-meta__input" placeholder="タスク名（任意）" />
-              <input type="text" id="timer-tag"       class="timer-meta__input timer-meta__input--tag" placeholder="タグ（任意）" />
+              <div class="timer-task-wrap">
+                <input type="text" id="timer-task-name" class="timer-meta__input" placeholder="タスク名（任意）" autocomplete="off" />
+                <ul id="task-suggestions" class="tag-suggestions" hidden></ul>
+              </div>
+              <div class="timer-tag-wrap">
+                <input type="text" id="timer-tag" class="timer-meta__input timer-meta__input--tag" placeholder="タグ（任意）" autocomplete="off" />
+                <ul id="tag-suggestions" class="tag-suggestions" hidden></ul>
+              </div>
             </div>
 
             <!-- 操作ボタン -->
@@ -125,18 +135,56 @@
 
         </div>
 
-        <!-- 右カラム: ログ -->
+        <!-- 右カラム: ログ + 分析 -->
         <div class="timer-right-col">
           <section class="card log-section">
+            <!-- 1行目: タイトル + 合計 + CSV アイコンボタン -->
             <div class="card__header">
               <h2 class="card__title">作業ログ</h2>
-              <div class="log-tabs" id="log-tabs">
-                <button class="log-tab-btn log-tab-btn--active" data-view="today">今日</button>
-                <button class="log-tab-btn" data-view="week">今週</button>
-              </div>
               <span class="log-total" id="log-total"></span>
+              <button class="icon-btn log-csv-btn" id="csv-export-btn" data-tooltip="全セッションをCSV出力（分析用）">
+                <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor" width="14" height="14"><path d="M3.75 1h8.5c.966 0 1.75.784 1.75 1.75v3.5a.75.75 0 0 1-1.5 0v-3.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25v11.5c0 .138.112.25.25.25h4a.75.75 0 0 1 0 1.5h-4A1.75 1.75 0 0 1 2 14.25V2.75C2 1.784 2.784 1 3.75 1Z"/><path d="M8.5 8.25a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 0 1.5H10.56l1.22 1.22a.75.75 0 1 1-1.06 1.06L8.97 9.53a.75.75 0 0 1 0-1.06l1.75-1.75a.75.75 0 0 1 1.06 1.06L10.56 9h3.69a.75.75 0 0 1 0 1.5H9.25a.75.75 0 0 1-.75-.75Z"/></svg>
+              </button>
             </div>
+            <!-- 2行目: 期間タブ -->
+            <div class="log-tabs" id="log-tabs">
+              <button class="log-tab-btn log-tab-btn--active" data-view="today">今日</button>
+              <button class="log-tab-btn" data-view="week">今週</button>
+              <button class="log-tab-btn" data-view="month">今月</button>
+              <button class="log-tab-btn" data-view="last-month">先月</button>
+              <button class="log-tab-btn" data-view="custom">期間</button>
+            </div>
+
+            <!-- カスタム期間入力（期間タブ選択時のみ表示） -->
+            <div id="custom-range" class="custom-range" hidden>
+              <button type="button" class="custom-range__date-btn" id="custom-from-btn">
+                <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12" aria-hidden="true"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Z"/></svg>
+                <span id="custom-from-label">開始日</span>
+              </button>
+              <span class="custom-range__sep">〜</span>
+              <button type="button" class="custom-range__date-btn" id="custom-to-btn">
+                <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12" aria-hidden="true"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Z"/></svg>
+                <span id="custom-to-label">終了日</span>
+              </button>
+              <button class="btn btn--primary btn--sm" id="custom-apply-btn">適用</button>
+            </div>
+
+            <!-- 目標・ストリーク・今日の進捗 -->
+            <div id="goal-stats" class="goal-stats"></div>
+
+            <!-- 日別推移グラフ（週・月・カスタム表示時） -->
+            <div id="daily-chart" class="daily-chart" hidden></div>
+
+            <!-- タグ別集計 -->
             <div id="tag-chart" class="tag-chart" hidden></div>
+
+            <!-- タスク別集計 -->
+            <div id="task-chart" class="tag-chart tag-chart--task" hidden></div>
+
+            <!-- 曜日別パターン（週・月・カスタム表示時） -->
+            <div id="weekday-chart" class="tag-chart tag-chart--weekday" hidden></div>
+
+            <!-- セッション一覧 -->
             <div id="log-list" class="log-list"></div>
           </section>
         </div>

@@ -115,8 +115,78 @@
     &--tag {
       flex: 0 1 90px;
       min-width: 70px;
+      width: 100%;
     }
   }
+}
+
+// タスク名入力ラッパー（オートコンプリート用）
+.timer-task-wrap {
+  flex: 1 1 120px;
+  min-width: 0;
+  position: relative;
+
+  .timer-meta__input {
+    width: 100%;
+    flex: none; // ラッパーが flex 制御するため
+  }
+}
+
+// タグ入力ラッパー（オートコンプリート用）
+.timer-tag-wrap {
+  flex: 0 1 90px;
+  min-width: 70px;
+  position: relative;
+
+  .timer-meta__input--tag {
+    width: 100%;
+    flex: none;
+  }
+}
+
+// オートコンプリート候補リスト（タスク名・タグ共通）
+.tag-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 200;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--c-surface-raised, var(--c-surface));
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-height: 200px;
+  overflow-y: auto;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--c-text);
+    cursor: pointer;
+    transition: background var(--t);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &:hover,
+    &--active {
+      background: var(--c-bg-2);
+    }
+  }
+}
+
+// オートコンプリート候補の色ドット（タグ用）
+.suggestions__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 // ==================================================

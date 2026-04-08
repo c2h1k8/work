@@ -43,6 +43,11 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - `text/`: エンコード方向 → `localStorage("text_encode_dir")`（ブラウザ固有）
 - `text/`: TSV 区切り文字 → `localStorage("text_tsv_delimiter")`（ブラウザ固有）
 - `text/`: TSV ヘッダー有無 → `localStorage("text_tsv_has_header")`（ブラウザ固有）
+- `timer/`: 表示期間タブ → `localStorage("timer_history_view")`（ブラウザ固有）
+- `timer/`: アクティブプリセットID → `localStorage("timer_active_preset")`（ブラウザ固有）
+- `timer/`: カスタム期間 → `localStorage("timer_custom_from")` / `localStorage("timer_custom_to")`（ブラウザ固有）
+- `timer/`: 1日の目標秒数 → `localStorage("timer_daily_goal")`（ブラウザ固有）
+- `timer/`: タイマー実行状態 → `localStorage("timer_running_state")`（ブラウザ固有・タブ破棄復元用）
 
 ### JavaScript
 
@@ -430,19 +435,30 @@ Claude Code がこのプロジェクトで作業する際の指針。
 - **DnD（SortableJS）**: 各行左端のドラッグハンドル（`Icons.grip`）でドラッグ＆ドロップ並び替え。SortableJS `vendor/sortable.min.js` を使用。`EventHandlers.initDragDrop()` で初期化
 - **グループ移動**: 上下ボタン（`moveTask`）は選択タスク + 全子孫を一括移動。`_getDescendantsEnd(idx)` で末尾インデックスを算出してグループをまとめて splice
 
-## timer/ アーキテクチャ（2026-03現在）
+## timer/ アーキテクチャ（2026-04現在）
 
 - ファイル構成: `js/timer/state.js`（State + フォーマットヘルパー + 通知音）/ `renderer.js`（描画）/ `events.js`（EventHandlers + タイマー制御）/ `app.js`（App）
 - IndexedDB DB名: `timer_db` version **1**
 - ストア: `presets`（id/name/work_sec/break_sec/position）+ `sessions`（id/task_name/tag/notes/duration_sec/started_at/ended_at）
 - モジュール構成: `TimerDB`（`js/db/timer_db.js`）/ `state.js` / `renderer.js` / `events.js` / `app.js`（`js/timer/` 配下に分割）
 - `State.mode`: `'work'` | `'break'` でフェーズ管理
-- `State.historyView`: `'today'` | `'week'` で表示期間切替。localStorage `timer_history_view` に永続化
+- `State.historyView`: `'today'` | `'week'` | `'month'` | `'last-month'` | `'custom'` で表示期間切替。localStorage `timer_history_view` に永続化
+- `State.customFrom` / `State.customTo`: カスタム期間 YYYY-MM-DD。localStorage `timer_custom_from` / `timer_custom_to` に永続化
+- `State.dailyGoalSec`: 1日の目標秒数（0=未設定）。localStorage `timer_daily_goal` に永続化
+- `State.streakDays`: 連続達成日数（`loadSessions()` 呼び出し時に全セッションから計算）
+- `State.todayTotalSec`: 今日の合計作業秒数（目標達成率表示用）
 - アクティブプリセットID: localStorage `timer_active_preset` に永続化
 - 通知: Web Notifications API + AudioContext ビープ音
 - タイマーカウントダウンは Blob インライン Web Worker で実行（バックグラウンドタブでもスロットリングされず正確に発火）。`_createTimerWorker()`（`state.js`）で生成、`setupEvents()`（`events.js`）で `onmessage` を登録。Worker 内も壁時計時間ベース。`file://` 等 Worker 非対応環境では `setInterval` + 壁時計時間フォールバック
 - **タイマー状態永続化**: タイマーの実行状態（残り時間・モード・タスク名・タグ等）を localStorage `timer_running_state` に毎秒保存。ブラウザのタブ破棄（Memory Saver）やページリロード時に `_restoreTimerState()` で復元。経過時間は壁時計時間ベースで補正。タイマーが破棄中に完了していた場合は `onPhaseEnd()` を実行
 - デフォルトプリセット: ポモドーロ（25/5）/ 短いポモドーロ（15/3）/ 長い集中（50/10）
+- **分析機能**:
+  - `renderLog()` がサブレンダラーに委譲: `_renderGoalStats()` / `_renderDailyChart()` / `_renderTagChart()` / `_renderTaskChart()` / `_renderWeekdayChart()` / `_renderLogList()`
+  - `_computeStreak(sessions, goalSec)`: 全セッションから連続達成日数を計算（今日が未達の場合は昨日から遡る）
+  - `_updateAnalyticsState(allSessions)`: streakDays / todayTotalSec を一括更新
+  - `_getDateList()`: 表示期間の日付配列を生成（日別推移グラフ用）
+  - `exportCSV()`: 全セッションを UTF-8 BOM 付き CSV でエクスポート（FileSaver.save 使用）
+  - 複数日ビューでのセッション一覧は日付区切り（`.log-date-sep`）を挿入
 
 ## ops/ アーキテクチャ（2026-03現在）
 

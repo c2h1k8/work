@@ -50,10 +50,18 @@ async function init() {
   // セッションを読み込む
   await loadSessions();
 
-  // 初期UIセット
+  // 初期UIセット（タブアクティブ状態）
   document.querySelectorAll('.log-tab-btn').forEach(b => {
     b.classList.toggle('log-tab-btn--active', b.dataset.view === State.historyView);
   });
+
+  // カスタム期間入力を復元・表示制御
+  const customRange    = document.getElementById('custom-range');
+  const customFromLbl  = document.getElementById('custom-from-label');
+  const customToLbl    = document.getElementById('custom-to-label');
+  if (customFromLbl && State.customFrom) customFromLbl.textContent = State.customFrom;
+  if (customToLbl   && State.customTo)   customToLbl.textContent   = State.customTo;
+  if (customRange) customRange.hidden = State.historyView !== 'custom';
 
   // Tauri: OS通知権限を確認・未取得の場合はリクエスト
   if (Env.isTauri) {

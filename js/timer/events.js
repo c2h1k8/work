@@ -303,7 +303,6 @@ async function skipPhase() {
 /** 作業セッションをDBに保存 */
 async function saveSession() {
   if (!State.sessionStartTime) return;
-  const preset = getActivePreset();
   const endTime = new Date().toISOString();
   const startTime = State.sessionStartTime;
   const durationSec = Math.round((new Date(endTime) - new Date(startTime)) / 1000);
@@ -320,11 +319,13 @@ async function saveSession() {
 
   try {
     const saved = await State.db.addSession(session);
-    // 表示中セッションリストを更新
-    const today = toDateStr(new Date());
-    if (startTime.slice(0, 10) === today || State.historyView === 'week') {
+    // 表示中の期間に含まれる場合はリストに追加
+    if (_isInCurrentView(startTime.slice(0, 10))) {
       State.sessions.push(saved);
     }
+    // ストリーク・今日の合計を再計算
+    const allSessions = await State.db.getAllSessions();
+    _updateAnalyticsState(allSessions);
     renderLog();
   } catch (err) {
     console.error('セッション保存エラー:', err);
@@ -407,26 +408,138 @@ async function deletePreset(id) {
 }
 
 // ==================================================
-// セッション読み込み
+// セッション読み込み・分析集計
 // ==================================================
+
+/**
+ * 指定日付が現在の表示期間に含まれるか判定する
+ * @param {string} dateStr - YYYY-MM-DD
+ */
+function _isInCurrentView(dateStr) {
+  const today = toDateStr(new Date());
+  const now   = new Date();
+
+  if (State.historyView === 'today') return dateStr === today;
+
+  if (State.historyView === 'week') {
+    const dow = now.getDay() || 7;
+    const mon = new Date(now);
+    mon.setDate(now.getDate() - (dow - 1));
+    return dateStr >= toDateStr(mon) && dateStr <= today;
+  }
+
+  if (State.historyView === 'month') {
+    const from = toDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+    return dateStr >= from && dateStr <= today;
+  }
+
+  if (State.historyView === 'last-month') {
+    const from = toDateStr(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const to   = toDateStr(new Date(now.getFullYear(), now.getMonth(), 0));
+    return dateStr >= from && dateStr <= to;
+  }
+
+  if (State.historyView === 'custom') {
+    return !!(State.customFrom && State.customTo &&
+      dateStr >= State.customFrom && dateStr <= State.customTo);
+  }
+
+  return false;
+}
+
+/**
+ * 連続達成日数を計算する
+ * @param {Array}  sessions  - 全セッション配列
+ * @param {number} goalSec   - 1日の目標秒数（0 = 記録があれば達成とみなす）
+ */
+function _computeStreak(sessions, goalSec) {
+  // 日別に合計秒数を集計
+  const byDate = {};
+  sessions.forEach(s => {
+    const d = s.started_at.slice(0, 10);
+    byDate[d] = (byDate[d] || 0) + s.duration_sec;
+  });
+
+  const threshold = goalSec > 0 ? goalSec : 1; // 1秒でも記録があれば達成
+  const cur       = new Date();
+  const todayStr  = toDateStr(cur);
+
+  // 今日が未達の場合は昨日から遡る（今日はまだ進行中の可能性があるため）
+  if ((byDate[todayStr] || 0) < threshold) {
+    cur.setDate(cur.getDate() - 1);
+  }
+
+  let streak = 0;
+  while (streak < 1000) { // 無限ループ防止
+    const d = toDateStr(cur);
+    if ((byDate[d] || 0) >= threshold) {
+      streak++;
+      cur.setDate(cur.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+/**
+ * 全セッションから分析用 State を更新する
+ * @param {Array} allSessions
+ */
+function _updateAnalyticsState(allSessions) {
+  const today = toDateStr(new Date());
+  State.streakDays = _computeStreak(allSessions, State.dailyGoalSec);
+  State.todayTotalSec = allSessions
+    .filter(s => s.started_at.slice(0, 10) === today)
+    .reduce((sum, s) => sum + (s.duration_sec || 0), 0);
+}
 
 /** 表示期間のセッションを読み込む */
 async function loadSessions() {
   const today = toDateStr(new Date());
+  const now   = new Date();
+
   if (State.historyView === 'today') {
     State.sessions = await State.db.getSessionsByDate(today);
-  } else {
-    // 今週の月曜日〜今日
-    const now = new Date();
-    const dow = now.getDay() || 7; // 日曜=7
+  } else if (State.historyView === 'week') {
+    const dow = now.getDay() || 7;
     const mon = new Date(now);
     mon.setDate(now.getDate() - (dow - 1));
     State.sessions = await State.db.getSessionsInRange(toDateStr(mon), today);
+  } else if (State.historyView === 'month') {
+    const from = toDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+    State.sessions = await State.db.getSessionsInRange(from, today);
+  } else if (State.historyView === 'last-month') {
+    const from = toDateStr(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const to   = toDateStr(new Date(now.getFullYear(), now.getMonth(), 0));
+    State.sessions = await State.db.getSessionsInRange(from, to);
+  } else if (State.historyView === 'custom') {
+    if (State.customFrom && State.customTo) {
+      State.sessions = await State.db.getSessionsInRange(State.customFrom, State.customTo);
+    } else {
+      State.sessions = [];
+    }
   }
+
+  // ストリーク・今日の合計を全セッションから計算、オートコンプリート用キャッシュを更新
+  const allSessions = await State.db.getAllSessions();
+  _updateAnalyticsState(allSessions);
+
+  // タグ候補セット（全ユニークタグ）
+  State._allTagSet = new Set(allSessions.map(s => s.tag).filter(Boolean));
+
+  // タスク名候補（直近5件・ユニーク）
+  const seen = new Set();
+  State._recentTasks = allSessions
+    .filter(s => s.task_name && s.task_name !== '（未設定）')
+    .sort((a, b) => b.started_at.localeCompare(a.started_at))
+    .map(s => s.task_name)
+    .filter(t => !seen.has(t) && seen.add(t))
+    .slice(0, 5);
 }
 
 // ==================================================
-// エクスポート/インポート
+// エクスポート/インポート（JSON）
 // ==================================================
 
 async function exportData() {
@@ -469,6 +582,226 @@ function importData() {
     }
   };
   input.click();
+}
+
+// ==================================================
+// CSV エクスポート
+// ==================================================
+
+/** 全セッションを CSV 形式でエクスポートする */
+async function exportCSV() {
+  try {
+    const all = await State.db.getAllSessions();
+    if (!all.length) { showError('エクスポートするデータがありません'); return; }
+
+    const header = ['id', 'task_name', 'tag', 'duration_sec', 'duration_min', 'started_at', 'ended_at', 'notes'];
+    const rows = all
+      .sort((a, b) => a.started_at.localeCompare(b.started_at))
+      .map(s => [
+        s.id,
+        `"${(s.task_name || '').replace(/"/g, '""')}"`,
+        `"${(s.tag       || '').replace(/"/g, '""')}"`,
+        s.duration_sec || 0,
+        Math.round((s.duration_sec || 0) / 60),
+        s.started_at || '',
+        s.ended_at   || '',
+        `"${(s.notes || '').replace(/"/g, '""')}"`,
+      ].join(','));
+
+    // UTF-8 BOM を付与して Excel でも文字化けしないようにする
+    const bom  = '\uFEFF';
+    const csv  = bom + [header.join(','), ...rows].join('\n');
+    const name = `timer_sessions_${toDateStr(new Date())}.csv`;
+    const saved = await FileSaver.save(csv, name, { mimeType: 'text/csv' });
+    if (saved) showSuccess(`${all.length}件のセッションをエクスポートしました`);
+  } catch (err) {
+    console.error(err);
+    showError('CSVエクスポートに失敗しました');
+  }
+}
+
+// ==================================================
+// タグオートコンプリート
+// ==================================================
+
+/**
+ * 過去セッションのタグから候補を返す（大文字小文字無視、最大8件）
+ * @param {string} query
+ * @returns {string[]}
+ */
+function _getTagCandidates(query) {
+  if (!State.db) return [];
+  // State.sessions は表示期間のみのため、全セッションを使いたい
+  // キャッシュとして State._allTagSet を利用する
+  if (!State._allTagSet) return [];
+  const q = query.toLowerCase();
+  return [...State._allTagSet]
+    .filter(t => t && t.toLowerCase().includes(q))
+    .sort((a, b) => a.localeCompare(b, 'ja'))
+    .slice(0, 8);
+}
+
+/**
+ * 直近タスク名の候補を返す（最大5件）
+ * @param {string} query - 空文字の場合は全件返す
+ * @returns {string[]}
+ */
+function _getTaskCandidates(query) {
+  if (!State._recentTasks || !State._recentTasks.length) return [];
+  if (!query) return State._recentTasks;
+  const q = query.toLowerCase();
+  return State._recentTasks.filter(t => t.toLowerCase().includes(q));
+}
+
+/** タスク名オートコンプリートのセットアップ */
+function _setupTaskAutocomplete() {
+  const input       = document.getElementById('timer-task-name');
+  const suggestions = document.getElementById('task-suggestions');
+  if (!input || !suggestions) return;
+
+  let activeIdx = -1;
+
+  function _showSuggestions(candidates) {
+    if (!candidates.length) { suggestions.hidden = true; return; }
+    activeIdx = -1;
+    suggestions.innerHTML = candidates.map(t =>
+      `<li class="tag-suggestions__item" data-task="${escapeHtml(t)}">${escapeHtml(t)}</li>`
+    ).join('');
+    suggestions.hidden = false;
+  }
+
+  function _selectTask(task) {
+    input.value = task;
+    suggestions.hidden = true;
+    activeIdx = -1;
+    input.focus();
+  }
+
+  input.addEventListener('input', () => {
+    _showSuggestions(_getTaskCandidates(input.value.trim()));
+  });
+
+  input.addEventListener('focus', () => {
+    _showSuggestions(_getTaskCandidates(input.value.trim()));
+  });
+
+  input.addEventListener('keydown', e => {
+    if (suggestions.hidden) return;
+    const items = [...suggestions.querySelectorAll('.tag-suggestions__item')];
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIdx = Math.min(activeIdx + 1, items.length - 1);
+      items.forEach((el, i) => el.classList.toggle('tag-suggestions__item--active', i === activeIdx));
+      if (activeIdx >= 0) input.value = items[activeIdx].dataset.task;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, -1);
+      items.forEach((el, i) => el.classList.toggle('tag-suggestions__item--active', i === activeIdx));
+      if (activeIdx >= 0) input.value = items[activeIdx].dataset.task;
+    } else if (e.key === 'Enter' && !e.isComposing) {
+      if (activeIdx >= 0) { e.preventDefault(); _selectTask(items[activeIdx].dataset.task); }
+    } else if (e.key === 'Escape') {
+      suggestions.hidden = true;
+      activeIdx = -1;
+    }
+  });
+
+  suggestions.addEventListener('mousedown', e => {
+    const item = e.target.closest('.tag-suggestions__item');
+    if (!item) return;
+    e.preventDefault();
+    _selectTask(item.dataset.task);
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => { suggestions.hidden = true; activeIdx = -1; }, 150);
+  });
+}
+
+/** タグオートコンプリートのセットアップ */
+function _setupTagAutocomplete() {
+  const input       = document.getElementById('timer-tag');
+  const suggestions = document.getElementById('tag-suggestions');
+  if (!input || !suggestions) return;
+
+  let activeIdx = -1;
+
+  // 候補リストを描画する（タグ名 + 色ドット）
+  function _showSuggestions(candidates) {
+    if (!candidates.length) { suggestions.hidden = true; return; }
+    activeIdx = -1;
+    suggestions.innerHTML = candidates.map(t => {
+      const color = _tagColor(t);
+      return `<li class="tag-suggestions__item" data-tag="${escapeHtml(t)}">
+        <span class="suggestions__dot" style="background:${color}"></span>${escapeHtml(t)}
+      </li>`;
+    }).join('');
+    suggestions.hidden = false;
+  }
+
+  // 候補を選択して入力欄に反映する
+  function _selectTag(tag) {
+    input.value = tag;
+    suggestions.hidden = true;
+    activeIdx = -1;
+    input.focus();
+  }
+
+  // 入力イベント: 候補を絞り込む
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    if (!q) { suggestions.hidden = true; return; }
+    _showSuggestions(_getTagCandidates(q));
+  });
+
+  // フォーカス時: 既存値があれば候補を表示
+  input.addEventListener('focus', () => {
+    const q = input.value.trim();
+    if (q) _showSuggestions(_getTagCandidates(q));
+  });
+
+  // キーボード操作: ↑↓で選択、Enterで確定、Escapeで閉じる
+  input.addEventListener('keydown', e => {
+    if (suggestions.hidden) return;
+    const items = [...suggestions.querySelectorAll('.tag-suggestions__item')];
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIdx = Math.min(activeIdx + 1, items.length - 1);
+      items.forEach((el, i) => el.classList.toggle('tag-suggestions__item--active', i === activeIdx));
+      if (activeIdx >= 0) input.value = items[activeIdx].dataset.tag;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, -1);
+      items.forEach((el, i) => el.classList.toggle('tag-suggestions__item--active', i === activeIdx));
+      if (activeIdx >= 0) input.value = items[activeIdx].dataset.tag;
+    } else if (e.key === 'Enter' && !e.isComposing) {
+      if (activeIdx >= 0) {
+        e.preventDefault();
+        _selectTag(items[activeIdx].dataset.tag);
+      }
+    } else if (e.key === 'Escape') {
+      suggestions.hidden = true;
+      activeIdx = -1;
+    }
+  });
+
+  // クリックで選択
+  suggestions.addEventListener('mousedown', e => {
+    const item = e.target.closest('.tag-suggestions__item');
+    if (!item) return;
+    e.preventDefault(); // blur を防ぐ
+    _selectTag(item.dataset.tag);
+  });
+
+  // フォーカスアウトで閉じる
+  input.addEventListener('blur', () => {
+    // mousedown の preventDefault により blur 前にクリック処理が走るため少し遅延
+    setTimeout(() => { suggestions.hidden = true; activeIdx = -1; }, 150);
+  });
 }
 
 // ==================================================
@@ -528,6 +861,53 @@ function setupEvents() {
     document.querySelectorAll('.log-tab-btn').forEach(b => {
       b.classList.toggle('log-tab-btn--active', b.dataset.view === State.historyView);
     });
+
+    // カスタム期間入力の表示/非表示
+    const customRange = document.getElementById('custom-range');
+    if (customRange) customRange.hidden = State.historyView !== 'custom';
+
+    if (State.historyView !== 'custom') {
+      await loadSessions();
+      renderLog();
+    }
+  });
+
+  // カスタム期間: 開始日 DatePicker
+  document.getElementById('custom-from-btn')?.addEventListener('click', () => {
+    DatePicker.open(State.customFrom || '', (dateStr) => {
+      State.customFrom = dateStr;
+      saveToStorage(TIMER_CUSTOM_FROM_KEY, dateStr);
+      const lbl = document.getElementById('custom-from-label');
+      if (lbl) lbl.textContent = dateStr;
+    }, () => {
+      State.customFrom = '';
+      saveToStorage(TIMER_CUSTOM_FROM_KEY, '');
+      const lbl = document.getElementById('custom-from-label');
+      if (lbl) lbl.textContent = '開始日';
+    });
+  });
+
+  // カスタム期間: 終了日 DatePicker
+  document.getElementById('custom-to-btn')?.addEventListener('click', () => {
+    DatePicker.open(State.customTo || '', (dateStr) => {
+      State.customTo = dateStr;
+      saveToStorage(TIMER_CUSTOM_TO_KEY, dateStr);
+      const lbl = document.getElementById('custom-to-label');
+      if (lbl) lbl.textContent = dateStr;
+    }, () => {
+      State.customTo = '';
+      saveToStorage(TIMER_CUSTOM_TO_KEY, '');
+      const lbl = document.getElementById('custom-to-label');
+      if (lbl) lbl.textContent = '終了日';
+    });
+  });
+
+  // カスタム期間 適用ボタン
+  document.getElementById('custom-apply-btn')?.addEventListener('click', async () => {
+    const from = State.customFrom;
+    const to   = State.customTo;
+    if (!from || !to) { showError('開始日と終了日を選択してください'); return; }
+    if (from > to)    { showError('開始日は終了日より前を指定してください'); return; }
     await loadSessions();
     renderLog();
   });
@@ -540,6 +920,9 @@ function setupEvents() {
     try {
       await State.db.deleteSession(id);
       State.sessions = State.sessions.filter(s => s.id !== id);
+      // ストリーク・今日合計を再計算
+      const allSessions = await State.db.getAllSessions();
+      _updateAnalyticsState(allSessions);
       renderLog();
     } catch (err) {
       console.error(err);
@@ -547,9 +930,28 @@ function setupEvents() {
     }
   });
 
-  // エクスポート/インポート
+  // 目標時間セレクト（goal-stats 内のイベント委譲）
+  document.getElementById('goal-stats').addEventListener('change', async e => {
+    const sel = e.target.closest('#goal-select');
+    if (!sel) return;
+    State.dailyGoalSec = Number(sel.value);
+    saveToStorage(TIMER_DAILY_GOAL_KEY, String(State.dailyGoalSec));
+    // ストリーク再計算して再描画
+    const allSessions = await State.db.getAllSessions();
+    _updateAnalyticsState(allSessions);
+    renderLog();
+  });
+
+  // タスク名・タグ入力オートコンプリート
+  _setupTaskAutocomplete();
+  _setupTagAutocomplete();
+
+  // エクスポート/インポート（JSON）
   document.getElementById('export-btn').addEventListener('click', exportData);
   document.getElementById('import-btn').addEventListener('click', importData);
+
+  // CSV エクスポート
+  document.getElementById('csv-export-btn')?.addEventListener('click', exportCSV);
 
   // Web Worker の初期化（バックグラウンドでも正確にカウントダウン）
   State.worker = _createTimerWorker();

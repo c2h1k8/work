@@ -4,12 +4,18 @@
 
 .log-section {
   flex: 1;
+
+  // ヘッダー行とタブ行が近すぎないよう調整
+  .card__header {
+    margin-bottom: 8px;
+  }
 }
 
 .log-tabs {
   display: flex;
   gap: 4px;
-  margin-right: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px; // card__header と分離して独立行に
 }
 
 .log-tab-btn {
@@ -39,9 +45,298 @@
   white-space: nowrap;
 }
 
-// タグ集計チャート
+// CSV アイコンボタン（card__header 内 icon-btn）
+.log-csv-btn {
+  color: var(--c-text-3);
+
+  &:hover { color: var(--c-text); }
+}
+
+// ==================================================
+// カスタム期間入力
+// ==================================================
+
+.custom-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 4px;
+  flex-wrap: wrap;
+
+  &__date-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 108px;       // 「2025-04-09」を収める固定幅（未選択時も同幅）
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-bg);
+    color: var(--c-text-2);
+    cursor: pointer;
+    transition: var(--t);
+    white-space: nowrap;
+
+    svg { fill: var(--c-text-3); flex-shrink: 0; }
+
+    &:hover {
+      border-color: var(--c-accent);
+      color: var(--c-text);
+      svg { fill: var(--c-accent); }
+    }
+
+    &:focus-visible {
+      outline: none;
+      border-color: var(--c-accent);
+      box-shadow: 0 0 0 3px var(--c-accent-dim);
+    }
+  }
+
+  &__sep {
+    font-size: 12px;
+    color: var(--c-text-3);
+    flex-shrink: 0;
+  }
+}
+
+// ==================================================
+// 目標・ストリーク
+// ==================================================
+
+.goal-stats {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  // ストリーク
+  &__item--streak {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-width: 48px;
+    flex-shrink: 0;
+  }
+
+  &__streak-num {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--c-accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__streak-unit {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--c-text-2);
+    margin-top: 1px;
+  }
+
+  &__streak-icon {
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  // プログレスバー（目標設定時）
+  &__item--progress {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__prog-wrap {
+    height: 6px;
+    background: var(--c-bg-2);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: 5px;
+  }
+
+  &__prog-bar {
+    height: 100%;
+    background: var(--c-accent);
+    border-radius: 100px;
+    transition: width 0.4s ease;
+    min-width: 2px;
+  }
+
+  &__prog-labels {
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    gap: 4px;
+    color: var(--c-text-2);
+  }
+
+  &__prog-current {
+    font-weight: 600;
+    color: var(--c-text);
+  }
+
+  &__prog-goal {
+    color: var(--c-text-3);
+  }
+
+  &__prog-pct {
+    margin-left: auto;
+    font-weight: 700;
+    color: var(--c-accent);
+  }
+
+  // 今日の合計（目標未設定時）
+  &__item--today {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__today-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--c-text);
+    line-height: 1;
+  }
+
+  &__today-label {
+    font-size: 11px;
+    color: var(--c-text-3);
+  }
+
+  // 目標設定セレクト
+  &__set {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  &__set-label {
+    font-size: 11px;
+    color: var(--c-text-3);
+    white-space: nowrap;
+  }
+
+  &__set-select {
+    padding: 4px 6px;
+    font-size: 12px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    color: var(--c-text);
+    cursor: pointer;
+    transition: border-color var(--t);
+
+    &:focus {
+      outline: none;
+      border-color: var(--c-accent);
+    }
+  }
+}
+
+// ==================================================
+// 日別推移グラフ（縦棒）
+// ==================================================
+
+.daily-chart {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+
+  &__title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--c-text-3);
+    margin-bottom: 10px;
+  }
+
+  &__bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 72px;
+    overflow-x: auto;
+
+    // スクロールバー非表示
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  &__col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 12px;
+    max-width: 36px;
+    height: 100%;
+
+    // 今日の列: アクセントカラーのバー
+    &--today .daily-chart__bar:not(.daily-chart__bar--empty) {
+      background: var(--c-accent);
+    }
+  }
+
+  &__bar-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  &__bar {
+    width: 100%;
+    background: var(--c-accent-dim);
+    border-radius: 3px 3px 0 0;
+    transition: height 0.3s ease;
+    cursor: default;
+
+    &--empty {
+      height: 2px !important;
+      background: var(--c-border);
+      border-radius: 2px;
+    }
+  }
+
+  &__label {
+    font-size: 9px;
+    color: var(--c-text-3);
+    text-align: center;
+    white-space: nowrap;
+    height: 12px;
+    line-height: 12px;
+  }
+
+  &__avg {
+    font-size: 11px;
+    color: var(--c-text-3);
+    margin-top: 8px;
+    text-align: right;
+  }
+}
+
+// ==================================================
+// 横棒チャート（タグ・タスク・曜日共通）
+// ==================================================
+
 .tag-chart {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding: 12px 14px;
   background: var(--c-bg);
   border: 1px solid var(--c-border);
@@ -66,12 +361,23 @@
   }
 
   &__label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     width: 80px;
     font-size: 12px;
     color: var(--c-text-2);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex-shrink: 0;
+  }
+
+  // タグ色ドット（タグ別集計で使用）
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
     flex-shrink: 0;
   }
 
@@ -88,6 +394,16 @@
     background: var(--c-accent);
     border-radius: 100px;
     transition: width 0.4s ease;
+
+    // タスク別: 成功色
+    &--task {
+      background: var(--c-success);
+    }
+
+    // 曜日別: 警告色（暖色系で習慣感を表現）
+    &--weekday {
+      background: var(--c-warning, #f59e0b);
+    }
   }
 
   &__val {
@@ -99,12 +415,26 @@
   }
 }
 
+// ==================================================
 // ログ一覧
+// ==================================================
+
+// 日付区切り
+.log-date-sep {
+  padding: 8px 2px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-text-3);
+  letter-spacing: 0.03em;
+
+  &:first-child { padding-top: 0; }
+}
+
 .log-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 420px;
+  gap: 4px;
+  max-height: 360px;
   overflow-y: auto;
 }
 
@@ -186,5 +516,14 @@
 
   .page-main {
     padding: 12px;
+  }
+
+  .log-tabs {
+    gap: 3px;
+  }
+
+  .log-tab-btn {
+    padding: 3px 7px;
+    font-size: 11px;
   }
 }
