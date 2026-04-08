@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.mytools.dev",
   "build": {
-    "frontendDist": "../dist",
+    "frontendDist": "../",
     "devUrl": "http://localhost:52700"
   },
   "app": {
