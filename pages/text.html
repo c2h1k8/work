@@ -321,14 +321,27 @@
         <!-- オプションバー -->
         <div class="txt-card">
           <div class="txt-card__header">
-            <span class="txt-card__label">区切り文字</span>
+            <span class="txt-card__label">解析オプション</span>
           </div>
           <div class="tsv-options">
-            <div class="tsv-delim-bar" id="tsv-delim-bar">
-              <button class="tsv-delim-btn tsv-delim-btn--active" data-delim="tab">タブ (TSV)</button>
-              <button class="tsv-delim-btn" data-delim="comma">カンマ (CSV)</button>
-              <button class="tsv-delim-btn" data-delim="pipe">パイプ (|)</button>
+            <div class="tsv-opt-group">
+              <span class="tsv-opt-label">区切り文字</span>
+              <div class="tsv-delim-bar" id="tsv-delim-bar">
+                <button class="tsv-delim-btn tsv-delim-btn--active" data-delim="tab">タブ (TSV)</button>
+                <button class="tsv-delim-btn" data-delim="comma">カンマ (CSV)</button>
+                <button class="tsv-delim-btn" data-delim="pipe">パイプ (|)</button>
+              </div>
             </div>
+            <div class="tsv-opt-sep"></div>
+            <div class="tsv-opt-group">
+              <span class="tsv-opt-label">囲み文字</span>
+              <div class="tsv-delim-bar" id="tsv-quote-bar">
+                <button class="tsv-delim-btn tsv-delim-btn--active" data-quote="dquote">&quot; ダブル</button>
+                <button class="tsv-delim-btn" data-quote="squote">&apos; シングル</button>
+                <button class="tsv-delim-btn" data-quote="none">なし</button>
+              </div>
+            </div>
+            <div class="tsv-opt-sep"></div>
             <label class="chk-label" for="tsv-has-header">
               <input type="checkbox" id="tsv-has-header" class="chk-input" checked />
               <span class="chk-box"></span>
@@ -354,6 +367,13 @@
           <div class="txt-card__header">
             <span class="txt-card__label">テーブル</span>
             <span class="txt-card__hint" id="tsv-table-info"></span>
+          </div>
+          <!-- 検索バー -->
+          <div class="tsv-search-bar">
+            <div class="tsv-search-wrap">
+              <input type="search" id="tsv-search" class="tsv-search-input" placeholder="行を検索..." autocomplete="off" />
+            </div>
+            <span class="tsv-search-hint">列ヘッダーをクリックするとソート</span>
           </div>
           <div class="tsv-table-wrap" id="tsv-table-wrap">
             <table class="tsv-table" id="tsv-table"></table>

@@ -38,8 +38,14 @@ function init() {
 
   // TSV 区切り文字ボタンの表示を復元
   const savedDelimKey = _DELIM_KEY_MAP[State.tsv.delimiter] || 'tab';
-  document.querySelectorAll('.tsv-delim-btn').forEach(b =>
+  document.querySelectorAll('#tsv-delim-bar .tsv-delim-btn').forEach(b =>
     b.classList.toggle('tsv-delim-btn--active', b.dataset.delim === savedDelimKey)
+  );
+
+  // TSV 囲み文字ボタンの表示を復元
+  const savedQuoteKey = _QUOTE_KEY_MAP[State.tsv.quoteChar] ?? 'dquote';
+  document.querySelectorAll('#tsv-quote-bar .tsv-delim-btn').forEach(b =>
+    b.classList.toggle('tsv-delim-btn--active', b.dataset.quote === savedQuoteKey)
   );
 
   // TSV ヘッダーチェックボックスを復元
@@ -152,8 +158,19 @@ function init() {
     if (!btn) return;
     State.tsv.delimiter = _DELIM_VAL_MAP[btn.dataset.delim] || '\t';
     saveToStorage('text_tsv_delimiter', btn.dataset.delim);
-    document.querySelectorAll('.tsv-delim-btn').forEach(b =>
+    document.querySelectorAll('#tsv-delim-bar .tsv-delim-btn').forEach(b =>
       b.classList.toggle('tsv-delim-btn--active', b.dataset.delim === btn.dataset.delim)
+    );
+  });
+
+  // 囲み文字切替
+  document.getElementById('tsv-quote-bar').addEventListener('click', e => {
+    const btn = e.target.closest('.tsv-delim-btn');
+    if (!btn) return;
+    State.tsv.quoteChar = _QUOTE_VAL_MAP[btn.dataset.quote] ?? '"';
+    saveToStorage('text_tsv_quote_char', btn.dataset.quote);
+    document.querySelectorAll('#tsv-quote-bar .tsv-delim-btn').forEach(b =>
+      b.classList.toggle('tsv-delim-btn--active', b.dataset.quote === btn.dataset.quote)
     );
   });
   document.getElementById('tsv-has-header').addEventListener('change', e => {
@@ -165,6 +182,10 @@ function init() {
   document.getElementById('tsv-clear-btn').addEventListener('click', () => {
     document.getElementById('tsv-input').value = '';
     State.tsv.data = [];
+    State.tsv.searchQuery = '';
+    State.tsv.sortCol = -1;
+    State.tsv.sortDir = 'asc';
+    document.getElementById('tsv-search').value = '';
     document.getElementById('tsv-table-card').hidden = true;
   });
   document.getElementById('tsv-add-row-btn').addEventListener('click', _tsvAddRow);
@@ -173,8 +194,32 @@ function init() {
     if (el && el.dataset.row !== undefined) _syncCellToData(el);
   }, true);
   document.getElementById('tsv-table').addEventListener('click', e => {
-    const btn = e.target.closest('.tsv-del-row-btn');
-    if (btn) _tsvDeleteRow(parseInt(btn.dataset.row));
+    // 行削除ボタン
+    const delBtn = e.target.closest('.tsv-del-row-btn');
+    if (delBtn) { _tsvDeleteRow(parseInt(delBtn.dataset.row)); return; }
+    // 列ヘッダークリックでソート
+    const th = e.target.closest('th[data-sort-col]');
+    if (th) {
+      const col = parseInt(th.dataset.sortCol);
+      if (State.tsv.sortCol === col) {
+        if (State.tsv.sortDir === 'asc') {
+          State.tsv.sortDir = 'desc';
+        } else {
+          // 3クリック目でリセット
+          State.tsv.sortCol = -1;
+          State.tsv.sortDir = 'asc';
+        }
+      } else {
+        State.tsv.sortCol = col;
+        State.tsv.sortDir = 'asc';
+      }
+      renderTsvTable();
+    }
+  });
+  // 検索入力
+  document.getElementById('tsv-search').addEventListener('input', e => {
+    State.tsv.searchQuery = e.target.value;
+    renderTsvTable();
   });
   document.getElementById('tsv-export-tsv').addEventListener('click', () => {
     const out = _exportTsv();
