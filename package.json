@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "prepare-dist": "node -e \"const{cpSync,copyFileSync,mkdirSync}=require('fs');mkdirSync('dist',{recursive:true});['js','pages','vendor'].forEach(d=>cpSync(d,'dist/'+d,{recursive:true}));cpSync('css','dist/css',{recursive:true,filter:s=>!s.endsWith('.less')});['index.html','favicon.svg'].forEach(f=>copyFileSync(f,'dist/'+f));\""
+  },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
     "less": "^4.5.1"

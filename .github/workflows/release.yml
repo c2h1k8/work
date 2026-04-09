@@ -209,17 +209,7 @@ jobs:
           rm -f src-tauri/Cargo.toml.bak
 
       - name: Prepare frontend dist
-        shell: bash
-        run: |
-          mkdir -p dist/pages dist/js dist/css
-          cp index.html favicon.svg dist/
-          cp -r pages/* dist/pages/
-          cp -r js/* dist/js/
-          # CSS: .css のみコピー（.less は除外）
-          find css -name '*.css' | while read f; do
-            mkdir -p "dist/$(dirname "$f")"
-            cp "$f" "dist/$f"
-          done
+        run: npm run prepare-dist
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
