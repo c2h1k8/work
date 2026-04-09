@@ -53,6 +53,17 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border) transparent;
+
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--c-border);
+    border-radius: 100px;
+    &:hover { background: var(--c-text-3); }
+  }
 }
 
 // ==================================================
@@ -65,9 +76,20 @@ body {
   gap: 16px;
   max-width: 960px;
   margin: 0 auto;
+  align-items: start; // 左カラムを内容の高さに抑える（sticky が効くために必要）
 }
 
-.timer-left-col,
+// 左カラム: タイマー本体を sticky で常時表示
+// ページスクロール中もタイマーが見え続けるためタイマーアプリの基本 UX を実現
+.timer-left-col {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// 右カラム: ログが増えてもページスクロールで自然に対応
 .timer-right-col {
   display: flex;
   flex-direction: column;

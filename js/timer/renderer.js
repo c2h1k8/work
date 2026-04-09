@@ -88,6 +88,12 @@ function updateControlUI() {
     startPauseBtn.classList.remove('btn--secondary');
     startPauseBtn.classList.add('btn--primary');
   }
+
+  // 作業モードでセッションが開始されている場合のみ終了ボタンを表示
+  const endBtn = document.getElementById('end-btn');
+  if (endBtn) {
+    endBtn.hidden = !(State.mode === 'work' && State.sessionStartTime);
+  }
 }
 
 // ==================================================
@@ -201,7 +207,8 @@ function _renderGoalStats() {
     { value: 28800,   label: '8時間' },
   ];
 
-  const progressHtml = goalSec > 0 ? `
+  // 今日ビューのみ進捗バーを表示（他の期間では今日の進捗は文脈と合わない）
+  const progressHtml = State.historyView !== 'today' ? '' : goalSec > 0 ? `
     <div class="goal-stats__item goal-stats__item--progress">
       <div class="goal-stats__prog-wrap">
         <div class="goal-stats__prog-bar" style="width:${pct}%"></div>

@@ -213,3 +213,23 @@
   align-items: center;
   gap: 4px;
 }
+
+// 終了ボタン行（min-height でスペースを確保してレイアウトずれを防ぐ）
+.timer-end-row {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+// 終了ボタン（途中終了して記録）
+.timer-ctrl-btn--end {
+  color: var(--c-danger);
+  border-color: var(--c-danger);
+
+  &:hover {
+    background: var(--c-danger-bg);
+    border-color: var(--c-danger);
+  }
+}

@@ -284,6 +284,31 @@ async function onPhaseEnd() {
   _saveTimerState();
 }
 
+/** 作業を途中で終了してセッションを記録 */
+async function endTimer() {
+  // 先にタイマーを停止してワーカーとの競合を防ぐ
+  stopTimer();
+  if (State.mode === 'work' && State.sessionStartTime) {
+    // タスク名・タグを最新の入力値で更新してから保存
+    State.taskName = document.getElementById('timer-task-name').value.trim();
+    State.tag      = document.getElementById('timer-tag').value.trim();
+    // 明示的な終了なので最小時間を 1 秒に下げる
+    const saved = await saveSession({ minDuration: 1 });
+    if (saved) showSuccess('作業を終了して記録しました');
+  }
+  State.mode = 'work';
+  const preset = getActivePreset();
+  if (preset) {
+    State.remaining = preset.work_sec;
+    State.total     = preset.work_sec;
+  }
+  State.sessionStartTime = null;
+  updateTimerUI();
+  updateControlUI();
+  document.title = '定型作業タイマー';
+  _clearTimerState();
+}
+
 /** 次のフェーズにスキップ */
 async function skipPhase() {
   if (State.mode === 'work' && State.sessionStartTime) {
@@ -303,13 +328,18 @@ async function skipPhase() {
   _saveTimerState();
 }
 
-/** 作業セッションをDBに保存 */
-async function saveSession() {
-  if (!State.sessionStartTime) return;
+/**
+ * 作業セッションをDBに保存
+ * @param {object} [opts]
+ * @param {number} [opts.minDuration=5] - 保存する最小秒数。明示的終了時は 1 を渡す
+ * @returns {Promise<boolean>} 保存できた場合 true
+ */
+async function saveSession({ minDuration = 5 } = {}) {
+  if (!State.sessionStartTime) return false;
   const endTime = new Date().toISOString();
   const startTime = State.sessionStartTime;
   const durationSec = Math.round((new Date(endTime) - new Date(startTime)) / 1000);
-  if (durationSec < 5) return; // 5秒未満は記録しない
+  if (durationSec < minDuration) return false;
 
   const session = {
     task_name:    State.taskName || '（未設定）',
@@ -330,8 +360,11 @@ async function saveSession() {
     const allSessions = await State.db.getAllSessions();
     _updateAnalyticsState(allSessions);
     renderLog();
+    return true;
   } catch (err) {
     console.error('セッション保存エラー:', err);
+    showError('記録の保存に失敗しました');
+    return false;
   }
 }
 
@@ -817,12 +850,14 @@ function setupEvents() {
     State.running ? pauseTimer() : startTimer();
   });
 
+  document.getElementById('end-btn').addEventListener('click', () => endTimer());
   document.getElementById('skip-btn').addEventListener('click', () => skipPhase());
   document.getElementById('reset-btn').addEventListener('click', () => {
     if (State.running) pauseTimer();
     State.mode  = 'work';
     State.sessionStartTime = null;
     resetTimer();
+    updateControlUI();
   });
 
   // プリセット一覧（クリック・編集・削除）
@@ -991,6 +1026,7 @@ function setupEvents() {
       State.mode = 'work';
       State.sessionStartTime = null;
       resetTimer();
+      updateControlUI();
       return;
     }
     // Ctrl+→ / Ctrl+←: 次/前のプリセット切替
