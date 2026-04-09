@@ -23,7 +23,17 @@
 - **フロントエンド**: Vanilla JS（全ページ統一）
 - **スタイル**: LESS → CSS（手動コンパイル）。デザイントークンは `css/core/tokens.less` に一元管理
 - **デザインシステム**: インディゴ/バイオレット系カラーパレット。ライト/ダークモード対応（`[data-theme]` 属性）
-- **外部ライブラリ**: SortableJS（todo/note/dashboard、CDN）、marked.js + DOMPurify（dashboard.html の Markdown セクション、CDN）、highlight.js（snippet.html のシンタックスハイライト、CDN）
+- **外部ライブラリ**: `vendor/` フォルダにローカル配置（CDN 不使用）
+
+  | ファイル | ライブラリ | 用途 |
+  |---|---|---|
+  | `vendor/sortable.min.js` | SortableJS 1.15.2 | todo / note / dashboard / wbs の DnD |
+  | `vendor/marked.min.js` | marked（最新） | dashboard の Markdown レンダリング |
+  | `vendor/marked4.min.js` | marked v4 | todo の Markdown |
+  | `vendor/dompurify.min.js` | DOMPurify（最新） | dashboard の XSS サニタイズ |
+  | `vendor/highlight.min.js` | highlight.js 11.10.0 | snippet のシンタックスハイライト |
+  | `vendor/highlight-github.min.css` | highlight.js ライトテーマ | snippet |
+  | `vendor/highlight-github-dark.min.css` | highlight.js ダークテーマ | snippet |
 - **データ永続化**: IndexedDB（全ページ）/ localStorage（UI状態・テーマ設定）
   - IndexedDB はブラウザネイティブの構造化 DB。`file://` でも動作しインストール不要。
   - todo.html はヘッダーのエクスポート／インポートボタンで JSON バックアップを手動管理できる。
