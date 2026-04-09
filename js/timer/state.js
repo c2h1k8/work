@@ -138,8 +138,28 @@ function _playBeepOnce(frequency = 880, duration = 0.18, startOffset = 0) {
   }
 }
 
+/**
+ * AudioContextを初期化・resumeする（ユーザー操作のタイミングで呼ぶとTauri/WKWebViewでも音が鳴る）
+ * startTimer() から呼び出してコンテキストを事前ウォームアップする
+ */
+async function warmUpAudio() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+  } catch (_) {
+    // AudioContext非対応環境は無視
+  }
+}
+
 /** 通知音を3回鳴らす（気づきやすくするため） */
-function playBeep() {
+async function playBeep() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Tauri/WKWebView では suspended のままになるため、明示的に resume する
+    if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+  } catch (_) {
+    // AudioContext非対応環境は無視
+  }
   _playBeepOnce(880, 0.18, 0.0);
   _playBeepOnce(880, 0.18, 0.3);
   _playBeepOnce(1047, 0.3,  0.6); // 最後だけ高音で締め

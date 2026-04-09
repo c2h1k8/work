@@ -201,6 +201,9 @@ function startTimer() {
     requestNotificationPermission();
   }
 
+  // ユーザー操作のタイミングでAudioContextを事前resume（Tauri/WKWebView対応）
+  warmUpAudio();
+
   State.running = true;
   if (State.mode === 'work' && !State.sessionStartTime) {
     State.sessionStartTime = new Date().toISOString();
