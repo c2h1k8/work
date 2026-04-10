@@ -95,6 +95,11 @@ function flashTimerCard() {
 
 /** タイマーの実行状態を localStorage に保存する */
 function _saveTimerState() {
+  // 一時停止中の場合、現在の一時停止時間も累積に含めて保存する
+  let pausedDurationSec = State.pausedDurationSec;
+  if (!State.running && State.pauseStartedAt !== null) {
+    pausedDurationSec += Math.floor((Date.now() - State.pauseStartedAt) / 1000);
+  }
   saveToStorage(TIMER_RUNNING_STATE_KEY, JSON.stringify({
     activePresetId: State.activePresetId,
     mode: State.mode,
@@ -104,6 +109,7 @@ function _saveTimerState() {
     taskName: State.taskName,
     tag: State.tag,
     sessionStartTime: State.sessionStartTime,
+    pausedDurationSec,
     savedAt: Date.now(),
   }));
 }
@@ -148,6 +154,8 @@ function _restoreTimerState() {
     // 経過時間を計算して残り時間を補正
     const elapsed = Math.floor((Date.now() - data.savedAt) / 1000);
     State.remaining = Math.max(0, data.remaining - elapsed);
+    State.pausedDurationSec = data.pausedDurationSec || 0;
+    State.pauseStartedAt = null;
 
     if (State.remaining > 0) {
       updateTimerUI();
@@ -159,8 +167,10 @@ function _restoreTimerState() {
       onPhaseEnd();
     }
   } else {
-    // 一時停止中だった
+    // 一時停止中だった（保存時に現在の停止時間も累積済みなので、新たな停止開始時刻をセット）
     State.remaining = data.remaining;
+    State.pausedDurationSec = data.pausedDurationSec || 0;
+    State.pauseStartedAt = Date.now();
     updateTimerUI();
     updateControlUI();
   }
@@ -185,6 +195,8 @@ function resetTimer() {
   State.remaining = State.mode === 'work' ? preset.work_sec : preset.break_sec;
   State.total     = State.remaining;
   State.sessionStartTime = null;
+  State.pausedDurationSec = 0;
+  State.pauseStartedAt = null;
   updateTimerUI();
   document.title = '定型作業タイマー';
   _clearTimerState();
@@ -206,7 +218,14 @@ function startTimer() {
 
   State.running = true;
   if (State.mode === 'work' && !State.sessionStartTime) {
+    // 初回開始: セッション開始時刻をセットし、一時停止時間をリセット
     State.sessionStartTime = new Date().toISOString();
+    State.pausedDurationSec = 0;
+    State.pauseStartedAt = null;
+  } else if (State.pauseStartedAt !== null) {
+    // 一時停止からの再開: 停止していた時間を累積して停止時刻をクリア
+    State.pausedDurationSec += Math.floor((Date.now() - State.pauseStartedAt) / 1000);
+    State.pauseStartedAt = null;
   }
   State.taskName = document.getElementById('timer-task-name').value.trim();
   State.tag      = document.getElementById('timer-tag').value.trim();
@@ -235,6 +254,8 @@ function startTimer() {
 function pauseTimer() {
   if (!State.running) return;
   stopTimer();
+  // 一時停止開始時刻を記録（再開時に停止時間を累積するため）
+  State.pauseStartedAt = Date.now();
   updateControlUI();
   _saveTimerState();
 }
@@ -278,6 +299,8 @@ async function onPhaseEnd() {
     State.total     = State.remaining;
   }
   State.sessionStartTime = null;
+  State.pausedDurationSec = 0;
+  State.pauseStartedAt = null;
   updateTimerUI();
   updateControlUI();
   document.title = '定型作業タイマー';
@@ -303,6 +326,8 @@ async function endTimer() {
     State.total     = preset.work_sec;
   }
   State.sessionStartTime = null;
+  State.pausedDurationSec = 0;
+  State.pauseStartedAt = null;
   updateTimerUI();
   updateControlUI();
   document.title = '定型作業タイマー';
@@ -323,6 +348,8 @@ async function skipPhase() {
     State.total     = State.remaining;
   }
   State.sessionStartTime = null;
+  State.pausedDurationSec = 0;
+  State.pauseStartedAt = null;
   updateTimerUI();
   updateControlUI();
   _saveTimerState();
@@ -338,7 +365,9 @@ async function saveSession({ minDuration = 5 } = {}) {
   if (!State.sessionStartTime) return false;
   const endTime = new Date().toISOString();
   const startTime = State.sessionStartTime;
-  const durationSec = Math.round((new Date(endTime) - new Date(startTime)) / 1000);
+  const wallSec = Math.round((new Date(endTime) - new Date(startTime)) / 1000);
+  // 一時停止していた時間を除いた実作業時間
+  const durationSec = Math.max(0, wallSec - State.pausedDurationSec);
   if (durationSec < minDuration) return false;
 
   const session = {
@@ -917,11 +946,14 @@ function setupEvents() {
       saveToStorage(TIMER_CUSTOM_FROM_KEY, dateStr);
       const lbl = document.getElementById('custom-from-label');
       if (lbl) lbl.textContent = dateStr;
-    }, () => {
+    }, async () => {
       State.customFrom = '';
       saveToStorage(TIMER_CUSTOM_FROM_KEY, '');
       const lbl = document.getElementById('custom-from-label');
       if (lbl) lbl.textContent = '開始日';
+      // 日付クリア後はセッションをリセットして再描画
+      await loadSessions();
+      renderLog();
     });
   });
 
@@ -932,11 +964,14 @@ function setupEvents() {
       saveToStorage(TIMER_CUSTOM_TO_KEY, dateStr);
       const lbl = document.getElementById('custom-to-label');
       if (lbl) lbl.textContent = dateStr;
-    }, () => {
+    }, async () => {
       State.customTo = '';
       saveToStorage(TIMER_CUSTOM_TO_KEY, '');
       const lbl = document.getElementById('custom-to-label');
       if (lbl) lbl.textContent = '終了日';
+      // 日付クリア後はセッションをリセットして再描画
+      await loadSessions();
+      renderLog();
     });
   });
 

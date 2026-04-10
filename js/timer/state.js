@@ -40,6 +40,9 @@ const State = {
   customTo:      loadFromStorage(TIMER_CUSTOM_TO_KEY)   || '',           // カスタム期間 終了日 YYYY-MM-DD
   streakDays:    0,                                                       // 連続達成日数
   todayTotalSec: 0,                                                       // 今日の合計作業秒数（目標達成率用）
+  // 一時停止時間の追跡（一時停止中の時間を作業時間から除外するため）
+  pausedDurationSec: 0,   // 現在のセッション内で一時停止していた合計秒数
+  pauseStartedAt: null,   // 最新の一時停止が開始された時刻（ms）。null=停止中でない
 };
 
 // ==================================================

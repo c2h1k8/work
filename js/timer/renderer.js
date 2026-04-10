@@ -540,16 +540,45 @@ function _renderLogList() {
       const c = _tagColor(s.tag);
       return `<span class="log-item__tag" style="background:${c}1a;color:${c}">${escapeHtml(s.tag)}</span>`;
     })() : '';
-    return `${sep}<div class="log-item" data-id="${s.id}">
-      <div class="log-item__main">
-        <span class="log-item__task">${escapeHtml(s.task_name)}</span>
-        ${tagHtml}
+
+    // 一時停止時間の計算（ended_at - started_at の壁時計時間 - 実作業時間）
+    const wallSec = s.ended_at
+      ? Math.round((new Date(s.ended_at) - new Date(s.started_at)) / 1000)
+      : s.duration_sec;
+    const pausedSec = Math.max(0, wallSec - s.duration_sec);
+    const showPause = pausedSec >= 30; // 30秒未満は誤差として非表示
+
+    // 一時停止バッジ
+    const pauseBadgeHtml = showPause
+      ? `<span class="log-item__pause" data-tooltip="停止: ${fmtDuration(pausedSec)}">⏸ ${fmtDuration(pausedSec)}</span>`
+      : '';
+
+    // ミニタイムラインバー（作業＋停止の比率）
+    const workPct  = wallSec > 0 ? Math.round(s.duration_sec / wallSec * 100) : 100;
+    const pausePct = 100 - workPct;
+    const timelineTip = showPause
+      ? `作業 ${fmtDuration(s.duration_sec)} ／ 停止 ${fmtDuration(pausedSec)}`
+      : '';
+    const timelineHtml = showPause ? `
+      <div class="log-item__timeline" data-tooltip="${timelineTip}">
+        <div class="log-item__timeline-work" style="width:${workPct}%"></div>
+        <div class="log-item__timeline-pause" style="width:${pausePct}%"></div>
+      </div>` : '';
+
+    return `${sep}<div class="log-item${showPause ? ' log-item--has-pause' : ''}" data-id="${s.id}">
+      <div class="log-item__row">
+        <div class="log-item__main">
+          <span class="log-item__task">${escapeHtml(s.task_name)}</span>
+          ${tagHtml}
+        </div>
+        <div class="log-item__meta">
+          <span class="log-item__time">${fmtDuration(s.duration_sec)}</span>
+          ${pauseBadgeHtml}
+          <span class="log-item__start">${toHHMM(s.started_at)}</span>
+          <button class="log-delete-btn icon-btn" data-id="${s.id}" title="削除">${Icons.close}</button>
+        </div>
       </div>
-      <div class="log-item__meta">
-        <span class="log-item__time">${fmtDuration(s.duration_sec)}</span>
-        <span class="log-item__start">${toHHMM(s.started_at)}</span>
-        <button class="log-delete-btn icon-btn" data-id="${s.id}" title="削除">${Icons.close}</button>
-      </div>
+      ${timelineHtml}
     </div>`;
   }).join('');
 }
