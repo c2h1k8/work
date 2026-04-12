@@ -392,14 +392,14 @@
   border-radius: var(--radius-lg);
   padding: 12px 14px;
   cursor: grab;
-  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+  transition: box-shadow var(--t), border-color var(--t), transform var(--t);
   user-select: none;
 
   &:hover {
     box-shadow: var(--shadow-md);
     border-color: var(--c-border-2);
     border-left-color: var(--c-accent);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
 
     .card__actions { opacity: 1; }
   }

@@ -21,6 +21,20 @@
   -webkit-backdrop-filter: blur(2px);
 }
 
+@keyframes sh-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes sh-modal-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.shortcut-help-backdrop {
+  animation: sh-backdrop-in 0.18s ease both;
+}
+
 .shortcut-help-modal {
   position: relative;
   z-index: 1;
@@ -32,6 +46,7 @@
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
+  animation: sh-modal-in 0.22s cubic-bezier(0.16,1,0.3,1) both;
 }
 
 .shortcut-help-header {

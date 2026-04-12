@@ -451,10 +451,14 @@
   background: var(--c-bg);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-md);
-  transition: background var(--t);
+  transition: background var(--t), transform var(--t), border-color var(--t);
   overflow: hidden;
 
-  &:hover { background: var(--c-bg-2); }
+  &:hover {
+    background: var(--c-bg-2);
+    border-color: var(--c-border-2);
+    transform: translateX(2px);
+  }
 
   // 一時停止があった場合: 左ボーダーをアンバーに
   &--has-pause {

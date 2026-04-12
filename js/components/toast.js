@@ -28,8 +28,13 @@ const Toast = (() => {
     el.textContent = message;
     el.className = 'toast' + (type ? ` toast--${type}` : '');
     el.removeAttribute('hidden');
+    el.classList.remove('toast--hiding');
     clearTimeout(_timer);
-    _timer = setTimeout(() => el.setAttribute('hidden', ''), 3000);
+    // フェードアウトアニメーション（220ms）終了後に hidden を付与
+    _timer = setTimeout(() => {
+      el.classList.add('toast--hiding');
+      setTimeout(() => el.setAttribute('hidden', ''), 220);
+    }, 2780);
   }
 
   return {

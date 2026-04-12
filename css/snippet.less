@@ -213,9 +213,12 @@ body {
   padding: 10px 12px;
   cursor: pointer;
   border-bottom: 1px solid var(--c-border);
-  transition: background var(--t);
+  transition: background var(--t), transform var(--t);
 
-  &:hover { background: var(--c-bg); }
+  &:hover { background: var(--c-bg); transform: translateX(2px); }
+
+  // アクティブ時は transform なし
+  &--active:hover { transform: none; }
 
   &--active {
     background: var(--c-accent-dim);
@@ -419,6 +422,16 @@ body {
 // モーダル
 // ==================================================
 
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-panel-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -428,6 +441,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  animation: modal-backdrop-in 0.18s ease both;
 }
 
 .modal-panel {
@@ -440,6 +454,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: modal-panel-in 0.22s cubic-bezier(0.16,1,0.3,1) both;
 }
 
 .modal-header {
