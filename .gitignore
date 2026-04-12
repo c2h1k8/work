@@ -1,7 +1,9 @@
 *.css
 !vendor/*.css
+!src/**/*.css
 .DS_Store
 node_modules/
 plan/
 dist/
 src-tauri/target/
+tsconfig.tsbuildinfo

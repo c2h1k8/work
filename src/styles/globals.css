@@ -1,0 +1,189 @@
+@import "tailwindcss";
+
+/* ================================================== */
+/* MyTools Design System – Design Tokens              */
+/* tokens.less から移植                                */
+/* ================================================== */
+
+:root {
+  /* ── Accent (Indigo) ─────────────────────────────── */
+  --c-accent:        #6366f1;
+  --c-accent-hover:  #4f46e5;
+  --c-accent-light:  #eef2ff;
+  --c-accent-dim:    rgba(99, 102, 241, 0.12);
+  --c-accent-text:   #ffffff;
+
+  /* ── Background layers ──────────────────────────── */
+  --c-bg:            #f4f5fd;
+  --c-bg-2:          #eef0fa;
+  --c-surface:       #ffffff;
+  --c-surface-raised:#fafbff;
+  --c-surface-hover: rgba(99,102,241,0.04);
+
+  /* ── Text ─────────────────────────────────────────── */
+  --c-text:          #1a1d2e;
+  --c-text-2:        #4a5270;
+  --c-text-3:        #8b95b8;
+
+  /* ── Border ─────────────────────────────────────── */
+  --c-border:        #e2e6f3;
+  --c-border-2:      #d3d8ef;
+
+  /* ── Status ─────────────────────────────────────── */
+  --c-success:       #10b981;
+  --c-success-bg:    #ecfdf5;
+  --c-warning:       #f59e0b;
+  --c-warning-bg:    #fffbeb;
+  --c-danger:        #ef4444;
+  --c-danger-bg:     #fef2f2;
+  --c-info:          #3b82f6;
+  --c-info-bg:       #eff6ff;
+
+  /* ── Shadows ─────────────────────────────────────── */
+  --shadow-xs:  0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.06), 0 2px 8px rgba(20,28,80,.06);
+  --shadow:     0 2px 6px rgba(0,0,0,.06), 0 6px 20px rgba(20,28,80,.08);
+  --shadow-md:  0 4px 10px rgba(0,0,0,.07), 0 12px 32px rgba(20,28,80,.10);
+  --shadow-lg:  0 8px 20px rgba(0,0,0,.08), 0 24px 64px rgba(20,28,80,.14);
+
+  /* ── Radius ──────────────────────────────────────── */
+  --radius-xs:   3px;
+  --radius-sm:   5px;
+  --radius-md:   7px;
+  --radius-lg:   10px;
+  --radius-xl:   14px;
+  --radius-full: 9999px;
+
+  /* ── Tooltip ─────────────────────────────────────── */
+  --c-tooltip-bg:   rgba(26, 29, 46, 0.93);
+  --c-tooltip-text: #f0f2ff;
+
+  /* ── Transition ──────────────────────────────────── */
+  --t:       0.18s ease;
+  --t-slow:  0.28s cubic-bezier(0.16,1,0.3,1);
+  --t-enter: 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  --t-exit:  0.16s ease-in;
+
+  /* ── Font ────────────────────────────────────────── */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans",
+          "Noto Sans JP", Helvetica, Arial, sans-serif;
+  --font-mono: 'SFMono-Regular', 'Consolas', 'Liberation Mono', Menlo, monospace;
+
+  /* ── Typography Scale ────────────────────────────── */
+  --font-size-xs:   11px;
+  --font-size-sm:   12px;
+  --font-size-base: 13px;
+  --font-size-md:   14px;
+  --font-size-lg:   16px;
+  --font-size-xl:   18px;
+  --font-size-2xl:  22px;
+  --font-size-3xl:  28px;
+
+  /* ── Input ───────────────────────────────────────── */
+  --input-padding:      7px 10px;
+  --input-radius:       var(--radius-md);
+  --input-focus-shadow: 0 0 0 3px var(--c-accent-dim);
+
+  /* ── Spacing ─────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+}
+
+/* ── Dark Mode ─────────────────────────────────────── */
+[data-theme="dark"] {
+  --c-accent:        #818cf8;
+  --c-accent-hover:  #6366f1;
+  --c-accent-light:  #1e2040;
+  --c-accent-dim:    rgba(129,140,248,0.15);
+  --c-accent-text:   #ffffff;
+
+  --c-bg:            #0e1018;
+  --c-bg-2:          #131620;
+  --c-surface:       #1a1d2e;
+  --c-surface-raised:#212438;
+  --c-surface-hover: rgba(129,140,248,0.06);
+
+  --c-text:          #e2e5f4;
+  --c-text-2:        #8892b8;
+  --c-text-3:        #4e5570;
+
+  --c-border:        #252840;
+  --c-border-2:      #2f3350;
+
+  --c-success:       #34d399;
+  --c-success-bg:    #0a2318;
+  --c-warning:       #fbbf24;
+  --c-warning-bg:    #1f1400;
+  --c-danger:        #f87171;
+  --c-danger-bg:     #1f0a0a;
+  --c-info:          #60a5fa;
+  --c-info-bg:       #0c1e3a;
+
+  --c-tooltip-bg:   rgba(52, 57, 92, 0.97);
+  --c-tooltip-text: #e2e5f4;
+
+  --shadow-xs:  0 1px 2px rgba(0,0,0,.3);
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.25);
+  --shadow:     0 2px 6px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+  --shadow-md:  0 4px 10px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.4);
+  --shadow-lg:  0 8px 20px rgba(0,0,0,.4), 0 24px 64px rgba(0,0,0,.5);
+}
+
+/* ── Base ───────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font);
+  font-size: var(--font-size-base);
+  color: var(--c-text);
+  background-color: var(--c-bg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tailwind で CSS 変数トークンを使えるようにするユーティリティ */
+@theme inline {
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-bg: var(--c-bg);
+  --color-bg-2: var(--c-bg-2);
+  --color-surface: var(--c-surface);
+  --color-surface-raised: var(--c-surface-raised);
+  --color-text: var(--c-text);
+  --color-text-2: var(--c-text-2);
+  --color-text-3: var(--c-text-3);
+  --color-border: var(--c-border);
+  --color-border-2: var(--c-border-2);
+  --color-success: var(--c-success);
+  --color-warning: var(--c-warning);
+  --color-danger: var(--c-danger);
+  --color-info: var(--c-info);
+  --font-size-xs: var(--font-size-xs);
+  --font-size-sm: var(--font-size-sm);
+  --font-size-base: var(--font-size-base);
+  --font-size-md: var(--font-size-md);
+  --font-size-lg: var(--font-size-lg);
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+}
