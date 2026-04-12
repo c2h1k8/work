@@ -2,7 +2,7 @@
 // App: アプリルートコンポーネント（AppShell）
 // ==================================================
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { ToastContainer } from './components/Toast';
 import { ShortcutHelp } from './components/ShortcutHelp';
 import { TopNav } from './components/layout/TopNav';
@@ -11,6 +11,7 @@ import { ActivityLogModal } from './components/layout/ActivityLogModal';
 import { useTabStore } from './stores/tab_store';
 import { useThemeStore } from './stores/theme_store';
 import { activityDB } from './db/activity_db';
+import { PAGE_REGISTRY } from './pages/registry';
 
 // ナビゲーション共通ショートカット定義
 const NAV_SHORTCUT_CATEGORIES = [
@@ -46,26 +47,35 @@ function TabContent() {
 
   return (
     <main className="tab-viewport" role="main">
-      {config.map((tab) => (
-        <div
-          key={tab.label}
-          className={`tab-frame${tab.label === activeLabel ? ' tab-frame--active' : ''}`}
-          role="tabpanel"
-          aria-label={tab.label}
-          hidden={tab.label !== activeLabel}
-        >
-          {/* Phase 4 でページコンポーネントに置き換え */}
-          <div className="tab-placeholder">
-            <div
-              className="tab-placeholder__icon"
-              dangerouslySetInnerHTML={{ __html: tab.icon }}
-            />
-            <h2>{tab.label}</h2>
-            <p>このページは Phase 4 で React コンポーネントに移行予定です。</p>
-            <p className="tab-placeholder__src">{tab.pageSrc}</p>
+      {config.map((tab) => {
+        const PageComponent = PAGE_REGISTRY[tab.pageSrc];
+        const isActive = tab.label === activeLabel;
+        return (
+          <div
+            key={tab.label}
+            className={`tab-frame${isActive ? ' tab-frame--active' : ''}`}
+            role="tabpanel"
+            aria-label={tab.label}
+            hidden={!isActive}
+          >
+            {PageComponent ? (
+              <Suspense fallback={<div className="tab-placeholder"><span>読み込み中…</span></div>}>
+                {isActive && <PageComponent />}
+              </Suspense>
+            ) : (
+              <div className="tab-placeholder">
+                <div
+                  className="tab-placeholder__icon"
+                  dangerouslySetInnerHTML={{ __html: tab.icon }}
+                />
+                <h2>{tab.label}</h2>
+                <p>このページは移行予定です。</p>
+                <p className="tab-placeholder__src">{tab.pageSrc}</p>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
       {!activeTab && (
         <div className="tab-placeholder">
           <p>タブが見つかりません</p>

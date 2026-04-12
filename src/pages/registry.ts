@@ -1,0 +1,19 @@
+// ==================================================
+// ページレジストリ: pageSrc → React コンポーネントのマッピング
+// ==================================================
+// Phase 4 で実装済みページを登録し、App.tsx の TabContent から参照する。
+// まだ移行されていないページは undefined を返す（プレースホルダー表示）。
+
+import { lazy } from 'react';
+
+// lazy import でコード分割（必要なページだけ読み込む）
+const DiffToolPage = lazy(() => import('./DiffToolPage').then((m) => ({ default: m.DiffToolPage })));
+const TextPage     = lazy(() => import('./TextPage').then((m) => ({ default: m.TextPage })));
+const OpsPage      = lazy(() => import('./OpsPage').then((m) => ({ default: m.OpsPage })));
+
+/** pageSrc → React コンポーネント のマップ */
+export const PAGE_REGISTRY: Record<string, React.LazyExoticComponent<() => React.ReactElement>> = {
+  'pages/diff_tool.html': DiffToolPage,
+  'pages/text.html':      TextPage,
+  'pages/ops.html':       OpsPage,
+};
