@@ -30,6 +30,7 @@ export interface ActivityLog {
 
 export interface ActivityQueryOptions {
   page?: ActivityPage;
+  pages?: ActivityPage[];
   startDate?: string;
   endDate?: string;
   limit?: number;
@@ -56,11 +57,14 @@ class ActivityDatabase extends Dexie {
    */
   async query({
     page,
+    pages,
     startDate,
     endDate,
     limit = 50,
     offset = 0,
   }: ActivityQueryOptions = {}): Promise<ActivityLog[]> {
+    // pages 配列が指定された場合はそれを優先
+    const pageFilter = pages ?? (page ? [page] : null);
     const _toLocalISO = (dateStr: string, endOfDay: boolean): string => {
       const [y, m, d] = dateStr.split('-').map(Number);
       return endOfDay
@@ -80,8 +84,9 @@ class ActivityDatabase extends Dexie {
       });
     }
 
-    if (page) {
-      collection = collection.filter((log) => log.page === page);
+    if (pageFilter && pageFilter.length > 0) {
+      const pageSet = new Set(pageFilter);
+      collection = collection.filter((log) => pageSet.has(log.page));
     }
 
     return collection.offset(offset).limit(limit).toArray();
