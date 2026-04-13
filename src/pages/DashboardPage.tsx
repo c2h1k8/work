@@ -697,7 +697,6 @@ function CountdownSection({ section, items }: SectionProps) {
 interface SectionCardProps extends SectionProps {
   onOpenItemMgr: (sectionId: number) => void;
   onEditSection: (section: DashboardSection) => void;
-  onDeleteSection: (id: number) => void;
 }
 
 function SectionCard({
@@ -1502,7 +1501,6 @@ export function DashboardPage() {
                     onItemsChange={() => reloadItems(section.id)}
                     onOpenItemMgr={(id) => setItemMgrSection(sections.find((s) => s.id === id) || null)}
                     onEditSection={(s) => setEditingSection(s)}
-                    onDeleteSection={async (id) => { await dashboardDB.deleteSection(id); await load(); }}
                   />
                 ))}
               </div>
