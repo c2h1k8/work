@@ -13,6 +13,7 @@ const OpsPage      = lazy(() => import('./OpsPage').then((m) => ({ default: m.Op
 const SnippetPage  = lazy(() => import('./SnippetPage').then((m) => ({ default: m.SnippetPage })));
 const TimerPage    = lazy(() => import('./TimerPage').then((m) => ({ default: m.TimerPage })));
 const SqlPage      = lazy(() => import('./SqlPage').then((m) => ({ default: m.SqlPage })));
+const WbsPage      = lazy(() => import('./WbsPage').then((m) => ({ default: m.WbsPage })));
 
 /** pageSrc → React コンポーネント のマップ */
 export const PAGE_REGISTRY: Record<string, React.LazyExoticComponent<() => React.ReactElement>> = {
@@ -22,4 +23,5 @@ export const PAGE_REGISTRY: Record<string, React.LazyExoticComponent<() => React
   'pages/snippet.html':   SnippetPage,
   'pages/timer.html':     TimerPage,
   'pages/sql.html':       SqlPage,
+  'pages/wbs.html':       WbsPage,
 };

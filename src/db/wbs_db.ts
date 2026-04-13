@@ -19,7 +19,7 @@ export interface WbsTask {
   plan_start: string;
   plan_days: number;
   actual_start: string;
-  actual_days: number;
+  actual_end: string;   // 実績終了日 'YYYY-MM-DD' | ''
   progress: number;
   status: WbsStatus;
   memo: string;
