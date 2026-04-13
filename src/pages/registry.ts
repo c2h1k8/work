@@ -16,6 +16,7 @@ const SqlPage      = lazy(() => import('./SqlPage').then((m) => ({ default: m.Sq
 const WbsPage      = lazy(() => import('./WbsPage').then((m) => ({ default: m.WbsPage })));
 const NotePage       = lazy(() => import('./NotePage').then((m) => ({ default: m.NotePage })));
 const DashboardPage  = lazy(() => import('./DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const TodoPage       = lazy(() => import('./TodoPage').then((m) => ({ default: m.TodoPage })));
 
 /** pageSrc → React コンポーネント のマップ */
 export const PAGE_REGISTRY: Record<string, React.LazyExoticComponent<() => React.ReactElement>> = {
@@ -28,4 +29,5 @@ export const PAGE_REGISTRY: Record<string, React.LazyExoticComponent<() => React
   'pages/wbs.html':        WbsPage,
   'pages/note.html':       NotePage,
   'pages/dashboard.html':  DashboardPage,
+  'pages/todo.html':       TodoPage,
 };
