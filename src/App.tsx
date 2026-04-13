@@ -12,6 +12,7 @@ import { useTabStore } from './stores/tab_store';
 import { useThemeStore } from './stores/theme_store';
 import { activityDB } from './db/activity_db';
 import { PAGE_REGISTRY } from './pages/registry';
+import { TabContext } from './contexts/TabContext';
 
 // ナビゲーション共通ショートカット定義
 const NAV_SHORTCUT_CATEGORIES = [
@@ -60,7 +61,11 @@ function TabContent() {
           >
             {PageComponent ? (
               <Suspense fallback={<div className="tab-placeholder"><span>読み込み中…</span></div>}>
-                {isActive && <PageComponent />}
+                {isActive && (
+                  <TabContext.Provider value={tab.label}>
+                    <PageComponent />
+                  </TabContext.Provider>
+                )}
               </Suspense>
             ) : (
               <div className="tab-placeholder">

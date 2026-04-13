@@ -18,7 +18,10 @@ export type SectionType =
   | 'command_builder'
   | 'table'
   | 'memo'
-  | 'checklist';
+  | 'checklist'
+  | 'markdown'
+  | 'iframe'
+  | 'countdown';
 
 export type SectionWidth = 'narrow' | 'auto' | 'w3' | 'wide' | 'w5' | 'full';
 export type ItemType = 'copy' | 'link' | 'template' | 'row';
@@ -53,6 +56,13 @@ export interface DashboardSection {
   page_size?: number;
   // memo 専用
   memo_content?: string;
+  // markdown 専用
+  body?: string;
+  // iframe 専用
+  url?: string;
+  iframe_height?: number;
+  // countdown 専用
+  countdown_mode?: 'calendar' | 'business';
 }
 
 export interface DashboardItem {

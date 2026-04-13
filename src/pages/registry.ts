@@ -14,16 +14,18 @@ const SnippetPage  = lazy(() => import('./SnippetPage').then((m) => ({ default: 
 const TimerPage    = lazy(() => import('./TimerPage').then((m) => ({ default: m.TimerPage })));
 const SqlPage      = lazy(() => import('./SqlPage').then((m) => ({ default: m.SqlPage })));
 const WbsPage      = lazy(() => import('./WbsPage').then((m) => ({ default: m.WbsPage })));
-const NotePage     = lazy(() => import('./NotePage').then((m) => ({ default: m.NotePage })));
+const NotePage       = lazy(() => import('./NotePage').then((m) => ({ default: m.NotePage })));
+const DashboardPage  = lazy(() => import('./DashboardPage').then((m) => ({ default: m.DashboardPage })));
 
 /** pageSrc → React コンポーネント のマップ */
 export const PAGE_REGISTRY: Record<string, React.LazyExoticComponent<() => React.ReactElement>> = {
-  'pages/diff_tool.html': DiffToolPage,
-  'pages/text.html':      TextPage,
-  'pages/ops.html':       OpsPage,
-  'pages/snippet.html':   SnippetPage,
-  'pages/timer.html':     TimerPage,
-  'pages/sql.html':       SqlPage,
-  'pages/wbs.html':       WbsPage,
-  'pages/note.html':      NotePage,
+  'pages/diff_tool.html':  DiffToolPage,
+  'pages/text.html':       TextPage,
+  'pages/ops.html':        OpsPage,
+  'pages/snippet.html':    SnippetPage,
+  'pages/timer.html':      TimerPage,
+  'pages/sql.html':        SqlPage,
+  'pages/wbs.html':        WbsPage,
+  'pages/note.html':       NotePage,
+  'pages/dashboard.html':  DashboardPage,
 };
