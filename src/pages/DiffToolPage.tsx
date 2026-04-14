@@ -2,6 +2,7 @@
 // DiffToolPage: 差分比較ツール
 // ==================================================
 
+import '../styles/pages/diff_tool.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Clipboard } from '../core/clipboard';
 import { Toast } from '../components/Toast';

@@ -2,6 +2,7 @@
 // SnippetPage — コードスニペット管理（React 移行版）
 // ==================================================
 
+import '../styles/pages/snippet.css';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { codeToHtml } from 'shiki';
 import { useToast } from '../components/Toast';

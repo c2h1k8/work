@@ -3,6 +3,7 @@
 // ==================================================
 // セクション: regex / encode / case / count / format / timestamp / tsv
 
+import '../styles/pages/text.css';
 import { useCallback, useEffect, useState } from 'react';
 import { Clipboard } from '../core/clipboard';
 import { Toast } from '../components/Toast';

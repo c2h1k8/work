@@ -2,6 +2,7 @@
 // NotePage — ノート管理（React 移行版）
 // ==================================================
 
+import '../styles/pages/note.css';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '../components/Toast';
 import { noteDB, type NoteTask, type NoteField, type NoteEntry, type NoteFieldType, type NoteFieldWidth } from '../db/note_db';
