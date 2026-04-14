@@ -24,51 +24,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build CSS from LESS
-        run: |
-          npx lessc css/core/tokens.less          css/core/tokens.css
-          npx lessc css/core/ui.less              css/core/ui.css
-          npx lessc css/index.less                 css/index.css
-          npx lessc css/components/toast.less          css/components/toast.css
-          npx lessc css/components/tooltip.less         css/components/tooltip.css
-          npx lessc css/components/date_picker.less     css/components/date_picker.css
-          npx lessc css/components/label_manager.less   css/components/label_manager.css
-          npx lessc css/components/label_filter.less    css/components/label_filter.css
-          npx lessc css/components/custom_select.less   css/components/custom_select.css
-          npx lessc css/components/bind_var_modal.less  css/components/bind_var_modal.css
-          npx lessc css/components/checklist.less       css/components/checklist.css
-          npx lessc css/components/shortcut_help.less   css/components/shortcut_help.css
-          npx lessc css/components/checkbox.less        css/components/checkbox.css
-          npx lessc css/components/radio_pill.less      css/components/radio_pill.css
-          npx lessc css/components/activity_log.less    css/components/activity_log.css
-          npx lessc css/todo.less      css/todo.css
-          npx lessc css/note.less      css/note.css
-          npx lessc css/sql.less       css/sql.css
-          npx lessc css/dashboard.less css/dashboard.css
-          npx lessc css/wbs.less       css/wbs.css
-          npx lessc css/timer.less     css/timer.css
-          npx lessc css/snippet.less   css/snippet.css
-          npx lessc css/diff_tool.less css/diff_tool.css
-          npx lessc css/ops.less       css/ops.css
-          npx lessc css/text.less      css/text.css
-
-      - name: Cache busting - append version to CSS/JS references
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          # 全 HTML ファイルの .css" / .js" 参照に ?v=TAG を付与
-          for f in index.html pages/*.html; do
-            sed -i \
-              -e "s/\.css\"/\.css?v=${TAG}\"/g" \
-              -e "s/\.css'/\.css?v=${TAG}'/g" \
-              -e "s/\.js\"/\.js?v=${TAG}\"/g" \
-              -e "s/\.js'/\.js?v=${TAG}'/g" \
-              "$f"
-            # vendor/ 配下はクエリパラメータ不要（Tauri アセットサーバーがクエリ付きで解決できないため）
-            sed -i \
-              -e "s|vendor/\([^\"']*\)\.js?v=${TAG}|vendor/\1.js|g" \
-              -e "s|vendor/\([^\"']*\)\.css?v=${TAG}|vendor/\1.css|g" \
-              "$f"
-          done
+      - name: Build (Vite)
+        run: npm run build
 
       - name: Create release ZIPs
         run: |
@@ -77,34 +34,19 @@ jobs:
           # Mac 用: .command ファイルに実行権限を付与
           chmod +x start_server.command stop_server.command
 
-          COMMON_FILES=(
-            index.html
-            pages/
-            favicon.svg
-            js/
-            css/
-            vendor/
-          )
-          COMMON_EXCLUDE=(
-            -x "css/**/*.less"
-            -x "js/core/.gitkeep"
-          )
-
           # Windows ZIP
           ZIP_WIN="mytools-${TAG}-windows.zip"
           zip -r "${ZIP_WIN}" \
-            "${COMMON_FILES[@]}" \
+            dist/ \
             start_server.bat \
-            stop_server.bat \
-            "${COMMON_EXCLUDE[@]}"
+            stop_server.bat
 
           # Mac ZIP
           ZIP_MAC="mytools-${TAG}-mac.zip"
           zip -r "${ZIP_MAC}" \
-            "${COMMON_FILES[@]}" \
+            dist/ \
             start_server.command \
-            stop_server.command \
-            "${COMMON_EXCLUDE[@]}"
+            stop_server.command
 
           echo "ZIP_WIN=${ZIP_WIN}" >> "$GITHUB_ENV"
           echo "ZIP_MAC=${ZIP_MAC}" >> "$GITHUB_ENV"
@@ -149,54 +91,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build CSS from LESS
-        run: |
-          npx lessc css/core/tokens.less          css/core/tokens.css
-          npx lessc css/core/ui.less              css/core/ui.css
-          npx lessc css/index.less                 css/index.css
-          npx lessc css/components/toast.less          css/components/toast.css
-          npx lessc css/components/tooltip.less         css/components/tooltip.css
-          npx lessc css/components/date_picker.less     css/components/date_picker.css
-          npx lessc css/components/label_manager.less   css/components/label_manager.css
-          npx lessc css/components/label_filter.less    css/components/label_filter.css
-          npx lessc css/components/custom_select.less   css/components/custom_select.css
-          npx lessc css/components/bind_var_modal.less  css/components/bind_var_modal.css
-          npx lessc css/components/checklist.less       css/components/checklist.css
-          npx lessc css/components/shortcut_help.less   css/components/shortcut_help.css
-          npx lessc css/components/checkbox.less        css/components/checkbox.css
-          npx lessc css/components/radio_pill.less      css/components/radio_pill.css
-          npx lessc css/components/activity_log.less    css/components/activity_log.css
-          npx lessc css/todo.less      css/todo.css
-          npx lessc css/note.less      css/note.css
-          npx lessc css/sql.less       css/sql.css
-          npx lessc css/dashboard.less css/dashboard.css
-          npx lessc css/wbs.less       css/wbs.css
-          npx lessc css/timer.less     css/timer.css
-          npx lessc css/snippet.less   css/snippet.css
-          npx lessc css/diff_tool.less css/diff_tool.css
-          npx lessc css/ops.less       css/ops.css
-          npx lessc css/text.less      css/text.css
-
-      - name: Cache busting
-        shell: bash
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          for f in index.html pages/*.html; do
-            sed -i.bak \
-              -e "s/\.css\"/\.css?v=${TAG}\"/g" \
-              -e "s/\.css'/\.css?v=${TAG}'/g" \
-              -e "s/\.js\"/\.js?v=${TAG}\"/g" \
-              -e "s/\.js'/\.js?v=${TAG}'/g" \
-              "$f"
-            rm -f "$f.bak"
-            # vendor/ 配下はクエリパラメータ不要（Tauri アセットサーバーがクエリ付きで解決できないため）
-            sed -i.bak \
-              -e "s|vendor/\([^\"']*\)\.js?v=${TAG}|vendor/\1.js|g" \
-              -e "s|vendor/\([^\"']*\)\.css?v=${TAG}|vendor/\1.css|g" \
-              "$f"
-            rm -f "$f.bak"
-          done
-
       - name: Sync app version from tag
         shell: bash
         run: |
@@ -207,9 +101,6 @@ jobs:
           # Cargo.toml のバージョンを更新
           sed -i.bak "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml
           rm -f src-tauri/Cargo.toml.bak
-
-      - name: Prepare frontend dist
-        run: npm run prepare-dist
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

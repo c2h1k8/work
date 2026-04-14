@@ -70,7 +70,7 @@ interface CardProps {
   overlay?: boolean;
 }
 
-function KanbanCard({ task, labels, taskLabels, isDoneColumn, blockedBy, onClick, overlay }: CardProps) {
+const KanbanCard = React.memo(function KanbanCard({ task, labels, taskLabels, isDoneColumn, blockedBy, onClick, overlay }: CardProps) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: `task-${task.id}`,
     data: { type: 'task', taskId: task.id, columnKey: task.column },
@@ -138,7 +138,7 @@ function KanbanCard({ task, labels, taskLabels, isDoneColumn, blockedBy, onClick
       </div>
     </div>
   );
-}
+});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // KanbanColumn（ドロップターゲット）
@@ -157,7 +157,7 @@ interface ColumnProps {
   onEditColumn: (column: KanbanColumn) => void;
 }
 
-function KanbanColumnView({
+const KanbanColumnView = React.memo(function KanbanColumnView({
   column, tasks, labels, taskLabels, dependencies,
   onCardClick, onAddCard, onArchiveColumn, onEditColumn,
 }: ColumnProps) {
@@ -191,18 +191,18 @@ function KanbanColumnView({
           {tasks.length}{column.wip_limit ? `/${column.wip_limit}` : ''}
         </span>
         {column.done && (
-          <button onClick={() => onArchiveColumn(column.key)} title="一括アーカイブ"
+          <button onClick={() => onArchiveColumn(column.key)} title="一括アーカイブ" aria-label={`${column.name}を一括アーカイブ`}
             className="p-0.5 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]">
-            <ArchiveIcon size={12} />
+            <ArchiveIcon size={12} aria-hidden="true" />
           </button>
         )}
-        <button onClick={() => onEditColumn(column)}
+        <button onClick={() => onEditColumn(column)} aria-label={`${column.name}を編集`}
           className="p-0.5 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]">
-          <Settings2Icon size={12} />
+          <Settings2Icon size={12} aria-hidden="true" />
         </button>
-        <button onClick={startAdd}
+        <button onClick={startAdd} aria-label={`${column.name}にタスクを追加`}
           className="p-0.5 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]">
-          <PlusIcon size={14} />
+          <PlusIcon size={14} aria-hidden="true" />
         </button>
       </div>
       {/* カード一覧 */}
@@ -243,7 +243,7 @@ function KanbanColumnView({
       </div>
     </div>
   );
-}
+});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TaskModal（タスク詳細編集）
@@ -342,7 +342,8 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { if (dirty) handleSave(); onClose(); }}>
-      <div className="bg-[var(--c-bg)] rounded-xl border border-[var(--c-border)] w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      <div role="dialog" aria-modal="true" aria-label="タスク編集"
+        className="bg-[var(--c-bg)] rounded-xl border border-[var(--c-border)] w-full max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         {/* ヘッダー */}
         <div className="flex items-start gap-2 px-4 pt-4 pb-2">
@@ -351,10 +352,11 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
             onChange={(e) => { handleTitleChange(e.target.value); mark(); }}
             className="flex-1 text-lg font-semibold text-[var(--c-fg)] bg-transparent border-none resize-none focus:outline-none leading-tight"
             rows={2}
+            aria-label="タスクタイトル"
             autoFocus
           />
-          <button onClick={() => { if (dirty) handleSave(); onClose(); }}
-            className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)] shrink-0"><XIcon size={16} /></button>
+          <button onClick={() => { if (dirty) handleSave(); onClose(); }} aria-label="閉じる"
+            className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)] shrink-0"><XIcon size={16} aria-hidden="true" /></button>
         </div>
 
         <div className="px-4 pb-4 space-y-4">
@@ -834,23 +836,23 @@ export function TodoPage() {
   }, [tasksMap, filterText, filterLabels, sort, taskLabels]);
 
   // ── タスク追加 ────────────────────────────────────────────
-  async function addTask(columnKey: string, title: string) {
+  const addTask = useCallback(async (columnKey: string, title: string) => {
     const colTasks = tasksMap[columnKey] || [];
     const task = await kanbanDB.addTask({ title, column: columnKey, position: colTasks.length });
     await activityDB.add({ page: 'todo', action: 'create', target_type: 'task', target_id: String(task.id!), summary: title, created_at: new Date().toISOString() });
     await load();
     toast.success('タスクを追加しました');
-  }
+  }, [tasksMap, load, toast]);
 
   // ── タスク選択 ────────────────────────────────────────────
-  async function openTask(task: KanbanTask) {
+  const openTask = useCallback(async (task: KanbanTask) => {
     const tls = await kanbanDB.getTaskLabels(task.id!);
     setSelectedTaskLabels(new Set(tls.map((tl) => tl.label_id)));
     setSelectedTask(task);
-  }
+  }, []);
 
   // ── アーカイブ一括（完了カラム） ───────────────────────────
-  async function archiveColumn(columnKey: string) {
+  const archiveColumn = useCallback(async (columnKey: string) => {
     const tasks = tasksMap[columnKey] || [];
     if (!tasks.length) return;
     if (!confirm(`${tasks.length} 件のタスクをアーカイブしますか？`)) return;
@@ -860,7 +862,7 @@ export function TodoPage() {
     }
     await load();
     toast.success('アーカイブしました');
-  }
+  }, [tasksMap, load, toast]);
 
   // ── 繰り返しタスク生成 ────────────────────────────────────
   async function createRecurringNext(task: KanbanTask) {
@@ -1010,6 +1012,9 @@ export function TodoPage() {
     load();
   }
 
+  // ── カラム編集モーダルを開く ─────────────────────────────
+  const openEditColumn = useCallback((c: KanbanColumn) => setEditingColumn(c), []);
+
   // ── ソート変更 ────────────────────────────────────────────
   function changeSort(field: string) {
     const next = sort.field === field && sort.dir === 'asc'
@@ -1095,17 +1100,17 @@ export function TodoPage() {
         <span className="text-xs text-[var(--c-fg-3)]">{totalTasks}件</span>
 
         {/* アクション */}
-        <button onClick={() => setShowLabelMgr(true)}
+        <button onClick={() => setShowLabelMgr(true)} aria-label="ラベル管理"
           className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="ラベル管理">
-          <TagIcon size={14} />
+          <TagIcon size={14} aria-hidden="true" />
         </button>
-        <button onClick={() => setShowArchive(true)}
+        <button onClick={() => setShowArchive(true)} aria-label="アーカイブ一覧"
           className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="アーカイブ">
-          <ArchiveIcon size={14} />
+          <ArchiveIcon size={14} aria-hidden="true" />
         </button>
-        <button onClick={() => setEditingColumn(null)}
+        <button onClick={() => setEditingColumn(null)} aria-label="カラムを追加"
           className="flex items-center gap-1 px-3 py-1.5 rounded bg-[var(--c-accent)] text-white text-xs">
-          <PlusIcon size={14} />カラム
+          <PlusIcon size={14} aria-hidden="true" />カラム
         </button>
       </div>
 
@@ -1131,7 +1136,7 @@ export function TodoPage() {
                 onCardClick={openTask}
                 onAddCard={addTask}
                 onArchiveColumn={archiveColumn}
-                onEditColumn={(c) => setEditingColumn(c)}
+                onEditColumn={openEditColumn}
               />
             ))}
           </div>

@@ -699,7 +699,7 @@ interface SectionCardProps extends SectionProps {
   onEditSection: (section: DashboardSection) => void;
 }
 
-function SectionCard({
+const SectionCard = React.memo(function SectionCard({
   section, items, presets, activePresetId, onItemsChange,
   onOpenItemMgr, onEditSection,
 }: SectionCardProps) {
@@ -743,9 +743,9 @@ function SectionCard({
           className="p-1 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="設定">
           <Settings2Icon size={14} />
         </button>
-        <button onClick={toggleCollapse}
+        <button onClick={toggleCollapse} aria-expanded={!collapsed} aria-label={collapsed ? 'セクションを展開' : 'セクションを折りたたむ'}
           className="p-1 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)]">
-          {collapsed ? <ChevronRightIcon size={14} /> : <ChevronDownIcon size={14} />}
+          {collapsed ? <ChevronRightIcon size={14} aria-hidden="true" /> : <ChevronDownIcon size={14} aria-hidden="true" />}
         </button>
       </div>
       {/* コンテンツ */}
@@ -764,7 +764,7 @@ function SectionCard({
       )}
     </div>
   );
-}
+});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // セクション編集モーダル
@@ -839,11 +839,12 @@ function SectionEditModal({ section, instanceId, onClose, onSaved, onDeleted, in
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-[var(--c-bg)] rounded-xl border border-[var(--c-border)] w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      <div role="dialog" aria-modal="true" aria-label={section ? 'セクションを編集' : 'セクションを追加'}
+        className="bg-[var(--c-bg)] rounded-xl border border-[var(--c-border)] w-full max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
           <h3 className="font-semibold text-[var(--c-fg)]">{section ? 'セクションを編集' : 'セクションを追加'}</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]"><XIcon size={16} /></button>
+          <button onClick={onClose} aria-label="閉じる" className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]"><XIcon size={16} aria-hidden="true" /></button>
         </div>
         <div className="p-4 space-y-3">
           <div className="flex gap-2">
@@ -1094,11 +1095,12 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center pt-10 px-4" onClick={onClose}>
-      <div className="bg-[var(--c-bg)] rounded-xl border border-[var(--c-border)] w-full max-w-2xl max-h-[85vh] flex flex-col"
+      <div role="dialog" aria-modal="true" aria-label={`${section.title} アイテム管理`}
+        className="bg-[var(--c-bg)] rounded-xl border border-[var(--c-border)] w-full max-w-2xl max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
           <h3 className="font-semibold text-[var(--c-fg)]">{section.icon} {section.title} — アイテム管理</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]"><XIcon size={16} /></button>
+          <button onClick={onClose} aria-label="閉じる" className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]"><XIcon size={16} aria-hidden="true" /></button>
         </div>
         {/* タブ */}
         <div className="flex border-b border-[var(--c-border)]">
@@ -1340,6 +1342,8 @@ export function DashboardPage() {
   // モーダル状態
   const [editingSection, setEditingSection] = useState<DashboardSection | null | undefined>(undefined);  // undefined = 閉じてる, null = 新規
   const [itemMgrSection, setItemMgrSection] = useState<DashboardSection | null>(null);
+  // sections の最新値を常に参照できる ref（安定コールバックから参照するため）
+  const sectionsRef = useRef<DashboardSection[]>([]);
   const [showPresets, setShowPresets] = useState(false);
 
   // DnD
@@ -1353,6 +1357,7 @@ export function DashboardPage() {
       dashboardDB.getAppConfig<{ varNames: string[] }>('bind_config', instanceId),
     ]);
     setSections(secs);
+    sectionsRef.current = secs;
     setPresets(pres);
     setBindConfig(cfg || { varNames: [] });
 
@@ -1384,14 +1389,23 @@ export function DashboardPage() {
   }
 
   // ── アイテム変更後のリロード ───────────────────────────
-  async function reloadItems(sectionId?: number) {
+  const reloadItems = useCallback(async (sectionId?: number) => {
     if (sectionId !== undefined) {
       const items = await dashboardDB.getItemsBySection(sectionId);
       setItemsMap((prev) => ({ ...prev, [sectionId]: items }));
     } else {
       await load();
     }
-  }
+  }, [load]);
+
+  // ── SectionCard へ渡す安定コールバック（sectionsRef 経由で最新状態を参照） ──
+  const handleOpenItemMgr = useCallback((id: number) => {
+    setItemMgrSection(sectionsRef.current.find((s) => s.id === id) || null);
+  }, []);
+
+  const handleEditSection = useCallback((s: DashboardSection) => {
+    setEditingSection(s);
+  }, []);
 
   // ── エクスポート ──────────────────────────────────────
   async function handleExport() {
@@ -1499,8 +1513,8 @@ export function DashboardPage() {
                     presets={presets}
                     activePresetId={activePresetId}
                     onItemsChange={() => reloadItems(section.id)}
-                    onOpenItemMgr={(id) => setItemMgrSection(sections.find((s) => s.id === id) || null)}
-                    onEditSection={(s) => setEditingSection(s)}
+                    onOpenItemMgr={handleOpenItemMgr}
+                    onEditSection={handleEditSection}
                   />
                 ))}
               </div>

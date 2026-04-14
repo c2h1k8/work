@@ -3,19 +3,29 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "tauri": "tauri",
     "prepare-dist": "node -e \"const{cpSync,copyFileSync,mkdirSync}=require('fs');mkdirSync('dist',{recursive:true});['js','pages','vendor'].forEach(d=>cpSync(d,'dist/'+d,{recursive:true}));cpSync('css','dist/css',{recursive:true,filter:s=>!s.endsWith('.less')});['index.html','favicon.svg'].forEach(f=>copyFileSync(f,'dist/'+f));\"",
     "less:build": "npx lessc css/core/tokens.less css/core/tokens.css && npx lessc css/core/ui.less css/core/ui.css"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.4",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^29.0.2",
     "less": "^4.5.1",
     "typescript": "^6.0.2",
-    "vite": "^8.0.8"
+    "vite": "^8.0.8",
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
