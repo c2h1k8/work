@@ -4,6 +4,12 @@ cd "$SCRIPT_DIR"
 
 PORT=52700
 
+# ── dist/ が存在しなければビルドを促す ──
+if [ ! -d "$SCRIPT_DIR/dist" ]; then
+    osascript -e 'display alert "ビルドが必要です" message "dist/ フォルダが見つかりません。\nターミナルで以下を実行してください:\n\n  npm run build"'
+    exit 1
+fi
+
 # ── すでにポートが使用中なら再起動しない ──
 if lsof -ti tcp:$PORT &>/dev/null; then
     open "http://localhost:$PORT"
@@ -23,17 +29,17 @@ start_and_open() {
 
 # ── Python3 を試みる ──
 if command -v python3 &>/dev/null; then
-    start_and_open "python3 -m http.server $PORT"
+    start_and_open "python3 -m http.server $PORT --directory dist"
 fi
 
 # ── Python を試みる ──
 if command -v python &>/dev/null; then
-    start_and_open "python -m http.server $PORT"
+    start_and_open "python -m http.server $PORT --directory dist"
 fi
 
 # ── Node.js を試みる ──
 if command -v node &>/dev/null; then
-    start_and_open "npx --yes serve -p $PORT ."
+    start_and_open "npx --yes serve -p $PORT dist"
 fi
 
 # ── どちらも見つからない ──
