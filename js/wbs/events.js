@@ -54,6 +54,10 @@ const EventHandlers = {
     });
 
     document.addEventListener('keydown', e => {
+      // DatePicker が開いているときはWBSショートカットを無効化
+      const dpEl = document.getElementById('date-picker');
+      if (dpEl && !dpEl.hasAttribute('hidden')) return;
+
       const isInInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA';
       // Escape: 入力中ならフォーカスを外す
       if (e.key === 'Escape' && isInInput && !e.isComposing) { e.target.blur(); return; }
@@ -381,6 +385,8 @@ const EventHandlers = {
       animation: 150,
       ghostClass: 'wbs-row-ghost',
       dragClass: 'wbs-row-dragging',
+      // Tauri(WKWebView) ではネイティブ HTML5 DnD が動作しないためフォールバックを強制
+      forceFallback: Env.isTauri,
       onStart: (evt) => {
         const draggedId = Number(evt.item.dataset.taskId);
         const visibleIds = State._visibleTasks.map(t => t.id);
