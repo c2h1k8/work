@@ -4,6 +4,7 @@
 // kanban_db version 2
 // ストア: tasks / columns / labels / task_labels / templates / archives / dependencies / note_links
 
+import '../styles/pages/todo.css';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   DndContext, DragOverlay, closestCorners,
@@ -271,8 +272,22 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   const [selectedLabels, setSelectedLabels] = useState<Set<number>>(new Set(taskLabels));
   const [recurring,   setRecurring]   = useState(task.recurring ?? null);
   const [dirty,       setDirty]       = useState(false);
+  const [isOpen,      setIsOpen]      = useState(false);
+
+  // マウント後にアニメーション開始
+  useEffect(() => {
+    requestAnimationFrame(() => setIsOpen(true));
+  }, []);
 
   function mark() { setDirty(true); }
+
+  function handleClose() {
+    setIsOpen(false);
+    setTimeout(() => {
+      if (dirty) handleSave();
+      onClose();
+    }, 300);
+  }
 
   async function handleSave() {
     const updated = await kanbanDB.updateTask(task.id!, {
@@ -339,141 +354,161 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   }
 
   const doneCheck = checklist.filter((c) => c.done).length;
+  const overdue = isOverdue(dueDate, columns.find((c) => c.key === column)?.done || false);
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { if (dirty) handleSave(); onClose(); }}>
-      <div role="dialog" aria-modal="true" aria-label="タスク編集"
-        className="bg-[var(--c-bg)] rounded-xl border border-[var(--c-border)] w-full max-w-lg max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}>
+    <div className={`modal${isOpen ? ' is-open' : ''}`} role="dialog" aria-modal="true" aria-label="タスク編集">
+      {/* 背景オーバーレイ */}
+      <div className="modal__backdrop" onClick={handleClose} />
+
+      {/* 右サイドドロワー */}
+      <div className="modal__dialog">
         {/* ヘッダー */}
-        <div className="flex items-start gap-2 px-4 pt-4 pb-2">
-          <textarea
-            value={title}
-            onChange={(e) => { handleTitleChange(e.target.value); mark(); }}
-            className="flex-1 text-lg font-semibold text-[var(--c-fg)] bg-transparent border-none resize-none focus:outline-none leading-tight"
-            rows={2}
-            aria-label="タスクタイトル"
-            autoFocus
-          />
-          <button onClick={() => { if (dirty) handleSave(); onClose(); }} aria-label="閉じる"
-            className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)] shrink-0"><XIcon size={16} aria-hidden="true" /></button>
-        </div>
-
-        <div className="px-4 pb-4 space-y-4">
-          {/* メタ情報行 */}
-          <div className="flex gap-2 flex-wrap">
-            <select value={column} onChange={(e) => { setColumn(e.target.value); mark(); }}
-              className="px-2 py-1 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm focus:outline-none">
-              {columns.map((c) => <option key={c.key} value={c.key}>{c.name}</option>)}
-            </select>
-            <input type="date" value={dueDate} onChange={(e) => { setDueDate(e.target.value); mark(); }}
-              className="px-2 py-1 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm focus:outline-none" />
-          </div>
-
-          {/* ラベル */}
-          {labels.length > 0 && (
-            <div>
-              <div className="flex items-center gap-1 mb-1">
-                <TagIcon size={12} className="text-[var(--c-fg-3)]" />
-                <span className="text-xs font-medium text-[var(--c-fg-2)]">ラベル</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {labels.map((l) => (
-                  <button key={l.id} onClick={() => toggleLabel(l.id!)}
-                    className={`px-2 py-0.5 rounded-full text-xs font-medium transition-opacity ${selectedLabels.has(l.id!) ? 'opacity-100' : 'opacity-30'}`}
-                    style={{ backgroundColor: l.color, color: '#fff' }}>
-                    {l.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 説明 */}
-          <div>
-            <label className="text-xs font-medium text-[var(--c-fg-2)]">説明</label>
-            <textarea
-              value={description}
-              onChange={(e) => { setDescription(e.target.value); mark(); }}
-              placeholder="説明を入力…"
-              className="mt-1 w-full px-3 py-2 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm resize-y min-h-[80px] focus:outline-none focus:border-[var(--c-accent)]"
+        <div className="modal__header">
+          <div className="modal__title-row">
+            <input
+              className="modal__title-input"
+              value={title}
+              onChange={(e) => { handleTitleChange(e.target.value); mark(); }}
+              aria-label="タスクタイトル"
+              autoFocus
             />
           </div>
+          <button className="modal__close" onClick={handleClose} aria-label="閉じる">
+            <XIcon size={16} aria-hidden="true" />
+          </button>
+        </div>
 
-          {/* チェックリスト */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1">
-                <CheckIcon size={12} className="text-[var(--c-fg-3)]" />
-                <span className="text-xs font-medium text-[var(--c-fg-2)]">チェックリスト</span>
-                {checklist.length > 0 && (
-                  <span className="text-xs text-[var(--c-fg-3)]">({doneCheck}/{checklist.length})</span>
-                )}
-              </div>
+        {/* ボディ（2カラム） */}
+        <div className="modal__body">
+          {/* メインエリア */}
+          <div className="modal__main">
+            {/* 説明セクション */}
+            <div className="modal__section">
+              <h4 className="modal__section-title">説明</h4>
+              <textarea
+                className="modal__description"
+                value={description}
+                onChange={(e) => { setDescription(e.target.value); mark(); }}
+                placeholder="説明を入力…"
+              />
             </div>
-            {checklist.length > 0 && (
-              <div className="space-y-1 mb-2">
+
+            {/* チェックリストセクション */}
+            <div className="modal__section">
+              <h4 className="modal__section-title">
+                <CheckIcon size={14} aria-hidden="true" />
+                チェックリスト
+                {checklist.length > 0 && (
+                  <span style={{ fontWeight: 400, fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                    （{doneCheck}/{checklist.length}）
+                  </span>
+                )}
+              </h4>
+              <div className="checklist-items">
                 {checklist.map((item) => (
-                  <div key={item.id} className="flex items-center gap-2 group">
-                    <input type="checkbox" checked={item.done} onChange={() => toggleCheck(item.id)}
-                      className="accent-[var(--c-accent)]" />
-                    <span className={`flex-1 text-sm ${item.done ? 'line-through text-[var(--c-fg-3)]' : 'text-[var(--c-fg)]'}`}>{item.text}</span>
-                    <button onClick={() => deleteCheck(item.id)}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]">
-                      <XIcon size={10} />
+                  <div key={item.id} className={`checklist-item${item.done ? ' is-checked' : ''}`}
+                    onClick={() => { toggleCheck(item.id); mark(); }}>
+                    <span className="checklist-check-icon">
+                      {item.done && <CheckIcon size={10} />}
+                    </span>
+                    <span className="checklist-label">{item.text}</span>
+                    <button className="checklist-item__del"
+                      onClick={(e) => { e.stopPropagation(); deleteCheck(item.id); }}
+                      aria-label="削除">
+                      <XIcon size={12} aria-hidden="true" />
                     </button>
                   </div>
                 ))}
               </div>
-            )}
-            <div className="flex gap-1">
-              <input value={newCheckText} onChange={(e) => setNewCheckText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addChecklist(); }}
-                placeholder="項目を追加…"
-                className="flex-1 px-2 py-1 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm focus:outline-none" />
-              <button onClick={addChecklist}
-                className="px-2 py-1 rounded border border-[var(--c-border)] text-[var(--c-fg-2)] hover:border-[var(--c-accent)] text-sm">追加</button>
+              <div className="checklist-add-row">
+                <input
+                  className="checklist-new-input"
+                  value={newCheckText}
+                  onChange={(e) => setNewCheckText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addChecklist(); }}
+                  placeholder="項目を追加…"
+                />
+                <button className="modal-action-btn" onClick={addChecklist}>追加</button>
+              </div>
             </div>
           </div>
 
-          {/* 繰り返し */}
-          <div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="recurring-toggle" checked={!!recurring}
-                onChange={(e) => { setRecurring(e.target.checked ? { interval: 'weekly', next_date: '' } : null); mark(); }}
-                className="accent-[var(--c-accent)]" />
-              <label htmlFor="recurring-toggle" className="text-xs font-medium text-[var(--c-fg-2)] flex items-center gap-1 cursor-pointer">
-                <RotateCcwIcon size={12} />繰り返し
-              </label>
-            </div>
-            {recurring && (
-              <select value={recurring.interval}
-                onChange={(e) => { setRecurring({ ...recurring, interval: e.target.value as 'daily' | 'weekly' | 'monthly' }); mark(); }}
-                className="mt-1 px-2 py-1 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm focus:outline-none">
-                <option value="daily">毎日</option>
-                <option value="weekly">毎週</option>
-                <option value="monthly">毎月</option>
+          {/* サイドバー */}
+          <div className="modal__sidebar">
+            {/* カラム */}
+            <div className="modal__sidebar-item">
+              <span className="modal__sidebar-label">カラム</span>
+              <select className="modal__select" value={column}
+                onChange={(e) => { setColumn(e.target.value); mark(); }}>
+                {columns.map((c) => <option key={c.key} value={c.key}>{c.name}</option>)}
               </select>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* フッターアクション */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--c-border)]">
-          <div className="flex gap-1">
-            <button onClick={handleArchive}
-              className="px-2 py-1.5 rounded border border-[var(--c-border)] text-xs text-[var(--c-fg-2)] hover:border-amber-400 hover:text-amber-500 flex items-center gap-1">
-              <ArchiveIcon size={12} />アーカイブ
-            </button>
-            <button onClick={handleDelete}
-              className="px-2 py-1.5 rounded border border-[var(--c-border)] text-xs text-red-400 hover:border-red-400 flex items-center gap-1">
-              <Trash2Icon size={12} />削除
-            </button>
+            {/* 期日 */}
+            <div className="modal__sidebar-item">
+              <span className="modal__sidebar-label">期日</span>
+              <input
+                type="date"
+                className={`modal__select${overdue ? ' modal__date-display--overdue' : ''}`}
+                value={dueDate}
+                onChange={(e) => { setDueDate(e.target.value); mark(); }}
+              />
+              {dueDate && (
+                <button onClick={() => { setDueDate(''); mark(); }} className="modal-clear-btn">
+                  クリア
+                </button>
+              )}
+            </div>
+
+            {/* ラベル */}
+            {labels.length > 0 && (
+              <div className="modal__sidebar-item">
+                <span className="modal__sidebar-label">ラベル</span>
+                <div className="modal__label-list">
+                  {labels.map((l) => (
+                    <button key={l.id}
+                      onClick={() => toggleLabel(l.id!)}
+                      style={{ backgroundColor: l.color, color: '#fff', opacity: selectedLabels.has(l.id!) ? 1 : 0.3 }}
+                      className="modal-existing-label">
+                      {l.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 繰り返し */}
+            <div className="modal__sidebar-item">
+              <span className="modal__sidebar-label">繰り返し</span>
+              <label className="modal-check-label">
+                <input type="checkbox" checked={!!recurring}
+                  onChange={(e) => { setRecurring(e.target.checked ? { interval: 'weekly', next_date: '' } : null); mark(); }} />
+                有効
+              </label>
+              {recurring && (
+                <select className="modal__select" value={recurring.interval}
+                  onChange={(e) => { setRecurring({ ...recurring, interval: e.target.value as 'daily' | 'weekly' | 'monthly' }); mark(); }}>
+                  <option value="daily">毎日</option>
+                  <option value="weekly">毎週</option>
+                  <option value="monthly">毎月</option>
+                </select>
+              )}
+            </div>
+
+            {/* アクション */}
+            <div className="modal__sidebar-item modal__sidebar-actions">
+              <button onClick={() => { handleSave(); onClose(); }} className="modal-save-btn">
+                保存
+              </button>
+              <button onClick={handleArchive} className="modal-archive-btn">
+                <ArchiveIcon size={13} aria-hidden="true" />アーカイブ
+              </button>
+              <button onClick={handleDelete} className="modal-delete-btn">
+                <Trash2Icon size={13} aria-hidden="true" />削除
+              </button>
+            </div>
           </div>
-          <button onClick={() => { handleSave(); onClose(); }}
-            className="px-4 py-1.5 rounded bg-[var(--c-accent)] text-white text-sm font-medium">
-            保存
-          </button>
         </div>
       </div>
     </div>
