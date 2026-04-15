@@ -20,7 +20,7 @@ import {
   PlusIcon, XIcon, Trash2Icon, PencilIcon, CheckIcon,
   ArchiveIcon, Settings2Icon, TagIcon,
   LockIcon, CalendarIcon, RotateCcwIcon, FilterIcon,
-  GripVerticalIcon, ArrowUpIcon, ArrowDownIcon,
+  ArrowUpIcon, ArrowDownIcon,
 } from 'lucide-react';
 import {
   kanbanDB,
@@ -42,16 +42,21 @@ function lsJson<T>(k: string): T | null {
 }
 
 // ── 日付ユーティリティ ─────────────────────────────────────
-function formatDate(iso: string): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
+type DueStatus = 'overdue' | 'today' | 'normal' | '';
 
-function isOverdue(due: string, isDoneColumn: boolean): boolean {
-  if (!due || isDoneColumn) return false;
-  return new Date(due) < new Date(new Date().toDateString());
+function getDueInfo(iso: string, isDoneColumn: boolean): { text: string; status: DueStatus } {
+  if (!iso) return { text: '', status: '' };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(iso);
+  due.setHours(0, 0, 0, 0);
+  const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
+  const fmt = new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric' });
+  const dateText = fmt.format(due);
+  if (isDoneColumn) return { text: dateText, status: 'normal' };
+  if (diff < 0)  return { text: `${dateText} (期限切れ)`, status: 'overdue' };
+  if (diff === 0) return { text: `${dateText} (今日)`,    status: 'today' };
+  return { text: dateText, status: 'normal' };
 }
 
 // ── ID生成 ────────────────────────────────────────────────
@@ -68,10 +73,12 @@ interface CardProps {
   isDoneColumn: boolean;
   blockedBy: Set<number>;
   onClick: () => void;
+  onArchive?: (task: KanbanTask) => void;
+  onDelete?: (task: KanbanTask) => void;
   overlay?: boolean;
 }
 
-const KanbanCard = React.memo(function KanbanCard({ task, labels, taskLabels, isDoneColumn, blockedBy, onClick, overlay }: CardProps) {
+const KanbanCard = React.memo(function KanbanCard({ task, labels, taskLabels, isDoneColumn, blockedBy, onClick, onArchive, onDelete, overlay }: CardProps) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: `task-${task.id}`,
     data: { type: 'task', taskId: task.id, columnKey: task.column },
@@ -80,10 +87,10 @@ const KanbanCard = React.memo(function KanbanCard({ task, labels, taskLabels, is
   const labelIds = taskLabels.get(task.id!) || new Set();
   const cardLabels = labels.filter((l) => labelIds.has(l.id!));
 
-  const checkDone   = (task.checklist || []).filter((c) => c.done).length;
-  const checkTotal  = (task.checklist || []).length;
-  const overdue     = isOverdue(task.due_date, isDoneColumn);
-  const isBlocked   = blockedBy.size > 0;
+  const checkDone  = (task.checklist || []).filter((c) => c.done).length;
+  const checkTotal = (task.checklist || []).length;
+  const due        = getDueInfo(task.due_date, isDoneColumn);
+  const isBlocked  = blockedBy.size > 0;
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -94,35 +101,59 @@ const KanbanCard = React.memo(function KanbanCard({ task, labels, taskLabels, is
   return (
     <div
       ref={setNodeRef}
+      {...attributes}
+      {...listeners}
       style={overlay ? undefined : style}
-      className={`group bg-[var(--c-bg)] border rounded-lg p-2 shadow-sm cursor-pointer hover:border-[var(--c-accent)] transition-all select-none
+      className={`group bg-[var(--c-bg)] border border-l-[3px] rounded-lg p-2 shadow-sm cursor-grab active:cursor-grabbing transition-all select-none
         ${isDragging ? 'opacity-40' : ''}
-        ${overdue ? 'border-red-400 dark:border-red-600' : 'border-[var(--c-border)]'}`}
+        ${due.status === 'overdue'
+          ? 'border-red-400 dark:border-red-600 border-l-red-400 dark:border-l-red-600'
+          : 'border-[var(--c-border)] border-l-transparent hover:border-[var(--c-border)] hover:border-l-[var(--c-accent)] hover:-translate-y-0.5 hover:shadow-md'
+        }`}
       onClick={onClick}
     >
-      {/* ドラッグハンドル + ラベル行 */}
-      <div className="flex items-start gap-1 mb-1">
-        <span {...attributes} {...listeners}
-          className="mt-0.5 text-[var(--c-fg-3)] cursor-grab active:cursor-grabbing hover:text-[var(--c-fg)] shrink-0">
-          <GripVerticalIcon size={12} />
-        </span>
-        <div className="flex-1 min-w-0">
-          {cardLabels.length > 0 && (
-            <div className="flex flex-wrap gap-0.5 mb-1">
-              {cardLabels.map((l) => (
-                <span key={l.id} className="px-1.5 py-px rounded-full text-[10px] font-medium text-white"
-                  style={{ backgroundColor: l.color }}>{l.name}</span>
-              ))}
-            </div>
-          )}
-          <p className="text-sm font-medium text-[var(--c-fg)] break-words leading-snug">{task.title}</p>
+      {/* ラベル行 */}
+      {cardLabels.length > 0 && (
+        <div className="flex flex-wrap gap-0.5 mb-1">
+          {cardLabels.map((l) => (
+            <span key={l.id} className="px-1.5 py-px rounded-full text-[10px] font-medium text-white"
+              style={{ backgroundColor: l.color }}>{l.name}</span>
+          ))}
         </div>
+      )}
+      {/* タイトル + ホバーアクション */}
+      <div className="flex items-start justify-between gap-1">
+        <p className="flex-1 text-sm font-medium text-[var(--c-fg)] break-words leading-snug">{task.title}</p>
+        {/* ホバー時アクションボタン */}
+        {(onArchive || onDelete) && (
+          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 -mt-0.5">
+            {onArchive && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onArchive(task); }}
+                className="p-0.5 rounded text-[var(--c-fg-3)] hover:text-[var(--c-accent)] hover:bg-[var(--c-bg-2)]"
+                title="アーカイブ" aria-label="アーカイブ">
+                <ArchiveIcon size={11} />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(task); }}
+                className="p-0.5 rounded text-[var(--c-fg-3)] hover:text-red-500 hover:bg-[var(--c-bg-2)]"
+                title="削除" aria-label="削除">
+                <Trash2Icon size={11} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
       {/* フッターバッジ */}
       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-        {task.due_date && (
-          <span className={`flex items-center gap-0.5 text-[10px] px-1 py-px rounded ${overdue ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300' : 'bg-[var(--c-bg-2)] text-[var(--c-fg-3)]'}`}>
-            <CalendarIcon size={9} />{formatDate(task.due_date)}
+        {due.text && (
+          <span className={`flex items-center gap-0.5 text-[10px] px-1.5 py-px rounded-full font-medium
+            ${due.status === 'overdue' ? 'bg-[var(--c-danger-bg)] text-[var(--c-danger)]' :
+              due.status === 'today'   ? 'bg-[var(--c-warning-bg)] text-[var(--c-warning)]' :
+                                         'bg-[var(--c-bg-2)] text-[var(--c-fg-3)]'}`}>
+            <CalendarIcon size={9} />{due.text}
           </span>
         )}
         {checkTotal > 0 && (
@@ -156,11 +187,14 @@ interface ColumnProps {
   onAddCard: (columnKey: string, title: string) => void;
   onArchiveColumn: (columnKey: string) => void;
   onEditColumn: (column: KanbanColumn) => void;
+  onArchiveCard: (task: KanbanTask) => void;
+  onDeleteCard: (task: KanbanTask) => void;
 }
 
 const KanbanColumnView = React.memo(function KanbanColumnView({
   column, tasks, labels, taskLabels, dependencies,
   onCardClick, onAddCard, onArchiveColumn, onEditColumn,
+  onArchiveCard, onDeleteCard,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: `col-${column.key}` });
   const [adding, setAdding] = useState(false);
@@ -180,11 +214,11 @@ const KanbanColumnView = React.memo(function KanbanColumnView({
   }
 
   return (
-    <div className={`flex flex-col rounded-xl border transition-colors shrink-0 w-64
+    <div className={`flex flex-col rounded-xl border transition-colors flex-1 min-w-[220px]
       ${isOver ? 'border-[var(--c-accent)] bg-[var(--c-accent)]/5' : 'border-[var(--c-border)] bg-[var(--c-bg-2)]'}`}
       style={{ maxHeight: 'calc(100vh - 120px)' }}>
-      {/* ヘッダー */}
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-t-xl border-b border-[var(--c-border)] shrink-0
+      {/* ヘッダー（group で子ボタンの hover 制御） */}
+      <div className={`group/header flex items-center gap-2 px-3 py-2 rounded-t-xl border-b border-[var(--c-border)] shrink-0
         ${wipExceeded ? 'bg-red-50 dark:bg-red-950' : ''}`}>
         <span className="flex-1 font-semibold text-sm text-[var(--c-fg)] truncate">{column.name}</span>
         <span className={`text-xs px-1.5 py-0.5 rounded-full font-mono
@@ -193,12 +227,12 @@ const KanbanColumnView = React.memo(function KanbanColumnView({
         </span>
         {column.done && (
           <button onClick={() => onArchiveColumn(column.key)} title="一括アーカイブ" aria-label={`${column.name}を一括アーカイブ`}
-            className="p-0.5 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]">
+            className="p-0.5 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)] opacity-0 group-hover/header:opacity-100 transition-opacity">
             <ArchiveIcon size={12} aria-hidden="true" />
           </button>
         )}
         <button onClick={() => onEditColumn(column)} aria-label={`${column.name}を編集`}
-          className="p-0.5 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]">
+          className="p-0.5 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)] opacity-0 group-hover/header:opacity-100 transition-opacity">
           <Settings2Icon size={12} aria-hidden="true" />
         </button>
         <button onClick={startAdd} aria-label={`${column.name}にタスクを追加`}
@@ -218,6 +252,8 @@ const KanbanColumnView = React.memo(function KanbanColumnView({
               isDoneColumn={column.done || false}
               blockedBy={dependencies.get(task.id!)?.blockedBy || new Set()}
               onClick={() => onCardClick(task)}
+              onArchive={onArchiveCard}
+              onDelete={onDeleteCard}
             />
           ))}
         </SortableContext>
@@ -354,7 +390,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   }
 
   const doneCheck = checklist.filter((c) => c.done).length;
-  const overdue = isOverdue(dueDate, columns.find((c) => c.key === column)?.done || false);
+  const overdue = getDueInfo(dueDate, columns.find((c) => c.key === column)?.done || false).status === 'overdue';
 
   return (
     <div className={`modal${isOpen ? ' is-open' : ''}`} role="dialog" aria-modal="true" aria-label="タスク編集">
@@ -886,6 +922,24 @@ export function TodoPage() {
     setSelectedTask(task);
   }, []);
 
+  // ── カード単体アーカイブ ──────────────────────────────────
+  const archiveCard = useCallback(async (task: KanbanTask) => {
+    await kanbanDB.archiveTask(task);
+    await kanbanDB.deleteTask(task.id!);
+    await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(task.id!), summary: task.title, created_at: new Date().toISOString() });
+    await load();
+    toast.success('アーカイブしました');
+  }, [load, toast]);
+
+  // ── カード単体削除 ────────────────────────────────────────
+  const deleteCard = useCallback(async (task: KanbanTask) => {
+    if (!confirm(`「${task.title}」を削除しますか？`)) return;
+    await kanbanDB.deleteTask(task.id!);
+    await activityDB.add({ page: 'todo', action: 'delete', target_type: 'task', target_id: String(task.id!), summary: task.title, created_at: new Date().toISOString() });
+    await load();
+    toast.success('削除しました');
+  }, [load, toast]);
+
   // ── アーカイブ一括（完了カラム） ───────────────────────────
   const archiveColumn = useCallback(async (columnKey: string) => {
     const tasks = tasksMap[columnKey] || [];
@@ -1096,20 +1150,24 @@ export function TodoPage() {
             <FilterIcon size={12} />フィルター
             {filterLabels.size > 0 && <span className="font-bold">{filterLabels.size}</span>}
           </button>
-          {showFilter && labels.length > 0 && (
-            <div className="absolute top-full left-0 mt-1 z-20 bg-[var(--c-bg)] border border-[var(--c-border)] rounded-lg shadow-lg p-2 min-w-[160px]">
-              <div className="text-xs font-medium text-[var(--c-fg-2)] mb-1">ラベル</div>
-              {labels.map((l) => (
-                <label key={l.id} className="flex items-center gap-1.5 px-1 py-0.5 rounded hover:bg-[var(--c-bg-2)] cursor-pointer">
-                  <input type="checkbox" checked={filterLabels.has(l.id!)} onChange={() => toggleFilterLabel(l.id!)}
-                    className="accent-[var(--c-accent)]" />
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: l.color }} />
-                  <span className="text-xs text-[var(--c-fg)]">{l.name}</span>
-                </label>
-              ))}
-              {filterLabels.size > 0 && (
-                <button onClick={() => setFilterLabels(new Set())}
-                  className="mt-1 text-xs text-[var(--c-fg-3)] hover:text-[var(--c-fg)] w-full text-left px-1">クリア</button>
+          {showFilter && (
+            <div className="absolute top-full left-0 mt-1 z-20 bg-[var(--c-bg)] border border-[var(--c-border)] rounded-lg shadow-lg py-1 min-w-[180px]">
+              {labels.length === 0 ? (
+                <div className="text-xs text-[var(--c-fg-3)] px-3 py-2 text-center">ラベルが未作成です</div>
+              ) : (
+                labels.map((l) => {
+                  const active = filterLabels.has(l.id!);
+                  return (
+                    <button key={l.id}
+                      onClick={() => toggleFilterLabel(l.id!)}
+                      className={`flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm transition-colors
+                        ${active ? 'bg-[var(--c-accent-dim)]' : 'hover:bg-[var(--c-bg-2)]'}`}>
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: l.color }} />
+                      <span className="flex-1 text-[var(--c-fg)]">{l.name}</span>
+                      {active && <span className="text-[var(--c-accent)] font-bold text-xs">✓</span>}
+                    </button>
+                  );
+                })
               )}
             </div>
           )}
@@ -1150,7 +1208,11 @@ export function TodoPage() {
       </div>
 
       {/* ボード */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden p-4"
+        style={{
+          backgroundImage: 'radial-gradient(circle, var(--c-border) 1px, transparent 1px)',
+          backgroundSize: '20px 20px',
+        }}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -1172,6 +1234,8 @@ export function TodoPage() {
                 onAddCard={addTask}
                 onArchiveColumn={archiveColumn}
                 onEditColumn={openEditColumn}
+                onArchiveCard={archiveCard}
+                onDeleteCard={deleteCard}
               />
             ))}
           </div>
