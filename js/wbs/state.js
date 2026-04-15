@@ -214,14 +214,14 @@ function calcAggregatedValues(task, taskMap, childrenMap) {
     if (agg) return agg;
     const isOngoing = !!child.actual_start && !child.actual_end;
     return {
-      plan_start:  child.plan_start,
-      plan_days:   child.plan_days || 0,
-      plan_end:    calcPlanEnd(child),
+      plan_start:   child.plan_start,
+      plan_days:    child.plan_days || 0,
+      plan_end:     calcPlanEnd(child),
       actual_start: child.actual_start,
-      actual_end:  isOngoing ? formatDate(new Date()) : child.actual_end,
-      _isOngoing:  isOngoing,
-      progress:    child.progress || 0,
-      status:      child.status || 'not_started',
+      actual_end:   child.actual_end || '',   // ongoing でも今日付を入れない（生値のまま）
+      _isOngoing:   isOngoing,
+      progress:     child.progress || 0,
+      status:       child.status || 'not_started',
     };
   }).filter(Boolean);
 
@@ -232,10 +232,17 @@ function calcAggregatedValues(task, taskMap, childrenMap) {
   const actualStarts = childEffective.map(v => v.actual_start).filter(Boolean);
   const actualEnds   = childEffective.map(v => v.actual_end).filter(Boolean);
 
-  const plan_start   = planStarts.length   ? planStarts.reduce((a, b) => a < b ? a : b)   : '';
-  const plan_end     = planEnds.length     ? planEnds.reduce((a, b) => a > b ? a : b)     : '';
   const actual_start = actualStarts.length ? actualStarts.reduce((a, b) => a < b ? a : b) : '';
-  const actual_end   = actualEnds.length   ? actualEnds.reduce((a, b) => a > b ? a : b)   : '';
+
+  // 実績終了: 一件でも actual_end 未入力の子がある場合は空白
+  const actual_end = childEffective.some(v => !v.actual_end)
+    ? ''
+    : actualEnds.reduce((a, b) => a > b ? a : b, '');
+
+  // 予定工数・予定終了: 全子タスクに plan_start と plan_days が揃っている場合のみ集計
+  const allHavePlan = childEffective.every(v => v.plan_start && v.plan_days);
+  const plan_start  = allHavePlan && planStarts.length ? planStarts.reduce((a, b) => a < b ? a : b) : '';
+  const plan_end    = allHavePlan && planEnds.length   ? planEnds.reduce((a, b) => a > b ? a : b)   : '';
 
   const plan_days = plan_start && plan_end
     ? countBusinessDays(plan_start, plan_end, _customSet)
