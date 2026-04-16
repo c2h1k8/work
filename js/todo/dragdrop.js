@@ -12,6 +12,9 @@ const DragDrop = {
         group:       'kanban',           // カラム間移動を許可
         animation:   150,
         forceFallback: true,             // Tauri WebView 対応（ネイティブ DnD API を使わない）
+        fallbackTolerance: 5,            // 5px 未満の動きはクリックとして扱う（forceFallback 時の誤drag防止）
+        filter:      '.card__title, .card__btn', // タイトル・ボタンはドラッグ開始対象外
+        preventOnFilter: false,          // フィルター要素の click イベントを妨げない
         ghostClass:  'sortable-ghost',
         chosenClass: 'sortable-chosen',
         // ソート条件あり時は列内並び替えを無効化
