@@ -21,15 +21,23 @@ import {
   ArchiveIcon, Settings2Icon, TagIcon,
   LockIcon, CalendarIcon, RotateCcwIcon, FilterIcon,
   ArrowUpIcon, ArrowDownIcon,
+  MessageSquareIcon, ClockIcon, LinkIcon, ActivityIcon,
+  GitMergeIcon, NetworkIcon, BookmarkIcon,
 } from 'lucide-react';
 import {
   kanbanDB,
   type KanbanTask, type KanbanColumn, type KanbanLabel,
   type KanbanTaskLabel, type ChecklistItem,
   type KanbanArchive, type KanbanDependency,
+  type KanbanComment, type KanbanActivity, type KanbanNoteLink,
 } from '../db/kanban_db';
 import { activityDB } from '../db/activity_db';
 import { useToast } from '../components/Toast';
+import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
+import { noteDB } from '../db/note_db';
+import type { NoteTask } from '../db/note_db';
+import { DatePickerReact } from '../components/DatePickerReact';
 
 // ── localStorage ───────────────────────────────────────────
 const LS_SORT   = 'kanban_sort';
@@ -51,7 +59,7 @@ function getDueInfo(iso: string, isDoneColumn: boolean): { text: string; status:
   const due = new Date(iso);
   due.setHours(0, 0, 0, 0);
   const diff = Math.round((due.getTime() - today.getTime()) / 86400000);
-  const fmt = new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric' });
+  const fmt = new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' });
   const dateText = fmt.format(due);
   if (isDoneColumn) return { text: dateText, status: 'normal' };
   if (diff < 0)  return { text: `${dateText} (期限切れ)`, status: 'overdue' };
@@ -283,6 +291,109 @@ const KanbanColumnView = React.memo(function KanbanColumnView({
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TaskPicker（タスク選択ポップオーバー）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+interface TaskPickerProps {
+  tasks: KanbanTask[];
+  columns: KanbanColumn[];
+  x: number;
+  y: number;
+  onSelect: (taskId: number) => void;
+  onClose: () => void;
+}
+
+function TaskPicker({ tasks, columns, x, y, onSelect, onClose }: TaskPickerProps) {
+  const [q, setQ] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const filtered = useMemo(
+    () => q ? tasks.filter((t) => t.title.toLowerCase().includes(q.toLowerCase())) : tasks,
+    [tasks, q],
+  );
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[390]" onClick={onClose} />
+      <div className="task-picker" style={{ left: x, top: y, zIndex: 400 }}>
+        <input
+          ref={inputRef}
+          className="task-picker__input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="タスクを検索…"
+          onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+        />
+        <ul className="task-picker__list">
+          {filtered.length === 0 && <li className="task-picker__empty">該当なし</li>}
+          {filtered.map((t) => (
+            <li key={t.id} className="task-picker__item" onClick={() => onSelect(t.id!)}>
+              <span className="task-picker__item-title">{t.title}</span>
+              <span className="task-picker__item-column">{columns.find((c) => c.key === t.column)?.name}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
+  );
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// NotePicker（ノート選択ポップオーバー）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+interface NotePickerProps {
+  x: number;
+  y: number;
+  excludeIds: number[];
+  onSelect: (noteTaskId: number) => void;
+  onClose: () => void;
+}
+
+function NotePicker({ x, y, excludeIds, onSelect, onClose }: NotePickerProps) {
+  const [q, setQ] = useState('');
+  const [notes, setNotes] = useState<NoteTask[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    noteDB.getAllTasks().then((tasks) => setNotes(tasks.filter((t) => !excludeIds.includes(t.id!))));
+    inputRef.current?.focus();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtered = useMemo(
+    () => q ? notes.filter((n) => n.title.toLowerCase().includes(q.toLowerCase())) : notes,
+    [notes, q],
+  );
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[390]" onClick={onClose} />
+      <div className="task-picker" style={{ left: x, top: y, zIndex: 400 }}>
+        <input
+          ref={inputRef}
+          className="task-picker__input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="ノートを検索…"
+          onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+        />
+        <ul className="task-picker__list">
+          {filtered.length === 0 && <li className="task-picker__empty">該当なし</li>}
+          {filtered.map((n) => (
+            <li key={n.id} className="task-picker__item" onClick={() => onSelect(n.id!)}>
+              <span className="task-picker__item-title">{n.title}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
+  );
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TaskModal（タスク詳細編集）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -299,21 +410,108 @@ interface TaskModalProps {
 
 function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDeleted, onArchived }: TaskModalProps) {
   const toast = useToast();
-  const [title,       setTitle]       = useState(task.title);
-  const [description, setDescription] = useState(task.description || '');
-  const [dueDate,     setDueDate]     = useState(task.due_date || '');
-  const [column,      setColumn]      = useState(task.column);
-  const [checklist,   setChecklist]   = useState<ChecklistItem[]>(task.checklist || []);
+
+  // ── 基本フィールド ──────────────────────────────────────
+  const [title,        setTitle]        = useState(task.title);
+  const [description,  setDescription]  = useState(task.description || '');
+  const [dueDate,      setDueDate]      = useState(task.due_date || '');
+  const [column,       setColumn]       = useState(task.column);
+  const [checklist,    setChecklist]    = useState<ChecklistItem[]>(task.checklist || []);
   const [newCheckText, setNewCheckText] = useState('');
   const [selectedLabels, setSelectedLabels] = useState<Set<number>>(new Set(taskLabels));
-  const [recurring,   setRecurring]   = useState(task.recurring ?? null);
-  const [dirty,       setDirty]       = useState(false);
-  const [isOpen,      setIsOpen]      = useState(false);
+  const [recurring,    setRecurring]    = useState(task.recurring ?? null);
+  const [dirty,        setDirty]        = useState(false);
+  const [isOpen,       setIsOpen]       = useState(false);
+
+  // ── 説明タブ ────────────────────────────────────────────
+  const [descTab, setDescTab] = useState<'write' | 'preview'>('write');
+
+
+  // ── チェックリスト インライン編集 ────────────────────────
+  const [editingCheckId,   setEditingCheckId]   = useState<string | null>(null);
+  const [editingCheckText, setEditingCheckText] = useState('');
+
+  // ── コメント・タイムライン ───────────────────────────────
+  const [comments,       setComments]       = useState<KanbanComment[]>([]);
+  const [activities,     setActivities]     = useState<KanbanActivity[]>([]);
+  const [commentInput,   setCommentInput]   = useState('');
+  const [editingComment, setEditingComment] = useState<{ id: number; text: string } | null>(null);
+  const [timelineTab,    setTimelineTab]    = useState<'all' | 'comments'>('all');
+  const [showAbsTime,    setShowAbsTime]    = useState(false);
+
+  // ── 依存関係 ────────────────────────────────────────────
+  const [predecessors, setPredecessors] = useState<Array<{ dep: KanbanDependency; task: KanbanTask }>>([]);
+  const [successors,   setSuccessors]   = useState<Array<{ dep: KanbanDependency; task: KanbanTask }>>([]);
+
+  // ── タスク関係 ──────────────────────────────────────────
+  const [relParent,   setRelParent]   = useState<{ task: KanbanTask; relationId: number } | null>(null);
+  const [relChildren, setRelChildren] = useState<Array<{ task: KanbanTask; relationId: number }>>([]);
+  const [relRelated,  setRelRelated]  = useState<Array<{ task: KanbanTask; relationId: number }>>([]);
+
+  // ── ノート紐づけ ────────────────────────────────────────
+  const [noteLinks, setNoteLinks] = useState<Array<{ link: KanbanNoteLink; noteTitle: string }>>([]);
+
+  // ── タスクピッカー ──────────────────────────────────────
+  type PickerType = 'dep-pre' | 'dep-suc' | 'parent' | 'child' | 'related' | 'note';
+  const [picker,   setPicker]   = useState<{ type: PickerType; x: number; y: number } | null>(null);
+  const [allTasks, setAllTasks] = useState<KanbanTask[]>([]);
 
   // マウント後にアニメーション開始
   useEffect(() => {
     requestAnimationFrame(() => setIsOpen(true));
   }, []);
+
+  // 追加データ読み込み（コメント・アクティビティ・依存関係・タスク関係・ノート紐づけ）
+  useEffect(() => {
+    async function loadExtras() {
+      const [cmts, acts, allT] = await Promise.all([
+        kanbanDB.getCommentsByTask(task.id!),
+        kanbanDB.getActivitiesByTask(task.id!),
+        kanbanDB.getAllTasks(),
+      ]);
+      setComments(cmts);
+      setActivities(acts);
+      setAllTasks(allT.filter((t) => t.id !== task.id));
+
+      const taskMap = new Map(allT.map((t) => [t.id!, t]));
+
+      // 依存関係
+      const allDeps = await kanbanDB.getDependenciesForTask(task.id!);
+      setPredecessors(
+        allDeps
+          .filter((d) => d.to_task_id === task.id)
+          .map((d) => ({ dep: d, task: taskMap.get(d.from_task_id)! }))
+          .filter((x) => x.task),
+      );
+      setSuccessors(
+        allDeps
+          .filter((d) => d.from_task_id === task.id)
+          .map((d) => ({ dep: d, task: taskMap.get(d.to_task_id)! }))
+          .filter((x) => x.task),
+      );
+
+      // タスク関係
+      const rels = await kanbanDB.getRelationsByTask(task.id!);
+      setRelParent(rels.parent);
+      setRelChildren(rels.children);
+      setRelRelated(rels.related);
+
+      // ノート紐づけ
+      const kNoteLinks = await kanbanDB.getNoteLinksByTodo(task.id!);
+      if (kNoteLinks.length > 0) {
+        const noteTasks = await noteDB.getAllTasks();
+        const noteMap = new Map(noteTasks.map((t) => [t.id!, t]));
+        setNoteLinks(
+          kNoteLinks.map((l) => ({
+            link: l,
+            noteTitle: noteMap.get(l.note_task_id)?.title || `ノート #${l.note_task_id}`,
+          })),
+        );
+      }
+    }
+    loadExtras();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.id]);
 
   function mark() { setDirty(true); }
 
@@ -326,15 +524,73 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   }
 
   async function handleSave() {
+    const actEntries: Array<[string, Record<string, unknown>]> = [];
+
+    // タイトル変更
+    if (title !== task.title) {
+      actEntries.push(['title_change', { to: title }]);
+    }
+    // カラム変更
+    if (column !== task.column) {
+      actEntries.push(['column_change', {
+        from: columns.find((c) => c.key === task.column)?.name || task.column,
+        to:   columns.find((c) => c.key === column)?.name   || column,
+      }]);
+    }
+    // 期日変更（追加 / 解除 / 変更 の3種を旧版どおり区別）
+    const prevDue = task.due_date || '';
+    if (dueDate !== prevDue) {
+      if (!prevDue && dueDate)       actEntries.push(['due_add',    { to: dueDate }]);
+      else if (prevDue && !dueDate)  actEntries.push(['due_remove', { from: prevDue }]);
+      else                           actEntries.push(['due_change', { from: prevDue, to: dueDate }]);
+    }
+    // 説明変更
+    if (description !== (task.description || '')) {
+      actEntries.push(['description_change', {}]);
+    }
+
     const updated = await kanbanDB.updateTask(task.id!, {
       title, description, due_date: dueDate, column,
       checklist: checklist.length > 0 ? checklist : null,
       recurring: recurring || null,
     });
-    // ラベル同期
+
+    // アクティビティ保存 & state 反映
+    if (actEntries.length > 0) {
+      const newActs = await Promise.all(
+        actEntries.map(([type, content]) => kanbanDB.addActivity(task.id!, type, content)),
+      );
+      setActivities((prev) =>
+        [...prev, ...newActs].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+      );
+    }
+
+    // ラベル同期（追加 / 削除 それぞれアクティビティ記録）
     const currentLabels = new Set(taskLabels);
-    for (const lid of selectedLabels) { if (!currentLabels.has(lid)) await kanbanDB.addTaskLabel(task.id!, lid); }
-    for (const lid of currentLabels)  { if (!selectedLabels.has(lid)) await kanbanDB.removeTaskLabel(task.id!, lid); }
+    const labelActEntries: Array<[string, Record<string, unknown>]> = [];
+    for (const lid of selectedLabels) {
+      if (!currentLabels.has(lid)) {
+        await kanbanDB.addTaskLabel(task.id!, lid);
+        const l = labels.find((lb) => lb.id === lid);
+        if (l) labelActEntries.push(['label_add', { name: l.name, color: l.color }]);
+      }
+    }
+    for (const lid of currentLabels) {
+      if (!selectedLabels.has(lid)) {
+        await kanbanDB.removeTaskLabel(task.id!, lid);
+        const l = labels.find((lb) => lb.id === lid);
+        if (l) labelActEntries.push(['label_remove', { name: l.name, color: l.color }]);
+      }
+    }
+    if (labelActEntries.length > 0) {
+      const newActs = await Promise.all(
+        labelActEntries.map(([type, content]) => kanbanDB.addActivity(task.id!, type, content)),
+      );
+      setActivities((prev) =>
+        [...prev, ...newActs].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+      );
+    }
+
     onSaved(updated);
   }
 
@@ -347,6 +603,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   }
 
   async function handleArchive() {
+    await kanbanDB.addActivity(task.id!, 'archive', {}).catch(() => {});
     await kanbanDB.archiveTask(task);
     await kanbanDB.deleteTask(task.id!);
     await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(task.id!), summary: task.title, created_at: new Date().toISOString() });
@@ -354,24 +611,63 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     toast.success('アーカイブしました');
   }
 
-  function addChecklist() {
+  // ── チェックリスト ──────────────────────────────────────
+  async function addChecklist() {
     if (!newCheckText.trim()) return;
-    const item: ChecklistItem = { id: newId(), text: newCheckText.trim(), done: false, position: checklist.length };
+    const text = newCheckText.trim();
+    const item: ChecklistItem = { id: newId(), text, done: false, position: checklist.length };
     setChecklist([...checklist, item]);
     setNewCheckText('');
     mark();
+    // アクティビティ記録
+    const act = await kanbanDB.addActivity(task.id!, 'checklist_add', { text });
+    setActivities((prev) => [...prev, act]);
   }
 
-  function toggleCheck(id: string) {
+  async function toggleCheck(id: string) {
+    const item = checklist.find((c) => c.id === id);
+    const nextDone = item ? !item.done : false;
     setChecklist(checklist.map((c) => c.id === id ? { ...c, done: !c.done } : c));
     mark();
+    // チェック完了・未完了のアクティビティ記録
+    if (item) {
+      const act = await kanbanDB.addActivity(
+        task.id!,
+        nextDone ? 'checklist_complete' : 'checklist_uncheck',
+        { text: item.text },
+      );
+      setActivities((prev) => [...prev, act]);
+    }
   }
 
-  function deleteCheck(id: string) {
+  async function deleteCheck(id: string) {
+    const item = checklist.find((c) => c.id === id);
     setChecklist(checklist.filter((c) => c.id !== id));
     mark();
+    if (item) {
+      const act = await kanbanDB.addActivity(task.id!, 'checklist_remove', { text: item.text });
+      setActivities((prev) => [...prev, act]);
+    }
   }
 
+  function startEditCheck(id: string, text: string) {
+    setEditingCheckId(id);
+    setEditingCheckText(text);
+  }
+
+  async function commitEditCheck(id: string) {
+    const oldText = checklist.find((c) => c.id === id)?.text ?? '';
+    const newText = editingCheckText.trim();
+    if (newText && newText !== oldText) {
+      setChecklist((prev) => prev.map((c) => c.id === id ? { ...c, text: newText } : c));
+      mark();
+      const act = await kanbanDB.addActivity(task.id!, 'checklist_edit', { from: oldText, to: newText });
+      setActivities((prev) => [...prev, act]);
+    }
+    setEditingCheckId(null);
+  }
+
+  // ── ラベル ──────────────────────────────────────────────
   function toggleLabel(lid: number) {
     const next = new Set(selectedLabels);
     if (next.has(lid)) next.delete(lid); else next.add(lid);
@@ -379,7 +675,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     mark();
   }
 
-  // タイトル自動保存（500ms debounce）
+  // ── タイトル自動保存（500ms debounce） ──────────────────
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function handleTitleChange(v: string) {
     setTitle(v);
@@ -389,8 +685,228 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     }, 500);
   }
 
+  // ── コメント ────────────────────────────────────────────
+  async function addComment() {
+    if (!commentInput.trim()) return;
+    const comment = await kanbanDB.addComment(task.id!, commentInput.trim());
+    setComments((prev) => [...prev, comment]);
+    setCommentInput('');
+    // コメント自体がタイムラインに表示されるためアクティビティ記録は不要
+  }
+
+  async function updateComment(id: number, body: string) {
+    if (!body.trim()) return;
+    const updated = await kanbanDB.updateComment(id, { body: body.trim(), updated_at: new Date().toISOString() });
+    setComments((prev) => prev.map((c) => c.id === id ? updated : c));
+    setEditingComment(null);
+    // アクティビティ記録
+    const act = await kanbanDB.addActivity(task.id!, 'comment_edit', {});
+    setActivities((prev) => [...prev, act]);
+  }
+
+  async function deleteComment(id: number) {
+    if (!confirm('コメントを削除しますか？')) return;
+    await kanbanDB.deleteComment(id);
+    setComments((prev) => prev.filter((c) => c.id !== id));
+    // アクティビティ記録
+    const act = await kanbanDB.addActivity(task.id!, 'comment_delete', {});
+    setActivities((prev) => [...prev, act]);
+  }
+
+  // ── 依存関係 ────────────────────────────────────────────
+  async function addDependency(type: 'pre' | 'suc', targetTaskId: number) {
+    setPicker(null);
+    const targetTask = allTasks.find((t) => t.id === targetTaskId)!;
+    if (type === 'pre') {
+      const dep = await kanbanDB.addDependency(targetTaskId, task.id!);
+      setPredecessors((prev) => [...prev, { dep, task: targetTask }]);
+      // アクティビティ記録（current 側: blockedBy）
+      const act = await kanbanDB.addActivity(task.id!, 'dep_add', { relation: 'blockedBy', taskTitle: targetTask.title });
+      setActivities((prev) => [...prev, act]);
+    } else {
+      const dep = await kanbanDB.addDependency(task.id!, targetTaskId);
+      setSuccessors((prev) => [...prev, { dep, task: targetTask }]);
+      // アクティビティ記録（current 側: blocking）
+      const act = await kanbanDB.addActivity(task.id!, 'dep_add', { relation: 'blocking', taskTitle: targetTask.title });
+      setActivities((prev) => [...prev, act]);
+    }
+  }
+
+  async function removeDependency(depId: number, type: 'pre' | 'suc') {
+    const target = type === 'pre'
+      ? predecessors.find((x) => x.dep.id === depId)?.task
+      : successors.find((x) => x.dep.id === depId)?.task;
+    await kanbanDB.deleteDependency(depId);
+    if (type === 'pre') setPredecessors((prev) => prev.filter((x) => x.dep.id !== depId));
+    else                setSuccessors((prev) => prev.filter((x) => x.dep.id !== depId));
+    if (target) {
+      const relation = type === 'pre' ? 'blockedBy' : 'blocking';
+      const act = await kanbanDB.addActivity(task.id!, 'dep_remove', { relation, taskTitle: target.title });
+      setActivities((prev) => [...prev, act]);
+    }
+  }
+
+  // ── タスク関係 ──────────────────────────────────────────
+  async function addRelation(type: 'parent' | 'child' | 'related', targetTaskId: number) {
+    setPicker(null);
+    const targetTask = allTasks.find((t) => t.id === targetTaskId)!;
+    const roleMap = { parent: '親タスク', child: '子タスク', related: '関連タスク' } as const;
+    if (type === 'parent') {
+      const rel = await kanbanDB.addRelation(targetTaskId, task.id!, 'child');
+      setRelParent({ task: targetTask, relationId: rel.id! });
+    } else if (type === 'child') {
+      const rel = await kanbanDB.addRelation(task.id!, targetTaskId, 'child');
+      setRelChildren((prev) => [...prev, { task: targetTask, relationId: rel.id! }]);
+    } else {
+      const rel = await kanbanDB.addRelation(task.id!, targetTaskId, 'related');
+      setRelRelated((prev) => [...prev, { task: targetTask, relationId: rel.id! }]);
+    }
+    const act = await kanbanDB.addActivity(task.id!, 'relation_add', { role: type, with_title: targetTask.title });
+    setActivities((prev) => [...prev, act]);
+    void roleMap; // 参照のみ
+  }
+
+  async function removeRelation(relationId: number, type: 'parent' | 'child' | 'related') {
+    const target =
+      type === 'parent' ? relParent?.task :
+      type === 'child'  ? relChildren.find((x) => x.relationId === relationId)?.task :
+                          relRelated.find((x) => x.relationId === relationId)?.task;
+    await kanbanDB.deleteRelation(relationId);
+    if (type === 'parent')      setRelParent(null);
+    else if (type === 'child')  setRelChildren((prev) => prev.filter((x) => x.relationId !== relationId));
+    else                        setRelRelated((prev) => prev.filter((x) => x.relationId !== relationId));
+    const act = await kanbanDB.addActivity(task.id!, 'relation_remove', { role: type, with_title: target?.title ?? '' });
+    setActivities((prev) => [...prev, act]);
+  }
+
+  // ── ノート紐づけ ────────────────────────────────────────
+  async function addNoteLink(noteTaskId: number) {
+    setPicker(null);
+    const link = await kanbanDB.addNoteLink(task.id!, noteTaskId);
+    const noteTasks = await noteDB.getAllTasks();
+    const noteTask = noteTasks.find((t) => t.id === noteTaskId);
+    setNoteLinks((prev) => [...prev, { link, noteTitle: noteTask?.title || `ノート #${noteTaskId}` }]);
+  }
+
+  async function removeNoteLink(linkId: number) {
+    await kanbanDB.deleteNoteLink(linkId);
+    setNoteLinks((prev) => prev.filter((x) => x.link.id !== linkId));
+  }
+
+  // ── テンプレート保存 ────────────────────────────────────
+  async function saveAsTemplate() {
+    const name = prompt('テンプレート名を入力してください', title);
+    if (name === null) return;
+    const allTemplates = await kanbanDB.getAllTemplates();
+    await kanbanDB.addTemplate({
+      name: name || title,
+      title,
+      description,
+      checklist: checklist.length > 0 ? checklist : null,
+      label_ids: [...selectedLabels],
+      position: allTemplates.length,
+    });
+    toast.success('テンプレートとして保存しました');
+  }
+
+  // ── タイムライン 結合・ソート ────────────────────────────
+  type TimelineItem =
+    | { kind: 'comment';  data: KanbanComment;  time: Date }
+    | { kind: 'activity'; data: KanbanActivity; time: Date };
+
+  const timelineItems = useMemo<TimelineItem[]>(() => {
+    const items: TimelineItem[] = [];
+    if (timelineTab === 'all' || timelineTab === 'comments') {
+      comments.forEach((c) => items.push({ kind: 'comment', data: c, time: new Date(c.created_at) }));
+    }
+    if (timelineTab === 'all') {
+      activities.forEach((a) => items.push({ kind: 'activity', data: a, time: new Date(a.created_at) }));
+    }
+    items.sort((a, b) => a.time.getTime() - b.time.getTime());
+    return items;
+  }, [comments, activities, timelineTab]);
+
+  // ── 時刻フォーマット ─────────────────────────────────────
+  function formatTime(iso: string) {
+    const d = new Date(iso);
+    if (showAbsTime) {
+      return d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    const diff = Date.now() - d.getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1)  return 'たった今';
+    if (minutes < 60) return `${minutes}分前`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24)   return `${hours}時間前`;
+    const days = Math.floor(hours / 24);
+    if (days < 7)     return `${days}日前`;
+    return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+  }
+
+  // ── アクティビティ表示テキスト（旧版 renderer.js と同仕様）──
+  function activityText(act: KanbanActivity): string {
+    const c = act.content as Record<string, unknown>;
+    const fmtDate = (iso: unknown) => {
+      if (!iso || typeof iso !== 'string') return '（なし）';
+      const [y, m, d] = (iso as string).split('-');
+      return `${y}/${m}/${d}`;
+    };
+    switch (act.type) {
+      case 'task_create':        return 'タスクを作成';
+      case 'column_change':      return `カラムを「${c.from}」→「${c.to}」に変更`;
+      case 'label_add':          return `ラベル「${c.name}」を追加`;
+      case 'label_remove':       return `ラベル「${c.name}」を削除`;
+      case 'title_change':       return `タイトルを「${c.to}」に変更`;
+      case 'description_change': return '説明を更新';
+      case 'due_add':            return `期限を「${fmtDate(c.to)}」に設定`;
+      case 'due_remove':         return '期限を解除';
+      case 'due_change':         return `期限を「${fmtDate(c.from)}」→「${fmtDate(c.to)}」に変更`;
+      case 'comment_delete':     return 'コメントを削除';
+      case 'comment_edit':       return 'コメントを編集';
+      case 'relation_add': {
+        const roleLabel = ({ parent: '親タスク', child: '子タスク', related: '関連タスク' } as Record<string, string>)[String(c.role)] ?? '関係タスク';
+        return `${roleLabel}「${c.with_title ?? ''}」を紐づけ`;
+      }
+      case 'relation_remove': {
+        const roleLabel = ({ parent: '親タスク', child: '子タスク', related: '関連タスク' } as Record<string, string>)[String(c.role)] ?? '関係タスク';
+        return `${roleLabel}の紐づけを解除`;
+      }
+      case 'checklist_add':      return `チェックリスト「${c.text ?? ''}」を追加`;
+      case 'checklist_remove':   return `チェックリスト「${c.text ?? ''}」を削除`;
+      case 'checklist_check':
+      case 'checklist_complete': return `「${c.text ?? ''}」を完了へ`;
+      case 'checklist_uncheck':  return `「${c.text ?? ''}」を未完了へ`;
+      case 'checklist_edit':     return `チェックリスト「${c.from ?? ''}」→「${c.to ?? ''}」に変更`;
+      case 'dep_add':            return c.relation === 'blocking'
+        ? `先行タスク「${c.taskTitle ?? ''}」を設定`
+        : `後続タスク「${c.taskTitle ?? ''}」を設定`;
+      case 'dep_remove':         return c.relation === 'blocking'
+        ? `先行タスク「${c.taskTitle ?? ''}」の依存を解除`
+        : `後続タスク「${c.taskTitle ?? ''}」の依存を解除`;
+      case 'archive':            return 'アーカイブへ移動';
+      case 'restore_archive':    return 'アーカイブから復元';
+      default:                   return '変更';
+    }
+  }
+
+  // ── ピッカー除外 ID ──────────────────────────────────────
+  function getExcludedIds(): number[] {
+    const base = [task.id!];
+    if (!picker) return base;
+    if (picker.type === 'dep-pre')  return [...base, ...predecessors.map((x) => x.task.id!)];
+    if (picker.type === 'dep-suc')  return [...base, ...successors.map((x) => x.task.id!)];
+    if (picker.type === 'parent')   return [...base, ...relChildren.map((x) => x.task.id!)];
+    if (picker.type === 'child')    return [...base, ...(relParent ? [relParent.task.id!] : []), ...relChildren.map((x) => x.task.id!)];
+    if (picker.type === 'related')  return [...base, ...relRelated.map((x) => x.task.id!)];
+    return base;
+  }
+
+  function openPicker(e: React.MouseEvent, type: PickerType) {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setPicker({ type, x: r.left, y: r.bottom + 4 });
+  }
+
   const doneCheck = checklist.filter((c) => c.done).length;
-  const overdue = getDueInfo(dueDate, columns.find((c) => c.key === column)?.done || false).status === 'overdue';
 
   return (
     <div className={`modal${isOpen ? ' is-open' : ''}`} role="dialog" aria-modal="true" aria-label="タスク編集">
@@ -419,39 +935,89 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
         <div className="modal__body">
           {/* メインエリア */}
           <div className="modal__main">
-            {/* 説明セクション */}
+
+            {/* ── 説明セクション（Markdown write/preview） ── */}
             <div className="modal__section">
-              <h4 className="modal__section-title">説明</h4>
-              <textarea
-                className="modal__description"
-                value={description}
-                onChange={(e) => { setDescription(e.target.value); mark(); }}
-                placeholder="説明を入力…"
-              />
+              <div className="md-editor">
+                <div className="md-editor__tabs">
+                  <button
+                    className={`md-editor__tab${descTab === 'write' ? ' is-active' : ''}`}
+                    onClick={() => setDescTab('write')}>編集</button>
+                  <button
+                    className={`md-editor__tab${descTab === 'preview' ? ' is-active' : ''}`}
+                    onClick={() => setDescTab('preview')}>プレビュー</button>
+                </div>
+                {descTab === 'write' ? (
+                  <textarea
+                    className="modal__description"
+                    value={description}
+                    onChange={(e) => { setDescription(e.target.value); mark(); }}
+                    placeholder="説明を入力（Markdown対応）…"
+                  />
+                ) : (
+                  <div className="md-editor__preview md-body">
+                    <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
+                      {description || ''}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* チェックリストセクション */}
+            {/* ── チェックリストセクション（進捗バー + インライン編集） ── */}
             <div className="modal__section">
               <h4 className="modal__section-title">
                 <CheckIcon size={14} aria-hidden="true" />
                 チェックリスト
-                {checklist.length > 0 && (
-                  <span style={{ fontWeight: 400, fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                    （{doneCheck}/{checklist.length}）
-                  </span>
-                )}
               </h4>
+              {checklist.length > 0 && (
+                <div className="checklist-progress">
+                  <div className="checklist-progress__bar">
+                    <div
+                      className="checklist-progress__fill"
+                      style={{ width: `${Math.round((doneCheck / checklist.length) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="checklist-progress__text">{doneCheck}/{checklist.length}</span>
+                </div>
+              )}
               <div className="checklist-items">
                 {checklist.map((item) => (
-                  <div key={item.id} className={`checklist-item${item.done ? ' is-checked' : ''}`}
-                    onClick={() => { toggleCheck(item.id); mark(); }}>
+                  <div
+                    key={item.id}
+                    className={`checklist-item${item.done ? ' is-checked' : ''}`}
+                    onClick={() => { if (editingCheckId !== item.id) { toggleCheck(item.id); mark(); } }}
+                  >
                     <span className="checklist-check-icon">
                       {item.done && <CheckIcon size={10} />}
                     </span>
-                    <span className="checklist-label">{item.text}</span>
-                    <button className="checklist-item__del"
+                    {editingCheckId === item.id ? (
+                      <input
+                        className="checklist-item__edit-input"
+                        value={editingCheckText}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setEditingCheckText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitEditCheck(item.id);
+                          if (e.key === 'Escape') setEditingCheckId(null);
+                        }}
+                        onBlur={() => commitEditCheck(item.id)}
+                      />
+                    ) : (
+                      <span
+                        className="checklist-label"
+                        onDoubleClick={(e) => { e.stopPropagation(); startEditCheck(item.id, item.text); }}
+                        title="ダブルクリックで編集"
+                      >
+                        {item.text}
+                      </span>
+                    )}
+                    <button
+                      className="checklist-item__del"
                       onClick={(e) => { e.stopPropagation(); deleteCheck(item.id); }}
-                      aria-label="削除">
+                      aria-label="削除"
+                    >
                       <XIcon size={12} aria-hidden="true" />
                     </button>
                   </div>
@@ -468,10 +1034,128 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                 <button className="modal-action-btn" onClick={addChecklist}>追加</button>
               </div>
             </div>
+
+            {/* ── タイムライン（コメント + アクティビティ）セクション ── */}
+            <div className="modal__section">
+              <div className="timeline-header">
+                <h4 className="modal__section-title">
+                  <MessageSquareIcon size={14} aria-hidden="true" />
+                  アクティビティ
+                </h4>
+                <div className="timeline-header__right">
+                  <div className="timeline-tabs">
+                    <button
+                      className={`timeline-tab${timelineTab === 'all' ? ' is-active' : ''}`}
+                      onClick={() => setTimelineTab('all')}>すべて</button>
+                    <button
+                      className={`timeline-tab${timelineTab === 'comments' ? ' is-active' : ''}`}
+                      onClick={() => setTimelineTab('comments')}>コメント</button>
+                  </div>
+                  <button
+                    className={`timeline-time-btn${showAbsTime ? ' is-active' : ''}`}
+                    onClick={() => setShowAbsTime((v) => !v)}
+                    title={showAbsTime ? '相対時刻で表示' : '日時で表示'}
+                    aria-label={showAbsTime ? '相対時刻で表示' : '日時で表示'}
+                  >
+                    {/* 現在のモードと逆の意味のアイコンを表示（クリック後の状態を示す） */}
+                    {showAbsTime
+                      ? <ClockIcon size={13} aria-hidden="true" />
+                      : <CalendarIcon size={13} aria-hidden="true" />
+                    }
+                  </button>
+                </div>
+              </div>
+              <div className="modal__comments">
+                {timelineItems.map((item, i) => {
+                  if (item.kind === 'comment') {
+                    const c = item.data;
+                    return (
+                      <div key={`c-${c.id}`} className="comment-item">
+                        <div className="comment-item__header">
+                          <span className="comment-item__date">
+                            {formatTime(c.created_at)}{c.updated_at ? '（編集済）' : ''}
+                          </span>
+                          <div className="comment-item__header-actions">
+                            <button
+                              className="comment-item__edit"
+                              onClick={() => setEditingComment({ id: c.id!, text: c.body })}
+                              aria-label="編集"
+                            >
+                              <PencilIcon size={11} aria-hidden="true" />
+                            </button>
+                            <button
+                              className="comment-item__delete"
+                              onClick={() => deleteComment(c.id!)}
+                              aria-label="削除"
+                            >
+                              <Trash2Icon size={11} aria-hidden="true" />
+                            </button>
+                          </div>
+                        </div>
+                        {editingComment?.id === c.id && editingComment ? (
+                          <>
+                            <textarea
+                              className="comment-item__edit-textarea"
+                              value={editingComment.text}
+                              onChange={(e) => setEditingComment({ id: editingComment.id, text: e.target.value })}
+                            />
+                            <div className="comment-item__edit-actions">
+                              <button
+                                className="comment-item__edit-cancel"
+                                onClick={() => setEditingComment(null)}
+                              >キャンセル</button>
+                              <button
+                                className="comment-item__edit-save"
+                                onClick={() => updateComment(c.id!, editingComment.text)}
+                              >保存</button>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="comment-item__body">{c.body}</p>
+                        )}
+                      </div>
+                    );
+                  } else {
+                    const a = item.data;
+                    return (
+                      <div key={`a-${a.id}-${i}`} className="activity-item">
+                        <span className="activity-item__icon">
+                          <ActivityIcon size={10} aria-hidden="true" />
+                        </span>
+                        <span className="activity-item__text">{activityText(a)}</span>
+                        <span className="activity-item__date">{formatTime(a.created_at)}</span>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
+              <div className="modal__comment-form">
+                <textarea
+                  className="modal__comment-input"
+                  value={commentInput}
+                  onChange={(e) => setCommentInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      addComment();
+                    }
+                  }}
+                  placeholder="コメントを追加… (Shift+Enter で改行)"
+                />
+                <div className="modal__comment-actions">
+                  <button className="modal-comment-submit-btn" onClick={addComment}>
+                    <MessageSquareIcon size={13} aria-hidden="true" />
+                    コメント
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           {/* サイドバー */}
           <div className="modal__sidebar">
+
             {/* カラム */}
             <div className="modal__sidebar-item">
               <span className="modal__sidebar-label">カラム</span>
@@ -481,20 +1165,18 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
               </select>
             </div>
 
-            {/* 期日 */}
+            {/* 期日（カスタム日付ピッカー） */}
             <div className="modal__sidebar-item">
               <span className="modal__sidebar-label">期日</span>
-              <input
-                type="date"
-                className={`modal__select${overdue ? ' modal__date-display--overdue' : ''}`}
+              <DatePickerReact
                 value={dueDate}
-                onChange={(e) => { setDueDate(e.target.value); mark(); }}
+                onChange={(v) => { setDueDate(v); mark(); }}
+                onClear={() => { setDueDate(''); mark(); }}
+                displayText={dueDate
+                  ? getDueInfo(dueDate, columns.find((c) => c.key === column)?.done || false).text
+                  : undefined}
+                status={getDueInfo(dueDate, columns.find((c) => c.key === column)?.done || false).status || undefined}
               />
-              {dueDate && (
-                <button onClick={() => { setDueDate(''); mark(); }} className="modal-clear-btn">
-                  クリア
-                </button>
-              )}
             </div>
 
             {/* ラベル */}
@@ -532,11 +1214,143 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
               )}
             </div>
 
-            {/* アクション */}
-            <div className="modal__sidebar-item modal__sidebar-actions">
-              <button onClick={() => { handleSave(); onClose(); }} className="modal-save-btn">
-                保存
+            {/* 依存関係 */}
+            <div className="modal__sidebar-item">
+              <span className="modal__sidebar-label modal__sidebar-label--icon">
+                <GitMergeIcon size={11} aria-hidden="true" />依存関係
+              </span>
+              <div className="modal__relation-group">
+                <span className="modal__relation-sublabel">先行タスク（完了待ち）</span>
+                {predecessors.map(({ dep, task: t }) => (
+                  <div key={dep.id} className="relation-chip">
+                    <span className="relation-chip__title">{t.title}</span>
+                    <span className="relation-chip__column">
+                      {columns.find((c) => c.key === t.column)?.name}
+                    </span>
+                    <button className="relation-chip__remove"
+                      onClick={() => removeDependency(dep.id!, 'pre')} aria-label="削除">
+                      <XIcon size={10} />
+                    </button>
+                  </div>
+                ))}
+                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'dep-pre')}>
+                  + 追加
+                </button>
+              </div>
+              <div className="modal__relation-group">
+                <span className="modal__relation-sublabel">後続タスク</span>
+                {successors.map(({ dep, task: t }) => (
+                  <div key={dep.id} className="relation-chip">
+                    <span className="relation-chip__title">{t.title}</span>
+                    <span className="relation-chip__column">
+                      {columns.find((c) => c.key === t.column)?.name}
+                    </span>
+                    <button className="relation-chip__remove"
+                      onClick={() => removeDependency(dep.id!, 'suc')} aria-label="削除">
+                      <XIcon size={10} />
+                    </button>
+                  </div>
+                ))}
+                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'dep-suc')}>
+                  + 追加
+                </button>
+              </div>
+            </div>
+
+            {/* タスク関係 */}
+            <div className="modal__sidebar-item">
+              <span className="modal__sidebar-label modal__sidebar-label--icon">
+                <NetworkIcon size={11} aria-hidden="true" />タスク関係
+              </span>
+              <div className="modal__relation-group">
+                <span className="modal__relation-sublabel">親タスク</span>
+                {relParent && (
+                  <div className="relation-chip">
+                    <span className="relation-chip__title">{relParent.task.title}</span>
+                    <span className="relation-chip__column">
+                      {columns.find((c) => c.key === relParent.task.column)?.name}
+                    </span>
+                    <button className="relation-chip__remove"
+                      onClick={() => removeRelation(relParent.relationId, 'parent')} aria-label="削除">
+                      <XIcon size={10} />
+                    </button>
+                  </div>
+                )}
+                {!relParent && (
+                  <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'parent')}>
+                    + 設定
+                  </button>
+                )}
+              </div>
+              <div className="modal__relation-group">
+                <span className="modal__relation-sublabel">子タスク</span>
+                {relChildren.map(({ task: t, relationId }) => (
+                  <div key={relationId} className="relation-chip">
+                    <span className="relation-chip__title">{t.title}</span>
+                    <span className="relation-chip__column">
+                      {columns.find((c) => c.key === t.column)?.name}
+                    </span>
+                    <button className="relation-chip__remove"
+                      onClick={() => removeRelation(relationId, 'child')} aria-label="削除">
+                      <XIcon size={10} />
+                    </button>
+                  </div>
+                ))}
+                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'child')}>
+                  + 追加
+                </button>
+              </div>
+              <div className="modal__relation-group">
+                <span className="modal__relation-sublabel">関連タスク</span>
+                {relRelated.map(({ task: t, relationId }) => (
+                  <div key={relationId} className="relation-chip">
+                    <span className="relation-chip__title">{t.title}</span>
+                    <span className="relation-chip__column">
+                      {columns.find((c) => c.key === t.column)?.name}
+                    </span>
+                    <button className="relation-chip__remove"
+                      onClick={() => removeRelation(relationId, 'related')} aria-label="削除">
+                      <XIcon size={10} />
+                    </button>
+                  </div>
+                ))}
+                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'related')}>
+                  + 追加
+                </button>
+              </div>
+            </div>
+
+            {/* ノート紐づけ */}
+            <div className="modal__sidebar-item">
+              <span className="modal__sidebar-label modal__sidebar-label--icon">
+                <LinkIcon size={11} aria-hidden="true" />ノート紐づけ
+              </span>
+              <div className="modal__relation-group">
+                {noteLinks.map(({ link, noteTitle }) => (
+                  <div key={link.id} className="relation-chip">
+                    <span className="relation-chip__title">{noteTitle}</span>
+                    <button className="relation-chip__remove"
+                      onClick={() => removeNoteLink(link.id!)} aria-label="削除">
+                      <XIcon size={10} />
+                    </button>
+                  </div>
+                ))}
+                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'note')}>
+                  + 追加
+                </button>
+              </div>
+            </div>
+
+            {/* テンプレート保存（繰り返しの下・アクションの上） */}
+            <div className="modal__sidebar-item">
+              <button onClick={saveAsTemplate} className="modal-template-btn">
+                <BookmarkIcon size={12} aria-hidden="true" />
+                テンプレートとして保存
               </button>
+            </div>
+
+            {/* アクション（アーカイブ・削除のみ。保存は閉じる時に自動） */}
+            <div className="modal__sidebar-item modal__sidebar-actions">
               <button onClick={handleArchive} className="modal-archive-btn">
                 <ArchiveIcon size={13} aria-hidden="true" />アーカイブ
               </button>
@@ -544,9 +1358,37 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                 <Trash2Icon size={13} aria-hidden="true" />削除
               </button>
             </div>
+
           </div>
         </div>
       </div>
+
+      {/* タスクピッカー */}
+      {picker && picker.type !== 'note' && (
+        <TaskPicker
+          tasks={allTasks.filter((t) => !getExcludedIds().includes(t.id!))}
+          columns={columns}
+          x={picker.x}
+          y={picker.y}
+          onSelect={(taskId) => {
+            if (picker.type === 'dep-pre')      addDependency('pre', taskId);
+            else if (picker.type === 'dep-suc') addDependency('suc', taskId);
+            else if (picker.type === 'parent')  addRelation('parent', taskId);
+            else if (picker.type === 'child')   addRelation('child', taskId);
+            else if (picker.type === 'related') addRelation('related', taskId);
+          }}
+          onClose={() => setPicker(null)}
+        />
+      )}
+      {picker?.type === 'note' && (
+        <NotePicker
+          x={picker.x}
+          y={picker.y}
+          excludeIds={noteLinks.map((x) => x.link.note_task_id)}
+          onSelect={addNoteLink}
+          onClose={() => setPicker(null)}
+        />
+      )}
     </div>
   );
 }
@@ -910,6 +1752,9 @@ export function TodoPage() {
   const addTask = useCallback(async (columnKey: string, title: string) => {
     const colTasks = tasksMap[columnKey] || [];
     const task = await kanbanDB.addTask({ title, column: columnKey, position: colTasks.length });
+    // タスク固有アクティビティ（詳細画面タイムライン用）
+    await kanbanDB.addActivity(task.id!, 'task_create', {}).catch(() => {});
+    // 全体アクティビティログ
     await activityDB.add({ page: 'todo', action: 'create', target_type: 'task', target_id: String(task.id!), summary: title, created_at: new Date().toISOString() });
     await load();
     toast.success('タスクを追加しました');
