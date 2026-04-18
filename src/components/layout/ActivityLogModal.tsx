@@ -240,14 +240,14 @@ export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
       <DatePicker
         open={dpOpen === 'start'}
         value={startDate}
-        onSelect={(d) => { setStartDate(d); setDpOpen(null); reset(); }}
+        onChange={(d) => { setStartDate(d); setDpOpen(null); reset(); }}
         onClear={() => { setStartDate(''); setDpOpen(null); reset(); }}
         onClose={() => setDpOpen(null)}
       />
       <DatePicker
         open={dpOpen === 'end'}
         value={endDate}
-        onSelect={(d) => { setEndDate(d); setDpOpen(null); reset(); }}
+        onChange={(d) => { setEndDate(d); setDpOpen(null); reset(); }}
         onClear={() => { setEndDate(''); setDpOpen(null); reset(); }}
         onClose={() => setDpOpen(null)}
       />

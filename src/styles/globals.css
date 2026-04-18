@@ -35,7 +35,7 @@
   --c-warning:       #f59e0b;
   --c-warning-bg:    #fffbeb;
   --c-danger:        #ef4444;
-  --c-danger-bg:     #fef2f2;
+  --c-danger-bg:     #fee2e2;
   --c-info:          #3b82f6;
   --c-info-bg:       #eff6ff;
 
@@ -199,6 +199,15 @@ body {
   fill: var(--c-accent);
   flex-shrink: 0;
 }
+/* ── スクロールバー ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--c-border-2, #d3d8ef);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--c-text-3, #8b95b8); }
+
 .top-nav__tabs {
   display: flex;
   align-items: stretch;
@@ -453,6 +462,22 @@ body {
   color: var(--c-text-3);
   flex-shrink: 0;
 }
+/* コンテンツ検索結果（タイトル＋抜粋の縦並び） */
+.global-search__item--content { align-items: flex-start; }
+.global-search__item-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+.global-search__item-excerpt {
+  font-size: 11px;
+  color: var(--c-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Tailwind で CSS 変数トークンを使えるようにするユーティリティ */
 @theme inline {
@@ -486,4 +511,208 @@ body {
   --shadow: var(--shadow);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+}
+
+/* ================================================== */
+/* ActivityLogModal                                   */
+/* ================================================== */
+.actlog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+.actlog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+}
+.actlog-modal {
+  position: relative;
+  z-index: 1;
+  width: 480px;
+  max-width: 95vw;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.actlog-modal__header {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--c-border);
+  gap: 8px;
+  flex-shrink: 0;
+}
+.actlog-modal__title {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-text);
+}
+.actlog-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text-3);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+.actlog-modal__close:hover {
+  background: var(--c-surface-hover);
+  color: var(--c-text);
+}
+.actlog-modal__close svg { width: 16px; height: 16px; }
+
+/* フィルター */
+.actlog-modal__filters {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  background: var(--c-bg-2, var(--c-surface-raised));
+}
+.actlog-filters__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.actlog-filters__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-text-3);
+  min-width: 28px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.actlog-filters__dates {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.actlog-date-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--t);
+}
+.actlog-date-btn:hover { border-color: var(--c-accent); }
+.actlog-date-btn__icon { width: 12px; height: 12px; color: var(--c-text-3); }
+.actlog-date-btn__text--placeholder { color: var(--c-text-3); }
+.actlog-filters__sep { font-size: 11px; color: var(--c-text-3); }
+.actlog-clear-date-btn { font-size: 11px; }
+
+.actlog-filters__pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.actlog-page-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 99px;
+  font-size: 11px;
+  color: var(--c-text-2);
+  cursor: pointer;
+  transition: border-color var(--t), background var(--t);
+  user-select: none;
+}
+.actlog-page-chip:has(input:checked) {
+  border-color: var(--c-accent);
+  background: var(--c-accent-dim);
+  color: var(--c-text);
+}
+.actlog-page-chip input { display: none; }
+.actlog-page-chip__badge {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ログ一覧 */
+.actlog-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.actlog-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--c-text-3);
+  font-size: 13px;
+}
+.actlog-loading {
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--c-text-3);
+}
+.actlog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.actlog-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--c-border);
+  transition: background var(--t);
+}
+.actlog-item:hover { background: var(--c-surface-hover); }
+.actlog-item__badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+.actlog-item__action {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-text-3);
+  white-space: nowrap;
+}
+.actlog-item__summary {
+  font-size: 12px;
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.actlog-item__date {
+  font-size: 11px;
+  color: var(--c-text-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }

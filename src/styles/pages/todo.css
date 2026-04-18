@@ -357,6 +357,10 @@
 .card:active {
   cursor: grabbing;
 }
+.card--overdue {
+  border-color: var(--c-danger);
+  border-left-color: var(--c-danger);
+}
 .card__status {
   position: absolute;
   top: 10px;
@@ -532,6 +536,19 @@
   color: var(--color-text);
   word-break: break-word;
 }
+.modal__title-text--clickable {
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  cursor: text;
+  transition: background var(--t);
+}
+.modal__title-text--clickable:hover {
+  background: var(--c-bg-2);
+}
+.modal__title-input--editing {
+  border-bottom-color: var(--color-accent) !important;
+  background: var(--c-bg-2) !important;
+}
 .modal__title-input {
   flex: 1;
   font-size: 18px;
@@ -541,8 +558,18 @@
   outline: none;
   background: transparent;
   font-family: inherit;
-  padding: 2px 0;
-  border-bottom: 2px solid var(--color-accent);
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  border-bottom: 2px solid transparent;
+  transition: border-color var(--t), background var(--t);
+}
+.modal__title-input:hover {
+  background: var(--c-bg-2);
+  border-bottom-color: var(--c-border);
+}
+.modal__title-input:focus {
+  background: var(--c-bg-2);
+  border-bottom-color: var(--color-accent);
 }
 .modal__title-input::placeholder {
   color: var(--color-text-muted);
@@ -700,6 +727,11 @@
   min-height: 80px;
   transition: border-color 0.15s;
   outline: none;
+  box-sizing: border-box;
+}
+.modal__description--editing {
+  border-color: var(--color-accent);
+  background: var(--color-card);
 }
 .modal__description:focus {
   border-color: var(--color-accent);
@@ -707,6 +739,27 @@
 }
 .modal__description::placeholder {
   color: var(--color-text-muted);
+}
+/* 説明欄の参照表示（Markdown）*/
+.modal__desc-preview {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  min-height: 36px;
+  font-size: 13px;
+  cursor: text;
+  transition: border-color var(--t), background var(--t);
+}
+.modal__desc-preview:hover {
+  border-color: var(--c-border);
+  background: var(--c-bg-2);
+}
+.modal__desc-preview--empty::before {
+  content: '説明を追加… (Markdown対応)';
+  color: var(--color-text-muted);
+  font-style: italic;
+  display: block;
 }
 .modal__select {
   width: 100%;
@@ -755,6 +808,11 @@
 .modal__date-display--today {
   color: var(--color-amber);
   border-color: var(--color-amber);
+}
+.modal__date-display--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 .modal__label-list {
   display: flex;
@@ -823,6 +881,105 @@
 .modal__comment-input::placeholder {
   color: var(--color-text-muted);
 }
+/* ── 説明欄エディタ（編集中のみタブ表示） ──────────────────── */
+.desc-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.desc-editor__tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--c-bg-2);
+  overflow: hidden;
+}
+.desc-editor__tab {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+.desc-editor__tab:hover:not(.is-active) {
+  background: var(--c-surface);
+  color: var(--c-text);
+}
+.desc-editor__tab.is-active {
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-weight: 600;
+}
+.desc-editor__confirm {
+  margin-left: auto;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--c-accent);
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--c-border);
+  cursor: pointer;
+  transition: background var(--t);
+}
+.desc-editor__confirm:hover {
+  background: var(--c-accent-dim);
+}
+.desc-editor .modal__description {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.desc-editor__preview {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-accent);
+  border-top: none;
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+  background: var(--c-surface);
+  min-height: 80px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.desc-editor__empty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+/* ── 削除済みコメントの墓石 ─────────────────────────────── */
+.comment-item--deleted {
+  opacity: 0.6;
+}
+.comment-item__deleted-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: var(--c-bg-2);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  padding: 1px 6px;
+  vertical-align: middle;
+}
+.comment-item__tombstone-body {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  padding: 4px 0;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .modal__comment-actions {
   display: flex;
   justify-content: flex-end;
@@ -878,10 +1035,14 @@
   min-height: 80px;
   font-size: 13px;
 }
-.md-editor__preview:empty::before {
-  content: '（プレビューなし）';
+.md-editor__preview:empty::before,
+.md-editor__preview--empty::before {
+  content: '説明を追加…';
   color: var(--color-text-muted);
   font-style: italic;
+}
+.md-editor__preview--empty {
+  cursor: pointer;
 }
 .comment-item {
   position: relative;
@@ -1137,6 +1298,30 @@
   font-size: 11px;
   color: var(--color-text-muted);
   white-space: nowrap;
+}
+.activity-label-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.activity-label-badge__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.activity-label-badge__name {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--_label-color, #999);
+  line-height: 1.5;
+}
+.activity-label-badge__action {
+  color: var(--color-text);
 }
 .modal__comments:not(:has(> .comment-item, > .activity-item))::before,
 .modal__comments:has(> .comment-item:only-child)::before,
@@ -1498,14 +1683,22 @@
 .md-body em {
   font-style: italic;
 }
+.md-body ul.contains-task-list {
+  padding-left: 0.5em;
+}
+.md-body li.task-list-item,
 .md-body li:has(> input[type="checkbox"]) {
   list-style: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
 }
-.md-body input[type="checkbox"] {
+.md-body input[type="checkbox"],
+.md-task-checkbox {
   cursor: pointer;
   accent-color: var(--color-accent);
-  margin-right: 4px;
-  vertical-align: middle;
+  margin-top: 3px;
+  flex-shrink: 0;
 }
 .checklist-progress {
   display: flex;
@@ -1614,6 +1807,7 @@
 .card__checklist-badge {
   display: inline-flex;
   align-items: center;
+  gap: 3px;
   font-size: 11px;
   font-weight: 600;
   padding: 1px 5px;
@@ -1709,6 +1903,22 @@
 }
 .checklist-new-input::placeholder {
   color: var(--color-text-muted);
+}
+.checklist-add-btn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-text);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color var(--t), color var(--t);
+}
+.checklist-add-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 .toggle-switch {
   position: relative;
@@ -2200,27 +2410,8 @@
   gap: 6px;
 }
 
-.modal-save-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 7px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-accent);
-  background: var(--color-accent);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background var(--t);
-}
-.modal-save-btn:hover {
-  background: var(--color-accent-hover, var(--color-accent));
-}
-
-.modal-archive-btn {
+/* ── モーダルアクションボタン（共通ベース） ───────────────── */
+.modal-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2236,33 +2427,45 @@
   font-family: inherit;
   transition: background var(--t), border-color var(--t), color var(--t);
 }
-.modal-archive-btn svg { fill: currentColor; width: 13px; height: 13px; }
-.modal-archive-btn:hover {
+.modal-action-btn svg {
+  fill: currentColor;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+/* 保存（アクセント塗り） */
+.modal-action-btn--accent {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  padding: 7px 14px;
+}
+.modal-action-btn--accent:hover {
+  background: var(--color-accent-hover, var(--color-accent));
+}
+
+/* アーカイブ */
+.modal-action-btn--amber:hover {
   border-color: var(--color-amber);
   color: var(--color-amber);
   background: var(--color-amber-bg, var(--color-bg));
 }
 
-.modal-delete-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  width: 100%;
-  padding: 6px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-card);
+/* 削除 */
+.modal-action-btn--danger {
   color: var(--color-danger);
-  font-size: 13px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background var(--t), border-color var(--t);
 }
-.modal-delete-btn svg { fill: currentColor; width: 13px; height: 13px; }
-.modal-delete-btn:hover {
+.modal-action-btn--danger:hover {
   border-color: var(--color-danger);
   background: var(--c-danger-bg);
+}
+
+/* テンプレート保存 */
+.modal-action-btn--bookmark:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 /* ── コメント送信ボタン ───────────────────────────────────── */
@@ -2288,32 +2491,6 @@
 .modal-comment-submit-btn:hover {
   background: var(--color-accent-hover, var(--color-accent));
   opacity: 0.9;
-}
-
-/* ── テンプレートとして保存ボタン ─────────────────────────── */
-.modal-template-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  width: 100%;
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: 12px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color var(--t), color var(--t), background var(--t);
-}
-.modal-template-btn svg {
-  fill: currentColor;
-  flex-shrink: 0;
-}
-.modal-template-btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  background: var(--c-accent-light, transparent);
 }
 
 /* ── サイドバーラベル（アイコン付き） ─────────────────────── */
@@ -2374,145 +2551,4 @@
   width: 12px;
   height: 12px;
   fill: currentColor;
-}
-
-/* ── カスタム日付ピッカー（DatePickerReact） ──────────────── */
-.dp-wrap {
-  position: relative;
-}
-.dp-popup {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 500;
-  width: 248px;
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  animation: dp-appear 0.1s ease;
-}
-@keyframes dp-appear {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.dp-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px 8px;
-  border-bottom: 1px solid var(--color-border);
-}
-.dp-month-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-.dp-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background var(--t), color var(--t);
-}
-.dp-nav svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-}
-.dp-nav:hover {
-  background: var(--color-bg);
-  color: var(--color-text);
-}
-.dp-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  padding: 8px 6px 4px;
-  gap: 1px;
-}
-.dp-weekday {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 28px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-.dp-weekday.is-sun { color: var(--c-danger, #ef4444); }
-.dp-weekday.is-sat { color: var(--color-accent); }
-.dp-day {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  width: 100%;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--color-text);
-  cursor: pointer;
-  transition: background var(--t), color var(--t);
-  position: relative;
-}
-.dp-day:hover:not(.is-selected) {
-  background: var(--color-bg);
-}
-.dp-day.is-other {
-  color: var(--color-text-muted);
-  opacity: 0.45;
-}
-.dp-day.is-sun:not(.is-selected) { color: var(--c-danger, #ef4444); }
-.dp-day.is-sat:not(.is-selected) { color: var(--color-accent); }
-.dp-day.is-today:not(.is-selected) {
-  font-weight: 700;
-  color: var(--color-accent);
-}
-.dp-day.is-today::after {
-  content: '';
-  position: absolute;
-  bottom: 3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--color-accent);
-}
-.dp-day.is-selected.is-today::after { display: none; }
-.dp-day.is-selected {
-  background: var(--color-accent);
-  color: #fff;
-  font-weight: 600;
-}
-.dp-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 6px 10px 8px;
-  border-top: 1px solid var(--color-border);
-}
-.dp-today-btn {
-  font-size: 12px;
-  font-family: inherit;
-  font-weight: 500;
-  color: var(--color-accent);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  transition: background var(--t);
-}
-.dp-today-btn:hover {
-  background: var(--c-accent-light, var(--color-bg));
 }

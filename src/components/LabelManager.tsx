@@ -12,6 +12,7 @@
 //     onClose={() => void}
 //   />
 
+import '../styles/components/label-manager.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Toast } from './Toast';

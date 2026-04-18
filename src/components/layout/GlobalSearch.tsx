@@ -1,11 +1,12 @@
 // ==================================================
 // GlobalSearch: グローバル検索バー
 // ==================================================
-// Ctrl+K でフォーカス。タブ名をインクリメンタル検索する。
-// Phase 4 以降でページ内コンテンツ検索を追加予定。
+// Ctrl+K でフォーカス。タブ名とページ内コンテンツをインクリメンタル検索する。
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTabStore } from '../../stores/tab_store';
+import { searchRegistry } from '../../stores/search_store';
+import type { ContentSearchResult } from '../../stores/search_store';
 import type { TabConfig } from '../../constants/tabs';
 
 const isMac = (() => {
@@ -15,32 +16,62 @@ const isMac = (() => {
   return p ? /mac/i.test(p) : /Macintosh|Mac OS X/i.test(navigator.userAgent);
 })();
 
-interface SearchResult {
+interface TabResult {
   type: 'tab';
   label: string;
   icon: string;
   tab: TabConfig;
 }
 
+interface ContentResult {
+  type: 'content';
+  label: string;
+  icon: string;
+  excerpt: string;
+  item: ContentSearchResult;
+}
+
+type SearchResult = TabResult | ContentResult;
+
 export function GlobalSearch() {
-  const [query, setQuery]       = useState('');
-  const [results, setResults]   = useState<SearchResult[]>([]);
+  const [query,    setQuery]    = useState('');
+  const [results,  setResults]  = useState<SearchResult[]>([]);
   const [focusIdx, setFocusIdx] = useState(-1);
-  const [open, setOpen]         = useState(false);
-  const inputRef  = useRef<HTMLInputElement>(null);
-  const wrapRef   = useRef<HTMLDivElement>(null);
+  const [open,     setOpen]     = useState(false);
+  const inputRef   = useRef<HTMLInputElement>(null);
+  const wrapRef    = useRef<HTMLDivElement>(null);
+  const searchIdRef = useRef(0);
 
   const { config, setActiveTab } = useTabStore();
 
-  // クエリに応じてタブ候補を検索
-  const search = useCallback((q: string) => {
+  const search = useCallback(async (q: string) => {
     if (!q.trim()) { setResults([]); setOpen(false); return; }
+    const id = ++searchIdRef.current;
     const lower = q.toLowerCase();
-    const matched: SearchResult[] = config
+
+    // タブ名検索（同期）
+    const tabResults: SearchResult[] = config
       .filter((t) => t.visible && t.label.toLowerCase().includes(lower))
       .map((t) => ({ type: 'tab', label: t.label, icon: t.icon, tab: t }));
-    setResults(matched);
-    setOpen(matched.length > 0);
+
+    // ページ内コンテンツ検索（非同期）
+    const contentItems = await searchRegistry.searchAll(lower);
+    if (id !== searchIdRef.current) return; // 古い検索結果は捨てる
+
+    const contentResults: SearchResult[] = contentItems.map((item) => {
+      const tab = config.find((t) => t.pageSrc === item.pageSrc);
+      return {
+        type: 'content',
+        label: item.title,
+        icon: tab?.icon ?? '',
+        excerpt: item.excerpt,
+        item,
+      };
+    });
+
+    const allResults = [...tabResults, ...contentResults];
+    setResults(allResults);
+    setOpen(allResults.length > 0);
     setFocusIdx(-1);
   }, [config]);
 
@@ -51,7 +82,11 @@ export function GlobalSearch() {
   }, [search]);
 
   const handleSelect = useCallback((result: SearchResult) => {
-    setActiveTab(result.label);
+    if (result.type === 'tab') {
+      setActiveTab(result.label);
+    } else {
+      result.item.onSelect();
+    }
     setQuery('');
     setResults([]);
     setOpen(false);
@@ -126,17 +161,28 @@ export function GlobalSearch() {
         <div className="global-search__results" id="global-search-results">
           {results.map((r, i) => (
             <button
-              key={r.label}
+              key={r.type === 'tab' ? `tab-${r.label}` : r.item.id}
               type="button"
-              className={`global-search__item${i === focusIdx ? ' global-search__item--focused' : ''}`}
+              className={`global-search__item${r.type === 'content' ? ' global-search__item--content' : ''}${i === focusIdx ? ' global-search__item--focused' : ''}`}
               onMouseDown={(e) => { e.preventDefault(); handleSelect(r); }}
             >
               <span
                 className="global-search__item-icon"
                 dangerouslySetInnerHTML={{ __html: r.icon }}
               />
-              <span className="global-search__item-label">{r.label}</span>
-              <span className="global-search__item-type">タブ</span>
+              {r.type === 'content' ? (
+                <span className="global-search__item-body">
+                  <span className="global-search__item-label">{r.label}</span>
+                  {r.excerpt && (
+                    <span className="global-search__item-excerpt">{r.excerpt}</span>
+                  )}
+                </span>
+              ) : (
+                <span className="global-search__item-label">{r.label}</span>
+              )}
+              <span className="global-search__item-type">
+                {r.type === 'tab' ? 'タブ' : r.item.pageSrc.replace('pages/', '').replace('.html', '').toUpperCase()}
+              </span>
             </button>
           ))}
         </div>

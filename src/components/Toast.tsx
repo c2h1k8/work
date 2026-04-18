@@ -5,6 +5,7 @@
 //   <ToastContainer /> をルートに配置
 //   useToast().success('メッセージ') で表示
 
+import '../styles/components/toast.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 

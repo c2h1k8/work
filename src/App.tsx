@@ -61,11 +61,9 @@ function TabContent() {
           >
             {PageComponent ? (
               <Suspense fallback={<div className="tab-placeholder"><span>読み込み中…</span></div>}>
-                {isActive && (
-                  <TabContext.Provider value={tab.label}>
-                    <PageComponent />
-                  </TabContext.Provider>
-                )}
+                <TabContext.Provider value={tab.label}>
+                  <PageComponent />
+                </TabContext.Provider>
               </Suspense>
             ) : (
               <div className="tab-placeholder">
