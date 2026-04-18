@@ -2,6 +2,7 @@
 // ActivityLogModal: アクティビティログモーダル
 // ==================================================
 
+import '../../styles/components/activity-log.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { activityDB } from '../../db/activity_db';

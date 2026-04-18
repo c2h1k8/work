@@ -2,6 +2,7 @@
 // SettingsPanel: タブ設定パネル（モーダル）
 // ==================================================
 
+import '../../styles/components/settings-panel.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTabStore } from '../../stores/tab_store';
