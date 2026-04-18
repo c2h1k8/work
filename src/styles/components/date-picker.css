@@ -115,3 +115,89 @@
   transition: background var(--t);
 }
 .dp-today-btn:hover { background: var(--c-accent-light, var(--color-bg)); }
+
+/* ── 外部制御モード（createPortal） ── */
+.datepicker {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.datepicker__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+}
+.datepicker__dialog {
+  position: relative;
+  z-index: 1;
+  width: 260px;
+  background: var(--c-surface, var(--color-card));
+  border: 1px solid var(--c-border, var(--color-border));
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+.datepicker__quickbtns {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 0;
+}
+.datepicker__quickbtns button {
+  flex: 1;
+  height: 28px;
+  padding: 0 4px;
+  border: 1px solid var(--c-border, var(--color-border));
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text, var(--color-text));
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t);
+}
+.datepicker__quickbtns button:hover {
+  background: var(--c-bg-2, var(--color-bg));
+}
+.datepicker__quickbtns .datepicker__btn--danger {
+  color: var(--c-danger, #ef4444);
+  border-color: var(--c-danger, #ef4444);
+}
+.datepicker__quickbtns .datepicker__btn--danger:hover {
+  background: var(--c-danger-bg, #fee2e2);
+}
+.datepicker__time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--c-border, var(--color-border));
+}
+.datepicker__time-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--c-text-3, var(--color-text-muted));
+  white-space: nowrap;
+}
+.datepicker__time-input {
+  flex: 1;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--c-border, var(--color-border));
+  border-radius: var(--radius-sm);
+  background: var(--c-surface, var(--color-card));
+  color: var(--c-text, var(--color-text));
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.datepicker__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 10px;
+  border-top: 1px solid var(--c-border, var(--color-border));
+}
