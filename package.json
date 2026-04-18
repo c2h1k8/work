@@ -1,6 +1,7 @@
 {
   "scripts": {
     "dev": "vite",
+    "dev:fresh": "vite --force",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -8,7 +9,8 @@
     "test:coverage": "vitest run --coverage",
     "tauri": "tauri",
     "prepare-dist": "node -e \"const{cpSync,copyFileSync,mkdirSync}=require('fs');mkdirSync('dist',{recursive:true});['js','pages','vendor'].forEach(d=>cpSync(d,'dist/'+d,{recursive:true}));cpSync('css','dist/css',{recursive:true,filter:s=>!s.endsWith('.less')});['index.html','favicon.svg'].forEach(f=>copyFileSync(f,'dist/'+f));\"",
-    "less:build": "npx lessc css/core/tokens.less css/core/tokens.css && npx lessc css/core/ui.less css/core/ui.css"
+    "less:build": "npx lessc css/core/tokens.less css/core/tokens.css && npx lessc css/core/ui.less css/core/ui.css",
+    "dev:vanilla": "node dev-server.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
@@ -40,6 +42,7 @@
     "react-dom": "^19.2.5",
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "shiki": "^4.0.2",
     "tailwindcss": "^4.2.2",
     "zustand": "^5.0.12"

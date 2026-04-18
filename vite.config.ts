@@ -27,5 +27,8 @@ export default defineConfig({
   server: {
     port: 52700,
     strictPort: true,
+    headers: {
+      'Cache-Control': 'no-store',
+    },
   },
 });

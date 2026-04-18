@@ -53,6 +53,7 @@ export interface KanbanComment {
   body: string;
   created_at: string;
   updated_at?: string;
+  deleted_at?: string;
 }
 
 export interface KanbanLabel {
@@ -109,6 +110,9 @@ export interface KanbanTemplate {
 export interface KanbanArchive extends Omit<KanbanTask, 'id'> {
   id?: number;
   archived_at: string;
+  archived_activities?: KanbanActivity[];
+  archived_label_ids?: number[];
+  archived_comments?: KanbanComment[];
 }
 
 export interface KanbanDependency {
@@ -246,8 +250,12 @@ class KanbanDatabase extends Dexie {
     return updated;
   }
 
-  async deleteComment(id: number): Promise<void> {
-    await this.comments.delete(id);
+  async deleteComment(id: number): Promise<KanbanComment> {
+    const existing = await this.comments.get(id);
+    if (!existing) throw new Error(`Comment ${id} not found`);
+    const updated = { ...existing, deleted_at: new Date().toISOString() };
+    await this.comments.put(updated);
+    return updated;
   }
 
   // ---- Labels ----
@@ -442,10 +450,18 @@ class KanbanDatabase extends Dexie {
   // ---- Archives ----
 
   async archiveTask(task: KanbanTask): Promise<KanbanArchive> {
+    const [activities, comments, taskLabels] = await Promise.all([
+      this.activities.where('task_id').equals(task.id!).toArray(),
+      this.comments.where('task_id').equals(task.id!).toArray(),
+      this.task_labels.where('task_id').equals(task.id!).toArray(),
+    ]);
     const archive: KanbanArchive = {
       ...task,
       id: undefined,
       archived_at: new Date().toISOString(),
+      archived_activities: activities,
+      archived_comments: comments,
+      archived_label_ids: taskLabels.map((tl) => tl.label_id),
     };
     const id = await this.archives.add(archive);
     return { ...archive, id };
@@ -490,6 +506,50 @@ class KanbanDatabase extends Dexie {
   }
 
   // ---- Export / Import ----
+
+  async importAll(data: {
+    version?: number;
+    tasks?: KanbanTask[];
+    comments?: KanbanComment[];
+    labels?: KanbanLabel[];
+    task_labels?: KanbanTaskLabel[];
+    columns?: KanbanColumn[];
+    activities?: KanbanActivity[];
+    task_relations?: KanbanTaskRelation[];
+    note_links?: KanbanNoteLink[];
+    templates?: KanbanTemplate[];
+    archives?: KanbanArchive[];
+    dependencies?: KanbanDependency[];
+  }): Promise<void> {
+    await this.transaction(
+      'rw',
+      [this.tasks, this.comments, this.labels, this.task_labels, this.columns,
+       this.activities, this.task_relations, this.note_links, this.templates,
+       this.archives, this.dependencies],
+      async () => {
+        await Promise.all([
+          this.tasks.clear(), this.comments.clear(), this.labels.clear(),
+          this.task_labels.clear(), this.columns.clear(), this.activities.clear(),
+          this.task_relations.clear().catch(() => {}),
+          this.note_links.clear().catch(() => {}),
+          this.templates.clear().catch(() => {}),
+          this.archives.clear().catch(() => {}),
+          this.dependencies.clear().catch(() => {}),
+        ]);
+        if (data.tasks?.length)          await this.tasks.bulkPut(data.tasks);
+        if (data.comments?.length)       await this.comments.bulkPut(data.comments);
+        if (data.labels?.length)         await this.labels.bulkPut(data.labels);
+        if (data.task_labels?.length)    await this.task_labels.bulkPut(data.task_labels);
+        if (data.columns?.length)        await this.columns.bulkPut(data.columns);
+        if (data.activities?.length)     await this.activities.bulkPut(data.activities);
+        if (data.task_relations?.length) await this.task_relations.bulkPut(data.task_relations);
+        if (data.note_links?.length)     await this.note_links.bulkPut(data.note_links);
+        if (data.templates?.length)      await this.templates.bulkPut(data.templates);
+        if (data.archives?.length)       await this.archives.bulkPut(data.archives);
+        if (data.dependencies?.length)   await this.dependencies.bulkPut(data.dependencies);
+      },
+    );
+  }
 
   async exportAll() {
     const [
