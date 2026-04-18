@@ -241,7 +241,7 @@ export function DatePicker({
     const p = parseDate(datePart);
     const ny = p?.year  ?? new Date().getFullYear();
     const nm = p?.month ?? new Date().getMonth() + 1;
-    setPendingDate(datePart);
+    setPendingDate(datePart || todayStr());
     setViewYear(ny); setViewMonth(nm);
     setHour(h); setMinute(m);
     refreshHolidays(ny);
