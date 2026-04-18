@@ -382,7 +382,6 @@ export function DatePicker({
     setViewYear(target.getFullYear());
     setViewMonth(target.getMonth() + 1);
     refreshHolidays(target.getFullYear());
-    if (!showTime) confirm(iso);
   }
 
   // トリガーボタンの表示テキスト
