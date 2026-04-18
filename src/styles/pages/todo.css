@@ -776,44 +776,6 @@
 .modal__select:focus {
   border-color: var(--color-accent);
 }
-.modal__date-display {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-card);
-  color: var(--color-text);
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-.modal__date-display:hover {
-  border-color: var(--color-accent);
-}
-.modal__date-display svg {
-  flex-shrink: 0;
-}
-.modal__date-display span {
-  flex: 1;
-}
-.modal__date-display--overdue {
-  color: var(--color-danger);
-  border-color: var(--color-danger);
-}
-.modal__date-display--today {
-  color: var(--color-amber);
-  border-color: var(--color-amber);
-}
-.modal__date-display--disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
-}
 .modal__label-list {
   display: flex;
   flex-wrap: wrap;
@@ -2511,44 +2473,3 @@
   margin-bottom: 2px;
 }
 
-/* ── カスタム日付ピッカー ──────────────────────────────────── */
-.modal__date-picker-wrap {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.modal__date-picker-wrap .modal__date-display {
-  flex: 1;
-  justify-content: flex-start;
-}
-.modal__date-hidden {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-}
-.modal__date-clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: background var(--t), color var(--t);
-}
-.modal__date-clear:hover {
-  background: var(--c-danger-bg);
-  color: var(--color-danger);
-}
-.modal__date-clear svg {
-  width: 12px;
-  height: 12px;
-  fill: currentColor;
-}

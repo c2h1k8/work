@@ -88,24 +88,11 @@
   gap: 6px;
   flex-wrap: wrap;
 }
-.actlog-date-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface);
-  color: var(--c-text);
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color var(--t);
-}
-.actlog-date-btn:hover { border-color: var(--c-accent); }
-.actlog-date-btn__icon { width: 12px; height: 12px; color: var(--c-text-3); }
-.actlog-date-btn__text--placeholder { color: var(--c-text-3); }
 .actlog-filters__sep { font-size: 11px; color: var(--c-text-3); }
-.actlog-clear-date-btn { font-size: 11px; }
+
+/* DatePicker をフィルター行幅に合わせる */
+.actlog-datepicker { flex: 1; min-width: 0; }
+.actlog-datepicker .dp-trigger { font-size: 12px; padding: 4px 8px; }
 
 .actlog-filters__pages {
   display: flex;

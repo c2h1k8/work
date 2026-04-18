@@ -43,7 +43,6 @@ export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
   );
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate]     = useState('');
-  const [dpOpen, setDpOpen]       = useState<'start' | 'end' | null>(null);
   const offsetRef  = useRef(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -114,12 +113,6 @@ export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
     reset();
   }, [reset]);
 
-  const handleClearDate = useCallback(() => {
-    setStartDate('');
-    setEndDate('');
-    reset();
-  }, [reset]);
-
   if (!open) return null;
 
   return createPortal(
@@ -145,38 +138,21 @@ export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
           <div className="actlog-filters__row">
             <span className="actlog-filters__label">日付</span>
             <div className="actlog-filters__dates">
-              <button
-                type="button"
-                className="actlog-date-btn"
-                onClick={() => setDpOpen('start')}
-              >
-                <svg className="actlog-date-btn__icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                  <path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z" />
-                </svg>
-                <span className={startDate ? '' : 'actlog-date-btn__text--placeholder'}>
-                  {startDate || '開始日'}
-                </span>
-              </button>
+              <DatePicker
+                value={startDate}
+                onChange={(d) => { setStartDate(d); reset(); }}
+                onClear={() => { setStartDate(''); reset(); }}
+                placeholder="開始日"
+                className="actlog-datepicker"
+              />
               <span className="actlog-filters__sep">〜</span>
-              <button
-                type="button"
-                className="actlog-date-btn"
-                onClick={() => setDpOpen('end')}
-              >
-                <svg className="actlog-date-btn__icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                  <path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z" />
-                </svg>
-                <span className={endDate ? '' : 'actlog-date-btn__text--placeholder'}>
-                  {endDate || '終了日'}
-                </span>
-              </button>
-              <button
-                type="button"
-                className="btn btn--ghost btn--sm actlog-clear-date-btn"
-                onClick={handleClearDate}
-              >
-                クリア
-              </button>
+              <DatePicker
+                value={endDate}
+                onChange={(d) => { setEndDate(d); reset(); }}
+                onClear={() => { setEndDate(''); reset(); }}
+                placeholder="終了日"
+                className="actlog-datepicker"
+              />
             </div>
           </div>
           <div className="actlog-filters__row">
@@ -237,21 +213,6 @@ export function ActivityLogModal({ open, onClose }: ActivityLogModalProps) {
         </div>
       </div>
 
-      {/* 日付ピッカー */}
-      <DatePicker
-        open={dpOpen === 'start'}
-        value={startDate}
-        onChange={(d) => { setStartDate(d); setDpOpen(null); reset(); }}
-        onClear={() => { setStartDate(''); setDpOpen(null); reset(); }}
-        onClose={() => setDpOpen(null)}
-      />
-      <DatePicker
-        open={dpOpen === 'end'}
-        value={endDate}
-        onChange={(d) => { setEndDate(d); setDpOpen(null); reset(); }}
-        onClear={() => { setEndDate(''); setDpOpen(null); reset(); }}
-        onClose={() => setDpOpen(null)}
-      />
     </div>,
     document.body,
   );
