@@ -4,7 +4,6 @@
 // セクション: log-viewer | cron | http-status | ports
 // ==================================================
 
-import '../styles/pages/ops.css';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '../components/Toast';
 import { opsDB, type OpsPort, type PortProtocol } from '../db/ops_db';

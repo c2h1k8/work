@@ -4,7 +4,8 @@
 // kanban_db version 2
 // ストア: tasks / columns / labels / task_labels / templates / archives / dependencies / note_links
 
-import '../styles/pages/todo.css';
+import clsx from 'clsx';
+import styles from '../styles/pages/todo.module.css';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   DndContext, DragOverlay, rectIntersection,
@@ -143,53 +144,54 @@ const KanbanCard = React.memo(function KanbanCard({ task, labels, taskLabels, is
       {...attributes}
       {...listeners}
       style={overlay ? undefined : style}
-      className={`card${isDragging ? ' opacity-40' : ''}${due.status === 'overdue' ? ' card--overdue' : ''}`}
+      className={clsx(styles.card, isDragging && 'opacity-40', due.status === 'overdue' && styles['card--overdue'])}
       onClick={onClick}
     >
-      {/* 右上ステータス（ブロックアイコン） */}
-      <div className="card__status">
-        {isBlocked && <span className="card__lock-badge" title="先行タスクが未完了"><LockIcon size={13} /></span>}
-      </div>
-      {/* ラベル行 */}
-      {cardLabels.length > 0 && (
-        <div className="card__labels">
+      {/* ラベル行（ラベルがあればロックアイコンも右端に） */}
+      {cardLabels.length > 0 ? (
+        <div className={styles['card__labels']}>
           {cardLabels.map((l) => (
-            <span key={l.id} className="label-chip" style={{ backgroundColor: l.color, color: '#fff' }}>{l.name}</span>
+            <span key={l.id} className={styles['label-chip']} style={{ backgroundColor: l.color, color: '#fff' }}>{l.name}</span>
           ))}
+          {isBlocked && <span className={clsx(styles['card__lock-badge'], styles['card__lock-badge--inline'])} title="先行タスクが未完了"><LockIcon size={13} /></span>}
+        </div>
+      ) : isBlocked && (
+        <div className={styles['card__labels']}>
+          <span className={clsx(styles['card__lock-badge'], styles['card__lock-badge--inline'])} title="先行タスクが未完了"><LockIcon size={13} /></span>
         </div>
       )}
       {/* タイトル */}
-      <p className="card__title">{task.title}</p>
+      <p className={styles['card__title']}>{task.title}</p>
       {/* バッジ行（チェックリスト・繰り返し） */}
       {(checkTotal > 0 || task.recurring) && (
-        <div className="card__badges">
+        <div className={styles['card__badges']}>
           {checkTotal > 0 && (
-            <span className={`card__checklist-badge${checkDone === checkTotal ? ' card__checklist-badge--done' : ''}`}>
+            <span className={clsx(styles['card__checklist-badge'], checkDone === checkTotal && styles['card__checklist-badge--done'])}>
               <CheckIcon size={10} />{checkDone}/{checkTotal}
             </span>
           )}
-          {task.recurring && <span className="card__repeat-badge" title={`繰り返し（${task.recurring.interval === 'daily' ? '毎日' : task.recurring.interval === 'weekly' ? '毎週' : '毎月'}）`}><Repeat2Icon size={12} /></span>}
+          {task.recurring && <span className={styles['card__repeat-badge']} title={`繰り返し（${task.recurring.interval === 'daily' ? '毎日' : task.recurring.interval === 'weekly' ? '毎週' : '毎月'}）`}><Repeat2Icon size={12} /></span>}
         </div>
       )}
       {/* フッター（期日 + アクション） */}
       {(due.text || onArchive || onDelete) && (
-        <div className="card__footer">
+        <div className={styles['card__footer']}>
           {due.text ? (
-            <span className={`card__due${due.status === 'overdue' ? ' card__due--overdue' : due.status === 'today' ? ' card__due--today' : ''}`}>
+            <span className={clsx(styles['card__due'], due.status === 'overdue' && styles['card__due--overdue'], due.status === 'today' && styles['card__due--today'])}>
               <CalendarIcon size={10} />{due.text}
             </span>
           ) : <span />}
           {(onArchive || onDelete) && (
-            <div className="card__actions">
+            <div className={styles['card__actions']}>
               {onArchive && (
                 <button onClick={(e) => { e.stopPropagation(); onArchive(task); }}
-                  className="card__btn card__btn--archive" title="アーカイブ" aria-label="アーカイブ">
+                  className={clsx(styles['card__btn'], styles['card__btn--archive'])} title="アーカイブ" aria-label="アーカイブ">
                   <ArchiveIcon size={12} />
                 </button>
               )}
               {onDelete && (
                 <button onClick={(e) => { e.stopPropagation(); onDelete(task); }}
-                  className="card__btn card__btn--delete" title="削除" aria-label="削除">
+                  className={clsx(styles['card__btn'], styles['card__btn--delete'])} title="削除" aria-label="削除">
                   <Trash2Icon size={12} />
                 </button>
               )}
@@ -370,21 +372,21 @@ function TaskPicker({ tasks, columns, x, y, onSelect, onClose }: TaskPickerProps
   return (
     <>
       <div className="fixed inset-0 z-[390]" onClick={onClose} />
-      <div className="task-picker" style={{ left: x, top: y, zIndex: 400 }}>
+      <div className={styles['task-picker']} style={{ left: x, top: y, zIndex: 400 }}>
         <input
           ref={inputRef}
-          className="task-picker__input"
+          className={styles['task-picker__input']}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="タスクを検索…"
           onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
         />
-        <ul className="task-picker__list">
-          {filtered.length === 0 && <li className="task-picker__empty">該当なし</li>}
+        <ul className={styles['task-picker__list']}>
+          {filtered.length === 0 && <li className={styles['task-picker__empty']}>該当なし</li>}
           {filtered.map((t) => (
-            <li key={t.id} className="task-picker__item" onClick={() => onSelect(t.id!)}>
-              <span className="task-picker__item-title">{t.title}</span>
-              <span className="task-picker__item-column">{columns.find((c) => c.key === t.column)?.name}</span>
+            <li key={t.id} className={styles['task-picker__item']} onClick={() => onSelect(t.id!)}>
+              <span className={styles['task-picker__item-title']}>{t.title}</span>
+              <span className={styles['task-picker__item-column']}>{columns.find((c) => c.key === t.column)?.name}</span>
             </li>
           ))}
         </ul>
@@ -424,20 +426,20 @@ function NotePicker({ x, y, excludeIds, onSelect, onClose }: NotePickerProps) {
   return (
     <>
       <div className="fixed inset-0 z-[390]" onClick={onClose} />
-      <div className="task-picker" style={{ left: x, top: y, zIndex: 400 }}>
+      <div className={styles['task-picker']} style={{ left: x, top: y, zIndex: 400 }}>
         <input
           ref={inputRef}
-          className="task-picker__input"
+          className={styles['task-picker__input']}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="ノートを検索…"
           onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
         />
-        <ul className="task-picker__list">
-          {filtered.length === 0 && <li className="task-picker__empty">該当なし</li>}
+        <ul className={styles['task-picker__list']}>
+          {filtered.length === 0 && <li className={styles['task-picker__empty']}>該当なし</li>}
           {filtered.map((n) => (
-            <li key={n.id} className="task-picker__item" onClick={() => onSelect(n.id!)}>
-              <span className="task-picker__item-title">{n.title}</span>
+            <li key={n.id} className={styles['task-picker__item']} onClick={() => onSelect(n.id!)}>
+              <span className={styles['task-picker__item-title']}>{n.title}</span>
             </li>
           ))}
         </ul>
@@ -729,6 +731,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
       const act = await kanbanDB.addActivity(task.id!, 'label_remove', { name: l.name, color: l.color });
       setActivities((prev) => [...prev, act].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
     }
+    onLabelsChanged?.();
   }
 
   // ── タイトル確定（blur / Enter） ─────────────────────────
@@ -1004,12 +1007,12 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     };
     const color = String(c.color ?? '#999');
     const labelBadge = (action: string) => (
-      <span className="activity-label-badge">
+      <span className={styles['activity-label-badge']}>
         <span
-          className="activity-label-badge__name"
+          className={styles['activity-label-badge__name']}
           style={{ background: color }}
         >{String(c.name ?? '')}</span>
-        <span className="activity-label-badge__action">{action}</span>
+        <span className={styles['activity-label-badge__action']}>{action}</span>
       </span>
     );
     switch (act.type) {
@@ -1071,18 +1074,18 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   const doneCheck = checklist.filter((c) => c.done).length;
 
   return (
-    <div className={`modal${isOpen ? ' is-open' : ''}`} role="dialog" aria-modal="true" aria-label="タスク編集">
+    <div className={clsx(styles.modal, isOpen && 'is-open')} role="dialog" aria-modal="true" aria-label="タスク編集">
       {/* 背景オーバーレイ */}
-      <div className="modal__backdrop" onClick={handleClose} />
+      <div className={styles['modal__backdrop']} onClick={handleClose} />
 
       {/* 右サイドドロワー */}
-      <div className="modal__dialog">
+      <div className={styles['modal__dialog']}>
         {/* ヘッダー */}
-        <div className="modal__header">
-          <div className="modal__title-row">
+        <div className={styles['modal__header']}>
+          <div className={styles['modal__title-row']}>
             {titleEditing ? (
               <input
-                className="modal__title-input modal__title-input--editing"
+                className={clsx(styles['modal__title-input'], styles['modal__title-input--editing'])}
                 value={title}
                 autoFocus
                 onChange={(e) => setTitle(e.target.value)}
@@ -1095,7 +1098,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
               />
             ) : (
               <span
-                className="modal__title-text modal__title-text--clickable"
+                className={clsx(styles['modal__title-text'], styles['modal__title-text--clickable'])}
                 onClick={() => setTitleEditing(true)}
                 title="クリックして編集"
                 role="button"
@@ -1106,38 +1109,38 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
               </span>
             )}
           </div>
-          <button className="modal__close" onClick={handleClose} aria-label="閉じる">
+          <button className={styles['modal__close']} onClick={handleClose} aria-label="閉じる">
             <XIcon size={16} aria-hidden="true" />
           </button>
         </div>
 
         {/* ボディ（2カラム） */}
-        <div className="modal__body">
+        <div className={styles['modal__body']}>
           {/* メインエリア */}
-          <div className="modal__main">
+          <div className={styles['modal__main']}>
 
             {/* ── 説明セクション（参照 / 編集 切替） ── */}
-            <div className="modal__section">
+            <div className={styles['modal__section']}>
               {descEditing ? (
-                <div className="desc-editor">
-                  <div className="desc-editor__tabs">
+                <div className={styles['desc-editor']}>
+                  <div className={styles['desc-editor__tabs']}>
                     <button
-                      className={`desc-editor__tab${descSubTab === 'write' ? ' is-active' : ''}`}
+                      className={clsx(styles['desc-editor__tab'], descSubTab === 'write' && 'is-active')}
                       onMouseDown={(e) => { e.preventDefault(); setDescSubTab('write'); }}
                     >編集</button>
                     <button
-                      className={`desc-editor__tab${descSubTab === 'preview' ? ' is-active' : ''}`}
+                      className={clsx(styles['desc-editor__tab'], descSubTab === 'preview' && 'is-active')}
                       onMouseDown={(e) => { e.preventDefault(); setDescSubTab('preview'); }}
                     >プレビュー</button>
                     <button
-                      className="desc-editor__confirm"
+                      className={styles['desc-editor__confirm']}
                       onMouseDown={(e) => { e.preventDefault(); commitDesc(); }}
                       title="確定"
                     >確定</button>
                   </div>
                   {descSubTab === 'write' ? (
                     <textarea
-                      className="modal__description modal__description--editing"
+                      className={clsx(styles['modal__description'], styles['modal__description--editing'])}
                       value={description}
                       autoFocus
                       onChange={(e) => { setDescription(e.target.value); }}
@@ -1150,7 +1153,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                     />
                   ) : (
                     <div
-                      className="desc-editor__preview md-body"
+                      className={clsx(styles['desc-editor__preview'], styles['md-body'])}
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); setDescSubTab('write'); } }}
                     >
@@ -1165,7 +1168,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                                 if (type === 'checkbox') {
                                   const idx = cbIdx++;
                                   return (
-                                    <input type="checkbox" checked={!!checked} className="md-task-checkbox"
+                                    <input type="checkbox" checked={!!checked} className={styles['md-task-checkbox']}
                                       onChange={(e) => {
                                         const next = toggleCheckboxInMarkdown(description, idx, e.target.checked);
                                         setDescription(next); committedDesc.current = next;
@@ -1178,13 +1181,13 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                             }}
                           >{description}</ReactMarkdown>
                         );
-                      })() : <span className="desc-editor__empty">（内容なし）</span>}
+                      })() : <span className={styles['desc-editor__empty']}>（内容なし）</span>}
                     </div>
                   )}
                 </div>
               ) : (
                 <div
-                  className={`modal__desc-preview md-body${!description ? ' modal__desc-preview--empty' : ''}`}
+                  className={clsx(styles['modal__desc-preview'], styles['md-body'], !description && styles['modal__desc-preview--empty'])}
                   onClick={() => { setDescEditing(true); setDescSubTab('write'); }}
                   role="button"
                   tabIndex={0}
@@ -1205,7 +1208,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                                 <input
                                   type="checkbox"
                                   checked={!!checked}
-                                  className="md-task-checkbox"
+                                  className={styles['md-task-checkbox']}
                                   onChange={(e) => {
                                     const next = toggleCheckboxInMarkdown(description, idx, e.target.checked);
                                     setDescription(next);
@@ -1228,35 +1231,35 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
             </div>
 
             {/* ── チェックリストセクション（進捗バー + インライン編集） ── */}
-            <div className="modal__section">
-              <h4 className="modal__section-title">
+            <div className={styles['modal__section']}>
+              <h4 className={styles['modal__section-title']}>
                 <CheckIcon size={14} aria-hidden="true" />
                 チェックリスト
               </h4>
               {checklist.length > 0 && (
-                <div className="checklist-progress">
-                  <div className="checklist-progress__bar">
+                <div className={styles['checklist-progress']}>
+                  <div className={styles['checklist-progress__bar']}>
                     <div
-                      className="checklist-progress__fill"
+                      className={styles['checklist-progress__fill']}
                       style={{ width: `${Math.round((doneCheck / checklist.length) * 100)}%` }}
                     />
                   </div>
-                  <span className="checklist-progress__text">{doneCheck}/{checklist.length}</span>
+                  <span className={styles['checklist-progress__text']}>{doneCheck}/{checklist.length}</span>
                 </div>
               )}
-              <div className="checklist-items">
+              <div className={styles['checklist-items']}>
                 {checklist.map((item) => (
                   <div
                     key={item.id}
-                    className={`checklist-item${item.done ? ' is-checked' : ''}`}
+                    className={clsx(styles['checklist-item'], item.done && 'is-checked')}
                     onClick={() => { if (editingCheckId !== item.id) { toggleCheck(item.id); } }}
                   >
-                    <span className="checklist-check-icon">
+                    <span className={styles['checklist-check-icon']}>
                       {item.done && <CheckIcon size={10} />}
                     </span>
                     {editingCheckId === item.id ? (
                       <input
-                        className="checklist-item__edit-input"
+                        className={styles['checklist-item__edit-input']}
                         value={editingCheckText}
                         autoFocus
                         onClick={(e) => e.stopPropagation()}
@@ -1269,7 +1272,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                       />
                     ) : (
                       <span
-                        className="checklist-label"
+                        className={styles['checklist-label']}
                         onDoubleClick={(e) => { e.stopPropagation(); startEditCheck(item.id, item.text); }}
                         title="ダブルクリックで編集"
                       >
@@ -1277,7 +1280,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                       </span>
                     )}
                     <button
-                      className="checklist-item__del"
+                      className={styles['checklist-item__del']}
                       onClick={(e) => { e.stopPropagation(); deleteCheck(item.id); }}
                       aria-label="削除"
                     >
@@ -1286,36 +1289,36 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                   </div>
                 ))}
               </div>
-              <div className="checklist-add-row">
+              <div className={styles['checklist-add-row']}>
                 <input
-                  className="checklist-new-input"
+                  className={styles['checklist-new-input']}
                   value={newCheckText}
                   onChange={(e) => setNewCheckText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addChecklist(); }}
                   placeholder="項目を追加…"
                 />
-                <button className="checklist-add-btn" onClick={addChecklist}>追加</button>
+                <button className={styles['checklist-add-btn']} onClick={addChecklist}>追加</button>
               </div>
             </div>
 
             {/* ── タイムライン（コメント + アクティビティ）セクション ── */}
-            <div className="modal__section">
-              <div className="timeline-header">
-                <h4 className="modal__section-title">
+            <div className={styles['modal__section']}>
+              <div className={styles['timeline-header']}>
+                <h4 className={styles['modal__section-title']}>
                   <MessageSquareIcon size={14} aria-hidden="true" />
                   アクティビティ
                 </h4>
-                <div className="timeline-header__right">
-                  <div className="timeline-tabs">
+                <div className={styles['timeline-header__right']}>
+                  <div className={styles['timeline-tabs']}>
                     <button
-                      className={`timeline-tab${timelineTab === 'all' ? ' is-active' : ''}`}
+                      className={clsx(styles['timeline-tab'], timelineTab === 'all' && 'is-active')}
                       onClick={() => { setTimelineTab('all'); lsSet(LS_TIMELINE_TAB, 'all'); }}>すべて</button>
                     <button
-                      className={`timeline-tab${timelineTab === 'comments' ? ' is-active' : ''}`}
+                      className={clsx(styles['timeline-tab'], timelineTab === 'comments' && 'is-active')}
                       onClick={() => { setTimelineTab('comments'); lsSet(LS_TIMELINE_TAB, 'comments'); }}>コメント</button>
                   </div>
                   <button
-                    className={`timeline-time-btn${showAbsTime ? ' is-active' : ''}`}
+                    className={clsx(styles['timeline-time-btn'], showAbsTime && 'is-active')}
                     onClick={() => { setShowAbsTime((v) => { lsSet(LS_ABS_TIME, v ? '0' : '1'); return !v; }); }}
                     title={showAbsTime ? '相対時刻で表示' : '絶対時刻で表示'}
                     aria-label={showAbsTime ? '相対時刻で表示' : '絶対時刻で表示'}
@@ -1328,42 +1331,42 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                   </button>
                 </div>
               </div>
-              <div className="modal__comments" ref={commentsRef}>
+              <div className={styles['modal__comments']} ref={commentsRef}>
                 {timelineItems.map((item, i) => {
                   if (item.kind === 'comment') {
                     const c = item.data;
                     // 削除済みコメントは墓石表示（本文あり）
                     if (c.deleted_at) {
                       return (
-                        <div key={`c-${c.id}`} className="comment-item comment-item--deleted">
-                          <div className="comment-item__header">
-                            <span className="comment-item__date">
+                        <div key={`c-${c.id}`} className={clsx(styles['comment-item'], styles['comment-item--deleted'])}>
+                          <div className={styles['comment-item__header']}>
+                            <span className={styles['comment-item__date']}>
                               {formatTime(c.created_at)}
-                              <span className="comment-item__deleted-badge">
+                              <span className={styles['comment-item__deleted-badge']}>
                                 <Trash2Icon size={9} aria-hidden="true" />削除済み
                               </span>
                             </span>
                           </div>
-                          <p className="comment-item__tombstone-body">{c.body}</p>
+                          <p className={styles['comment-item__tombstone-body']}>{c.body}</p>
                         </div>
                       );
                     }
                     return (
-                      <div key={`c-${c.id}`} className="comment-item">
-                        <div className="comment-item__header">
-                          <span className="comment-item__date">
+                      <div key={`c-${c.id}`} className={styles['comment-item']}>
+                        <div className={styles['comment-item__header']}>
+                          <span className={styles['comment-item__date']}>
                             {formatTime(c.created_at)}{c.updated_at ? '（編集済）' : ''}
                           </span>
-                          <div className="comment-item__header-actions">
+                          <div className={styles['comment-item__header-actions']}>
                             <button
-                              className="comment-item__edit"
+                              className={styles['comment-item__edit']}
                               onClick={() => setEditingComment({ id: c.id!, text: c.body })}
                               aria-label="編集"
                             >
                               <PencilIcon size={11} aria-hidden="true" />
                             </button>
                             <button
-                              className="comment-item__delete"
+                              className={styles['comment-item__delete']}
                               onClick={() => deleteComment(c.id!)}
                               aria-label="削除"
                             >
@@ -1374,23 +1377,23 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                         {editingComment?.id === c.id && editingComment ? (
                           <>
                             <textarea
-                              className="comment-item__edit-textarea"
+                              className={styles['comment-item__edit-textarea']}
                               value={editingComment.text}
                               onChange={(e) => setEditingComment({ id: editingComment.id, text: e.target.value })}
                             />
-                            <div className="comment-item__edit-actions">
+                            <div className={styles['comment-item__edit-actions']}>
                               <button
-                                className="comment-item__edit-cancel"
+                                className={styles['comment-item__edit-cancel']}
                                 onClick={() => setEditingComment(null)}
                               >キャンセル</button>
                               <button
-                                className="comment-item__edit-save"
+                                className={styles['comment-item__edit-save']}
                                 onClick={() => updateComment(c.id!, editingComment.text)}
                               >保存</button>
                             </div>
                           </>
                         ) : (
-                          <div className="comment-item__body md-body">
+                          <div className={clsx(styles['comment-item__body'], styles['md-body'])}>
                             {(() => {
                               let cbIdx = 0;
                               return (
@@ -1405,7 +1408,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                                           <input
                                             type="checkbox"
                                             checked={!!checked}
-                                            className="md-task-checkbox"
+                                            className={styles['md-task-checkbox']}
                                             onChange={(e) => {
                                               const next = toggleCheckboxInMarkdown(c.body, idx, e.target.checked);
                                               updateComment(c.id!, next);
@@ -1428,20 +1431,20 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                   } else {
                     const a = item.data;
                     return (
-                      <div key={`a-${a.id}-${i}`} className="activity-item">
-                        <span className="activity-item__icon" aria-hidden="true">
+                      <div key={`a-${a.id}-${i}`} className={styles['activity-item']}>
+                        <span className={styles['activity-item__icon']} aria-hidden="true">
                           {activityIcon(a.type)}
                         </span>
-                        <span className="activity-item__text">{activityContent(a)}</span>
-                        <span className="activity-item__date">{formatTime(a.created_at)}</span>
+                        <span className={styles['activity-item__text']}>{activityContent(a)}</span>
+                        <span className={styles['activity-item__date']}>{formatTime(a.created_at)}</span>
                       </div>
                     );
                   }
                 })}
               </div>
-              <div className="modal__comment-form">
+              <div className={styles['modal__comment-form']}>
                 <textarea
-                  className="modal__comment-input"
+                  className={styles['modal__comment-input']}
                   value={commentInput}
                   onChange={(e) => setCommentInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -1452,8 +1455,8 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                   }}
                   placeholder="コメントを追加… (Shift+Enter で改行)"
                 />
-                <div className="modal__comment-actions">
-                  <button className="modal-comment-submit-btn" onClick={addComment}>
+                <div className={styles['modal__comment-actions']}>
+                  <button className={styles['modal-comment-submit-btn']} onClick={addComment}>
                     <MessageSquareIcon size={13} aria-hidden="true" />
                     コメント
                   </button>
@@ -1464,11 +1467,11 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
           </div>
 
           {/* サイドバー */}
-          <div className="modal__sidebar">
+          <div className={styles['modal__sidebar']}>
 
             {/* カラム */}
-            <div className="modal__sidebar-item">
-              <span className="modal__sidebar-label">カラム</span>
+            <div className={styles['modal__sidebar-item']}>
+              <span className={styles['modal__sidebar-label']}>カラム</span>
               <Select
                 value={column}
                 options={columns.map((c) => ({ value: c.key, label: c.name }))}
@@ -1477,8 +1480,8 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
             </div>
 
             {/* 期日（カスタム日付ピッカー） */}
-            <div className="modal__sidebar-item">
-              <span className="modal__sidebar-label">期日</span>
+            <div className={styles['modal__sidebar-item']}>
+              <span className={styles['modal__sidebar-label']}>期日</span>
               <DatePicker
                 value={dueDate}
                 onChange={(v) => commitDue(v)}
@@ -1492,21 +1495,21 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
             </div>
 
             {/* ラベル */}
-            <div className="modal__sidebar-item">
+            <div className={styles['modal__sidebar-item']}>
               <div className="flex items-center justify-between">
-                <span className="modal__sidebar-label">ラベル</span>
+                <span className={styles['modal__sidebar-label']}>ラベル</span>
                 <button onClick={() => setShowInlineLabelMgr(true)}
                   className="p-0.5 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]" title="ラベル管理">
                   <TagIcon size={11} aria-hidden="true" />
                 </button>
               </div>
               {localLabels.length > 0 && (
-                <div className="modal__label-list">
+                <div className={styles['modal__label-list']}>
                   {localLabels.map((l) => (
                     <button key={l.id}
                       onClick={() => toggleLabel(l.id!)}
                       style={{ backgroundColor: l.color, color: '#fff', opacity: selectedLabels.has(l.id!) ? 1 : 0.3 }}
-                      className="modal-existing-label">
+                      className={styles['modal-existing-label']}>
                       {l.name}
                     </button>
                   ))}
@@ -1515,13 +1518,13 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
             </div>
 
             {/* 繰り返し */}
-            <div className="modal__sidebar-item">
-              <span className="modal__sidebar-label">繰り返し</span>
-              <div className="recurring-row">
-                <label className="toggle-switch">
+            <div className={styles['modal__sidebar-item']}>
+              <span className={styles['modal__sidebar-label']}>繰り返し</span>
+              <div className={styles['recurring-row']}>
+                <label className={styles['toggle-switch']}>
                   <input
                     type="checkbox"
-                    className="toggle-switch__input"
+                    className={styles['toggle-switch__input']}
                     checked={!!recurring}
                     onChange={(e) => {
                       const next = e.target.checked ? { interval: 'weekly' as const, next_date: '' } : null;
@@ -1529,9 +1532,9 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                       kanbanDB.updateTask(task.id!, { recurring: next || null }).then(onSaved);
                     }}
                   />
-                  <span className="toggle-switch__slider" />
+                  <span className={styles['toggle-switch__slider']} />
                 </label>
-                <span className="recurring-toggle-text">繰り返す</span>
+                <span className={styles['recurring-toggle-text']}>繰り返す</span>
                 {recurring && (
                   <Select
                     value={recurring.interval}
@@ -1551,146 +1554,146 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
             </div>
 
             {/* 依存関係 */}
-            <div className="modal__sidebar-item">
-              <span className="modal__sidebar-label modal__sidebar-label--icon">
+            <div className={styles['modal__sidebar-item']}>
+              <span className={clsx(styles['modal__sidebar-label'], styles['modal__sidebar-label--icon'])}>
                 <GitMergeIcon size={11} aria-hidden="true" />依存関係
               </span>
-              <div className="modal__relation-group">
-                <span className="modal__relation-sublabel">先行タスク（完了待ち）</span>
+              <div className={styles['modal__relation-group']}>
+                <span className={styles['modal__relation-sublabel']}>先行タスク（完了待ち）</span>
                 {predecessors.map(({ dep, task: t }) => (
-                  <div key={dep.id} className="relation-chip">
-                    <span className="relation-chip__title">{t.title}</span>
-                    <span className="relation-chip__column">
+                  <div key={dep.id} className={styles['relation-chip']}>
+                    <span className={styles['relation-chip__title']}>{t.title}</span>
+                    <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === t.column)?.name}
                     </span>
-                    <button className="relation-chip__remove"
+                    <button className={styles['relation-chip__remove']}
                       onClick={() => removeDependency(dep.id!, 'pre')} aria-label="削除">
                       <XIcon size={10} />
                     </button>
                   </div>
                 ))}
-                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'dep-pre')}>
+                <button className={styles['modal__relation-add-btn']} onClick={(e) => openPicker(e, 'dep-pre')}>
                   + 追加
                 </button>
               </div>
-              <div className="modal__relation-group">
-                <span className="modal__relation-sublabel">後続タスク</span>
+              <div className={styles['modal__relation-group']}>
+                <span className={styles['modal__relation-sublabel']}>後続タスク</span>
                 {successors.map(({ dep, task: t }) => (
-                  <div key={dep.id} className="relation-chip">
-                    <span className="relation-chip__title">{t.title}</span>
-                    <span className="relation-chip__column">
+                  <div key={dep.id} className={styles['relation-chip']}>
+                    <span className={styles['relation-chip__title']}>{t.title}</span>
+                    <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === t.column)?.name}
                     </span>
-                    <button className="relation-chip__remove"
+                    <button className={styles['relation-chip__remove']}
                       onClick={() => removeDependency(dep.id!, 'suc')} aria-label="削除">
                       <XIcon size={10} />
                     </button>
                   </div>
                 ))}
-                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'dep-suc')}>
+                <button className={styles['modal__relation-add-btn']} onClick={(e) => openPicker(e, 'dep-suc')}>
                   + 追加
                 </button>
               </div>
             </div>
 
             {/* タスク関係 */}
-            <div className="modal__sidebar-item">
-              <span className="modal__sidebar-label modal__sidebar-label--icon">
+            <div className={styles['modal__sidebar-item']}>
+              <span className={clsx(styles['modal__sidebar-label'], styles['modal__sidebar-label--icon'])}>
                 <NetworkIcon size={11} aria-hidden="true" />タスク関係
               </span>
-              <div className="modal__relation-group">
-                <span className="modal__relation-sublabel">親タスク</span>
+              <div className={styles['modal__relation-group']}>
+                <span className={styles['modal__relation-sublabel']}>親タスク</span>
                 {relParent && (
-                  <div className="relation-chip">
-                    <span className="relation-chip__title">{relParent.task.title}</span>
-                    <span className="relation-chip__column">
+                  <div className={styles['relation-chip']}>
+                    <span className={styles['relation-chip__title']}>{relParent.task.title}</span>
+                    <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === relParent.task.column)?.name}
                     </span>
-                    <button className="relation-chip__remove"
+                    <button className={styles['relation-chip__remove']}
                       onClick={() => removeRelation(relParent.relationId, 'parent')} aria-label="削除">
                       <XIcon size={10} />
                     </button>
                   </div>
                 )}
                 {!relParent && (
-                  <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'parent')}>
+                  <button className={styles['modal__relation-add-btn']} onClick={(e) => openPicker(e, 'parent')}>
                     + 設定
                   </button>
                 )}
               </div>
-              <div className="modal__relation-group">
-                <span className="modal__relation-sublabel">子タスク</span>
+              <div className={styles['modal__relation-group']}>
+                <span className={styles['modal__relation-sublabel']}>子タスク</span>
                 {relChildren.map(({ task: t, relationId }) => (
-                  <div key={relationId} className="relation-chip">
-                    <span className="relation-chip__title">{t.title}</span>
-                    <span className="relation-chip__column">
+                  <div key={relationId} className={styles['relation-chip']}>
+                    <span className={styles['relation-chip__title']}>{t.title}</span>
+                    <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === t.column)?.name}
                     </span>
-                    <button className="relation-chip__remove"
+                    <button className={styles['relation-chip__remove']}
                       onClick={() => removeRelation(relationId, 'child')} aria-label="削除">
                       <XIcon size={10} />
                     </button>
                   </div>
                 ))}
-                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'child')}>
+                <button className={styles['modal__relation-add-btn']} onClick={(e) => openPicker(e, 'child')}>
                   + 追加
                 </button>
               </div>
-              <div className="modal__relation-group">
-                <span className="modal__relation-sublabel">関連タスク</span>
+              <div className={styles['modal__relation-group']}>
+                <span className={styles['modal__relation-sublabel']}>関連タスク</span>
                 {relRelated.map(({ task: t, relationId }) => (
-                  <div key={relationId} className="relation-chip">
-                    <span className="relation-chip__title">{t.title}</span>
-                    <span className="relation-chip__column">
+                  <div key={relationId} className={styles['relation-chip']}>
+                    <span className={styles['relation-chip__title']}>{t.title}</span>
+                    <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === t.column)?.name}
                     </span>
-                    <button className="relation-chip__remove"
+                    <button className={styles['relation-chip__remove']}
                       onClick={() => removeRelation(relationId, 'related')} aria-label="削除">
                       <XIcon size={10} />
                     </button>
                   </div>
                 ))}
-                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'related')}>
+                <button className={styles['modal__relation-add-btn']} onClick={(e) => openPicker(e, 'related')}>
                   + 追加
                 </button>
               </div>
             </div>
 
             {/* ノート紐づけ */}
-            <div className="modal__sidebar-item">
-              <span className="modal__sidebar-label modal__sidebar-label--icon">
+            <div className={styles['modal__sidebar-item']}>
+              <span className={clsx(styles['modal__sidebar-label'], styles['modal__sidebar-label--icon'])}>
                 <LinkIcon size={11} aria-hidden="true" />ノート紐づけ
               </span>
-              <div className="modal__relation-group">
+              <div className={styles['modal__relation-group']}>
                 {noteLinks.map(({ link, noteTitle }) => (
-                  <div key={link.id} className="relation-chip">
-                    <span className="relation-chip__title">{noteTitle}</span>
-                    <button className="relation-chip__remove"
+                  <div key={link.id} className={styles['relation-chip']}>
+                    <span className={styles['relation-chip__title']}>{noteTitle}</span>
+                    <button className={styles['relation-chip__remove']}
                       onClick={() => removeNoteLink(link.id!)} aria-label="削除">
                       <XIcon size={10} />
                     </button>
                   </div>
                 ))}
-                <button className="modal__relation-add-btn" onClick={(e) => openPicker(e, 'note')}>
+                <button className={styles['modal__relation-add-btn']} onClick={(e) => openPicker(e, 'note')}>
                   + 追加
                 </button>
               </div>
             </div>
 
             {/* テンプレート保存（繰り返しの下・アクションの上） */}
-            <div className="modal__sidebar-item">
-              <button onClick={saveAsTemplate} className="modal-action-btn modal-action-btn--bookmark">
+            <div className={styles['modal__sidebar-item']}>
+              <button onClick={saveAsTemplate} className={clsx(styles['modal-action-btn'], styles['modal-action-btn--bookmark'])}>
                 <BookmarkIcon size={13} aria-hidden="true" />
                 テンプレートとして保存
               </button>
             </div>
 
             {/* アクション（アーカイブ・削除のみ。保存は閉じる時に自動） */}
-            <div className="modal__sidebar-item modal__sidebar-actions">
-              <button onClick={handleArchive} className="modal-action-btn modal-action-btn--amber">
+            <div className={clsx(styles['modal__sidebar-item'], styles['modal__sidebar-actions'])}>
+              <button onClick={handleArchive} className={clsx(styles['modal-action-btn'], styles['modal-action-btn--amber'])}>
                 <ArchiveIcon size={13} aria-hidden="true" />アーカイブ
               </button>
-              <button onClick={handleDelete} className="modal-action-btn modal-action-btn--danger">
+              <button onClick={handleDelete} className={clsx(styles['modal-action-btn'], styles['modal-action-btn--danger'])}>
                 <Trash2Icon size={13} aria-hidden="true" />削除
               </button>
             </div>
@@ -1800,10 +1803,10 @@ function ColumnEditModal({ column, onClose, onSaved, onDeleted, taskCount }: Col
             <input type="number" min="0" value={wipLimit} onChange={(e) => setWipLimit(e.target.value)}
               className="w-full px-3 py-1.5 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] focus:outline-none focus:border-[var(--c-accent)]" />
           </div>
-          <div className="recurring-row">
-            <label className="toggle-switch">
-              <input type="checkbox" className="toggle-switch__input" checked={done} onChange={(e) => setDone(e.target.checked)} />
-              <span className="toggle-switch__slider" />
+          <div className={styles['recurring-row']}>
+            <label className={styles['toggle-switch']}>
+              <input type="checkbox" className={styles['toggle-switch__input']} checked={done} onChange={(e) => setDone(e.target.checked)} />
+              <span className={styles['toggle-switch__slider']} />
             </label>
             <span className="text-sm text-[var(--c-fg)]">完了カラム</span>
           </div>
@@ -2118,18 +2121,18 @@ function TemplateManagerModal({ labels, onClose, onChanged }: TemplateManagerMod
           <h3 className="font-semibold text-[var(--c-fg)] text-sm flex items-center gap-2"><FileEditIcon size={14} />テンプレート管理</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]"><XIcon size={14} /></button>
         </div>
-        <div className="template-modal__body flex-1 overflow-hidden">
+        <div className={clsx(styles['template-modal__body'], 'flex-1 overflow-hidden')}>
           {/* 左カラム：一覧 */}
-          <div className="template-modal__list-col">
+          <div className={styles['template-modal__list-col']}>
             <button onClick={newTemplate}
               className="w-full px-3 py-1.5 rounded bg-[var(--c-accent)] text-white text-xs text-center">+ 新規テンプレート</button>
-            {templates.length === 0 && <p className="template-list__empty">テンプレートがありません</p>}
-            <ul className="template-list">
+            {templates.length === 0 && <p className={styles['template-list__empty']}>テンプレートがありません</p>}
+            <ul className={styles['template-list']}>
               {templates.map((t) => (
-                <li key={t.id} className={`template-list__item${selected?.id === t.id ? ' is-active' : ''}`}
+                <li key={t.id} className={clsx(styles['template-list__item'], selected?.id === t.id && 'is-active')}
                   onClick={() => selectTemplate(t)}>
-                  <span className="template-list__name">{t.name}</span>
-                  <button className="template-list__del p-0.5 text-[var(--c-fg-3)] hover:text-red-400"
+                  <span className={styles['template-list__name']}>{t.name}</span>
+                  <button className={clsx(styles['template-list__del'], 'p-0.5 text-[var(--c-fg-3)] hover:text-red-400')}
                     onClick={(e) => { e.stopPropagation(); deleteTemplate(t.id!); }}>
                     <Trash2Icon size={10} />
                   </button>
@@ -2138,30 +2141,30 @@ function TemplateManagerModal({ labels, onClose, onChanged }: TemplateManagerMod
             </ul>
           </div>
           {/* 右カラム：編集 */}
-          <div className="template-modal__form-col overflow-y-auto">
+          <div className={clsx(styles['template-modal__form-col'], 'overflow-y-auto')}>
             {!selected ? (
-              <p className="template-form__empty">テンプレートを選択してください</p>
+              <p className={styles['template-form__empty']}>テンプレートを選択してください</p>
             ) : (
-              <div className="template-form">
-                <div className="template-form__row">
-                  <label className="template-form__label">テンプレート名</label>
-                  <input value={editName} onChange={(e) => setEditName(e.target.value)} className="template-form__input" placeholder="テンプレート名" />
+              <div className={styles['template-form']}>
+                <div className={styles['template-form__row']}>
+                  <label className={styles['template-form__label']}>テンプレート名</label>
+                  <input value={editName} onChange={(e) => setEditName(e.target.value)} className={styles['template-form__input']} placeholder="テンプレート名" />
                 </div>
-                <div className="template-form__row">
-                  <label className="template-form__label">タイトル</label>
-                  <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="template-form__input" placeholder="タスクタイトル" />
+                <div className={styles['template-form__row']}>
+                  <label className={styles['template-form__label']}>タイトル</label>
+                  <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className={styles['template-form__input']} placeholder="タスクタイトル" />
                 </div>
-                <div className="template-form__row">
-                  <label className="template-form__label">説明</label>
-                  <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="template-form__textarea" rows={3} placeholder="説明" />
+                <div className={styles['template-form__row']}>
+                  <label className={styles['template-form__label']}>説明</label>
+                  <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className={styles['template-form__textarea']} rows={3} placeholder="説明" />
                 </div>
-                <div className="template-form__row">
-                  <label className="template-form__label">チェックリスト</label>
-                  <div className="template-checklist-items">
+                <div className={styles['template-form__row']}>
+                  <label className={styles['template-form__label']}>チェックリスト</label>
+                  <div className={styles['template-checklist-items']}>
                     {editChecklist.map((item) => (
-                      <div key={item.id} className="template-checklist-item">
-                        <span className="template-checklist-item__text">{item.text}</span>
-                        <button className="template-checklist-item__del hover:text-red-400"
+                      <div key={item.id} className={styles['template-checklist-item']}>
+                        <span className={styles['template-checklist-item__text']}>{item.text}</span>
+                        <button className={clsx(styles['template-checklist-item__del'], 'hover:text-red-400')}
                           onClick={() => setEditChecklist((prev) => prev.filter((c) => c.id !== item.id))}>
                           <XIcon size={10} />
                         </button>
@@ -2171,18 +2174,18 @@ function TemplateManagerModal({ labels, onClose, onChanged }: TemplateManagerMod
                   <div className="flex gap-1 mt-1">
                     <input value={newCheckText} onChange={(e) => setNewCheckText(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addChecklistItem(); }}
-                      className="template-form__input flex-1" placeholder="チェックリスト項目を追加" />
+                      className={clsx(styles['template-form__input'], 'flex-1')} placeholder="チェックリスト項目を追加" />
                     <button onClick={addChecklistItem} className="px-2 rounded bg-[var(--c-accent)] text-white text-xs shrink-0">追加</button>
                   </div>
                 </div>
                 {labels.length > 0 && (
-                  <div className="template-form__row">
-                    <label className="template-form__label">ラベル</label>
+                  <div className={styles['template-form__row']}>
+                    <label className={styles['template-form__label']}>ラベル</label>
                     <div className="flex flex-wrap gap-1">
                       {labels.map((l) => (
                         <button key={l.id}
                           style={{ backgroundColor: l.color, color: '#fff', opacity: editLabelIds.has(l.id!) ? 1 : 0.3 }}
-                          className="modal-existing-label text-xs"
+                          className={clsx(styles['modal-existing-label'], 'text-xs')}
                           onClick={() => setEditLabelIds((prev) => {
                             const next = new Set(prev);
                             if (next.has(l.id!)) next.delete(l.id!); else next.add(l.id!);
@@ -2194,7 +2197,7 @@ function TemplateManagerModal({ labels, onClose, onChanged }: TemplateManagerMod
                     </div>
                   </div>
                 )}
-                <div className="template-form__actions">
+                <div className={styles['template-form__actions']}>
                   <button onClick={saveTemplate} className="px-4 py-1.5 rounded bg-[var(--c-accent)] text-white text-sm">保存</button>
                 </div>
               </div>

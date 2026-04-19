@@ -1,4 +1,5 @@
-import '../styles/components/select.css';
+import clsx from 'clsx';
+import styles from '../styles/components/select.module.css';
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 
@@ -58,29 +59,29 @@ export function Select({
     : (selected?.label ?? placeholder ?? '選択');
 
   return (
-    <div ref={wrapRef} className={`cs-wrapper${open ? ' cs-wrapper--open' : ''} ${className}`}>
+    <div ref={wrapRef} className={clsx(styles['cs-wrapper'], open && styles['cs-wrapper--open'], className)}>
       <button
         type="button"
-        className={`cs-trigger${multiple && values.length > 0 ? ' cs-trigger--active' : ''}`}
+        className={clsx(styles['cs-trigger'], multiple && values.length > 0 && styles['cs-trigger--active'])}
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        {icon && <span className="cs-trigger__icon-lead">{icon}</span>}
+        {icon && <span className={styles['cs-trigger__icon-lead']}>{icon}</span>}
         {selected?.color && (
-          <span className="cs-trigger__swatch" style={{ background: selected.color }} />
+          <span className={styles['cs-trigger__swatch']} style={{ background: selected.color }} />
         )}
-        <span className="cs-trigger__text">{triggerText}</span>
+        <span className={styles['cs-trigger__text']}>{triggerText}</span>
         {multiple && values.length > 0 && (
-          <span className="filter-count-badge">{values.length}</span>
+          <span className={styles['filter-count-badge']}>{values.length}</span>
         )}
-        <span className="cs-trigger__icon">
+        <span className={styles['cs-trigger__icon']}>
           <ChevronDownIcon size={12} aria-hidden="true" />
         </span>
       </button>
 
       {open && (
-        <ul className="cs-dropdown cs-dropdown--open" role="listbox">
+        <ul className={clsx(styles['cs-dropdown'], styles['cs-dropdown--open'])} role="listbox">
           {options.map((o) => {
             const isSelected = multiple ? values.includes(o.value) : o.value === value;
             return (
@@ -88,11 +89,11 @@ export function Select({
                 key={o.value}
                 role="option"
                 aria-selected={isSelected}
-                className={`cs-option${isSelected ? ' cs-option--selected' : ''}`}
+                className={clsx(styles['cs-option'], isSelected && styles['cs-option--selected'])}
                 onClick={() => handleSelect(o.value)}
               >
-                {o.color && <span className="cs-option__swatch" style={{ background: o.color }} />}
-                <span className="cs-option__label">{o.label}</span>
+                {o.color && <span className={styles['cs-option__swatch']} style={{ background: o.color }} />}
+                <span className={styles['cs-option__label']}>{o.label}</span>
               </li>
             );
           })}

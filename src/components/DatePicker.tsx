@@ -2,7 +2,8 @@
 // トリガーボタンを内包し、クリックするとポータルでカレンダーをトリガー直下に表示。
 // キーボード: ←/→ 月移動, ↑/↓ 年移動, Ctrl+←/→ ±1日, Ctrl+↑/↓ ±7日, Enter 確定, Esc 閉じる
 
-import '../styles/components/date-picker.css';
+import clsx from 'clsx';
+import styles from '../styles/components/date-picker.module.css';
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
@@ -122,7 +123,10 @@ function CalendarGrid({ year, month, selected, holidays, onPick }: GridProps) {
   const prevDays = new Date(year, month - 1, 0).getDate();
 
   const headers = WEEKDAYS.map((w, i) => (
-    <span key={`wk-${w}`} className={`dp-weekday${i === 0 ? ' is-sun' : i === 6 ? ' is-sat' : ''}`}>{w}</span>
+    <span
+      key={`wk-${w}`}
+      className={clsx(styles['dp-weekday'], i === 0 && styles['is-sun'], i === 6 && styles['is-sat'])}
+    >{w}</span>
   ));
 
   const prevCells = Array.from({ length: firstDow }, (_, i) => {
@@ -130,7 +134,7 @@ function CalendarGrid({ year, month, selected, holidays, onPick }: GridProps) {
     const m = month === 1 ? 12 : month - 1;
     const y = month === 1 ? year - 1 : year;
     return (
-      <button key={`p${i}`} type="button" className="dp-day is-other"
+      <button key={`p${i}`} type="button" className={clsx(styles['dp-day'], styles['is-other'])}
         onClick={() => onPick(`${y}-${pad(m)}-${pad(d)}`)}>
         {d}
       </button>
@@ -147,13 +151,13 @@ function CalendarGrid({ year, month, selected, holidays, onPick }: GridProps) {
       <button
         key={iso}
         type="button"
-        className={[
-          'dp-day',
-          iso === selected ? 'is-selected' : '',
-          iso === today    ? 'is-today'    : '',
-          dow === 0 || isHoliday ? 'is-sun' : '',
-          dow === 6               ? 'is-sat' : '',
-        ].filter(Boolean).join(' ')}
+        className={clsx(
+          styles['dp-day'],
+          iso === selected && styles['is-selected'],
+          iso === today    && styles['is-today'],
+          (dow === 0 || isHoliday) && styles['is-sun'],
+          dow === 6                && styles['is-sat'],
+        )}
         onClick={() => onPick(iso)}
         aria-label={iso}
         aria-selected={iso === selected}
@@ -163,13 +167,14 @@ function CalendarGrid({ year, month, selected, holidays, onPick }: GridProps) {
     );
   });
 
-  const nextCount = 42 - firstDow - daysInMonth;
+  const lastDow   = (firstDow + daysInMonth - 1) % 7;
+  const nextCount = lastDow === 6 ? 0 : 6 - lastDow;
   const nextCells = Array.from({ length: nextCount }, (_, i) => {
     const d = i + 1;
     const m = month === 12 ? 1 : month + 1;
     const y = month === 12 ? year + 1 : year;
     return (
-      <button key={`n${i}`} type="button" className="dp-day is-other"
+      <button key={`n${i}`} type="button" className={clsx(styles['dp-day'], styles['is-other'])}
         onClick={() => onPick(`${y}-${pad(m)}-${pad(d)}`)}>
         {d}
       </button>
@@ -177,7 +182,7 @@ function CalendarGrid({ year, month, selected, holidays, onPick }: GridProps) {
   });
 
   return (
-    <div className="dp-grid">
+    <div className={styles['dp-grid']}>
       {headers}
       {prevCells}
       {curCells}
@@ -249,7 +254,7 @@ export function DatePicker({
     // 位置計算
     if (!triggerRef.current) return;
     const rect      = triggerRef.current.getBoundingClientRect();
-    const POPUP_W   = 264;
+    const POPUP_W   = 320;
     const POPUP_H   = 360;
     const GAP       = 4;
     const MARGIN    = 8;
@@ -313,11 +318,26 @@ export function DatePicker({
         }
       }
 
-      // 矢印: 月・年ナビ
-      if (e.key === 'ArrowLeft')  { e.preventDefault(); prevMonth(); }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); nextMonth(); }
-      else if (e.key === 'ArrowUp')    { e.preventDefault(); prevYear(); }
-      else if (e.key === 'ArrowDown')  { e.preventDefault(); nextYear(); }
+      // 矢印: 月・年ナビ（pending を同じ日付で追随）
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const cy = viewYearRef.current;
+        const cm = viewMonRef.current;
+        let ny = cy, nm = cm;
+        if (e.key === 'ArrowLeft')  { nm = cm === 1  ? 12 : cm - 1; if (nm === 12) ny = cy - 1; }
+        if (e.key === 'ArrowRight') { nm = cm === 12 ? 1  : cm + 1; if (nm === 1)  ny = cy + 1; }
+        if (e.key === 'ArrowUp')    { ny = cy - 1; }
+        if (e.key === 'ArrowDown')  { ny = cy + 1; }
+        // pending を新しい月の同じ日（末日クランプ）に移動
+        const p = parseDate(pendingRef.current);
+        if (p) {
+          const maxDay = new Date(ny, nm, 0).getDate();
+          const pad = (n: number) => String(n).padStart(2, '0');
+          const newIso = `${ny}-${pad(nm)}-${pad(Math.min(p.day, maxDay))}`;
+          setPendingDate(newIso);
+        }
+        setViewYear(ny); setViewMonth(nm); refreshHolidays(ny);
+      }
       else if (e.key === 'Enter') {
         e.preventDefault();
         const d = pendingRef.current;
@@ -337,12 +357,7 @@ export function DatePicker({
     if (viewMonth === 12) { const y = viewYear + 1; setViewYear(y); setViewMonth(1); refreshHolidays(y); }
     else setViewMonth(m => m + 1);
   }
-  function prevYear() {
-    const y = viewYear - 1; setViewYear(y); refreshHolidays(y);
-  }
-  function nextYear() {
-    const y = viewYear + 1; setViewYear(y); refreshHolidays(y);
-  }
+
 
   // 確定
   function confirm(date: string) {
@@ -391,18 +406,18 @@ export function DatePicker({
   const popup = open ? createPortal(
     <div
       ref={popupRef}
-      className="dp-popup"
+      className={styles['dp-popup']}
       role="dialog"
       aria-label="日付を選択"
       style={popupStyle}
     >
       {/* クイックボタン */}
-      <div className="dp-quickbtns">
-        <button type="button" className="dp-quickbtn" onClick={() => handleQuick('today')}>今日</button>
-        <button type="button" className="dp-quickbtn" onClick={() => handleQuick('tomorrow')}>明日</button>
-        <button type="button" className="dp-quickbtn" onClick={() => handleQuick('weekend')}>今週末</button>
+      <div className={styles['dp-quickbtns']}>
+        <button type="button" className={styles['dp-quickbtn']} onClick={() => handleQuick('today')}>今日</button>
+        <button type="button" className={styles['dp-quickbtn']} onClick={() => handleQuick('tomorrow')}>明日</button>
+        <button type="button" className={styles['dp-quickbtn']} onClick={() => handleQuick('weekend')}>今週末</button>
         {value && (
-          <button type="button" className="dp-quickbtn dp-quickbtn--clear"
+          <button type="button" className={clsx(styles['dp-quickbtn'], styles['dp-quickbtn--clear'])}
             onClick={() => { onClear(); setOpen(false); }}>
             クリア
           </button>
@@ -410,12 +425,12 @@ export function DatePicker({
       </div>
 
       {/* 月ヘッダー */}
-      <div className="dp-header">
-        <button type="button" className="dp-nav" onClick={prevMonth} aria-label="前の月">
+      <div className={styles['dp-header']}>
+        <button type="button" className={styles['dp-nav']} onClick={prevMonth} aria-label="前の月">
           <ChevronLeftIcon size={14} aria-hidden="true" />
         </button>
-        <span className="dp-month-label">{viewYear}年 {MONTHS[viewMonth - 1]}</span>
-        <button type="button" className="dp-nav" onClick={nextMonth} aria-label="次の月">
+        <span className={styles['dp-month-label']}>{viewYear}年 {MONTHS[viewMonth - 1]}</span>
+        <button type="button" className={styles['dp-nav']} onClick={nextMonth} aria-label="次の月">
           <ChevronRightIcon size={14} aria-hidden="true" />
         </button>
       </div>
@@ -432,8 +447,8 @@ export function DatePicker({
       {/* 時刻（showTime のみ） */}
       {showTime && (
         <>
-          <div className="dp-time">
-            <span className="dp-time__label">
+          <div className={styles['dp-time']}>
+            <span className={styles['dp-time__label']}>
               <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" width="13" height="13">
                 <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />
                 <path d="M8 4.5V8l2.5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -442,7 +457,7 @@ export function DatePicker({
             </span>
             <input
               type="time"
-              className="dp-time__input"
+              className={styles['dp-time__input']}
               value={`${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`}
               onChange={(e) => {
                 const [h, m] = e.target.value.split(':').map(Number);
@@ -451,7 +466,7 @@ export function DatePicker({
               }}
             />
           </div>
-          <div className="dp-footer">
+          <div className={styles['dp-footer']}>
             <button type="button" className="btn btn--sm btn--primary"
               onClick={() => confirm(pendingDate)}>
               決定
@@ -465,8 +480,8 @@ export function DatePicker({
 
   if (disabled) {
     return (
-      <div className={`dp-wrap${className ? ` ${className}` : ''}`}>
-        <button type="button" className="dp-trigger dp-trigger--disabled" disabled>
+      <div className={clsx(styles['dp-wrap'], className)}>
+        <button type="button" className={clsx(styles['dp-trigger'], styles['dp-trigger--disabled'])} disabled>
           <CalendarIcon size={13} aria-hidden="true" />
           <span>{btnText}</span>
         </button>
@@ -475,16 +490,16 @@ export function DatePicker({
   }
 
   return (
-    <div ref={triggerRef} className={`dp-wrap${className ? ` ${className}` : ''}`}>
-      <div className="dp-trigger-wrap">
+    <div ref={triggerRef} className={clsx(styles['dp-wrap'], className)}>
+      <div className={styles['dp-trigger-wrap']}>
         <button
           type="button"
-          className={[
-            'dp-trigger',
-            status === 'overdue' ? 'dp-trigger--overdue' : '',
-            status === 'today'   ? 'dp-trigger--today'   : '',
-            open                 ? 'dp-trigger--open'    : '',
-          ].filter(Boolean).join(' ')}
+          className={clsx(
+            styles['dp-trigger'],
+            status === 'overdue' && styles['dp-trigger--overdue'],
+            status === 'today'   && styles['dp-trigger--today'],
+            open                 && styles['dp-trigger--open'],
+          )}
           onClick={() => setOpen(o => !o)}
           aria-haspopup="true"
           aria-expanded={open}
@@ -495,7 +510,7 @@ export function DatePicker({
         {value && (
           <button
             type="button"
-            className="dp-clear"
+            className={styles['dp-clear']}
             onClick={() => { onClear(); setOpen(false); }}
             aria-label="期日をクリア"
           >

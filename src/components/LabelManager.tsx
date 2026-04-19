@@ -12,7 +12,8 @@
 //     onClose={() => void}
 //   />
 
-import '../styles/components/label-manager.css';
+import clsx from 'clsx';
+import styles from '../styles/components/label-manager.module.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Toast } from './Toast';
@@ -48,21 +49,21 @@ function ColorPalette({
   onSelect: (color: string) => void;
 }) {
   return (
-    <div className="lmgr__palette">
+    <div className={styles['lmgr__palette']}>
       {PRESET_COLORS.map((color) => (
         <button
           key={color}
           type="button"
-          className={`lmgr__swatch${selected === color ? ' is-active' : ''}`}
+          className={clsx(styles['lmgr__swatch'], selected === color && styles['is-active'])}
           style={{ background: color }}
           title={color}
           onClick={() => onSelect(color)}
         />
       ))}
-      <label className="lmgr__swatch lmgr__swatch--custom" title="カスタムカラー">
+      <label className={clsx(styles['lmgr__swatch'], styles['lmgr__swatch--custom'])} title="カスタムカラー">
         <input
           type="color"
-          className="lmgr__custom-color-input"
+          className={styles['lmgr__custom-color-input']}
           value={selected}
           onChange={(e) => onSelect(e.target.value)}
         />
@@ -155,48 +156,48 @@ export function LabelManager({
   if (!open) return null;
 
   return createPortal(
-    <div id="label-manager" className="lmgr is-open" role="dialog" aria-modal="true" aria-labelledby="lmgr-title">
-      <div className="lmgr__backdrop" onClick={onClose} />
-      <div className="lmgr__dialog">
-        <div className="lmgr__header">
-          <span className="lmgr__header-icon" aria-hidden="true">
+    <div id="label-manager" className={clsx(styles['lmgr'], styles['is-open'])} role="dialog" aria-modal="true" aria-labelledby="lmgr-title">
+      <div className={styles['lmgr__backdrop']} onClick={onClose} />
+      <div className={styles['lmgr__dialog']}>
+        <div className={styles['lmgr__header']}>
+          <span className={styles['lmgr__header-icon']} aria-hidden="true">
             <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
               <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3.879a1.5 1.5 0 0 1 1.06.44l8.5 8.5a1.5 1.5 0 0 1 0 2.12l-3.878 3.879a1.5 1.5 0 0 1-2.122 0l-8.5-8.5A1.5 1.5 0 0 1 1 6.38Zm1.5 0v3.879l8.5 8.5 3.879-3.878-8.5-8.5ZM6 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
             </svg>
           </span>
-          <h2 className="lmgr__title" id="lmgr-title">{title}</h2>
-          <button className="lmgr__close" aria-label="閉じる" onClick={onClose} type="button">
+          <h2 className={styles['lmgr__title']} id="lmgr-title">{title}</h2>
+          <button className={styles['lmgr__close']} aria-label="閉じる" onClick={onClose} type="button">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
               <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
             </svg>
           </button>
         </div>
 
-        <div className="lmgr__body">
+        <div className={styles['lmgr__body']}>
           {/* 既存ラベル一覧 */}
-          <div className="lmgr__section">
-            <div className="lmgr__section-header">
-              <span className="lmgr__section-title">ラベル一覧</span>
-              <span className="lmgr__label-count">{labels.length} 件</span>
+          <div className={styles['lmgr__section']}>
+            <div className={styles['lmgr__section-header']}>
+              <span className={styles['lmgr__section-title']}>ラベル一覧</span>
+              <span className={styles['lmgr__label-count']}>{labels.length} 件</span>
             </div>
-            <ul className="lmgr__list">
+            <ul className={styles['lmgr__list']}>
               {labels.length === 0 ? (
-                <li className="lmgr__empty">
+                <li className={styles['lmgr__empty']}>
                   ラベルがありません。下のフォームから追加してください。
                 </li>
               ) : (
                 labels.map((label, i) => (
-                  <li key={label.id} className="lmgr__item">
-                    <div className="lmgr__item-move">
+                  <li key={label.id} className={styles['lmgr__item']}>
+                    <div className={styles['lmgr__item-move']}>
                       <button
-                        className="lmgr__move-btn"
+                        className={styles['lmgr__move-btn']}
                         type="button"
                         title="上へ"
                         disabled={i === 0}
                         onClick={() => handleMove(i, 'up')}
                       >▲</button>
                       <button
-                        className="lmgr__move-btn"
+                        className={styles['lmgr__move-btn']}
                         type="button"
                         title="下へ"
                         disabled={i === labels.length - 1}
@@ -207,15 +208,15 @@ export function LabelManager({
                     {/* カラー変更ボタン */}
                     <div style={{ position: 'relative' }}>
                       <button
-                        className="lmgr__item-color-btn"
+                        className={styles['lmgr__item-color-btn']}
                         type="button"
                         style={{ background: label.color }}
                         title="カラーを変更"
                         onClick={() => setColorPopoverId(colorPopoverId === label.id ? null : label.id)}
                       />
                       {colorPopoverId === label.id && (
-                        <div className="lmgr__color-popover">
-                          <div className="lmgr__color-popover-inner">
+                        <div className={styles['lmgr__color-popover']}>
+                          <div className={styles['lmgr__color-popover-inner']}>
                             <ColorPalette
                               selected={label.color}
                               onSelect={(c) => handleColorChange(label, c)}
@@ -226,7 +227,7 @@ export function LabelManager({
                     </div>
 
                     <span
-                      className="lmgr__item-chip"
+                      className={styles['lmgr__item-chip']}
                       style={{
                         background: `${label.color}33`,
                         color: label.color,
@@ -240,7 +241,7 @@ export function LabelManager({
                     {editingId === label.id ? (
                       <input
                         type="text"
-                        className="lmgr__item-name-input"
+                        className={styles['lmgr__item-name-input']}
                         value={editingName}
                         autoFocus
                         onChange={(e) => setEditingName(e.target.value)}
@@ -252,7 +253,7 @@ export function LabelManager({
                       />
                     ) : (
                       <span
-                        className="lmgr__item-name"
+                        className={styles['lmgr__item-name']}
                         role="button"
                         tabIndex={0}
                         title="クリックして名前を変更"
@@ -266,7 +267,7 @@ export function LabelManager({
                     )}
 
                     <button
-                      className="lmgr__item-del"
+                      className={styles['lmgr__item-del']}
                       type="button"
                       title="削除"
                       onClick={() => handleDelete(label)}
@@ -282,14 +283,14 @@ export function LabelManager({
           </div>
 
           {/* 新規追加フォーム */}
-          <div className="lmgr__section lmgr__add-section">
-            <div className="lmgr__section-header">
-              <span className="lmgr__section-title">新しいラベルを追加</span>
+          <div className={clsx(styles['lmgr__section'], styles['lmgr__add-section'])}>
+            <div className={styles['lmgr__section-header']}>
+              <span className={styles['lmgr__section-title']}>新しいラベルを追加</span>
             </div>
-            <div className="lmgr__add-preview-wrap">
+            <div className={styles['lmgr__add-preview-wrap']}>
               {newName.trim() && (
                 <span
-                  className="lmgr__add-preview"
+                  className={styles['lmgr__add-preview']}
                   style={{
                     background: `${newColor}33`,
                     color: newColor,
@@ -300,10 +301,10 @@ export function LabelManager({
                 </span>
               )}
             </div>
-            <div className="lmgr__add-row">
+            <div className={styles['lmgr__add-row']}>
               <input
                 ref={nameInputRef}
-                className="lmgr__add-input"
+                className={styles['lmgr__add-input']}
                 type="text"
                 placeholder="ラベル名を入力..."
                 maxLength={30}
@@ -314,7 +315,7 @@ export function LabelManager({
                   if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd();
                 }}
               />
-              <button className="lmgr__add-btn" type="button" onClick={handleAdd}>
+              <button className={styles['lmgr__add-btn']} type="button" onClick={handleAdd}>
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true">
                   <path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z" />
                 </svg>

@@ -3,7 +3,6 @@
 // ==================================================
 // Web Worker ベースのカウントダウン、プリセット CRUD、セッション履歴
 
-import '../styles/pages/timer.css';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '../components/Toast';
 import { timerDB, type TimerPreset, type TimerSession } from '../db/timer_db';

@@ -628,31 +628,31 @@
   font-size: 12px;
   gap: 5px;
 }
-.cron-builder__check .chk-box {
+.cron-builder__check :global(.chk-box) {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
 }
-.cron-builder__check .chk-box::after {
+.cron-builder__check :global(.chk-box)::after {
   left: 3px;
   top: 1px;
   width: 4px;
   height: 8px;
 }
-.cron-builder .radio-pill-group {
+.cron-builder :global(.radio-pill-group) {
   width: max-content;
   align-self: flex-start;
 }
-.cron-builder .radio-pill-group .radio-pill__inner {
+.cron-builder :global(.radio-pill-group) :global(.radio-pill__inner) {
   font-size: 12px;
   padding: 4px 10px;
   gap: 5px;
 }
-.cron-builder .radio-pill__inner .cs-wrapper {
+.cron-builder :global(.radio-pill__inner) :global(.cs-wrapper) {
   display: inline-flex;
   vertical-align: middle;
 }
-.cron-builder .radio-pill__inner .cs-wrapper .cs-trigger {
+.cron-builder :global(.radio-pill__inner) :global(.cs-wrapper) :global(.cs-trigger) {
   padding: 1px 6px;
   font-size: 12px;
   border-radius: var(--radius-sm);
@@ -1132,10 +1132,10 @@
   outline: none;
   border-color: var(--c-accent);
 }
-.ports-form .cs-wrapper {
+.ports-form :global(.cs-wrapper) {
   width: 100%;
 }
-.ports-form .cs-wrapper .cs-trigger {
+.ports-form :global(.cs-wrapper) :global(.cs-trigger) {
   width: 100%;
 }
 .ports-form__actions {

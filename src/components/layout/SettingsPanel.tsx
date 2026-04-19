@@ -2,9 +2,24 @@
 // SettingsPanel: タブ設定パネル（モーダル）
 // ==================================================
 
-import '../../styles/components/settings-panel.css';
+import clsx from 'clsx';
+import styles from '../../styles/components/settings-panel.module.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useTabStore } from '../../stores/tab_store';
 import { ICON_PALETTE, GENERIC_ICON, type TabConfig } from '../../constants/tabs';
 import { Toast } from '../Toast';
@@ -32,12 +47,12 @@ function IconPicker({
   }, [onClose]);
 
   return (
-    <div ref={ref} className="settings-icon-picker">
+    <div ref={ref} className={styles['settings-icon-picker']}>
       {ICON_PALETTE.map((icon) => (
         <button
           key={icon.id}
           type="button"
-          className={`settings-icon-swatch${currentIcon === icon.svg ? ' is-active' : ''}`}
+          className={clsx(styles['settings-icon-swatch'], currentIcon === icon.svg && styles['is-active'])}
           title={icon.label}
           dangerouslySetInnerHTML={{ __html: icon.svg }}
           onClick={() => { onSelect(icon.svg); onClose(); }}
@@ -48,22 +63,24 @@ function IconPicker({
 }
 
 // --------------------------------------------------
-// タブ一覧アイテム
+// タブ一覧アイテム（ソータブル）
 // --------------------------------------------------
-function TabSettingItem({
-  tab,
-  index,
-  total,
-}: {
-  tab: TabConfig;
-  index: number;
-  total: number;
-}) {
-  const { toggleTabVisible, moveTab, deleteTab, updateTabIcon, renameTab } = useTabStore();
+function TabSettingItem({ tab }: { tab: TabConfig }) {
+  const { toggleTabVisible, deleteTab, updateTabIcon, renameTab } = useTabStore();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [renaming, setRenaming]     = useState(false);
   const [renameVal, setRenameVal]   = useState(tab.label);
   const renameRef = useRef<HTMLInputElement>(null);
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: tab.label,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
 
   const handleRenameStart = () => {
     setRenameVal(tab.label);
@@ -85,11 +102,24 @@ function TabSettingItem({
   };
 
   return (
-    <li className="settings-item" data-label={tab.label}>
+    <li ref={setNodeRef} style={style} className={styles['settings-item']} data-label={tab.label}>
+      {/* ドラッグハンドル */}
+      <button
+        type="button"
+        className={styles['settings-item__drag-handle']}
+        aria-label="ドラッグして並び替え"
+        {...attributes}
+        {...listeners}
+      >
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+          <path d="M5.5 3a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM5.5 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM5.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM13.5 3a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM13.5 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM13.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+        </svg>
+      </button>
+
       {/* 表示/非表示トグル */}
       <button
         type="button"
-        className={`settings-item__toggle${tab.visible ? ' is-visible' : ''}`}
+        className={clsx(styles['settings-item__toggle'], tab.visible && styles['is-visible'])}
         title={tab.visible ? '非表示にする' : '表示する'}
         onClick={() => toggleTabVisible(tab.label)}
       >
@@ -103,10 +133,10 @@ function TabSettingItem({
       </button>
 
       {/* アイコン */}
-      <div className="settings-item__icon-wrap" style={{ position: 'relative' }}>
+      <div className={styles['settings-item__icon-wrap']} style={{ position: 'relative' }}>
         <button
           type="button"
-          className="settings-item__icon"
+          className={styles['settings-item__icon']}
           title="アイコンを変更"
           dangerouslySetInnerHTML={{ __html: tab.icon || GENERIC_ICON }}
           onClick={() => setPickerOpen((v) => !v)}
@@ -124,7 +154,7 @@ function TabSettingItem({
       {renaming ? (
         <input
           ref={renameRef}
-          className="settings-item__rename-input"
+          className={styles['settings-item__rename-input']}
           type="text"
           value={renameVal}
           onChange={(e) => setRenameVal(e.target.value)}
@@ -136,45 +166,29 @@ function TabSettingItem({
         />
       ) : (
         <span
-          className="settings-item__label"
+          className={styles['settings-item__label']}
           title="クリックしてリネーム"
           onClick={tab.isBuiltIn ? undefined : handleRenameStart}
           style={{ cursor: tab.isBuiltIn ? 'default' : 'pointer' }}
         >
           {tab.label}
-          {tab.isBuiltIn && <span className="settings-item__builtin">組み込み</span>}
+          {tab.isBuiltIn && <span className={styles['settings-item__builtin']}>組み込み</span>}
         </span>
       )}
 
-      {/* 並び替え・削除 */}
-      <div className="settings-item__actions">
+      {/* 削除 */}
+      {!tab.isBuiltIn && (
         <button
           type="button"
-          className="settings-item__move"
-          title="上へ"
-          disabled={index === 0}
-          onClick={() => moveTab(tab.label, 'up')}
-        >▲</button>
-        <button
-          type="button"
-          className="settings-item__move"
-          title="下へ"
-          disabled={index === total - 1}
-          onClick={() => moveTab(tab.label, 'down')}
-        >▼</button>
-        {!tab.isBuiltIn && (
-          <button
-            type="button"
-            className="settings-item__delete"
-            title="削除"
-            onClick={handleDelete}
-          >
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
-              <path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z" />
-            </svg>
-          </button>
-        )}
-      </div>
+          className={styles['settings-item__delete']}
+          title="削除"
+          onClick={handleDelete}
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
+            <path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z" />
+          </svg>
+        </button>
+      )}
     </li>
   );
 }
@@ -183,7 +197,6 @@ function TabSettingItem({
 // バックアップ機能
 // --------------------------------------------------
 async function backupAllData() {
-  // Phase 4 で各 DB を import して実装
   Toast.info('バックアップ機能は Phase 4 で実装予定です');
 }
 
@@ -195,18 +208,27 @@ async function restoreAllData() {
 // SettingsPanel 本体
 // --------------------------------------------------
 export function SettingsPanel() {
-  const { config, settingsOpen, closeSettings, addTab } = useTabStore();
+  const { config, settingsOpen, closeSettings, addTab, reorderTabs } = useTabStore();
   const [newLabel, setNewLabel] = useState('');
   const [newType, setNewType]   = useState<'url' | 'dashboard'>('url');
   const [newUrl, setNewUrl]     = useState('');
 
-  // ESC で閉じる
+  const sensors = useSensors(useSensor(PointerSensor, {
+    activationConstraint: { distance: 5 },
+  }));
+
   useEffect(() => {
     if (!settingsOpen) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeSettings(); };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [settingsOpen, closeSettings]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    reorderTabs(String(active.id), String(over.id));
+  }, [reorderTabs]);
 
   const handleAddTab = useCallback(async () => {
     const label = newLabel.trim();
@@ -235,34 +257,38 @@ export function SettingsPanel() {
   const sorted = [...config].sort((a, b) => a.position - b.position);
 
   return createPortal(
-    <div id="settings-overlay" className="settings-overlay" role="dialog" aria-modal="true" aria-label="タブ設定">
-      <div className="settings-backdrop" onClick={closeSettings} />
-      <div className="settings-dialog">
-        <div className="settings-header">
+    <div id="settings-overlay" className={styles['settings-overlay']} role="dialog" aria-modal="true" aria-label="タブ設定">
+      <div className={styles['settings-backdrop']} onClick={closeSettings} />
+      <div className={styles['settings-dialog']}>
+        <div className={styles['settings-header']}>
           <h2>タブ設定</h2>
-          <button type="button" className="settings-close-btn" aria-label="閉じる" onClick={closeSettings}>×</button>
+          <button type="button" className={styles['settings-close-btn']} aria-label="閉じる" onClick={closeSettings}>×</button>
         </div>
-        <div className="settings-body">
-          {/* タブ一覧 */}
-          <ul className="settings-list">
-            {sorted.map((tab, i) => (
-              <TabSettingItem key={tab.label} tab={tab} index={i} total={sorted.length} />
-            ))}
-          </ul>
+        <div className={styles['settings-body']}>
+          {/* タブ一覧（DnD） */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sorted.map((t) => t.label)} strategy={verticalListSortingStrategy}>
+              <ul className={styles['settings-list']}>
+                {sorted.map((tab) => (
+                  <TabSettingItem key={tab.label} tab={tab} />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
 
           {/* タブ追加フォーム */}
-          <div className="settings-add-form">
+          <div className={styles['settings-add-form']}>
             <h3>タブを追加</h3>
             <input
               type="text"
-              className="settings-input"
+              className={styles['settings-input']}
               placeholder="ラベル名"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAddTab(); }}
             />
             <select
-              className="settings-select"
+              className={styles['settings-select']}
               value={newType}
               onChange={(e) => setNewType(e.target.value as 'url' | 'dashboard')}
             >
@@ -272,7 +298,7 @@ export function SettingsPanel() {
             {newType === 'url' && (
               <input
                 type="text"
-                className="settings-input"
+                className={styles['settings-input']}
                 placeholder="URL（例: mypage.html）"
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
@@ -284,9 +310,9 @@ export function SettingsPanel() {
           </div>
 
           {/* 全データバックアップ */}
-          <div className="settings-io-form">
+          <div className={styles['settings-io-form']}>
             <h3>全データ一括バックアップ</h3>
-            <div className="settings-backup-btns">
+            <div className={styles['settings-backup-btns']}>
               <button type="button" className="btn btn--sm" onClick={backupAllData}>
                 <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true">
                   <path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14ZM7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.97a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215Z" />

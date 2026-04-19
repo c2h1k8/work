@@ -85,7 +85,7 @@
   background: var(--c-accent-light);
   color: var(--c-accent);
 }
-.note-title-lines-btn.is-active {
+.note-title-lines-btn:global(.is-active) {
   background: var(--c-accent);
   color: #fff;
 }
@@ -114,7 +114,7 @@
   flex-shrink: 0;
 }
 .note-filter-btn:hover,
-.note-filter-btn.is-open {
+.note-filter-btn:global(.is-open) {
   border-color: var(--c-accent);
   color: var(--c-accent);
   background: var(--c-accent-light);
@@ -222,7 +222,7 @@
   border-color: var(--c-accent);
   color: var(--c-accent);
 }
-.note-filter-chip.is-active {
+.note-filter-chip:global(.is-active) {
   background: var(--c-accent);
   border-color: var(--c-accent);
   color: #fff;
@@ -264,7 +264,7 @@
   box-shadow: var(--shadow-sm);
   transform: translateY(-1px);
 }
-.note-task-item.is-selected {
+.note-task-item:global(.is-selected) {
   background: var(--c-accent-light);
   border-color: var(--c-accent);
   border-left-color: var(--c-accent);
@@ -760,7 +760,7 @@
 .note-label-tag:hover {
   filter: brightness(0.92);
 }
-.note-label-tag.is-active {
+.note-label-tag:global(.is-active) {
   color: #fff;
 }
 .note-select-form {
@@ -790,12 +790,12 @@
   border-color: var(--c-accent);
   color: var(--c-accent);
 }
-.note-select-tag.is-active {
+.note-select-tag:global(.is-active) {
   background: var(--c-accent);
   border-color: var(--c-accent);
   color: #fff;
 }
-.note-select-tag.is-active:hover {
+.note-select-tag:global(.is-active):hover {
   filter: brightness(0.92);
 }
 .note-note-links-section .note-field-label {

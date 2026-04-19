@@ -3,7 +3,6 @@
 // ==================================================
 // タブ: 接続環境 | バインド変数 | チューニングガイド | テーブル定義メモ
 
-import '../styles/pages/sql.css';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useToast } from '../components/Toast';
 import { sqlDB, type SqlEnv, type TableMemo, type TableColumn, type TableIndex } from '../db/sql_db';

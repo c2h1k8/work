@@ -2,7 +2,8 @@
 // DiffToolPage: 差分比較ツール
 // ==================================================
 
-import '../styles/pages/diff_tool.css';
+import styles from '../styles/pages/diff_tool.module.css';
+import clsx from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Clipboard } from '../core/clipboard';
 import { Toast } from '../components/Toast';
@@ -182,41 +183,41 @@ function DiffResult({
 
   return (
     <div>
-      <div className="diff-summary">
-        <span className="diff-summary__label">差分結果</span>
-        <span className="diff-summary__add">+{addCount} 行追加</span>
-        <span className="diff-summary__remove">−{removeCount} 行削除</span>
-        <span className="diff-summary__equal">{equalCount} 行一致</span>
-        <button type="button" className="btn btn--ghost btn--sm diff-copy-btn" onClick={onCopy}>
+      <div className={styles['diff-summary']}>
+        <span className={styles['diff-summary__label']}>差分結果</span>
+        <span className={styles['diff-summary__add']}>+{addCount} 行追加</span>
+        <span className={styles['diff-summary__remove']}>−{removeCount} 行削除</span>
+        <span className={styles['diff-summary__equal']}>{equalCount} 行一致</span>
+        <button type="button" className={clsx('btn btn--ghost btn--sm', styles['diff-copy-btn'])} onClick={onCopy}>
           テキストコピー
         </button>
       </div>
-      <div className="diff-lines">
+      <div className={styles['diff-lines']}>
         {lines.map((line, i) => {
           if (line.kind === 'equal') {
             return (
-              <div key={i} className="diff-line diff-line--equal">
-                <span className="diff-line__nums">{line.ln}<span className="diff-line__num-sep">|</span>{line.rn}</span>
-                <span className="diff-line__sign" />
-                <span className="diff-line__content">{escapeHtml(line.left)}</span>
+              <div key={i} className={clsx(styles['diff-line'], styles['diff-line--equal'])}>
+                <span className={styles['diff-line__nums']}>{line.ln}<span className={styles['diff-line__num-sep']}>|</span>{line.rn}</span>
+                <span className={styles['diff-line__sign']} />
+                <span className={styles['diff-line__content']}>{escapeHtml(line.left)}</span>
               </div>
             );
           }
           if (line.kind === 'remove') {
             return (
-              <div key={i} className="diff-line diff-line--remove">
-                <span className="diff-line__nums">{line.ln}<span className="diff-line__num-sep" /></span>
-                <span className="diff-line__sign diff-line__sign--remove">−</span>
-                <span className="diff-line__content" dangerouslySetInnerHTML={{ __html: escapeHtml(line.left) }} />
+              <div key={i} className={clsx(styles['diff-line'], styles['diff-line--remove'])}>
+                <span className={styles['diff-line__nums']}>{line.ln}<span className={styles['diff-line__num-sep']} /></span>
+                <span className={clsx(styles['diff-line__sign'], styles['diff-line__sign--remove'])}>−</span>
+                <span className={styles['diff-line__content']} dangerouslySetInnerHTML={{ __html: escapeHtml(line.left) }} />
               </div>
             );
           }
           if (line.kind === 'add') {
             return (
-              <div key={i} className="diff-line diff-line--add">
-                <span className="diff-line__nums"><span className="diff-line__num-sep" />{line.rn}</span>
-                <span className="diff-line__sign diff-line__sign--add">+</span>
-                <span className="diff-line__content" dangerouslySetInnerHTML={{ __html: escapeHtml(line.right) }} />
+              <div key={i} className={clsx(styles['diff-line'], styles['diff-line--add'])}>
+                <span className={styles['diff-line__nums']}><span className={styles['diff-line__num-sep']} />{line.rn}</span>
+                <span className={clsx(styles['diff-line__sign'], styles['diff-line__sign--add'])}>+</span>
+                <span className={styles['diff-line__content']} dangerouslySetInnerHTML={{ __html: escapeHtml(line.right) }} />
               </div>
             );
           }
@@ -224,15 +225,15 @@ function DiffResult({
           const expanded = expandedIdx.has(i);
           if (expanded) {
             return line.items.map((it, j) => (
-              <div key={`${i}-${j}`} className="diff-line diff-line--equal">
-                <span className="diff-line__nums">{it.ln}<span className="diff-line__num-sep">|</span>{it.rn}</span>
-                <span className="diff-line__sign" />
-                <span className="diff-line__content">{escapeHtml(it.left)}</span>
+              <div key={`${i}-${j}`} className={clsx(styles['diff-line'], styles['diff-line--equal'])}>
+                <span className={styles['diff-line__nums']}>{it.ln}<span className={styles['diff-line__num-sep']}>|</span>{it.rn}</span>
+                <span className={styles['diff-line__sign']} />
+                <span className={styles['diff-line__content']}>{escapeHtml(it.left)}</span>
               </div>
             ));
           }
           return (
-            <div key={i} className="diff-line diff-line--collapsed" onClick={() => toggleExpand(i)}>
+            <div key={i} className={clsx(styles['diff-line'], styles['diff-line--collapsed'])} onClick={() => toggleExpand(i)}>
               … {line.items.length} 行省略（クリックして展開）…
             </div>
           );
@@ -318,40 +319,40 @@ export function DiffToolPage() {
     };
 
   return (
-    <div className="diff-page">
+    <div className={styles['diff-page']}>
       <ShortcutHelp categories={SHORTCUTS} />
 
       {/* オプションバー */}
-      <div className="diff-toolbar">
-        <div className="diff-mode-toggle" id="mode-toggle">
+      <div className={styles['diff-toolbar']}>
+        <div className={styles['diff-mode-toggle']} id="mode-toggle">
           {(['line', 'char'] as const).map((m) => (
             <button
               key={m}
               type="button"
-              className={`diff-mode-btn${mode === m ? ' diff-mode-btn--active' : ''}`}
+              className={clsx(styles['diff-mode-btn'], mode === m && styles['diff-mode-btn--active'])}
               onClick={() => { setMode(m); localStorage.setItem('diff_mode', m); }}
             >
               {m === 'line' ? '行単位' : '文字単位'}
             </button>
           ))}
         </div>
-        <label className="diff-check">
+        <label className={styles['diff-check']}>
           <input type="checkbox" checked={ignoreWs}    onChange={handleToggle('ignoreWs',    setIgnoreWs,    'diff_ignore_whitespace')} />
           空白を無視
         </label>
-        <label className="diff-check">
+        <label className={styles['diff-check']}>
           <input type="checkbox" checked={ignoreBlank} onChange={handleToggle('ignoreBlank', setIgnoreBlank, 'diff_ignore_blank_lines')} />
           空行を無視
         </label>
-        <label className="diff-check">
+        <label className={styles['diff-check']}>
           <input type="checkbox" checked={ignoreTabs}  onChange={handleToggle('ignoreTabs',  setIgnoreTabs,  'diff_ignore_tabs')} />
           タブを無視
         </label>
-        <label className="diff-check diff-check--realtime">
+        <label className={clsx(styles['diff-check'], styles['diff-check--realtime'])}>
           <input type="checkbox" checked={realtime}    onChange={(e) => { setRealtime(e.target.checked); localStorage.setItem('diff_realtime', String(e.target.checked)); }} />
           リアルタイム
         </label>
-        <div className="diff-toolbar__actions">
+        <div className={styles['diff-toolbar__actions']}>
           <button
             type="button"
             className="btn btn--primary btn--sm"
@@ -372,23 +373,23 @@ export function DiffToolPage() {
       </div>
 
       {/* 入力エリア */}
-      <div className="diff-inputs">
-        <div className="diff-input-wrap">
-          <label className="diff-input-label">変更前</label>
+      <div className={styles['diff-inputs']}>
+        <div className={styles['diff-input-wrap']}>
+          <label className={styles['diff-input-label']}>変更前</label>
           <textarea
             id="input-left"
-            className="diff-textarea"
+            className={styles['diff-textarea']}
             placeholder="変更前のテキストを貼り付け..."
             value={left}
             onChange={(e) => setLeft(e.target.value)}
             spellCheck={false}
           />
         </div>
-        <div className="diff-input-wrap">
-          <label className="diff-input-label">変更後</label>
+        <div className={styles['diff-input-wrap']}>
+          <label className={styles['diff-input-label']}>変更後</label>
           <textarea
             id="input-right"
-            className="diff-textarea"
+            className={styles['diff-textarea']}
             placeholder="変更後のテキストを貼り付け..."
             value={right}
             onChange={(e) => setRight(e.target.value)}
@@ -398,13 +399,13 @@ export function DiffToolPage() {
       </div>
 
       {/* 結果 */}
-      <div className="diff-result-area">
+      <div className={styles['diff-result-area']}>
         {diff === null ? (
-          <div id="diff-empty" className="diff-empty">
+          <div id="diff-empty" className={styles['diff-empty']}>
             テキストを入力して「差分を比較」ボタンを押すか、リアルタイムモードを有効にしてください。
           </div>
         ) : diff.length === 0 ? (
-          <div className="diff-empty diff-empty--equal">差分がありません（完全に一致）</div>
+          <div className={clsx(styles['diff-empty'], styles['diff-empty--equal'])}>差分がありません（完全に一致）</div>
         ) : (
           <div id="diff-content">
             <DiffResult diff={diff} mode={mode} onCopy={handleCopy} />

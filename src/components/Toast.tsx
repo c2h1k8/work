@@ -5,7 +5,8 @@
 //   <ToastContainer /> をルートに配置
 //   useToast().success('メッセージ') で表示
 
-import '../styles/components/toast.css';
+import clsx from 'clsx';
+import styles from '../styles/components/toast.module.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -73,12 +74,9 @@ export function ToastContainer() {
 
   if (!state.visible) return null;
 
-  const typeClass = state.type ? ` toast--${state.type}` : '';
-  const hidingClass = state.hiding ? ' toast--hiding' : '';
-
   return createPortal(
     <div
-      className={`toast${typeClass}${hidingClass}`}
+      className={clsx(styles['toast'], state.type && styles[`toast--${state.type}`], state.hiding && styles['toast--hiding'])}
       role="status"
       aria-live="polite"
     >

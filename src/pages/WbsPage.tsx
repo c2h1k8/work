@@ -2,7 +2,6 @@
 // WbsPage — WBS ガントチャート（React 移行版）
 // ==================================================
 
-import '../styles/pages/wbs.css';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   DndContext,

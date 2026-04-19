@@ -95,13 +95,13 @@
   text-overflow: ellipsis;
 }
 
-/* ツールバー用コンパクト */
-.toolbar-select { width: 120px; flex-shrink: 0; }
-.toolbar-select .cs-trigger { padding: 3px 8px; font-size: 12px; gap: 5px; }
-.toolbar-select .cs-option  { font-size: 12px; padding: 5px 10px; }
-.toolbar-select .cs-dropdown { width: 100%; min-width: 100%; max-width: 100%; white-space: normal; }
-.toolbar-select--wide   { width: 150px; }
-.toolbar-select--label  { width: 160px; }
+/* ツールバー用コンパクト（外部から className prop で渡すためグローバル） */
+:global(.toolbar-select) { width: 120px; flex-shrink: 0; }
+:global(.toolbar-select) .cs-trigger { padding: 3px 8px; font-size: 12px; gap: 5px; }
+:global(.toolbar-select) .cs-option  { font-size: 12px; padding: 5px 10px; }
+:global(.toolbar-select) .cs-dropdown { width: 100%; min-width: 100%; max-width: 100%; white-space: normal; }
+:global(.toolbar-select--wide)  { width: 150px; }
+:global(.toolbar-select--label) { width: 160px; }
 
 /* トリガー先頭アイコン */
 .cs-trigger__icon-lead {

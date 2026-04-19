@@ -78,6 +78,7 @@ interface TabStore {
   // タブ操作（設定パネルから）
   toggleTabVisible: (label: string) => Promise<void>;
   moveTab: (label: string, dir: 'up' | 'down') => Promise<void>;
+  reorderTabs: (fromLabel: string, toLabel: string) => Promise<void>;
   deleteTab: (label: string) => Promise<void>;
   addTab: (tab: Omit<TabConfig, 'position'>) => Promise<void>;
   updateTabIcon: (label: string, icon: string) => Promise<void>;
@@ -151,6 +152,19 @@ export const useTabStore = create<TabStore>((set, get) => ({
     if (swapIdx < 0 || swapIdx >= sorted.length) return;
     [sorted[idx].position, sorted[swapIdx].position] = [sorted[swapIdx].position, sorted[idx].position];
     const newConfig = sortByPosition(sorted);
+    await appDB.set('tab_config', newConfig);
+    set({ config: newConfig });
+  },
+
+  reorderTabs: async (fromLabel, toLabel) => {
+    const sorted = sortByPosition(get().config);
+    const fromIdx = sorted.findIndex((t) => t.label === fromLabel);
+    const toIdx   = sorted.findIndex((t) => t.label === toLabel);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+    const reordered = [...sorted];
+    const [item] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, item);
+    const newConfig = reordered.map((t, i) => ({ ...t, position: i }));
     await appDB.set('tab_config', newConfig);
     set({ config: newConfig });
   },

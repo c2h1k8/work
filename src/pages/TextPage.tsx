@@ -3,7 +3,8 @@
 // ==================================================
 // セクション: regex / encode / case / count / format / timestamp / tsv
 
-import '../styles/pages/text.css';
+import styles from '../styles/pages/text.module.css';
+import clsx from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 import { Clipboard } from '../core/clipboard';
 import { Toast } from '../components/Toast';
@@ -70,13 +71,13 @@ function EncodeSection() {
   });
 
   return (
-    <div className="encode-section">
-      <div className="encode-dir-bar" id="encode-dir-toggle">
+    <div className={styles['encode-section']}>
+      <div className={styles['encode-dir-bar']} id="encode-dir-toggle">
         {(['encode', 'decode'] as EncodeDir[]).map((d) => (
           <button
             key={d}
             type="button"
-            className={`encode-dir-btn${dir === d ? ' encode-dir-btn--active' : ''}`}
+            className={clsx(styles['encode-dir-btn'], dir === d && styles['encode-dir-btn--active'])}
             data-dir={d}
             onClick={() => { setDir(d); localStorage.setItem('text_encode_dir', d); }}
           >
@@ -84,10 +85,10 @@ function EncodeSection() {
           </button>
         ))}
       </div>
-      <div className="encode-input-wrap">
+      <div className={styles['encode-input-wrap']}>
         <textarea
           id="encode-input"
-          className="txt-textarea"
+          className={styles['txt-textarea']}
           placeholder="テキストを入力..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -95,17 +96,17 @@ function EncodeSection() {
         />
         <button type="button" className="btn btn--ghost btn--sm" id="btn-encode-clear" onClick={() => setInput('')}>クリア</button>
       </div>
-      <div className="encode-result-list" id="encode-result-list">
+      <div className={styles['encode-result-list']} id="encode-result-list">
         {results.map(({ type, label, desc, value, error }) => (
-          <div key={type} className="encode-result-item">
-            <span className="encode-result-item__label" title={desc}>{label}</span>
+          <div key={type} className={styles['encode-result-item']}>
+            <span className={styles['encode-result-item__label']} title={desc}>{label}</span>
             {error
-              ? <span className="encode-result-item__error">{error}</span>
-              : <span className="encode-result-item__value">{value || <span className="encode-result-item__empty">—</span>}</span>
+              ? <span className={styles['encode-result-item__error']}>{error}</span>
+              : <span className={styles['encode-result-item__value']}>{value || <span className={styles['encode-result-item__empty']}>—</span>}</span>
             }
             <button
               type="button"
-              className="btn btn--ghost btn--sm encode-result-item__copy"
+              className={clsx('btn btn--ghost btn--sm', styles['encode-result-item__copy'])}
               disabled={!value}
               onClick={() => Clipboard.copy(value).then(() => Toast.success('コピーしました'))}
             >
@@ -149,26 +150,26 @@ function CaseSection() {
   const lines = input.split('\n');
 
   return (
-    <div className="case-section">
+    <div className={styles['case-section']}>
       <textarea
         id="case-input"
-        className="txt-textarea"
+        className={styles['txt-textarea']}
         placeholder="変換するテキストを入力..."
         value={input}
         onChange={(e) => setInput(e.target.value)}
         rows={4}
       />
-      <div className="case-result-list" id="case-result-list">
+      <div className={styles['case-result-list']} id="case-result-list">
         {CASE_FORMATS.map(({ label, fn }) => {
           let result = '';
           try { if (input) result = lines.map((l) => l ? fn(l) : '').join('\n'); } catch { result = ''; }
           return (
-            <div key={label} className="case-item">
-              <span className="case-item__label">{label}</span>
-              <span className="case-item__value">{result || <span className="case-item__empty">—</span>}</span>
+            <div key={label} className={styles['case-item']}>
+              <span className={styles['case-item__label']}>{label}</span>
+              <span className={styles['case-item__value']}>{result || <span className={styles['case-item__empty']}>—</span>}</span>
               <button
                 type="button"
-                className="case-item__copy btn btn--ghost btn--sm"
+                className={clsx(styles['case-item__copy'], 'btn btn--ghost btn--sm')}
                 disabled={!result}
                 onClick={() => Clipboard.copy(result).then(() => Toast.success('コピーしました'))}
               >
@@ -223,20 +224,20 @@ function CountSection() {
   const stats = countStats(input);
 
   return (
-    <div className="count-section">
+    <div className={styles['count-section']}>
       <textarea
         id="count-input"
-        className="txt-textarea"
+        className={styles['txt-textarea']}
         placeholder="文字数をカウントするテキストを入力..."
         value={input}
         onChange={(e) => setInput(e.target.value)}
         rows={6}
       />
-      <div className="count-stats" id="count-stats">
+      <div className={styles['count-stats']} id="count-stats">
         {COUNT_STATS_DEF.map(({ key, label }) => (
-          <div key={key} className="count-stat">
-            <div className="count-stat__value">{(stats as any)[key].toLocaleString()}</div>
-            <div className="count-stat__label">{label}</div>
+          <div key={key} className={styles['count-stat']}>
+            <div className={styles['count-stat__value']}>{(stats as any)[key].toLocaleString()}</div>
+            <div className={styles['count-stat__label']}>{label}</div>
           </div>
         ))}
       </div>
@@ -288,22 +289,22 @@ function FormatSection() {
   }, [input, fmtType]);
 
   return (
-    <div className="format-section">
-      <div className="fmt-type-row">
+    <div className={styles['format-section']}>
+      <div className={styles['fmt-type-row']}>
         {(['json', 'xml'] as const).map((t) => (
-          <label key={t} className="fmt-type-label">
+          <label key={t} className={styles['fmt-type-label']}>
             <input type="radio" name="fmt-type" value={t} checked={fmtType === t} onChange={() => setFmtType(t)} />
             {t.toUpperCase()}
           </label>
         ))}
         <button type="button" className="btn btn--primary btn--sm" onClick={format}>整形</button>
       </div>
-      <div className="fmt-panes">
-        <div className="fmt-pane">
-          <label className="fmt-pane-label">入力</label>
+      <div className={styles['fmt-panes']}>
+        <div className={styles['fmt-pane']}>
+          <label className={styles['fmt-pane-label']}>入力</label>
           <textarea
             id="fmt-input"
-            className="txt-textarea"
+            className={styles['txt-textarea']}
             placeholder={`${fmtType.toUpperCase()} を貼り付け...`}
             value={input}
             onChange={(e) => { setInput(e.target.value); setError(''); setOutput(''); }}
@@ -311,21 +312,21 @@ function FormatSection() {
             spellCheck={false}
           />
         </div>
-        <div className="fmt-pane">
-          <label className="fmt-pane-label">
+        <div className={styles['fmt-pane']}>
+          <label className={styles['fmt-pane-label']}>
             結果
             {output && (
-              <button type="button" className="btn btn--ghost btn--sm fmt-copy-btn"
+              <button type="button" className={clsx('btn btn--ghost btn--sm', styles['fmt-copy-btn'])}
                 onClick={() => Clipboard.copy(output).then(() => Toast.success('コピーしました'))}>
                 コピー
               </button>
             )}
           </label>
           {error ? (
-            <div className="fmt-error">{error}</div>
+            <div className={styles['fmt-error']}>{error}</div>
           ) : (
-            <div id="fmt-output-card" className="fmt-output-card">
-              <pre id="fmt-code" className="fmt-code">{output}</pre>
+            <div id="fmt-output-card" className={styles['fmt-output-card']}>
+              <pre id="fmt-code" className={styles['fmt-code']}>{output}</pre>
             </div>
           )}
         </div>
@@ -390,52 +391,52 @@ function TimestampSection({ active }: { active: boolean }) {
   }, [dtIn]);
 
   return (
-    <div className="timestamp-section">
-      <div className="ts-now-card">
-        <div className="ts-now-title">現在時刻</div>
-        <div className="ts-now-grid" id="ts-now-grid">
+    <div className={styles['timestamp-section']}>
+      <div className={styles['ts-now-card']}>
+        <div className={styles['ts-now-title']}>現在時刻</div>
+        <div className={styles['ts-now-grid']} id="ts-now-grid">
           {rows.map(({ label, value }) => (
-            <div key={label} className="ts-now-row">
-              <span className="ts-now-row__label">{label}</span>
-              <span className="ts-now-row__value">{value}</span>
-              <button type="button" className="btn btn--ghost btn--sm ts-copy-btn"
+            <div key={label} className={styles['ts-now-row']}>
+              <span className={styles['ts-now-row__label']}>{label}</span>
+              <span className={styles['ts-now-row__value']}>{value}</span>
+              <button type="button" className={clsx('btn btn--ghost btn--sm', styles['ts-copy-btn'])}
                 onClick={() => Clipboard.copy(value).then(() => Toast.success('コピーしました'))}>コピー</button>
             </div>
           ))}
         </div>
       </div>
-      <div className="ts-convert-cards">
-        <div className="ts-convert-card">
-          <div className="ts-convert-title">エポック → 日時</div>
-          <div className="ts-convert-row">
-            <input id="ts-from-epoch" className="txt-input" type="text" placeholder="例: 1700000000" value={epochIn} onChange={(e) => setEpochIn(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') convertEpoch(); }} />
+      <div className={styles['ts-convert-cards']}>
+        <div className={styles['ts-convert-card']}>
+          <div className={styles['ts-convert-title']}>エポック → 日時</div>
+          <div className={styles['ts-convert-row']}>
+            <input id="ts-from-epoch" className={styles['txt-input']} type="text" placeholder="例: 1700000000" value={epochIn} onChange={(e) => setEpochIn(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') convertEpoch(); }} />
             <button type="button" className="btn btn--primary btn--sm" onClick={convertEpoch}>変換</button>
           </div>
-          {epochErr && <div className="ts-error" id="ts-from-epoch-error">{epochErr}</div>}
+          {epochErr && <div className={styles['ts-error']} id="ts-from-epoch-error">{epochErr}</div>}
           {epochResult && (
-            <div id="ts-from-epoch-result" className="ts-result-list">
+            <div id="ts-from-epoch-result" className={styles['ts-result-list']}>
               {epochResult.map(({ label, value }) => (
-                <div key={label} className="ts-result-row">
-                  <span className="ts-result-label">{label}</span>
-                  <span className="ts-result-value">{value}</span>
+                <div key={label} className={styles['ts-result-row']}>
+                  <span className={styles['ts-result-label']}>{label}</span>
+                  <span className={styles['ts-result-value']}>{value}</span>
                   <button type="button" className="btn btn--ghost btn--sm" onClick={() => Clipboard.copy(value).then(() => Toast.success('コピーしました'))}>コピー</button>
                 </div>
               ))}
             </div>
           )}
         </div>
-        <div className="ts-convert-card">
-          <div className="ts-convert-title">日時 → エポック秒</div>
-          <div className="ts-convert-row">
-            <input id="ts-to-epoch" className="txt-input" type="datetime-local" value={dtIn} onChange={(e) => setDtIn(e.target.value)} />
+        <div className={styles['ts-convert-card']}>
+          <div className={styles['ts-convert-title']}>日時 → エポック秒</div>
+          <div className={styles['ts-convert-row']}>
+            <input id="ts-to-epoch" className={styles['txt-input']} type="datetime-local" value={dtIn} onChange={(e) => setDtIn(e.target.value)} />
             <button type="button" className="btn btn--primary btn--sm" onClick={convertDatetime}>変換</button>
           </div>
-          {dtErr && <div className="ts-error">{dtErr}</div>}
+          {dtErr && <div className={styles['ts-error']}>{dtErr}</div>}
           {dtResult && (
-            <div id="ts-to-epoch-result" className="ts-result-list">
-              <div className="ts-result-row">
-                <span className="ts-result-label">エポック秒</span>
-                <span className="ts-result-value">{dtResult}</span>
+            <div id="ts-to-epoch-result" className={styles['ts-result-list']}>
+              <div className={styles['ts-result-row']}>
+                <span className={styles['ts-result-label']}>エポック秒</span>
+                <span className={styles['ts-result-value']}>{dtResult}</span>
                 <button type="button" className="btn btn--ghost btn--sm" onClick={() => Clipboard.copy(dtResult).then(() => Toast.success('コピーしました'))}>コピー</button>
               </div>
             </div>
@@ -492,58 +493,58 @@ function RegexSection() {
   }
 
   return (
-    <div className="regex-section">
-      <div className="regex-top">
-        <div className="regex-pattern-row">
-          <span className="regex-delimiter">/</span>
+    <div className={styles['regex-section']}>
+      <div className={styles['regex-top']}>
+        <div className={styles['regex-pattern-row']}>
+          <span className={styles['regex-delimiter']}>/</span>
           <input
             id="regex-pattern"
-            className="txt-input regex-pattern-input"
+            className={clsx(styles['txt-input'], styles['regex-pattern-input'])}
             type="text"
             placeholder="正規表現パターン"
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
             spellCheck={false}
           />
-          <span className="regex-delimiter">/</span>
-          <div className="regex-flags">
+          <span className={styles['regex-delimiter']}>/</span>
+          <div className={styles['regex-flags']}>
             {(['g', 'i', 'm', 's'] as (keyof RegexFlags)[]).map((f) => (
-              <label key={f} className={`regex-flag${flags[f] ? ' regex-flag--active' : ''}`}>
+              <label key={f} className={clsx(styles['regex-flag'], flags[f] && styles['regex-flag--active'])}>
                 <input type="checkbox" checked={flags[f]} onChange={(e) => setFlags((prev) => ({ ...prev, [f]: e.target.checked }))} />
                 {f}
               </label>
             ))}
           </div>
         </div>
-        {rxError && <div className="regex-error" id="regex-error">{rxError}</div>}
+        {rxError && <div className={styles['regex-error']} id="regex-error">{rxError}</div>}
         <button
           id="regex-help-toggle"
           type="button"
-          className={`regex-help-toggle${helpOpen ? ' regex-help-toggle--open' : ''}`}
+          className={clsx(styles['regex-help-toggle'], helpOpen && styles['regex-help-toggle--open'])}
           aria-expanded={helpOpen}
           onClick={() => setHelpOpen((v) => !v)}
         >
           チートシート
         </button>
       </div>
-      <div className="regex-test-area">
-        <label className="regex-label">テスト文字列</label>
+      <div className={styles['regex-test-area']}>
+        <label className={styles['regex-label']}>テスト文字列</label>
         {!rxError && testStr && displayHtml ? (
           <div
             id="regex-display-wrap"
-            className="regex-display-wrap"
+            className={styles['regex-display-wrap']}
           >
             <pre
               id="regex-display"
-              className="regex-display"
+              className={styles['regex-display']}
               dangerouslySetInnerHTML={{ __html: displayHtml }}
             />
-            {matchCount > 0 && <span id="regex-match-count" className="regex-match-count">{matchCount} 件マッチ</span>}
+            {matchCount > 0 && <span id="regex-match-count" className={styles['regex-match-count']}>{matchCount} 件マッチ</span>}
           </div>
         ) : null}
         <textarea
           id="regex-test"
-          className="txt-textarea"
+          className={styles['txt-textarea']}
           placeholder="テスト文字列を入力..."
           value={testStr}
           onChange={(e) => setTestStr(e.target.value)}
@@ -551,19 +552,19 @@ function RegexSection() {
           spellCheck={false}
         />
       </div>
-      <div className="regex-replace-area">
-        <label className="regex-label">置換文字列 <span className="regex-label-hint">($1, $2 で参照)</span></label>
+      <div className={styles['regex-replace-area']}>
+        <label className={styles['regex-label']}>置換文字列 <span className={styles['regex-label-hint']}>($1, $2 で参照)</span></label>
         <input
           id="regex-replace"
-          className="txt-input"
+          className={styles['txt-input']}
           type="text"
           placeholder="置換後のテキスト（空欄で削除）"
           value={replaceStr}
           onChange={(e) => setReplace(e.target.value)}
         />
         {replaceResult && (
-          <div id="regex-replace-result-wrap" className="regex-replace-result-wrap">
-            <pre id="regex-replace-result" className="regex-replace-result">{replaceResult}</pre>
+          <div id="regex-replace-result-wrap" className={styles['regex-replace-result-wrap']}>
+            <pre id="regex-replace-result" className={styles['regex-replace-result']}>{replaceResult}</pre>
             <button type="button" className="btn btn--ghost btn--sm"
               onClick={() => Clipboard.copy(replaceResult).then(() => Toast.success('コピーしました'))}>
               コピー
@@ -646,39 +647,39 @@ function TsvSection() {
   const bodyRows = hasHeader && data.length > 0 ? data.slice(1) : data;
 
   return (
-    <div className="tsv-section">
-      <div className="tsv-options">
-        <div className="tsv-delim-bar" id="tsv-delim-bar">
+    <div className={styles['tsv-section']}>
+      <div className={styles['tsv-options']}>
+        <div className={styles['tsv-delim-bar']} id="tsv-delim-bar">
           {(['tab', 'comma', 'pipe'] as const).map((d) => (
             <button key={d} type="button"
-              className={`tsv-delim-btn${delim === d ? ' tsv-delim-btn--active' : ''}`}
+              className={clsx(styles['tsv-delim-btn'], delim === d && styles['tsv-delim-btn--active'])}
               data-delim={d} onClick={() => setDelim(d)}>
               {d === 'tab' ? 'タブ' : d === 'comma' ? 'カンマ' : 'パイプ (|)'}
             </button>
           ))}
         </div>
-        <div className="tsv-quote-bar" id="tsv-quote-bar">
+        <div className={styles['tsv-quote-bar']} id="tsv-quote-bar">
           {(['none', 'dquote', 'squote'] as const).map((q) => (
             <button key={q} type="button"
-              className={`tsv-delim-btn${quote === q ? ' tsv-delim-btn--active' : ''}`}
+              className={clsx(styles['tsv-delim-btn'], quote === q && styles['tsv-delim-btn--active'])}
               data-quote={q} onClick={() => setQuote(q)}>
               {q === 'none' ? 'なし' : q === 'dquote' ? '"（ダブル）' : "'（シングル）"}
             </button>
           ))}
         </div>
-        <label className="diff-check">
+        <label className={styles['diff-check']}>
           <input type="checkbox" id="tsv-has-header" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} />
           1行目をヘッダーとして扱う
         </label>
         {data.length > 0 && (
-          <button type="button" className="btn btn--ghost btn--sm tsv-export-btn" onClick={exportCSV}>
+          <button type="button" className={clsx('btn btn--ghost btn--sm', styles['tsv-export-btn'])} onClick={exportCSV}>
             コピー
           </button>
         )}
       </div>
       <textarea
         id="tsv-input"
-        className="txt-textarea"
+        className={styles['txt-textarea']}
         placeholder="TSV / CSV データを貼り付け..."
         value={input}
         onChange={(e) => setInput(e.target.value)}
@@ -686,8 +687,8 @@ function TsvSection() {
         spellCheck={false}
       />
       {data.length > 0 && (
-        <div className="tsv-table-wrap">
-          <table className="tsv-table">
+        <div className={styles['tsv-table-wrap']}>
+          <table className={styles['tsv-table']}>
             {headers && (
               <thead>
                 <tr>{headers.map((h, j) => <th key={j}>{h}</th>)}</tr>
@@ -726,15 +727,15 @@ export function TextPage() {
   }, []);
 
   return (
-    <div className="text-page">
+    <div className={styles['text-page']}>
       <ShortcutHelp categories={SHORTCUTS} />
-      <nav className="txt-tabs" id="txt-tabs" role="tablist" aria-label="テキスト処理ツール">
+      <nav className={styles['txt-tabs']} id="txt-tabs" role="tablist" aria-label="テキスト処理ツール">
         {TAB_LABELS.map(({ id, label }) => (
           <button
             key={id}
             type="button"
             role="tab"
-            className={`txt-tab${section === id ? ' txt-tab--active' : ''}`}
+            className={clsx(styles['txt-tab'], section === id && styles['txt-tab--active'])}
             data-tool={id}
             aria-selected={section === id}
             onClick={() => switchSection(id)}
@@ -743,7 +744,7 @@ export function TextPage() {
           </button>
         ))}
       </nav>
-      <div className="txt-body">
+      <div className={styles['txt-body']}>
         {section === 'regex'     && <RegexSection />}
         {section === 'encode'    && <EncodeSection />}
         {section === 'case'      && <CaseSection />}

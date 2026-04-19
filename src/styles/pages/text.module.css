@@ -395,27 +395,27 @@
   background: #99f6e4;
   color: #134e4a;
 }
-[data-theme="dark"] .rx-mark--0 {
+:global([data-theme="dark"]) .rx-mark--0 {
   background: #92400e;
   color: #fef3c7;
 }
-[data-theme="dark"] .rx-mark--1 {
+:global([data-theme="dark"]) .rx-mark--1 {
   background: #14532d;
   color: #dcfce7;
 }
-[data-theme="dark"] .rx-mark--2 {
+:global([data-theme="dark"]) .rx-mark--2 {
   background: #1e3a5f;
   color: #dbeafe;
 }
-[data-theme="dark"] .rx-mark--3 {
+:global([data-theme="dark"]) .rx-mark--3 {
   background: #4c1d95;
   color: #f3e8ff;
 }
-[data-theme="dark"] .rx-mark--4 {
+:global([data-theme="dark"]) .rx-mark--4 {
   background: #7f1d1d;
   color: #fee2e2;
 }
-[data-theme="dark"] .rx-mark--5 {
+:global([data-theme="dark"]) .rx-mark--5 {
   background: #134e4a;
   color: #ccfbf1;
 }
