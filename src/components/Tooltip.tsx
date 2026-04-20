@@ -3,7 +3,7 @@
 // ・マウス移動に追従（cursor.x + 12, cursor.y - 32）
 // ・遅延なし即時表示（移行前と同じ挙動）
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 export interface TooltipProps {
@@ -31,6 +31,11 @@ export function Tooltip({ content, type = 'default', children, className = '' }:
   const handleMouseOut = useCallback(() => {
     setPos(null);
   }, []);
+
+  // content が変わった瞬間（編集開始・終了など）に必ず非表示にする
+  useEffect(() => {
+    setPos(null);
+  }, [content]);
 
   if (!content) return <>{children}</>;
 

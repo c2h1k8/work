@@ -36,6 +36,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "^5.99.0",
     "@tanstack/react-router": "^1.168.18",
+    "clsx": "^2.1.1",
     "dexie": "^4.4.2",
     "lucide-react": "^1.8.0",
     "react": "^19.2.5",

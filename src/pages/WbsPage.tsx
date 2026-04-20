@@ -706,7 +706,7 @@ export function WbsPage() {
 
   const renderCell = (task: WbsTask, field: string, agg: AggValues | null, displayValue: string) => {
     if (agg) {
-      return <div className="px-2 py-1 text-[var(--c-text-3)] text-xs select-none">{displayValue}</div>;
+      return <div className="px-2 py-1 text-[var(--c-text-3)] text-xs select-none cursor-default">{displayValue}</div>;
     }
     const isEditing = editingCell?.taskId === task.id && editingCell?.field === field;
     if (isEditing) {
@@ -741,7 +741,7 @@ export function WbsPage() {
   };
 
   const renderDateCell = (task: WbsTask, field: 'plan_start' | 'actual_start' | 'actual_end', agg: AggValues | null, value: string) => {
-    if (agg) return <div className="px-[5px] py-[2px] text-[var(--c-text-3)] text-[11px] select-none tabular-nums text-center w-full">{shortDate(value)}</div>;
+    if (agg) return <div className="px-[5px] py-[2px] text-[var(--c-text-3)] text-[11px] select-none tabular-nums text-center w-full cursor-default">{shortDate(value)}</div>;
     return (
       <DatePicker
         compact
@@ -756,12 +756,12 @@ export function WbsPage() {
 
   const renderStatusCell = (task: WbsTask, aggStatus: WbsStatus, agg: AggValues | null) => {
     const sc = STATUS_CONFIG[aggStatus];
-    if (agg) return <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${sc.cls}`}>{sc.label}</span>;
+    if (agg) return <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold block w-full text-center cursor-default ${sc.cls}`}>{sc.label}</span>;
     const isOpen = statusPickerTaskId === task.id;
     return (
       <div className="relative w-full" data-status-picker onClick={e => e.stopPropagation()}>
         <button
-          className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold w-full text-center ${sc.cls} hover:opacity-80`}
+          className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold w-full text-center cursor-pointer ${sc.cls} hover:opacity-80`}
           onClick={() => setStatusPickerTaskId(isOpen ? null : task.id!)}
         >
           {sc.label}
@@ -994,9 +994,9 @@ export function WbsPage() {
                               >
                               <div
                                 className="min-w-0 flex-1 flex items-center gap-1 overflow-hidden"
-                                onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'title'); } }}
+                                onClick={e => { e.stopPropagation(); startEditing(task.id!, 'title'); }}
                               >
-                                {editingCell?.taskId === task.id && editingCell?.field === 'title' && !agg ? (
+                                {editingCell?.taskId === task.id && editingCell?.field === 'title' ? (
                                   <input
                                     autoFocus
                                     type="text"
@@ -1025,12 +1025,12 @@ export function WbsPage() {
                             {/* 予定開始 */}
                             <div className="shrink-0 overflow-hidden" style={{ width: 82 }}>{renderDateCell(task, 'plan_start', agg, planStart)}</div>
                             {/* 計画工数 */}
-                            <div className="shrink-0 text-center" style={{ width: 40 }} onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'plan_days'); } }}>
+                            <div className={`shrink-0 text-center${agg ? ' cursor-default' : ''}`} style={{ width: 40 }} onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'plan_days'); } }}>
                               {renderCell(task, 'plan_days', agg, planDays ? String(planDays) : '')}
                             </div>
                             {/* 予定終了（表示のみ、計算値） */}
                             <div
-                              className={`shrink-0 px-[5px] py-[2px] text-[11px] tabular-nums text-center ${isDelayed ? 'text-red-400' : isDueSoon ? 'text-yellow-400' : 'text-[var(--c-text-2)]'}`}
+                              className={`shrink-0 px-[5px] py-[2px] text-[11px] tabular-nums text-center cursor-default ${isDelayed ? 'text-red-400' : isDueSoon ? 'text-yellow-400' : 'text-[var(--c-text-2)]'}`}
                               style={{ width: 82 }}
                               title={isDelayed ? '予定終了日を超過しています' : isDueSoon ? '期日まで3日以内です' : undefined}
                             >{shortDate(planEnd)}</div>
@@ -1040,12 +1040,12 @@ export function WbsPage() {
                             <div className="shrink-0 overflow-hidden" style={{ width: 82 }}>{renderDateCell(task, 'actual_end', agg, actualEndRaw)}</div>
                             {/* 実績工数 */}
                             <div
-                              className={`shrink-0 px-1 py-1 text-xs text-center ${isOverrun ? 'text-red-400' : ''} ${isOngoing ? 'text-blue-400' : ''}`}
+                              className={`shrink-0 px-1 py-1 text-xs text-center cursor-default ${isOverrun ? 'text-red-400' : ''} ${isOngoing ? 'text-blue-400' : ''}`}
                               style={{ width: 40 }}
                               title={isOverrun ? `予定(${planDays}日)を超過しています` : isOngoing ? '実績終了未入力のため本日までの工数' : undefined}
                             >{actualDays || ''}</div>
                             {/* 進捗 */}
-                            <div className="shrink-0" style={{ width: 48 }} onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'progress'); } }}>
+                            <div className={`shrink-0${agg ? ' cursor-default' : ''}`} style={{ width: 48 }} onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'progress'); } }}>
                               {editingCell?.taskId === task.id && editingCell?.field === 'progress' && !agg ? (
                                 <input
                                   autoFocus type="number" min={0} max={100}
