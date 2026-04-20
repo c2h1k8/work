@@ -13,6 +13,10 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
+  PlusIcon, IndentIcon, OutdentIcon, CalendarIcon, CalendarDaysIcon,
+  DownloadIcon, UploadIcon, XIcon,
+} from 'lucide-react';
+import {
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
@@ -20,6 +24,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '../components/Toast';
+import { DatePicker } from '../components/DatePicker';
+import { Tooltip } from '../components/Tooltip';
+import { useIsActiveTab } from '../contexts/TabContext';
 import { wbsDB, type WbsTask, type WbsStatus } from '../db/wbs_db';
 import { activityDB } from '../db/activity_db';
 
@@ -335,6 +342,7 @@ function SortableRow({ task, children }: { task: WbsTask; children: (attrs: Reco
 // ── メインコンポーネント ──────────────────────────
 export function WbsPage() {
   const { success: showSuccess, error: showError } = useToast();
+  const isActive = useIsActiveTab();
 
   const [tasks, setTasks] = useState<WbsTask[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -352,6 +360,7 @@ export function WbsPage() {
   const [showHolidayModal, setShowHolidayModal] = useState(false);
   const [hdayDate, setHdayDate] = useState('');
   const [hdayName, setHdayName] = useState('');
+  const [statusPickerTaskId, setStatusPickerTaskId] = useState<number | null>(null);
   const pendingNewIds = useRef<Set<number>>(new Set());
 
   // ガント横スクロール同期
@@ -662,9 +671,21 @@ export function WbsPage() {
     saveHolidays(customHolidays.filter(h => h.date !== date));
   }, [customHolidays, saveHolidays]);
 
+  // ステータスピッカーの外部クリックで閉じる
+  useEffect(() => {
+    if (!statusPickerTaskId) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest('[data-status-picker]')) setStatusPickerTaskId(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [statusPickerTaskId]);
+
   // ── キーボードショートカット ──────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (!isActive) return;
       const tag = (e.target as HTMLElement).tagName;
       const isInput = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
       if (e.key === 'Escape' && isInput) { (e.target as HTMLElement).blur(); return; }
@@ -698,13 +719,14 @@ export function WbsPage() {
           max={field === 'progress' ? 100 : undefined}
           value={editValue}
           onChange={e => setEditValue(e.target.value)}
+          onFocus={e => isNum && (e.target as HTMLInputElement).select()}
           onBlur={commitEdit}
           onKeyDown={e => {
             if (e.nativeEvent.isComposing) return;
             if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
             if (e.key === 'Escape') { setEditingCell(null); loadTasks(); }
           }}
-          className="w-full px-1 py-0.5 text-xs border border-[var(--c-accent)] bg-[var(--c-bg)] text-[var(--c-text)] rounded outline-none"
+          className={`w-full px-1 py-0.5 text-xs border border-[var(--c-accent)] bg-[var(--c-bg)] text-[var(--c-text)] rounded outline-none${isNum ? ' [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none' : ''}`}
         />
       );
     }
@@ -719,35 +741,66 @@ export function WbsPage() {
   };
 
   const renderDateCell = (task: WbsTask, field: 'plan_start' | 'actual_start' | 'actual_end', agg: AggValues | null, value: string) => {
-    if (agg) return <div className="px-2 py-1 text-[var(--c-text-3)] text-xs select-none">{shortDate(value)}</div>;
+    if (agg) return <div className="px-[5px] py-[2px] text-[var(--c-text-3)] text-[11px] select-none tabular-nums text-center w-full">{shortDate(value)}</div>;
     return (
-      <input
-        type="date"
+      <DatePicker
+        compact
         value={value || ''}
-        onChange={e => handleDateChange(task.id!, field, e.target.value)}
-        className="w-full text-xs bg-transparent text-[var(--c-text)] border-none outline-none cursor-pointer px-1 py-0.5"
+        placeholder=""
+        onChange={v => handleDateChange(task.id!, field, v)}
+        onClear={() => handleDateChange(task.id!, field, '')}
+        className="w-full"
       />
     );
   };
 
   const renderStatusCell = (task: WbsTask, aggStatus: WbsStatus, agg: AggValues | null) => {
     const sc = STATUS_CONFIG[aggStatus];
-    if (agg) return <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${sc.cls}`}>{sc.label}</span>;
+    if (agg) return <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${sc.cls}`}>{sc.label}</span>;
+    const isOpen = statusPickerTaskId === task.id;
     return (
-      <select
-        value={aggStatus}
-        onChange={e => handleStatusChange(task.id!, e.target.value as WbsStatus)}
-        className="text-xs bg-[var(--c-bg)] text-[var(--c-text)] border-none outline-none cursor-pointer w-full"
-      >
-        {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-          <option key={k} value={k}>{v.label}</option>
-        ))}
-      </select>
+      <div className="relative w-full" data-status-picker onClick={e => e.stopPropagation()}>
+        <button
+          className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold w-full text-center ${sc.cls} hover:opacity-80`}
+          onClick={() => setStatusPickerTaskId(isOpen ? null : task.id!)}
+        >
+          {sc.label}
+        </button>
+        {isOpen && (
+          <div className="absolute left-0 top-full mt-0.5 z-30 bg-[var(--c-bg)] border border-[var(--c-border)] rounded-lg shadow-lg py-1 min-w-[76px]">
+            {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+              <button
+                key={k}
+                className={`flex items-center w-full px-2 py-1 text-left hover:bg-[var(--c-bg-2)] ${k === aggStatus ? 'font-bold' : ''}`}
+                onClick={() => { handleStatusChange(task.id!, k as WbsStatus); setStatusPickerTaskId(null); }}
+              >
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${v.cls}`}>{v.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     );
   };
 
   // ── ガントバー ────────────────────────────────────
-  const buildBar = (startStr: string, endStr: string, cls: string) => {
+  const buildNonWorkOverlays = (barStart: Date, barEnd: Date, barLeft: number) => {
+    const overlays: React.ReactNode[] = [];
+    const cur = new Date(barStart); cur.setHours(0, 0, 0, 0);
+    while (cur <= barEnd) {
+      const dayLeft = ganttLayout.dateToLeftX(cur);
+      const dayRight = ganttLayout.dateToRightX(cur);
+      if (dayRight - dayLeft === DAY_PX && isNonWorkingDay(cur, customSet)) {
+        overlays.push(
+          <div key={formatDate(cur)} className="absolute top-0 bottom-0 bg-black/20" style={{ left: dayLeft - barLeft, width: DAY_PX }} />
+        );
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return overlays;
+  };
+
+  const buildBar = (startStr: string, endStr: string, topPx: number, background: string, tooltip: string) => {
     if (!startStr || !endStr) return null;
     const start = parseDate(startStr); const end = parseDate(endStr);
     if (!start || !end || start > ganttPeriod.end || end < ganttPeriod.start) return null;
@@ -757,34 +810,16 @@ export function WbsPage() {
     const right = ganttLayout.dateToRightX(e);
     if (left < 0 || right < 0 || right <= left) return null;
     const width = right - left;
-    const tooltip = `${shortDate(startStr)} 〜 ${shortDate(endStr)}`;
     return (
-      <div
-        className={`absolute top-1.5 h-4 rounded-sm ${cls}`}
-        style={{ left, width }}
-        title={tooltip}
-      >
-        {/* 非営業日オーバーレイ */}
-        {buildNonWorkOverlays(s, e, left)}
-      </div>
+      <Tooltip content={tooltip}>
+        <div
+          className="absolute rounded-sm overflow-hidden cursor-default hover:opacity-85 transition-opacity pointer-events-auto"
+          style={{ top: topPx, height: 11, left, width, background }}
+        >
+          {buildNonWorkOverlays(s, e, left)}
+        </div>
+      </Tooltip>
     );
-  };
-
-  const buildNonWorkOverlays = (barStart: Date, barEnd: Date, barLeft: number) => {
-    const overlays: React.ReactNode[] = [];
-    const cur = new Date(barStart); cur.setHours(0, 0, 0, 0);
-    while (cur <= barEnd) {
-      const dayLeft = ganttLayout.dateToLeftX(cur);
-      const dayRight = ganttLayout.dateToRightX(cur);
-      const dayWidth = dayRight - dayLeft;
-      if (dayWidth === DAY_PX && isNonWorkingDay(cur, customSet)) {
-        overlays.push(
-          <div key={formatDate(cur)} className="absolute top-0 h-full bg-black/20" style={{ left: dayLeft - barLeft, width: DAY_PX }} />
-        );
-      }
-      cur.setDate(cur.getDate() + 1);
-    }
-    return overlays;
   };
 
   // ── レンダリング ──────────────────────────────────
@@ -793,10 +828,25 @@ export function WbsPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ツールバー */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--c-border)] shrink-0 flex-wrap">
-        <button onClick={addTask} className="btn btn--primary btn--sm text-xs">+ タスク追加</button>
-        <button onClick={() => indentTask(1)} className="btn btn--ghost btn--sm text-xs" title="インデント (Tab)">→</button>
-        <button onClick={() => indentTask(-1)} className="btn btn--ghost btn--sm text-xs" title="アウトデント (Shift+Tab)">←</button>
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[var(--c-border)] shrink-0">
+        <button
+          onClick={addTask}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[var(--c-accent)] text-white text-xs font-medium hover:opacity-90 transition-opacity shrink-0"
+        >
+          <PlusIcon size={13} aria-hidden="true" />タスク追加
+        </button>
+        <div className="w-px h-5 bg-[var(--c-border)] mx-0.5 shrink-0" />
+        <button
+          onClick={() => indentTask(1)}
+          className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors"
+          title="インデント (Tab)"
+        ><IndentIcon size={14} aria-hidden="true" /></button>
+        <button
+          onClick={() => indentTask(-1)}
+          className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors"
+          title="アウトデント (Shift+Tab)"
+        ><OutdentIcon size={14} aria-hidden="true" /></button>
+        <div className="w-px h-5 bg-[var(--c-border)] mx-0.5 shrink-0" />
         <button
           onClick={() => {
             const todayX = ganttLayout.todayLineX();
@@ -804,13 +854,33 @@ export function WbsPage() {
               gBodyRef.current.scrollLeft = Math.max(0, todayX - gBodyRef.current.clientWidth / 2);
             }
           }}
-          className="btn btn--ghost btn--sm text-xs"
-        >今日</button>
-        <button onClick={() => setShowHolidayModal(true)} className="btn btn--ghost btn--sm text-xs">祝日設定</button>
-        <div className="ml-auto flex items-center gap-2">
-          <button onClick={exportData} className="btn btn--ghost btn--sm text-xs">エクスポート</button>
-          <label className="btn btn--ghost btn--sm text-xs cursor-pointer">
-            インポート
+          className="flex items-center gap-1 px-2 py-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors text-xs"
+        ><CalendarDaysIcon size={13} aria-hidden="true" />今日</button>
+        <button
+          onClick={() => setShowHolidayModal(true)}
+          className="flex items-center gap-1 px-2 py-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors text-xs"
+        ><CalendarIcon size={13} aria-hidden="true" />祝日設定</button>
+        <div className="ml-auto flex items-center gap-1.5">
+          {/* 凡例 */}
+          <div className="flex items-center gap-3 text-[10px] text-[var(--c-text-3)] select-none mr-1">
+            <div className="flex items-center gap-1">
+              <div className="w-5 h-2 rounded-sm shrink-0" style={{ background: 'var(--c-accent)' }} />予定
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-5 h-2 rounded-sm shrink-0" style={{ background: 'var(--c-success, #10b981)' }} />実績
+            </div>
+          </div>
+          <div className="w-px h-5 bg-[var(--c-border)] shrink-0" />
+          <button
+            onClick={exportData}
+            className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors"
+            title="エクスポート"
+          ><DownloadIcon size={14} aria-hidden="true" /></button>
+          <label
+            className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors cursor-pointer"
+            title="インポート"
+          >
+            <UploadIcon size={14} aria-hidden="true" />
             <input type="file" accept=".json" className="hidden" onChange={importData} />
           </label>
         </div>
@@ -819,21 +889,21 @@ export function WbsPage() {
       {/* WBS ボディ: テーブル + ガント */}
       <div className="flex flex-1 overflow-hidden">
         {/* テーブル部 */}
-        <div className="flex flex-col shrink-0" style={{ width: 620 }}>
+        <div className="flex flex-col shrink-0" style={{ width: 760 }}>
           {/* テーブルヘッダー */}
-          <div className="flex items-center text-[10px] font-semibold text-[var(--c-text-3)] bg-[var(--c-bg-2)] border-b border-[var(--c-border)] uppercase tracking-wide shrink-0" style={{ paddingRight: 8 }}>
-            <div className="w-6 shrink-0" />
+          <div className="flex items-center text-[10px] font-semibold text-[var(--c-text-3)] bg-[var(--c-bg-2)] border-b border-[var(--c-border)] uppercase tracking-wide shrink-0" style={{ height: 52, paddingRight: 8 }}>
+            <div className="shrink-0" style={{ width: 20 }} />
             <div className="w-8 shrink-0 px-1">No</div>
-            <div className="flex-1 min-w-0 px-2">タスク名</div>
-            <div className="w-24 shrink-0 px-1">予定開始</div>
-            <div className="w-12 shrink-0 px-1 text-center">工数</div>
-            <div className="w-24 shrink-0 px-1">予定終了</div>
-            <div className="w-24 shrink-0 px-1">実績開始</div>
-            <div className="w-24 shrink-0 px-1">実績終了</div>
-            <div className="w-12 shrink-0 px-1 text-center">実績</div>
-            <div className="w-16 shrink-0 px-1 text-center">進捗</div>
+            <div className="flex-1 min-w-0 px-2" style={{ minWidth: 140 }}>タスク名</div>
+            <div className="shrink-0 px-1" style={{ width: 82 }}>予定開始</div>
+            <div className="shrink-0 px-1 text-center" style={{ width: 40 }}>工数</div>
+            <div className="shrink-0 px-1" style={{ width: 82 }}>予定終了</div>
+            <div className="shrink-0 px-1" style={{ width: 82 }}>実績開始</div>
+            <div className="shrink-0 px-1" style={{ width: 82 }}>実績終了</div>
+            <div className="shrink-0 px-1 text-center" style={{ width: 40 }}>実績</div>
+            <div className="shrink-0 px-1 text-center" style={{ width: 48 }}>進捗</div>
             <div className="w-16 shrink-0 px-1">状態</div>
-            <div className="w-8 shrink-0" />
+            <div className="shrink-0" style={{ width: 40 }} />
           </div>
           {/* テーブルボディ */}
           <div ref={tBodyRef} className="flex-1 overflow-auto">
@@ -868,23 +938,46 @@ export function WbsPage() {
                     const isDueSoon = !isDone && !isDelayed && planEnd && Math.round((parseDate(planEnd)!.getTime() - parseDate(todayStr)!.getTime()) / 86400000) <= 3;
                     const isOverrun = planDays > 0 && actualDays > planDays;
                     const isSelected = task.id === selectedId;
-                    const indent = task.level * 12;
+                    const indent = task.level * 16;
+
+                    const levelBorderColors = ['var(--c-accent)', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
+                    const levelBorder = `3px solid ${levelBorderColors[Math.min(task.level, 4)]}`;
+                    const titleFontCls = task.level === 0 ? 'font-bold text-[13.5px]' : task.level === 1 ? 'font-semibold' : 'font-medium';
+
+                    // タスク名ホバー tooltip
+                    const sc = STATUS_CONFIG[aggStatus];
+                    const tooltipLines: string[] = [task.title || '（タスク名未設定）'];
+                    tooltipLines.push(`${sc.label}  ${progress}%`);
+                    if (planStart) {
+                      const planStr = planEnd
+                        ? `${shortDate(planStart)} 〜 ${shortDate(planEnd)}（${planDays}日）`
+                        : shortDate(planStart);
+                      tooltipLines.push(`予定: ${planStr}`);
+                    }
+                    if (actualStart) {
+                      const actualEndLabel = actualEndRaw ? shortDate(actualEndRaw) : '進行中';
+                      tooltipLines.push(`実績: ${shortDate(actualStart)} 〜 ${actualEndLabel}`);
+                    }
+                    if (task.memo) tooltipLines.push(task.memo);
+                    if (agg) tooltipLines.push('子タスクから集計');
+                    const titleTooltip = tooltipLines.join('\n');
 
                     return (
                       <SortableRow key={task.id} task={task}>
                         {(dragHandleProps) => (
                           <div
-                            className={`flex items-center text-xs border-b border-[var(--c-border)] cursor-pointer transition-colors ${isSelected ? 'bg-[var(--c-accent)]/10' : 'hover:bg-[var(--c-bg-2)]'} ${isDone ? 'opacity-60' : ''}`}
+                            className={`flex items-center text-xs border-b border-[var(--c-border)] cursor-pointer transition-colors ${isSelected ? 'bg-[var(--c-accent)]/10' : agg ? 'bg-[var(--c-accent)]/[0.03] hover:bg-[var(--c-accent)]/[0.06]' : 'hover:bg-[var(--c-bg-2)]'} ${isDone ? 'opacity-60' : ''}`}
+                            style={{ height: 38, borderLeft: levelBorder }}
                             onClick={() => setSelectedId(task.id!)}
                           >
                             {/* ドラッグハンドル */}
-                            <div className="w-6 shrink-0 flex items-center justify-center py-1.5 cursor-grab text-[var(--c-text-3)] hover:text-[var(--c-text)]" {...dragHandleProps}>
+                            <div className="shrink-0 flex items-center justify-center cursor-grab text-[var(--c-text-3)] hover:text-[var(--c-text)]" style={{ width: 20 }} {...dragHandleProps}>
                               <svg viewBox="0 0 16 16" className="w-3.5 h-3.5"><path fill="currentColor" d="M10 13a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm0-4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm0-4a1 1 0 1 1 0-2 1 1 0 0 1 0 2ZM6 13a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm0-4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm0-4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></svg>
                             </div>
                             {/* No */}
                             <div className="w-8 shrink-0 px-1 text-center text-[var(--c-text-3)]">{fullIdx + 1}</div>
                             {/* タスク名 */}
-                            <div className="flex-1 min-w-0 flex items-center gap-1">
+                            <div className="flex-1 min-w-0 flex items-center gap-1" style={{ minWidth: 140 }}>
                               <span style={{ width: indent }} className="shrink-0" />
                               {hasChildren ? (
                                 <button
@@ -895,7 +988,14 @@ export function WbsPage() {
                                   <svg viewBox="0 0 16 16" className="w-3.5 h-3.5"><path fill="currentColor" d="M12.78 5.22a.749.749 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.06 0L3.22 6.28a.749.749 0 1 1 1.06-1.06L8 8.94l3.72-3.72a.749.749 0 0 1 1.06 0Z"/></svg>
                                 </button>
                               ) : <span className="w-3.5 shrink-0" />}
-                              <div className="min-w-0 flex-1" onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'title'); } }}>
+                              <Tooltip
+                                content={editingCell?.taskId !== task.id ? titleTooltip : ''}
+                                type={isDelayed ? 'danger' : isDueSoon ? 'warning' : 'default'}
+                              >
+                              <div
+                                className="min-w-0 flex-1 flex items-center gap-1 overflow-hidden"
+                                onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'title'); } }}
+                              >
                                 {editingCell?.taskId === task.id && editingCell?.field === 'title' && !agg ? (
                                   <input
                                     autoFocus
@@ -911,41 +1011,53 @@ export function WbsPage() {
                                     className="w-full px-1 py-0.5 text-xs border border-[var(--c-accent)] bg-[var(--c-bg)] text-[var(--c-text)] rounded outline-none"
                                   />
                                 ) : (
-                                  <span className={`truncate block ${agg ? 'font-semibold' : ''}`}>
-                                    {task.title || '（タスク名未設定）'}
-                                    {isDelayed && <span className="ml-1 text-[9px] bg-red-500/20 text-red-400 px-1 rounded">遅延</span>}
-                                    {isDueSoon && <span className="ml-1 text-[9px] bg-yellow-500/20 text-yellow-400 px-1 rounded">期日近</span>}
-                                  </span>
+                                  <>
+                                    <span className={`truncate ${titleFontCls}`}>
+                                      {task.title || '（タスク名未設定）'}
+                                    </span>
+                                    {isDelayed && <span className="shrink-0 text-[9px] bg-red-500/20 text-red-400 px-1 rounded">遅延</span>}
+                                    {isDueSoon && <span className="shrink-0 text-[9px] bg-yellow-500/20 text-yellow-400 px-1 rounded">期日近</span>}
+                                  </>
                                 )}
                               </div>
+                              </Tooltip>
                             </div>
                             {/* 予定開始 */}
-                            <div className="w-24 shrink-0">{renderDateCell(task, 'plan_start', agg, planStart)}</div>
+                            <div className="shrink-0 overflow-hidden" style={{ width: 82 }}>{renderDateCell(task, 'plan_start', agg, planStart)}</div>
                             {/* 計画工数 */}
-                            <div className="w-12 shrink-0 text-center" onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'plan_days'); } }}>
+                            <div className="shrink-0 text-center" style={{ width: 40 }} onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'plan_days'); } }}>
                               {renderCell(task, 'plan_days', agg, planDays ? String(planDays) : '')}
                             </div>
-                            {/* 予定終了 */}
-                            <div className={`w-24 shrink-0 px-2 py-1 text-xs ${isDelayed ? 'text-red-400' : isDueSoon ? 'text-yellow-400' : 'text-[var(--c-text-2)]'}`}>{shortDate(planEnd)}</div>
+                            {/* 予定終了（表示のみ、計算値） */}
+                            <div
+                              className={`shrink-0 px-[5px] py-[2px] text-[11px] tabular-nums text-center ${isDelayed ? 'text-red-400' : isDueSoon ? 'text-yellow-400' : 'text-[var(--c-text-2)]'}`}
+                              style={{ width: 82 }}
+                              title={isDelayed ? '予定終了日を超過しています' : isDueSoon ? '期日まで3日以内です' : undefined}
+                            >{shortDate(planEnd)}</div>
                             {/* 実績開始 */}
-                            <div className="w-24 shrink-0">{renderDateCell(task, 'actual_start', agg, actualStart)}</div>
+                            <div className="shrink-0 overflow-hidden" style={{ width: 82 }}>{renderDateCell(task, 'actual_start', agg, actualStart)}</div>
                             {/* 実績終了 */}
-                            <div className="w-24 shrink-0">{renderDateCell(task, 'actual_end', agg, actualEndRaw)}</div>
+                            <div className="shrink-0 overflow-hidden" style={{ width: 82 }}>{renderDateCell(task, 'actual_end', agg, actualEndRaw)}</div>
                             {/* 実績工数 */}
-                            <div className={`w-12 shrink-0 px-2 py-1 text-xs text-center ${isOverrun ? 'text-red-400' : ''} ${isOngoing ? 'text-blue-400' : ''}`}>{actualDays || ''}</div>
+                            <div
+                              className={`shrink-0 px-1 py-1 text-xs text-center ${isOverrun ? 'text-red-400' : ''} ${isOngoing ? 'text-blue-400' : ''}`}
+                              style={{ width: 40 }}
+                              title={isOverrun ? `予定(${planDays}日)を超過しています` : isOngoing ? '実績終了未入力のため本日までの工数' : undefined}
+                            >{actualDays || ''}</div>
                             {/* 進捗 */}
-                            <div className="w-16 shrink-0" onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'progress'); } }}>
+                            <div className="shrink-0" style={{ width: 48 }} onClick={e => { if (!agg) { e.stopPropagation(); startEditing(task.id!, 'progress'); } }}>
                               {editingCell?.taskId === task.id && editingCell?.field === 'progress' && !agg ? (
                                 <input
                                   autoFocus type="number" min={0} max={100}
                                   value={editValue}
                                   onChange={e => setEditValue(e.target.value)}
+                                  onFocus={e => (e.target as HTMLInputElement).select()}
                                   onBlur={commitEdit}
                                   onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setEditingCell(null); loadTasks(); } }}
-                                  className="w-full px-1 py-0.5 text-xs border border-[var(--c-accent)] bg-[var(--c-bg)] text-[var(--c-text)] rounded outline-none"
+                                  className="w-full px-1 py-0.5 text-xs border border-[var(--c-accent)] bg-[var(--c-bg)] text-[var(--c-text)] rounded outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                 />
                               ) : (
-                                <div className="px-2 py-1">
+                                <div className="px-1 py-1">
                                   <div className="h-1.5 bg-[var(--c-border)] rounded-full overflow-hidden">
                                     <div className="h-full bg-[var(--c-accent)] rounded-full transition-all" style={{ width: `${progress}%` }} />
                                   </div>
@@ -958,7 +1070,7 @@ export function WbsPage() {
                               {renderStatusCell(task, aggStatus, agg)}
                             </div>
                             {/* 操作 */}
-                            <div className="w-8 shrink-0 flex items-center justify-center">
+                            <div className="shrink-0 flex items-center justify-center" style={{ width: 40 }}>
                               <button
                                 onClick={e => { e.stopPropagation(); deleteTask(task.id!); }}
                                 className="text-[var(--c-text-3)] hover:text-red-400 transition-colors"
@@ -991,7 +1103,7 @@ export function WbsPage() {
                 {ganttLayout.months.map(ml => (
                   <div
                     key={ml.key}
-                    className={`shrink-0 flex items-center justify-center border-r border-[var(--c-border)] cursor-pointer text-[10px] font-medium text-[var(--c-text-2)] select-none hover:bg-[var(--c-accent)]/10 transition-colors overflow-hidden ${ml.collapsed ? 'bg-[var(--c-bg-2)]' : ''}`}
+                    className={`shrink-0 flex items-center justify-start pl-2 border-r border-[var(--c-border)] cursor-pointer text-[10px] font-medium text-[var(--c-text-2)] select-none hover:bg-[var(--c-accent)]/10 transition-colors overflow-hidden ${ml.collapsed ? 'bg-[var(--c-bg-2)]' : ''}`}
                     style={{ width: ml.width }}
                     onClick={() => toggleCollapseMonth(ml.key)}
                     title={ml.collapsed ? `${ml.key} 展開` : `${ml.key} 折りたたむ`}
@@ -1001,7 +1113,7 @@ export function WbsPage() {
                 ))}
               </div>
               {/* 日ヘッダー */}
-              <div className="flex h-6">
+              <div className="flex h-7">
                 {ganttLayout.months.map(ml => {
                   if (ml.collapsed) {
                     return <div key={ml.key} className="shrink-0 border-r border-[var(--c-border)] bg-[var(--c-bg-2)]" style={{ width: ml.width }} />;
@@ -1016,8 +1128,8 @@ export function WbsPage() {
                     const isMonthStart = cur.getDate() === 1;
                     let cls = 'shrink-0 flex items-center justify-center text-[9px] border-r border-[var(--c-border)] select-none';
                     if (isToday) cls += ' bg-[var(--c-accent)]/30 text-[var(--c-accent)] font-bold';
-                    else if (isHoliday) cls += ' bg-red-500/10 text-red-400';
                     else if (dow === 0) cls += ' bg-red-500/10 text-red-400';
+                    else if (isHoliday) cls += ' bg-yellow-500/10 text-yellow-500';
                     else if (dow === 6) cls += ' bg-blue-500/10 text-blue-400';
                     else cls += ' text-[var(--c-text-3)]';
                     if (isMonthStart) cls += ' border-l-2 border-l-[var(--c-accent)]/40';
@@ -1040,8 +1152,8 @@ export function WbsPage() {
               {/* 今日ライン */}
               {todayLineX >= 0 && (
                 <div
-                  className="absolute top-0 bottom-0 w-px bg-[var(--c-accent)]/60 z-10 pointer-events-none"
-                  style={{ left: todayLineX }}
+                  className="absolute top-0 bottom-0 pointer-events-none z-10"
+                  style={{ left: todayLineX, width: 2, background: 'var(--c-danger, #ef4444)', opacity: 0.6 }}
                 />
               )}
               {visibleTasks.map(task => {
@@ -1055,12 +1167,20 @@ export function WbsPage() {
                 const planDays  = agg ? agg.plan_days : (task.plan_days || 0);
                 const actualDays = actualStart ? countBusinessDays(actualStart, actualEnd, customSet) : 0;
                 const isOverrun = planDays > 0 && actualDays > planDays;
-                const actualBarCls = `opacity-70 rounded-sm ${isOngoing ? 'bg-green-400' : isOverrun ? 'bg-red-400' : 'bg-green-500'}`;
+                const successColor = 'var(--c-success, #10b981)';
+                const dangerColor = 'var(--c-danger, #ef4444)';
+                const actualBg = isOngoing && isOverrun
+                  ? `repeating-linear-gradient(90deg, ${dangerColor} 0px, ${dangerColor} 6px, transparent 6px, transparent 9px)`
+                  : isOngoing
+                    ? `repeating-linear-gradient(90deg, ${successColor} 0px, ${successColor} 6px, transparent 6px, transparent 9px)`
+                    : isOverrun ? dangerColor : successColor;
+                const planTooltip = planStart && planEnd ? `${shortDate(planStart)} 〜 ${shortDate(planEnd)}` : '';
+                const actualTooltip = actualStart ? `${shortDate(actualStart)} 〜 ${shortDate(isOngoing ? todayStr : actualEnd)}` : '';
                 return (
                   <div
                     key={task.id}
                     className="relative border-b border-[var(--c-border)] flex"
-                    style={{ height: 36 }}
+                    style={{ height: 38 }}
                   >
                     {/* 背景セル */}
                     {ganttLayout.months.map(ml => {
@@ -1077,7 +1197,8 @@ export function WbsPage() {
                         const isMonthStart = cur.getDate() === 1;
                         let cellCls = 'shrink-0 h-full border-r border-[var(--c-border)]';
                         if (isToday) cellCls += ' bg-[var(--c-accent)]/10';
-                        else if (isHoliday || dow === 0) cellCls += ' bg-red-500/5';
+                        else if (dow === 0) cellCls += ' bg-red-500/5';
+                        else if (isHoliday) cellCls += ' bg-yellow-500/5';
                         else if (dow === 6) cellCls += ' bg-blue-500/5';
                         if (isMonthStart) cellCls += ' border-l border-l-[var(--c-accent)]/20';
                         bCells.push(<div key={str} className={cellCls} style={{ width: DAY_PX }} />);
@@ -1085,10 +1206,10 @@ export function WbsPage() {
                       }
                       return <React.Fragment key={ml.key}>{bCells}</React.Fragment>;
                     })}
-                    {/* ガントバー */}
+                    {/* ガントバー（予定: 上段 top8px、実績: 下段 top21px） */}
                     <div className="absolute inset-0 pointer-events-none">
-                      {buildBar(planStart, planEnd, 'bg-[var(--c-accent)]/60')}
-                      {buildBar(actualStart, actualEnd, actualBarCls)}
+                      {buildBar(planStart, planEnd, 8, 'var(--c-accent)', planTooltip)}
+                      {buildBar(actualStart, actualEnd, 21, actualBg, actualTooltip)}
                     </div>
                   </div>
                 );
@@ -1105,11 +1226,12 @@ export function WbsPage() {
             <h2 className="text-sm font-semibold">カスタム祝日・休業日の設定</h2>
             <p className="text-xs text-[var(--c-text-3)]">土日・日本の祝日は自動で非営業日として扱われます。<br />それ以外の休業日（年末年始・夏季休暇等）をここで追加できます。</p>
             <div className="flex gap-2">
-              <input
-                type="date"
+              <DatePicker
                 value={hdayDate}
-                onChange={e => setHdayDate(e.target.value)}
-                className="px-2 py-1.5 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] flex-none"
+                placeholder="日付を選択"
+                onChange={v => setHdayDate(v ?? '')}
+                onClear={() => setHdayDate('')}
+                className="flex-none"
               />
               <input
                 type="text"
@@ -1128,7 +1250,7 @@ export function WbsPage() {
                   <div key={h.date} className="flex items-center gap-2 py-1.5 border-b border-[var(--c-border)]">
                     <span className="text-xs font-mono text-[var(--c-text-2)] w-24 shrink-0">{h.date}</span>
                     <span className="text-xs flex-1">{h.name}</span>
-                    <button onClick={() => removeHoliday(h.date)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs">✕</button>
+                    <button onClick={() => removeHoliday(h.date)} className="text-[var(--c-text-3)] hover:text-red-400 transition-colors" title="削除"><XIcon size={13} aria-hidden="true" /></button>
                   </div>
                 ))
               )}

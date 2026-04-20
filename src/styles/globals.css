@@ -24,6 +24,7 @@
   --c-text:          #1a1d2e;
   --c-text-2:        #4a5270;
   --c-text-3:        #8b95b8;
+  --c-fg-3:          var(--c-text-2);
 
   /* ── Border ─────────────────────────────────────── */
   --c-border:        #e2e6f3;
@@ -111,6 +112,7 @@
   --c-text:          #e2e5f4;
   --c-text-2:        #8892b8;
   --c-text-3:        #4e5570;
+  --c-fg-3:          var(--c-text-2);
 
   --c-border:        #252840;
   --c-border-2:      #2f3350;

@@ -8,6 +8,7 @@ import { useToast } from '../components/Toast';
 import { snippetDB, type Snippet } from '../db/snippet_db';
 import { activityDB } from '../db/activity_db';
 import { Clipboard } from '../core/clipboard';
+import { useIsActiveTab } from '../contexts/TabContext';
 
 // ── ストレージキー ─────────────────────────────────
 const KEY_SELECTED = 'snippet_selected_id';
@@ -182,6 +183,7 @@ function SnippetModal({ snippet, onSave, onClose }: SnippetModalProps) {
 // ================================================================
 export function SnippetPage() {
   const { success, error: showError } = useToast();
+  const isActive = useIsActiveTab();
   const [snippets, setSnippets]   = useState<Snippet[]>([]);
   const [selectedId, setSelected] = useState<number | null>(null);
   const [search, setSearch]       = useState(() => localStorage.getItem(KEY_SEARCH) || '');
@@ -314,6 +316,7 @@ export function SnippetPage() {
   // キーボードショートカット
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!isActive) return;
       if (showModal) return;
       const isInput = ['INPUT','TEXTAREA','SELECT'].includes((e.target as Element).tagName) || (e.target as HTMLElement).isContentEditable;
       if (e.key === 'Escape' && isInput) { (e.target as HTMLElement).blur(); return; }

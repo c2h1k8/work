@@ -6,6 +6,7 @@ import styles from '../styles/pages/diff_tool.module.css';
 import clsx from 'clsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Clipboard } from '../core/clipboard';
+import { useIsActiveTab } from '../contexts/TabContext';
 import { Toast } from '../components/Toast';
 import { ShortcutHelp } from '../components/ShortcutHelp';
 
@@ -256,6 +257,7 @@ const SHORTCUTS = [{
 }];
 
 export function DiffToolPage() {
+  const isActive = useIsActiveTab();
   const [left, setLeft]   = useState('');
   const [right, setRight] = useState('');
   const [mode, setMode]   = useState<'line' | 'char'>(
@@ -295,6 +297,7 @@ export function DiffToolPage() {
   // キーボードショートカット
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!isActive) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key === 'Enter') { e.preventDefault(); compare(); return; }
       if (mod && e.shiftKey && e.key === 'C') {

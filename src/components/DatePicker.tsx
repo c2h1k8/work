@@ -18,6 +18,7 @@ export interface DatePickerProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 // --------------------------------------------------
@@ -204,6 +205,7 @@ export function DatePicker({
   placeholder = '未設定',
   className = '',
   disabled = false,
+  compact = false,
 }: DatePickerProps) {
   const [open, setOpen]             = useState(false);
   const [pendingDate, setPendingDate] = useState(() => parseDate(value) ? value.split('T')[0] : '');
@@ -496,6 +498,7 @@ export function DatePicker({
           type="button"
           className={clsx(
             styles['dp-trigger'],
+            compact              && styles['dp-trigger--compact'],
             status === 'overdue' && styles['dp-trigger--overdue'],
             status === 'today'   && styles['dp-trigger--today'],
             open                 && styles['dp-trigger--open'],
@@ -504,7 +507,7 @@ export function DatePicker({
           aria-haspopup="true"
           aria-expanded={open}
         >
-          <CalendarIcon size={13} aria-hidden="true" />
+          {!compact && <CalendarIcon size={13} aria-hidden="true" />}
           <span>{btnText}</span>
         </button>
         {value && (

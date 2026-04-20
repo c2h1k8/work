@@ -32,6 +32,30 @@
 .dp-trigger--overdue svg { color: var(--c-danger); }
 .dp-trigger--today       { color: var(--c-amber, #f59e0b); border-color: var(--c-amber, #f59e0b); }
 .dp-trigger--today svg   { color: var(--c-amber, #f59e0b); }
+.dp-trigger--compact {
+  padding: 2px 5px;
+  font-size: 11px;
+  gap: 3px;
+  border-radius: var(--radius-sm);
+  border-color: transparent;
+  background: transparent;
+}
+.dp-trigger.dp-trigger--compact {
+  justify-content: center;
+  text-align: center;
+}
+.dp-trigger.dp-trigger--compact span {
+  flex: none;
+}
+.dp-trigger--compact:hover,
+.dp-trigger--compact.dp-trigger--open {
+  border-color: var(--c-border);
+  background: var(--c-surface);
+}
+/* compact モードでは clear ボタンを非表示（popup 内クリアで代替） */
+.dp-trigger-wrap:has(.dp-trigger--compact) .dp-clear {
+  display: none;
+}
 .dp-trigger--disabled {
   display: flex;
   align-items: center;
