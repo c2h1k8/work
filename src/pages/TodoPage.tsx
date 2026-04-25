@@ -630,7 +630,8 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     await kanbanDB.addActivity(task.id!, 'archive', {}).catch(() => {});
     await kanbanDB.archiveTask(task);
     await kanbanDB.deleteTask(task.id!);
-    await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(task.id!), summary: task.title, created_at: new Date().toISOString() });
+    const colName = columns.find(c => c.key === task.column)?.name ?? task.column;
+    await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(task.id!), summary: `タスク「${task.title || '(無題)'}」をアーカイブ（${colName}）`, created_at: new Date().toISOString() });
     onArchived(task);
     toast.success('アーカイブしました');
   }
@@ -2421,10 +2422,11 @@ export function TodoPage() {
     await kanbanDB.addActivity(task.id!, 'archive', {});
     await kanbanDB.archiveTask(task);
     await kanbanDB.deleteTask(task.id!);
-    await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(task.id!), summary: task.title, created_at: new Date().toISOString() });
+    const colName = columns.find(c => c.key === task.column)?.name ?? task.column;
+    await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(task.id!), summary: `タスク「${task.title || '(無題)'}」をアーカイブ（${colName}）`, created_at: new Date().toISOString() });
     await load();
     toast.success('アーカイブしました');
-  }, [load, toast]);
+  }, [columns, load, toast]);
 
   // ── カード単体削除 ────────────────────────────────────────
   const deleteCard = useCallback(async (task: KanbanTask) => {
@@ -2440,15 +2442,16 @@ export function TodoPage() {
     const tasks = tasksMap[columnKey] || [];
     if (!tasks.length) return;
     if (!confirm(`${tasks.length} 件のタスクをアーカイブしますか？`)) return;
+    const colName = columns.find(c => c.key === columnKey)?.name ?? columnKey;
     for (const t of tasks) {
       await kanbanDB.addActivity(t.id!, 'archive', {});
       await kanbanDB.archiveTask(t);
       await kanbanDB.deleteTask(t.id!);
-      await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(t.id!), summary: t.title, created_at: new Date().toISOString() });
+      await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(t.id!), summary: `タスク「${t.title || '(無題)'}」をアーカイブ（${colName}）`, created_at: new Date().toISOString() });
     }
     await load();
     toast.success('アーカイブしました');
-  }, [tasksMap, load, toast]);
+  }, [columns, tasksMap, load, toast]);
 
   // ── テンプレートからタスク追加 ───────────────────────────────
   const addTaskFromTemplate = useCallback(async (columnKey: string, template: KanbanTemplate) => {

@@ -469,6 +469,10 @@ export function DatePicker({
             />
           </div>
           <div className={styles['dp-footer']}>
+            <button type="button" className="btn btn--sm btn--ghost"
+              onClick={() => setOpen(false)}>
+              キャンセル
+            </button>
             <button type="button" className="btn btn--sm btn--primary"
               onClick={() => confirm(pendingDate)}>
               決定
