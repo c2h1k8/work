@@ -5,13 +5,16 @@
 // ==================================================
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useToast } from '../components/Toast';
+import { Toast, useToast } from '../components/Toast';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
 import { opsDB, type OpsPort, type PortProtocol } from '../db/ops_db';
-import { HelpCircleIcon, XIcon } from 'lucide-react';
+import { HelpCircleIcon, XIcon, Upload } from 'lucide-react';
 
 // ── ストレージキー ─────────────────────────────────
+const LOG_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const LOG_MAX_LINES     = 200_000;
+
 const STORAGE_ACTIVE_SECTION = 'ops_active_section';
 const STORAGE_CRON_TZ        = 'ops_cron_tz';
 const STORAGE_PORTS_FILTER   = 'ops_ports_filter';
@@ -25,20 +28,6 @@ type Section = 'log-viewer' | 'cron' | 'http-status' | 'ports';
 // ================================================================
 // 定数
 // ================================================================
-
-const LOG_LEVEL_PATTERNS = [
-  { level: 'ERROR', regex: /\b(ERROR|FATAL|SEVERE|CRITICAL)\b/i, color: 'error' },
-  { level: 'WARN',  regex: /\b(WARN|WARNING)\b/i,                color: 'warn'  },
-  { level: 'INFO',  regex: /\b(INFO|NOTICE)\b/i,                 color: 'info'  },
-  { level: 'DEBUG', regex: /\b(DEBUG|TRACE|FINE|FINER|FINEST)\b/i, color: 'debug' },
-] as const;
-
-const TIMESTAMP_PATTERNS = [
-  /\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}:\d{2}/,
-  /\d{2}[-/]\d{2}[-/]\d{4} \d{2}:\d{2}:\d{2}/,
-  /\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}/,
-  /\d{2}:\d{2}:\d{2}[.,]\d{3}/,
-];
 
 const DOW_JA = ['日','月','火','水','木','金','土'];
 
@@ -282,42 +271,6 @@ type LogLevelFilter = Record<string, boolean>;
 const LOG_ROW_HEIGHT = 24;
 const LOG_OVERSCAN   = 20;
 
-function detectLevel(text: string): { level: string; color: string } {
-  for (const pat of LOG_LEVEL_PATTERNS) {
-    if (pat.regex.test(text)) return { level: pat.level, color: pat.color };
-  }
-  return { level: 'OTHER', color: 'other' };
-}
-
-function detectTimestamp(text: string): Date | null {
-  for (const pat of TIMESTAMP_PATTERNS) {
-    const m = text.match(pat);
-    if (m) {
-      try {
-        let raw = m[0];
-        if (/^\w{3}\s+\d/.test(raw)) raw = `${new Date().getFullYear()} ${raw}`;
-        const d = new Date(raw);
-        if (!isNaN(d.getTime())) return d;
-      } catch { /* パース失敗は無視 */ }
-    }
-  }
-  return null;
-}
-
-function parseLogLines(text: string): LogLine[] {
-  return text.split('\n').map((lineText, i) => {
-    const { level, color } = detectLevel(lineText);
-    return {
-      lineNo: i + 1,
-      text: lineText,
-      textLower: lineText.toLowerCase(),
-      level,
-      color,
-      timestamp: detectTimestamp(lineText),
-    };
-  });
-}
-
 const LEVEL_BADGE_STYLES: Record<string, string> = {
   error: 'bg-red-500/20 text-red-400 border border-red-500/40',
   warn:  'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40',
@@ -344,6 +297,33 @@ function LogViewer() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [startTime, setStartTime]         = useState('');
   const [endTime, setEndTime]             = useState('');
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [dragOver,       setDragOver]       = useState(false);
+  const [isParsing,      setIsParsing]      = useState(false);
+  const globalDragCount = useRef(0);
+  const areaDragCount   = useRef(0);
+  const parseGenRef     = useRef(0);
+  const logWorkerRef    = useRef<Worker | null>(null);
+
+  // log Worker のライフサイクル
+  useEffect(() => {
+    let worker: Worker | null = null;
+    try {
+      worker = new Worker(new URL('../workers/log.worker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = (e) => {
+        const { id, lines } = e.data as { id: number; lines: LogLine[] };
+        if (id !== parseGenRef.current) return;
+        setLogLines(lines);
+        setIsParsing(false);
+      };
+      worker.onerror = () => {
+        setIsParsing(false);
+        Toast.error('ログ解析でエラーが発生しました');
+      };
+      logWorkerRef.current = worker;
+    } catch { /* Worker 未対応環境は無視 */ }
+    return () => { worker?.terminate(); };
+  }, []);
 
   const [vsStart, setVsStart] = useState(0);
   const [vsEnd, setVsEnd]     = useState(50);
@@ -399,10 +379,70 @@ function LogViewer() {
 
   useEffect(() => { recalcVs(); }, [filtered, recalcVs]);
 
+  // ページレベルのファイルドラッグ検知（ブラウザウィンドウに入った瞬間から強調）
+  useEffect(() => {
+    const isFileDrag = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+    const resetAll = () => {
+      globalDragCount.current = 0;
+      areaDragCount.current   = 0;
+      setIsDraggingFile(false);
+      setDragOver(false);
+    };
+    const onEnter = (e: DragEvent) => {
+      if (!isFileDrag(e)) return;
+      globalDragCount.current++;
+      setIsDraggingFile(true);
+    };
+    const onLeave = () => {
+      globalDragCount.current = Math.max(0, globalDragCount.current - 1);
+      if (globalDragCount.current === 0) setIsDraggingFile(false);
+    };
+    document.addEventListener('dragenter', onEnter);
+    document.addEventListener('dragleave', onLeave);
+    document.addEventListener('drop', resetAll);
+    return () => {
+      document.removeEventListener('dragenter', onEnter);
+      document.removeEventListener('dragleave', onLeave);
+      document.removeEventListener('drop', resetAll);
+    };
+  }, []);
+
+  const handleLogDragOver  = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; };
+  const handleLogAreaEnter = () => { areaDragCount.current++; setDragOver(true); };
+  const handleLogAreaLeave = () => {
+    areaDragCount.current = Math.max(0, areaDragCount.current - 1);
+    if (areaDragCount.current === 0) setDragOver(false);
+  };
+  const handleLogDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    areaDragCount.current   = 0;
+    globalDragCount.current = 0;
+    setDragOver(false);
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (file.size > LOG_MAX_FILE_SIZE) {
+      Toast.error(`ファイルが大きすぎます（上限 10MB、${(file.size / 1024 / 1024).toFixed(1)} MB）`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => { if (typeof reader.result === 'string') onInput(reader.result); };
+    reader.readAsText(file);
+  };
+
   const onInput = (text: string) => {
     setLogText(text);
-    if (!text.trim()) { setLogLines([]); return; }
-    setLogLines(parseLogLines(text));
+    if (!text.trim()) { setLogLines([]); setIsParsing(false); return; }
+
+    if (text.split('\n').length > LOG_MAX_LINES) {
+      Toast.error(`行数が多すぎます（上限 ${LOG_MAX_LINES.toLocaleString()} 行）`);
+      setLogLines([]);
+      return;
+    }
+
+    setIsParsing(true);
+    const id = ++parseGenRef.current;
+    logWorkerRef.current?.postMessage({ id, text });
   };
 
   const toggleLevel = (lv: string) => setLevels(prev => ({ ...prev, [lv]: !prev[lv] }));
@@ -412,12 +452,30 @@ function LogViewer() {
   return (
     <div className="flex flex-col gap-3 h-full">
       {/* 入力エリア */}
-      <textarea
-        className="w-full h-36 px-3 py-2 font-mono text-xs resize-none rounded-lg border border-[var(--c-border)] bg-[var(--c-bg-2)] text-[var(--c-text)] placeholder-[var(--c-text-3)] focus:outline-none focus:border-[var(--c-accent)]"
-        placeholder="ログテキストをここに貼り付けてください…"
-        value={logText}
-        onChange={e => onInput(e.target.value)}
-      />
+      <div
+        className="relative"
+        onDragOver={handleLogDragOver}
+        onDragEnter={handleLogAreaEnter}
+        onDragLeave={handleLogAreaLeave}
+        onDrop={handleLogDrop}
+      >
+        <textarea
+          className={`w-full h-36 px-3 py-2 font-mono text-xs resize-none rounded-lg border bg-[var(--c-bg-2)] text-[var(--c-text)] placeholder-[var(--c-text-3)] focus:outline-none transition-all ${
+            isDraggingFile
+              ? 'border-2 border-dashed border-[var(--c-accent)] shadow-[0_0_0_3px_var(--c-accent-dim)] focus:border-[var(--c-accent)]'
+              : 'border-[var(--c-border)] focus:border-[var(--c-accent)]'
+          }`}
+          placeholder="ログテキストをここに貼り付けてください…（ファイルドロップ可）"
+          value={logText}
+          onChange={e => onInput(e.target.value)}
+        />
+        {dragOver && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-[var(--c-accent-light)] border-2 border-dashed border-[var(--c-accent)] pointer-events-none text-[var(--c-accent)] font-semibold text-sm">
+            <Upload size={22} />
+            ファイルをドロップ
+          </div>
+        )}
+      </div>
 
       {/* サマリー & フィルター */}
       {hasLog && (
@@ -507,7 +565,12 @@ function LogViewer() {
         </div>
       )}
 
-      {!hasLog && (
+      {isParsing && (
+        <div className="flex-1 flex items-center justify-center text-[var(--c-text-3)] text-sm">
+          解析中…
+        </div>
+      )}
+      {!hasLog && !isParsing && (
         <div className="flex-1 flex items-center justify-center text-[var(--c-text-3)] text-sm">
           ログを貼り付けると、レベル別のフィルタリングと仮想スクロール表示ができます
         </div>
