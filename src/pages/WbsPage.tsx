@@ -831,7 +831,7 @@ export function WbsPage() {
       <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[var(--c-border)] shrink-0">
         <button
           onClick={addTask}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[var(--c-accent)] text-white text-xs font-medium hover:opacity-90 transition-opacity shrink-0"
+          className="btn btn--primary btn--sm shrink-0"
         >
           <PlusIcon size={13} aria-hidden="true" />タスク追加
         </button>

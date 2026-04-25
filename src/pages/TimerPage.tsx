@@ -301,10 +301,7 @@ function PresetModal({ preset, onSave, onClose }: {
           </div>
         </div>
         <div className="px-5 py-3 border-t border-[var(--c-border)] flex justify-end">
-          <button onClick={handleSave}
-            className="px-3 py-1.5 rounded bg-[var(--c-accent)] text-white text-sm hover:brightness-105 transition-all">
-            保存
-          </button>
+          <button onClick={handleSave} className="btn btn--primary btn--sm">保存</button>
         </div>
       </div>
     </div>
