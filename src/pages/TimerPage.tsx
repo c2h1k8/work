@@ -1554,17 +1554,17 @@ export function TimerPage() {
                 <span className="text-xs font-semibold text-[var(--c-accent)]">合計: {fmtDuration(sessionTotalSec)}</span>
               )}
               <button onClick={handleExportCSV}
-                className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)] hover:bg-[var(--c-bg-2)] transition-colors"
+                className="btn btn--icon btn--sm"
                 title="全セッションをCSV出力">
                 <FileDown size={14} aria-hidden="true" />
               </button>
               <button onClick={handleExportJSON}
-                className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)] hover:bg-[var(--c-bg-2)] transition-colors"
+                className="btn btn--icon btn--sm"
                 title="JSONエクスポート">
                 <Download size={14} aria-hidden="true" />
               </button>
               <button onClick={handleImportJSON}
-                className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)] hover:bg-[var(--c-bg-2)] transition-colors"
+                className="btn btn--icon btn--sm"
                 title="JSONインポート">
                 <Upload size={14} aria-hidden="true" />
               </button>

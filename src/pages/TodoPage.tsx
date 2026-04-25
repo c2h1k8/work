@@ -1790,7 +1790,7 @@ function ColumnEditModal({ column, onClose, onSaved, onDeleted, taskCount }: Col
       <div className="bg-[var(--c-bg)] rounded-xl border border-[var(--c-border)] w-80" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
           <h3 className="font-semibold text-[var(--c-fg)] text-sm">{column ? 'カラム設定' : 'カラムを追加'}</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]"><XIcon size={14} /></button>
+          <button onClick={onClose} className="btn btn--ghost btn--sm" aria-label="閉じる"><XIcon size={14} /></button>
         </div>
         <div className="p-4 space-y-3">
           <div>
@@ -1813,9 +1813,9 @@ function ColumnEditModal({ column, onClose, onSaved, onDeleted, taskCount }: Col
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--c-border)]">
           {column ? (
-            <button onClick={handleDelete} className="px-2 py-1.5 rounded border border-red-300 text-red-500 text-xs hover:bg-red-50 dark:hover:bg-red-950">削除</button>
+            <button onClick={handleDelete} className="btn btn--danger btn--sm">削除</button>
           ) : <span />}
-          <button onClick={handleSave} className="px-3 py-1.5 rounded bg-[var(--c-accent)] text-white text-sm">保存</button>
+          <button onClick={handleSave} className="btn btn--primary btn--sm">保存</button>
         </div>
       </div>
     </div>
@@ -1871,7 +1871,7 @@ function LabelManagerModal({ labels, onClose, onChanged, wrapperClassName }: Lab
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
           <h3 className="font-semibold text-[var(--c-fg)] text-sm flex items-center gap-2"><TagIcon size={14} />ラベル管理</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]"><XIcon size={14} /></button>
+          <button onClick={onClose} className="btn btn--ghost btn--sm" aria-label="閉じる"><XIcon size={14} /></button>
         </div>
         <div className="p-4 space-y-3">
           {labels.map((l) => (
@@ -1916,7 +1916,7 @@ function LabelManagerModal({ labels, onClose, onChanged, wrapperClassName }: Lab
               placeholder="ラベル名"
               className="flex-1 px-2 py-1 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm focus:outline-none" />
             <button onClick={addLabel}
-              className="px-2 py-1 rounded bg-[var(--c-accent)] text-white text-sm">追加</button>
+              className="btn btn--primary btn--sm">追加</button>
           </div>
         </div>
       </div>
@@ -1990,7 +1990,7 @@ function ArchiveModal({ columns, labels, onClose, onRestored }: ArchiveModalProp
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
           <h3 className="font-semibold text-[var(--c-fg)] text-sm flex items-center gap-2"><ArchiveIcon size={14} />アーカイブ</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]"><XIcon size={14} /></button>
+          <button onClick={onClose} className="btn btn--ghost btn--sm" aria-label="閉じる"><XIcon size={14} /></button>
         </div>
         <div className="p-3 border-b border-[var(--c-border)]">
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="検索…"
@@ -2119,13 +2119,13 @@ function TemplateManagerModal({ labels, onClose, onChanged }: TemplateManagerMod
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
           <h3 className="font-semibold text-[var(--c-fg)] text-sm flex items-center gap-2"><FileEditIcon size={14} />テンプレート管理</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)]"><XIcon size={14} /></button>
+          <button onClick={onClose} className="btn btn--ghost btn--sm" aria-label="閉じる"><XIcon size={14} /></button>
         </div>
         <div className={clsx(styles['template-modal__body'], 'flex-1 overflow-hidden')}>
           {/* 左カラム：一覧 */}
           <div className={styles['template-modal__list-col']}>
             <button onClick={newTemplate}
-              className="w-full px-3 py-1.5 rounded bg-[var(--c-accent)] text-white text-xs text-center">+ 新規テンプレート</button>
+              className="w-full btn btn--primary btn--sm">+ 新規テンプレート</button>
             {templates.length === 0 && <p className={styles['template-list__empty']}>テンプレートがありません</p>}
             <ul className={styles['template-list']}>
               {templates.map((t) => (
@@ -2198,7 +2198,7 @@ function TemplateManagerModal({ labels, onClose, onChanged }: TemplateManagerMod
                   </div>
                 )}
                 <div className={styles['template-form__actions']}>
-                  <button onClick={saveTemplate} className="px-4 py-1.5 rounded bg-[var(--c-accent)] text-white text-sm">保存</button>
+                  <button onClick={saveTemplate} className="btn btn--primary btn--sm">保存</button>
                 </div>
               </div>
             )}
@@ -2793,27 +2793,27 @@ export function TodoPage() {
 
         {/* アクション */}
         <button onClick={() => setShowTemplateMgr(true)} aria-label="テンプレート管理"
-          className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="テンプレート管理">
+          className="btn btn--icon btn--sm" title="テンプレート管理">
           <FileEditIcon size={14} aria-hidden="true" />
         </button>
         <button onClick={() => setShowLabelMgr(true)} aria-label="ラベル管理"
-          className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="ラベル管理">
+          className="btn btn--icon btn--sm" title="ラベル管理">
           <TagIcon size={14} aria-hidden="true" />
         </button>
         <button onClick={() => setShowArchive(true)} aria-label="アーカイブ一覧"
-          className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="アーカイブ">
+          className="btn btn--icon btn--sm" title="アーカイブ">
           <ArchiveIcon size={14} aria-hidden="true" />
         </button>
         <button onClick={exportData} aria-label="エクスポート"
-          className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="エクスポート">
+          className="btn btn--icon btn--sm" title="エクスポート">
           <DownloadIcon size={14} aria-hidden="true" />
         </button>
         <button onClick={() => importFileRef.current?.click()} aria-label="インポート"
-          className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="インポート">
+          className="btn btn--icon btn--sm" title="インポート">
           <UploadIcon size={14} aria-hidden="true" />
         </button>
         <button onClick={() => setEditingColumn(null)} aria-label="カラムを追加"
-          className="flex items-center gap-1 px-3 py-1.5 rounded bg-[var(--c-accent)] text-white text-xs">
+          className="btn btn--primary btn--sm">
           <PlusIcon size={14} aria-hidden="true" />カラム
         </button>
       </div>

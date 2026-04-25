@@ -838,12 +838,12 @@ export function WbsPage() {
         <div className="w-px h-5 bg-[var(--c-border)] mx-0.5 shrink-0" />
         <button
           onClick={() => indentTask(1)}
-          className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors"
+          className="btn btn--icon btn--sm"
           title="インデント (Tab)"
         ><IndentIcon size={14} aria-hidden="true" /></button>
         <button
           onClick={() => indentTask(-1)}
-          className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors"
+          className="btn btn--icon btn--sm"
           title="アウトデント (Shift+Tab)"
         ><OutdentIcon size={14} aria-hidden="true" /></button>
         <div className="w-px h-5 bg-[var(--c-border)] mx-0.5 shrink-0" />
@@ -854,11 +854,11 @@ export function WbsPage() {
               gBodyRef.current.scrollLeft = Math.max(0, todayX - gBodyRef.current.clientWidth / 2);
             }
           }}
-          className="flex items-center gap-1 px-2 py-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors text-xs"
+          className="btn btn--secondary btn--sm"
         ><CalendarDaysIcon size={13} aria-hidden="true" />今日</button>
         <button
           onClick={() => setShowHolidayModal(true)}
-          className="flex items-center gap-1 px-2 py-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors text-xs"
+          className="btn btn--secondary btn--sm"
         ><CalendarIcon size={13} aria-hidden="true" />祝日設定</button>
         <div className="ml-auto flex items-center gap-1.5">
           {/* 凡例 */}
@@ -873,11 +873,11 @@ export function WbsPage() {
           <div className="w-px h-5 bg-[var(--c-border)] shrink-0" />
           <button
             onClick={exportData}
-            className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors"
+            className="btn btn--icon btn--sm"
             title="エクスポート"
           ><DownloadIcon size={14} aria-hidden="true" /></button>
           <label
-            className="p-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors cursor-pointer"
+            className="btn btn--icon btn--sm cursor-pointer"
             title="インポート"
           >
             <UploadIcon size={14} aria-hidden="true" />
