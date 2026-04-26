@@ -14,6 +14,7 @@ interface SelectProps {
   className?: string;
   placeholder?: string;
   icon?: React.ReactNode;
+  dropdownAlign?: 'left' | 'right';
 
   // 単一選択
   value?: string;
@@ -27,6 +28,7 @@ interface SelectProps {
 
 export function Select({
   options, className = '', placeholder, icon,
+  dropdownAlign = 'left',
   value, onChange,
   multiple, values = [], onChangeMultiple,
 }: SelectProps) {
@@ -81,7 +83,7 @@ export function Select({
       </button>
 
       {open && (
-        <ul className={clsx(styles['cs-dropdown'], styles['cs-dropdown--open'])} role="listbox">
+        <ul className={clsx(styles['cs-dropdown'], styles['cs-dropdown--open'], dropdownAlign === 'right' && styles['cs-dropdown--right'])} role="listbox">
           {options.map((o) => {
             const isSelected = multiple ? values.includes(o.value) : o.value === value;
             return (

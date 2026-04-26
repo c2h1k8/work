@@ -61,8 +61,6 @@
   font-weight: 600;
 }
 .txt-tool {
-  max-width: 900px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -137,34 +135,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-.encode-dir-toggle {
-  display: flex;
-  border: 1.5px solid var(--c-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-.encode-dir-btn {
-  padding: 7px 22px;
-  font-size: 13px;
-  font-weight: 500;
-  border: none;
-  background: var(--c-bg);
-  color: var(--c-text-2);
-  cursor: pointer;
-  transition: all var(--t);
-}
-.encode-dir-btn:not(:last-child) {
-  border-right: 1.5px solid var(--c-border);
-}
-.encode-dir-btn:hover:not(.encode-dir-btn--active) {
-  background: var(--c-surface-raised);
-  color: var(--c-text);
-}
-.encode-dir-btn--active {
-  background: var(--c-accent);
-  color: #fff;
-  font-weight: 600;
 }
 .encode-result-list {
   display: flex;
@@ -281,6 +251,9 @@
   align-items: center;
   gap: 8px;
   padding: 12px 14px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
 }
 .regex-delim {
   font-size: 22px;
@@ -812,31 +785,6 @@
   background: var(--c-border);
   flex-shrink: 0;
 }
-.tsv-delim-bar {
-  display: flex;
-  gap: 6px;
-}
-.tsv-delim-btn {
-  padding: 5px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  border: 1.5px solid var(--c-border);
-  border-radius: var(--radius-md);
-  background: var(--c-bg);
-  color: var(--c-text-2);
-  cursor: pointer;
-  transition: all var(--t);
-}
-.tsv-delim-btn:hover {
-  color: var(--c-text);
-  border-color: var(--c-border-2);
-}
-.tsv-delim-btn--active {
-  background: var(--c-accent);
-  border-color: var(--c-accent);
-  color: #fff;
-  font-weight: 600;
-}
 .tsv-input-actions {
   display: flex;
   gap: 8px;
@@ -1152,14 +1100,672 @@
   .regex-flags-inline {
     flex-wrap: wrap;
   }
-  .encode-dir-btn {
-    padding: 6px 14px;
-  }
   .count-stats {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
   .count-stat__value {
     font-size: 22px;
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   追加スタイル（React 版補完）
+   ════════════════════════════════════════════════════ */
+
+/* ── ページ骨格 ───────────────────────────────────── */
+.text-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.txt-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* regex タブ時はページスクロールなし — 両パネルが独立スクロール */
+.txt-body[data-activesec="regex"] {
+  overflow: hidden;
+}
+
+/* ── 共通テキスト入力 ─────────────────────────────── */
+.txt-input {
+  padding: 8px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-md);
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  transition: border-color var(--t);
+  min-width: 0;
+}
+.txt-input:focus {
+  outline: none;
+  border-color: var(--c-accent);
+}
+
+/* ── セクション共通カード ─────────────────────────── */
+.encode-section,
+.case-section,
+.count-section,
+.format-section,
+.timestamp-section,
+.regex-section,
+.tsv-section {
+  width: 100%;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* regex-section: 利用可能高さをすべて使う */
+.regex-section {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── セクションヘッダー（エンコード・ケース・文字カウント） */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  min-height: 40px;
+}
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+.section-body {
+  /* テキストエリア直前の余白なしラッパー */
+}
+
+/* ── エンコードセクション ─────────────────────────── */
+/* encode-dir-toggle / encode-dir-btn は既存定義を流用 */
+
+/* ── ケース・カウント共通 ─────────────────────────── */
+.count-section .count-stats {
+  padding: 16px;
+}
+
+/* ── 正規表現セクション ───────────────────────────── */
+.regex-test-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--c-bg);
+}
+.regex-replace-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--c-bg);
+  border-top: 1px solid var(--c-border);
+}
+
+/* ── 正規表現: 置換結果出力エリア ────────────────────── */
+.regex-output-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--c-border);
+  overflow: hidden;
+}
+.regex-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 14px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+}
+.regex-output-pre {
+  flex: 1;
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--c-text);
+  background: var(--c-bg);
+  overflow-y: auto;
+}
+.regex-output-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--c-text-3);
+  font-style: italic;
+  background: var(--c-bg);
+  padding: 20px;
+  text-align: center;
+}
+.regex-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text-3);
+}
+.regex-label-hint {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--c-text-3);
+}
+.regex-match-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-accent);
+  padding: 2px 8px;
+  background: var(--c-accent-dim);
+  border-radius: var(--radius-full);
+  align-self: flex-start;
+}
+.regex-match-badge--none {
+  color: var(--c-text-3);
+  background: var(--c-bg-2);
+}
+
+/* ── フォーマッタセクション ───────────────────────── */
+.fmt-textarea {
+  min-height: 340px;
+}
+.fmt-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.fmt-pane {
+  display: flex;
+  flex-direction: column;
+}
+.fmt-pane:first-child {
+  border-right: 1px solid var(--c-border);
+}
+.fmt-pane-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  min-height: 36px;
+}
+.fmt-hint {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--c-text-3);
+  opacity: 0.7;
+}
+.fmt-output {
+  margin: 0;
+  padding: 14px 16px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  line-height: 1.7;
+  color: var(--c-text);
+  min-height: 340px;
+  overflow-y: auto;
+}
+
+/* ── タイムスタンプセクション ─────────────────────── */
+.ts-now-card {
+  /* section-card スタイルは親から継承 */
+}
+.ts-now-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+/* タイムゾーン Select コンポーネント用ラッパー幅 */
+.ts-tz-select {
+  width: 210px;
+}
+.timestamp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+.ts-now-card,
+.ts-convert-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+.ts-convert-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.ts-convert-title {
+  padding: 9px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+.ts-convert-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 16px;
+}
+.ts-result-grid {
+  border-top: 1px solid var(--c-border);
+}
+
+/* ── TSV セクション ───────────────────────────────── */
+.tsv-editable-cell {
+  cursor: default;
+  user-select: text;
+}
+.tsv-editable-cell:hover {
+  cursor: cell;
+}
+.tsv-cell-input {
+  width: 100%;
+  height: 100%;
+  padding: 5px 9px;
+  border: none;
+  background: var(--c-accent-dim);
+  color: var(--c-text);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  outline: 2px solid var(--c-accent);
+  outline-offset: -1px;
+  border-radius: 0;
+}
+
+/* ── 正規表現: テストヘッダー / モード切替 / 行フィルタ ── */
+.regex-test-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.regex-filter-hint {
+  font-size: 11px;
+  color: var(--c-text-3);
+  align-self: flex-end;
+  margin-left: 4px;
+}
+.regex-filter-empty {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--c-text-3);
+  font-style: italic;
+}
+
+/* ── 正規表現: 抽出モード ─────────────────────────── */
+.regex-extract-panel {
+  display: flex;
+  flex-direction: column;
+}
+.regex-extract-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-border);
+  border-top: 1px solid var(--c-border);
+}
+.regex-extract-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.regex-extract-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 13px;
+}
+.regex-extract-item:last-child { border-bottom: none; }
+.regex-extract-item__idx {
+  width: 28px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--c-text-3);
+  text-align: right;
+  padding-top: 2px;
+}
+.regex-extract-item__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.regex-extract-item__val {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.regex-extract-item__meta {
+  font-size: 11px;
+  color: var(--c-text-3);
+}
+.regex-extract-item__caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--c-text-3);
+  font-family: var(--font-mono);
+}
+.regex-extract-item__cap {
+  background: var(--c-bg-2);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+.regex-extract-item__caps--named .regex-extract-item__cap {
+  background: var(--c-accent-dim);
+  color: var(--c-accent);
+}
+.regex-extract-empty {
+  padding: 16px 14px;
+  font-size: 13px;
+  color: var(--c-text-3);
+  text-align: center;
+}
+
+/* 抽出アイテム: rx-mark と対応する6色 */
+.regex-extract-item--c0 { border-left: 3px solid #d97706; background: #fefce880; }
+.regex-extract-item--c1 { border-left: 3px solid #16a34a; background: #f0fdf480; }
+.regex-extract-item--c2 { border-left: 3px solid #2563eb; background: #eff6ff80; }
+.regex-extract-item--c3 { border-left: 3px solid #7c3aed; background: #faf5ff80; }
+.regex-extract-item--c4 { border-left: 3px solid #dc2626; background: #fef2f280; }
+.regex-extract-item--c5 { border-left: 3px solid #0d9488; background: #f0fdfa80; }
+:global([data-theme="dark"]) .regex-extract-item--c0 { border-color: #f59e0b; background: #92400e20; }
+:global([data-theme="dark"]) .regex-extract-item--c1 { border-color: #34d399; background: #14532d20; }
+:global([data-theme="dark"]) .regex-extract-item--c2 { border-color: #60a5fa; background: #1e3a5f20; }
+:global([data-theme="dark"]) .regex-extract-item--c3 { border-color: #a78bfa; background: #4c1d9520; }
+:global([data-theme="dark"]) .regex-extract-item--c4 { border-color: #f87171; background: #7f1d1d20; }
+:global([data-theme="dark"]) .regex-extract-item--c5 { border-color: #2dd4bf; background: #134e4a20; }
+
+/* ── 正規表現: 保存ドロップダウン ────────────────── */
+.regex-save-wrap {
+  position: relative;
+}
+.regex-save-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 200;
+  min-width: 280px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.regex-drop-save-form {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg);
+}
+.regex-drop-name-input {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 13px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  background: var(--c-surface);
+  color: var(--c-text);
+  outline: none;
+  transition: border-color var(--t);
+}
+.regex-drop-name-input:focus { border-color: var(--c-accent); }
+.regex-drop-section {
+  border-top: 1px solid var(--c-border);
+}
+.regex-drop-section:first-child { border-top: none; }
+.regex-drop-title {
+  padding: 6px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+.regex-drop-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--c-border);
+}
+.regex-drop-item:first-child { border-top: none; }
+.regex-drop-item__name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-text);
+  flex-shrink: 0;
+}
+.regex-drop-item__pattern {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--c-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.regex-code-snippet {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--c-text-2);
+  background: var(--c-bg-2);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.regex-drop-empty {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--c-text-3);
+  text-align: center;
+}
+
+/* ── 正規表現: インライン保存フォーム ───────────────── */
+.regex-save-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 10px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+}
+
+/* ── チートシート: フラグ行 ───────────────────────── */
+.rxh-row--flag {
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--t);
+}
+.rxh-row--flag:hover { background: var(--c-bg-2); }
+.rxh-row--flag-active { background: var(--c-accent-dim); }
+.rxh-flag-dot {
+  font-size: 12px;
+  color: var(--c-accent);
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+
+/* ── チートシート: コードスニペット ──────────────── */
+.regex-snippet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--c-border);
+}
+.regex-snippet-item:first-child { border-top: none; }
+.regex-snippet-lang {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+  flex-shrink: 0;
+  width: 70px;
+  padding-top: 2px;
+}
+.regex-snippet-code {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--c-text);
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+/* ── 正規表現サイドパネルレイアウト ──────────────── */
+.regex-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  overflow: hidden;
+}
+.regex-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.regex-side-panel {
+  width: 320px;
+  flex-shrink: 0;
+  min-height: 0;
+  border-left: 1px solid var(--c-border);
+  overflow-y: auto;
+  background: var(--c-bg);
+}
+.regex-side-title {
+  position: sticky;
+  top: 0;
+  padding: 9px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  z-index: 1;
+}
+
+/* ── TSV ドラッグ&ドロップ ──────────────────────── */
+.tsv-drop-wrap {
+  position: relative;
+}
+.tsv-drop-hint {
+  font-size: 11px;
+  color: var(--c-text-3);
+  font-weight: 400;
+  margin-left: 4px;
+}
+.tsv-drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--c-accent-light);
+  border: 2px dashed var(--c-accent);
+  border-radius: var(--radius-md);
+  color: var(--c-accent);
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* ── レスポンシブ補完 ─────────────────────────────── */
+@media (max-width: 700px) {
+  .fmt-panes {
+    grid-template-columns: 1fr;
+  }
+  .fmt-pane:first-child {
+    border-right: none;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .ts-convert-cards {
+    grid-template-columns: 1fr;
+  }
+  .txt-body {
+    padding: 12px;
+  }
+  .regex-side-panel {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--c-border);
+    max-height: none;
+  }
+  .regex-layout {
+    flex-direction: column;
   }
 }

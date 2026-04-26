@@ -482,6 +482,8 @@ body {
 }
 
 @import './components/button.css';
+@import './components/segmented-control.css';
+@import './components/toggle.css';
 
 /* Tailwind で CSS 変数トークンを使えるようにするユーティリティ */
 @theme inline {

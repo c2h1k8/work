@@ -1,0 +1,59 @@
+/* ============================================================
+   Toggle Switch — iOS スタイルトグル
+   ============================================================
+   使い方:
+     <label class="toggle-wrap">
+       <input type="checkbox" class="toggle-input" checked onChange={...} />
+       <span class="toggle-track"><span class="toggle-thumb"></span></span>
+       <span class="toggle-label">ラベル</span>
+     </label>
+   ============================================================ */
+
+.toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.toggle-input {
+  display: none;
+}
+
+.toggle-track {
+  width: 30px;
+  height: 17px;
+  background: var(--c-border);
+  border-radius: 9px;
+  position: relative;
+  flex-shrink: 0;
+  transition: background var(--t);
+}
+
+.toggle-thumb {
+  width: 13px;
+  height: 13px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform var(--t);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-input:checked + .toggle-track {
+  background: var(--c-accent);
+}
+
+.toggle-input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(13px);
+}
+
+.toggle-label {
+  font-size: 13px;
+  color: var(--c-text-2);
+  white-space: nowrap;
+}

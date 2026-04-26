@@ -1522,10 +1522,10 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
             <div className={styles['modal__sidebar-item']}>
               <span className={styles['modal__sidebar-label']}>繰り返し</span>
               <div className={styles['recurring-row']}>
-                <label className={styles['toggle-switch']}>
+                <label className="toggle-wrap">
                   <input
                     type="checkbox"
-                    className={styles['toggle-switch__input']}
+                    className="toggle-input"
                     checked={!!recurring}
                     onChange={(e) => {
                       const next = e.target.checked ? { interval: 'weekly' as const, next_date: '' } : null;
@@ -1533,9 +1533,9 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                       kanbanDB.updateTask(task.id!, { recurring: next || null }).then(onSaved);
                     }}
                   />
-                  <span className={styles['toggle-switch__slider']} />
+                  <span className="toggle-track"><span className="toggle-thumb" /></span>
+                  <span className="toggle-label">繰り返す</span>
                 </label>
-                <span className={styles['recurring-toggle-text']}>繰り返す</span>
                 {recurring && (
                   <Select
                     value={recurring.interval}
@@ -1804,13 +1804,11 @@ function ColumnEditModal({ column, onClose, onSaved, onDeleted, taskCount }: Col
             <input type="number" min="0" value={wipLimit} onChange={(e) => setWipLimit(e.target.value)}
               className="w-full px-3 py-1.5 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] focus:outline-none focus:border-[var(--c-accent)]" />
           </div>
-          <div className={styles['recurring-row']}>
-            <label className={styles['toggle-switch']}>
-              <input type="checkbox" className={styles['toggle-switch__input']} checked={done} onChange={(e) => setDone(e.target.checked)} />
-              <span className={styles['toggle-switch__slider']} />
-            </label>
-            <span className="text-sm text-[var(--c-fg)]">完了カラム</span>
-          </div>
+          <label className="toggle-wrap">
+            <input type="checkbox" className="toggle-input" checked={done} onChange={(e) => setDone(e.target.checked)} />
+            <span className="toggle-track"><span className="toggle-thumb" /></span>
+            <span className="toggle-label">完了</span>
+          </label>
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--c-border)]">
           {column ? (
@@ -2792,6 +2790,7 @@ export function TodoPage() {
           }}
           icon={<ArrowUpDownIcon size={12} aria-hidden="true" />}
           className="toolbar-select toolbar-select--wide"
+          dropdownAlign="right"
         />
 
         {/* アクション */}

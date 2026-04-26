@@ -16,6 +16,8 @@
   font-family: inherit;
   cursor: pointer;
   text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
   transition: border-color var(--t, 0.15s), background var(--t, 0.15s);
 }
 .cs-trigger:hover  { border-color: var(--c-accent, #6366f1); }
@@ -67,6 +69,11 @@
   overflow-y: auto;
   white-space: nowrap;
 }
+.cs-dropdown--right {
+  left: auto;
+  right: 0;
+  width: 100%;
+}
 .cs-option {
   display: flex;
   align-items: center;
@@ -75,6 +82,8 @@
   font-size: 13px;
   color: var(--c-text, #1a1d2e);
   cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
   transition: background var(--t, 0.15s);
 }
 .cs-option:hover { background: var(--c-surface-hover, rgba(99,102,241,0.06)); }

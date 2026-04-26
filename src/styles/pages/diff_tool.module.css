@@ -37,24 +37,6 @@
   margin-left: auto;
 }
 
-/* ── チェックボックスラベル ───────────────────────────────── */
-.diff-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  color: var(--c-text-2);
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-}
-
-.diff-check input[type="checkbox"] {
-  accent-color: var(--c-accent);
-  width: 13px;
-  height: 13px;
-  cursor: pointer;
-}
 
 /* ── モード切替 / 表示切替 ────────────────────────────────── */
 .diff-mode-toggle {

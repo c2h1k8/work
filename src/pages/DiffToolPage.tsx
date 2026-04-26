@@ -671,21 +671,25 @@ export function DiffToolPage() {
 
         <span className={styles['diff-toolbar-sep']} />
 
-        <label className={styles['diff-check']}>
-          <input type="checkbox" checked={ignoreWs}    onChange={handleToggle(setIgnoreWs,    'diff_ignore_whitespace')} />
-          空白を無視
+        <label className="toggle-wrap">
+          <input type="checkbox" className="toggle-input" checked={ignoreWs}    onChange={handleToggle(setIgnoreWs,    'diff_ignore_whitespace')} />
+          <span className="toggle-track"><span className="toggle-thumb" /></span>
+          <span className="toggle-label">空白を無視</span>
         </label>
-        <label className={styles['diff-check']}>
-          <input type="checkbox" checked={ignoreBlank} onChange={handleToggle(setIgnoreBlank, 'diff_ignore_blank_lines')} />
-          空行を無視
+        <label className="toggle-wrap">
+          <input type="checkbox" className="toggle-input" checked={ignoreBlank} onChange={handleToggle(setIgnoreBlank, 'diff_ignore_blank_lines')} />
+          <span className="toggle-track"><span className="toggle-thumb" /></span>
+          <span className="toggle-label">空行を無視</span>
         </label>
-        <label className={styles['diff-check']}>
-          <input type="checkbox" checked={ignoreTabs}  onChange={handleToggle(setIgnoreTabs,  'diff_ignore_tabs')} />
-          タブを無視
+        <label className="toggle-wrap">
+          <input type="checkbox" className="toggle-input" checked={ignoreTabs}  onChange={handleToggle(setIgnoreTabs,  'diff_ignore_tabs')} />
+          <span className="toggle-track"><span className="toggle-thumb" /></span>
+          <span className="toggle-label">タブを無視</span>
         </label>
-        <label className={styles['diff-check']}>
-          <input type="checkbox" checked={realtime}    onChange={(e) => { setRealtime(e.target.checked); localStorage.setItem('diff_realtime', String(e.target.checked)); }} />
-          リアルタイム
+        <label className="toggle-wrap">
+          <input type="checkbox" className="toggle-input" checked={realtime}    onChange={(e) => { setRealtime(e.target.checked); localStorage.setItem('diff_realtime', String(e.target.checked)); }} />
+          <span className="toggle-track"><span className="toggle-thumb" /></span>
+          <span className="toggle-label">リアルタイム</span>
         </label>
 
         <div className={styles['diff-toolbar__actions']}>

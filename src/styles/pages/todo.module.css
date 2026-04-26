@@ -1875,58 +1875,11 @@
   border-color: var(--color-accent);
   color: var(--color-accent);
 }
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-  flex-shrink: 0;
-}
-.toggle-switch__input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
-}
-.toggle-switch__slider {
-  position: absolute;
-  cursor: pointer;
-  inset: 0;
-  background: var(--c-bg-3, var(--c-bg-2));
-  border-radius: 100px;
-  transition: background var(--t);
-  border: 1.5px solid var(--color-border);
-}
-.toggle-switch__slider::before {
-  content: '';
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  left: 2px;
-  top: 2px;
-  background: var(--color-text-muted);
-  border-radius: 50%;
-  transition: transform var(--t), background var(--t);
-}
-.toggle-switch__input:checked + .toggle-switch__slider {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-.toggle-switch__input:checked + .toggle-switch__slider::before {
-  transform: translateX(16px);
-  background: #fff;
-}
 .recurring-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-}
-.recurring-toggle-text {
-  font-size: 13px;
-  color: var(--color-text);
-  cursor: pointer;
-  user-select: none;
 }
 .recurring-interval {
   font-size: 12px;
