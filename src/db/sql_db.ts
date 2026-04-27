@@ -26,6 +26,7 @@ export interface TableColumn {
   nullable: boolean;
   pk: boolean;
   comment: string;
+  default_value?: string;
 }
 
 export interface TableIndex {
