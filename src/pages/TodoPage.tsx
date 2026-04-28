@@ -45,6 +45,7 @@ import { noteDB } from '../db/note_db';
 import type { NoteTask } from '../db/note_db';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
+import { LabelManager, type LabelItem } from '../components/LabelManager';
 import { searchRegistry } from '../stores/search_store';
 import { useTabStore } from '../stores/tab_store';
 
@@ -949,11 +950,32 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     });
   }
 
-  // ── インラインラベル管理変更時のリロード ────────────────────
+  // ── インラインラベル管理 ─────────────────────────────────
   async function handleLabelManagerChanged() {
     const updated = await kanbanDB.getAllLabels();
     setLocalLabels(updated);
     onLabelsChanged?.();
+  }
+
+  async function handleInlineLabelAdd(name: string, color: string): Promise<LabelItem> {
+    const label = await kanbanDB.addLabel(name, color);
+    await handleLabelManagerChanged();
+    return { id: label.id!, name: label.name, color: label.color };
+  }
+
+  async function handleInlineLabelUpdate(id: number, name: string, color: string): Promise<void> {
+    await kanbanDB.updateLabel(id, name, color);
+    await handleLabelManagerChanged();
+  }
+
+  async function handleInlineLabelDelete(id: number): Promise<void> {
+    await kanbanDB.deleteLabel(id);
+    await handleLabelManagerChanged();
+  }
+
+  function handleInlineLabelReorder(newLabels: LabelItem[]) {
+    kanbanDB.reorderLabels(newLabels.map((l, i) => ({ id: l.id, name: l.name, color: l.color, position: i })));
+    handleLabelManagerChanged();
   }
 
   // ── タイムライン縦線の高さを CSS 変数で設定 ─────────────────
@@ -1704,14 +1726,16 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
       </div>
 
       {/* インラインラベル管理 */}
-      {showInlineLabelMgr && (
-        <LabelManagerModal
-          labels={localLabels}
-          onClose={() => setShowInlineLabelMgr(false)}
-          onChanged={handleLabelManagerChanged}
-          wrapperClassName="z-[300]"
-        />
-      )}
+      <LabelManager
+        open={showInlineLabelMgr}
+        title="ラベル管理"
+        labels={localLabels.map(l => ({ id: l.id!, name: l.name, color: l.color }))}
+        onAdd={handleInlineLabelAdd}
+        onUpdate={handleInlineLabelUpdate}
+        onDelete={handleInlineLabelDelete}
+        onReorder={handleInlineLabelReorder}
+        onClose={() => setShowInlineLabelMgr(false)}
+      />
 
       {/* タスクピッカー */}
       {picker && picker.type !== 'note' && (
@@ -1821,107 +1845,6 @@ function ColumnEditModal({ column, onClose, onSaved, onDeleted, taskCount }: Col
   );
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// LabelManagerModal（ラベル管理）
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-interface LabelManagerModalProps {
-  labels: KanbanLabel[];
-  onClose: () => void;
-  onChanged: () => void;
-  wrapperClassName?: string;
-}
-
-const PRESET_COLORS = [
-  '#ef4444', '#f43f5e', '#f97316', '#f59e0b', '#eab308', '#84cc16',
-  '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6', '#0ea5e9',
-  '#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#64748b', '#71717a',
-  '#1e293b', '#92400e',
-];
-
-function LabelManagerModal({ labels, onClose, onChanged, wrapperClassName }: LabelManagerModalProps) {
-  const [newName,  setNewName]  = useState('');
-  const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
-  const [editing,  setEditing]  = useState<KanbanLabel | null>(null);
-
-  async function addLabel() {
-    if (!newName.trim()) return;
-    await kanbanDB.addLabel(newName.trim(), newColor);
-    setNewName('');
-    onChanged();
-  }
-
-  async function saveEdit() {
-    if (!editing?.id) return;
-    await kanbanDB.updateLabel(editing.id, editing.name, editing.color);
-    setEditing(null);
-    onChanged();
-  }
-
-  async function deleteLabel(id: number) {
-    if (!confirm('削除しますか？')) return;
-    await kanbanDB.deleteLabel(id);
-    onChanged();
-  }
-
-  return (
-    <div className={`fixed inset-0 bg-black/50 flex items-center justify-center p-4 ${wrapperClassName ?? 'z-50'}`} onClick={onClose}>
-      <div className="bg-[var(--c-bg)] rounded-xl border border-[var(--c-border)] w-80 max-h-[80vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
-          <h3 className="font-semibold text-[var(--c-fg)] text-sm flex items-center gap-2"><TagIcon size={14} />ラベル管理</h3>
-          <button onClick={onClose} className="btn btn--ghost btn--sm" aria-label="閉じる"><XIcon size={14} /></button>
-        </div>
-        <div className="p-4 space-y-3">
-          {labels.map((l) => (
-            <div key={l.id} className="flex items-center gap-2">
-              {editing?.id === l.id ? (
-                <>
-                  <input type="color" value={editing!.color} onChange={(e) => setEditing((prev) => prev ? { ...prev, color: e.target.value } : prev)}
-                    className="w-6 h-6 rounded cursor-pointer border-0 p-0" />
-                  <input value={editing!.name} onChange={(e) => setEditing((prev) => prev ? { ...prev, name: e.target.value } : prev)}
-                    className="flex-1 px-2 py-0.5 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm focus:outline-none" />
-                  <button onClick={saveEdit} className="p-0.5 text-green-500"><CheckIcon size={14} /></button>
-                  <button onClick={() => setEditing(null)} className="p-0.5 text-[var(--c-fg-3)]"><XIcon size={12} /></button>
-                </>
-              ) : (
-                <>
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: l.color }} />
-                  <span className="flex-1 text-sm text-[var(--c-fg)]">{l.name}</span>
-                  <button onClick={() => setEditing(l)} className="p-0.5 text-[var(--c-fg-3)] hover:text-[var(--c-fg)]"><PencilIcon size={12} /></button>
-                  <button onClick={() => deleteLabel(l.id!)} className="p-0.5 text-red-400 hover:text-red-500"><Trash2Icon size={12} /></button>
-                </>
-              )}
-            </div>
-          ))}
-          {/* 追加フォーム */}
-          <div className="pt-2 border-t border-[var(--c-border)]">
-            <div className="grid grid-cols-10 gap-1 mb-1">
-              {PRESET_COLORS.map((c) => (
-                <button key={c} onClick={() => setNewColor(c)}
-                  className={`w-5 h-5 rounded-full shrink-0 ${newColor === c ? 'ring-2 ring-[var(--c-accent)] ring-offset-1' : ''}`}
-                  style={{ backgroundColor: c }} />
-              ))}
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              <input type="color" value={newColor} onChange={(e) => setNewColor(e.target.value)}
-                className="w-6 h-6 rounded cursor-pointer border-0 p-0 shrink-0" title="カスタムカラー" />
-              <span className="text-xs text-[var(--c-fg-3)]">カスタム</span>
-            </div>
-          </div>
-          <div className="flex gap-1">
-            <input value={newName} onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addLabel(); }}
-              placeholder="ラベル名"
-              className="flex-1 px-2 py-1 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm focus:outline-none" />
-            <button onClick={addLabel}
-              className="btn btn--primary btn--sm">追加</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ArchiveModal（アーカイブ管理）
@@ -2415,6 +2338,28 @@ export function TodoPage() {
     setSelectedTask(task);
   }, []);
 
+  // ── ラベル CRUD ──────────────────────────────────────────
+  const handleLabelAdd = useCallback(async (name: string, color: string): Promise<LabelItem> => {
+    const label = await kanbanDB.addLabel(name, color);
+    await load();
+    return { id: label.id!, name: label.name, color: label.color };
+  }, [load]);
+
+  const handleLabelUpdate = useCallback(async (id: number, name: string, color: string): Promise<void> => {
+    await kanbanDB.updateLabel(id, name, color);
+    await load();
+  }, [load]);
+
+  const handleLabelDelete = useCallback(async (id: number): Promise<void> => {
+    await kanbanDB.deleteLabel(id);
+    await load();
+  }, [load]);
+
+  const handleLabelReorder = useCallback((newLabels: LabelItem[]) => {
+    kanbanDB.reorderLabels(newLabels.map((l, i) => ({ id: l.id, name: l.name, color: l.color, position: i })));
+    load();
+  }, [load]);
+
   // ── カード単体アーカイブ ──────────────────────────────────
   const archiveCard = useCallback(async (task: KanbanTask) => {
     await kanbanDB.addActivity(task.id!, 'archive', {});
@@ -2898,14 +2843,17 @@ export function TodoPage() {
         />
       )}
 
-      {/* LabelManagerModal */}
-      {showLabelMgr && (
-        <LabelManagerModal
-          labels={labels}
-          onClose={() => setShowLabelMgr(false)}
-          onChanged={load}
-        />
-      )}
+      {/* ラベル管理 */}
+      <LabelManager
+        open={showLabelMgr}
+        title="ラベル管理"
+        labels={labels.map(l => ({ id: l.id!, name: l.name, color: l.color }))}
+        onAdd={handleLabelAdd}
+        onUpdate={handleLabelUpdate}
+        onDelete={handleLabelDelete}
+        onReorder={handleLabelReorder}
+        onClose={() => setShowLabelMgr(false)}
+      />
 
       {/* ArchiveModal */}
       {showArchive && (

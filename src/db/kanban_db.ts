@@ -1,13 +1,13 @@
 // ==================================================
 // KanbanDB - Kanban ボード IndexedDB（Dexie.js）
 // ==================================================
-// DB名: kanban_db  version: 2
+// DB名: kanban_db  version: 3
 //
 // ストア:
 //   tasks:          id*, title, description, column, position, due_date,
 //                   created_at, updated_at, checklist, recurring
 //   comments:       id*, task_id, body, created_at, updated_at
-//   labels:         id*, name, color
+//   labels:         id*, name, color, position
 //   task_labels:    [task_id+label_id]* （複合キー）
 //   columns:        id*, key, name, position, wip_limit
 //   activities:     id*, task_id, type, content, created_at
@@ -60,6 +60,7 @@ export interface KanbanLabel {
   id?: number;
   name: string;
   color: string;
+  position?: number;
 }
 
 export interface KanbanTaskLabel {
@@ -150,6 +151,19 @@ class KanbanDatabase extends Dexie {
       tasks:          '++id, column, position',
       comments:       '++id, task_id',
       labels:         '++id',
+      task_labels:    '[task_id+label_id], task_id',
+      columns:        '++id, &key, position',
+      activities:     '++id, task_id',
+      task_relations: '++id, task_id, related_id',
+      note_links:     '++id, todo_task_id, note_task_id',
+      templates:      '++id, position',
+      archives:       '++id, archived_at',
+      dependencies:   '++id, from_task_id, to_task_id',
+    });
+    this.version(3).stores({
+      tasks:          '++id, column, position',
+      comments:       '++id, task_id',
+      labels:         '++id, position',
       task_labels:    '[task_id+label_id], task_id',
       columns:        '++id, &key, position',
       activities:     '++id, task_id',
@@ -261,17 +275,25 @@ class KanbanDatabase extends Dexie {
   // ---- Labels ----
 
   async getAllLabels(): Promise<KanbanLabel[]> {
-    return this.labels.toArray();
+    const labels = await this.labels.toArray();
+    return labels.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   }
 
   async addLabel(name: string, color: string): Promise<KanbanLabel> {
-    const label: KanbanLabel = { name, color };
+    const all = await this.labels.toArray();
+    const position = all.length > 0 ? Math.max(...all.map(l => l.position ?? 0)) + 1 : 0;
+    const label: KanbanLabel = { name, color, position };
     const id = await this.labels.add(label);
     return { ...label, id };
   }
 
   async updateLabel(id: number, name: string, color: string): Promise<void> {
-    await this.labels.put({ id, name, color });
+    const existing = await this.labels.get(id);
+    await this.labels.put({ ...existing, id, name, color });
+  }
+
+  async reorderLabels(labels: KanbanLabel[]): Promise<void> {
+    await this.labels.bulkPut(labels.map((l, i) => ({ ...l, position: i })));
   }
 
   async deleteLabel(id: number): Promise<void> {
