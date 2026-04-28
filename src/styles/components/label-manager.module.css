@@ -145,8 +145,8 @@
 }
 .lmgr__item-move {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.12s;
@@ -154,29 +154,27 @@
 .lmgr__item:hover .lmgr__item-move {
   opacity: 1;
 }
-.lmgr__move-btn {
+.lmgr__grip-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 13px;
+  width: 20px;
+  height: 28px;
   border: none;
   border-radius: var(--radius-sm, 4px);
   background: transparent;
   color: var(--color-text-muted, #656d76);
-  cursor: pointer;
-  font-size: 8px;
-  line-height: 1;
+  cursor: grab;
+  flex-shrink: 0;
   padding: 0;
-  transition: background 0.12s, color 0.12s;
+  touch-action: none;
+  transition: color 0.12s;
 }
-.lmgr__move-btn:hover:not(:disabled) {
-  background: var(--color-border, #d0d7de);
+.lmgr__grip-btn:hover {
   color: var(--color-text, #24292f);
 }
-.lmgr__move-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
+.lmgr__grip-btn:active {
+  cursor: grabbing;
 }
 .lmgr__item-color-btn {
   width: 20px;
@@ -332,8 +330,8 @@
   background: var(--color-accent-hover, #0550ae);
 }
 .lmgr__palette {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(12, 22px);
   gap: 7px;
   align-items: center;
 }
@@ -381,7 +379,7 @@
 }
 .lmgr__color-popover {
   position: fixed;
-  z-index: 310;
+  z-index: 400;
   background: var(--color-card, #fff);
   border: 1px solid var(--color-border, #d0d7de);
   border-radius: var(--radius-md, 6px);
@@ -389,15 +387,17 @@
   padding: 10px;
   animation: lmgr-pop 0.14s ease;
 }
-.lmgr__color-popover[hidden] {
-  display: none;
-}
-.lmgr__color-popover-inner {
+.lmgr__drag-ghost {
   display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  width: 200px;
   align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--color-card, #fff);
+  border: 1.5px solid var(--color-accent, #0969da);
+  border-radius: var(--radius-md, 6px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  color: var(--color-text-muted, #656d76);
+  cursor: grabbing;
 }
 .btn-manage-labels {
   display: inline-flex;

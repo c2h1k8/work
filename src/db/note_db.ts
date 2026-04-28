@@ -41,6 +41,7 @@ export interface NoteField {
   width: NoteFieldWidth;
   listVisible: boolean;
   visible?: boolean;
+  newRow?: boolean;
 }
 
 export interface NoteEntry {
@@ -61,7 +62,7 @@ export interface NoteLink {
 export interface NoteHistory {
   id?: number;
   task_id: number;
-  field_id: number;
+  field_id: number | string;
   old_value: string;
   new_value: string;
   changed_at: number;
@@ -234,7 +235,7 @@ class NoteDatabase extends Dexie {
 
   // ── 変更履歴操作 ───────────────────────��──────────────
 
-  async addHistory(record: Omit<NoteHistory, 'id' | 'changed_at'>): Promise<NoteHistory> {
+  async addHistory(record: Omit<NoteHistory, 'id' | 'changed_at'> & { field_id: number | string }): Promise<NoteHistory> {
     const data: NoteHistory = { ...record, changed_at: Date.now() };
     const id = await this.history.add(data);
     await this._trimHistory(record.task_id, 100);

@@ -4,14 +4,36 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useToast } from '../components/Toast';
+import { DatePicker } from '../components/DatePicker';
+import { LabelManager, type LabelItem } from '../components/LabelManager';
+import { Select, type SelectOption } from '../components/Select';
 import { noteDB, type NoteTask, type NoteField, type NoteEntry, type NoteFieldType, type NoteFieldWidth } from '../db/note_db';
 import { activityDB } from '../db/activity_db';
 import { Clipboard } from '../core/clipboard';
+import { FileSaver } from '../core/file_saver';
+import { useTabStore } from '../stores/tab_store';
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay,
+  type DragStartEvent, type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { CSS as DndCSS } from '@dnd-kit/utilities';
+import { GripVertical, Pencil, Trash2, Tag, Settings2, X, Plus } from 'lucide-react';
 
 // ── localStorage キー ─────────────────────────────
 const KEY_SORT         = 'note_sort';
 const KEY_TITLE_LINES  = 'note_title_lines';
 const KEY_FILTER       = 'note_filter';
+
+// ── 変更履歴の特殊フィールドID ────────────────────
+const HIST_TITLE = '__title__';
+const HIST_TODO  = '__todo_link__';
+const HIST_NOTE  = '__note_link__';
+const SPECIAL_FIELD_NAMES: Record<string, string> = {
+  [HIST_TITLE]: 'タイトル',
+  [HIST_TODO]:  'TODOリンク',
+  [HIST_NOTE]:  '関連ノート',
+};
 
 // ── フィールドタイプ表示名 ────────────────────────
 const FIELD_TYPE_LABELS: Record<NoteFieldType, string> = {
@@ -20,11 +42,28 @@ const FIELD_TYPE_LABELS: Record<NoteFieldType, string> = {
   todo: 'TODOリンク', note_link: '関連ノート',
 };
 
-const WIDTH_OPTIONS: { value: NoteFieldWidth; label: string }[] = [
-  { value: 'narrow', label: '狭' }, { value: 'auto', label: '自動' },
-  { value: 'w3', label: '中小' }, { value: 'wide', label: '中' },
-  { value: 'w5', label: '大' }, { value: 'full', label: '全幅' },
+const WIDTH_SELECT_OPTIONS: SelectOption[] = [
+  { value: 'narrow', label: '1列' },
+  { value: 'auto',   label: '2列' },
+  { value: 'w3',     label: '3列' },
+  { value: 'wide',   label: '4列' },
+  { value: 'w5',     label: '5列' },
+  { value: 'full',   label: '全幅' },
 ];
+const TYPE_SELECT_OPTIONS: SelectOption[] = Object.entries(FIELD_TYPE_LABELS)
+  .filter(([k]) => k !== 'todo' && k !== 'note_link')
+  .map(([k, v]) => ({ value: k, label: v }));
+
+const FIELD_TYPE_COLORS: Record<NoteFieldType, string> = {
+  link:      '#3b82f6',
+  text:      '#10b981',
+  date:      '#f59e0b',
+  select:    '#8b5cf6',
+  label:     '#ec4899',
+  dropdown:  '#8b5cf6',
+  todo:      '#6366f1',
+  note_link: '#6366f1',
+};
 
 type SortKey = 'created_at-desc' | 'created_at-asc' | 'updated_at-desc' | 'updated_at-asc' | 'title-asc' | 'title-desc';
 
@@ -43,10 +82,11 @@ async function openKanbanDB(): Promise<IDBDatabase | null> {
 }
 
 // ── リンクエントリコンポーネント ─────────────────
-function LinkEntry({ entry, onDelete, onCopy }: {
+function LinkEntry({ entry, onDelete, onCopy, onSaved }: {
   entry: NoteEntry;
-  onDelete: (id: number) => void;
+  onDelete: (id: number, oldDisplay: string) => void;
   onCopy: (text: string) => void;
+  onSaved: (entryId: number, oldLabel: string, oldValue: string, newLabel: string, newValue: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [eLabel, setELabel] = useState(entry.label);
@@ -54,16 +94,23 @@ function LinkEntry({ entry, onDelete, onCopy }: {
 
   const display = entry.label || entry.value;
 
+  const handleSave = () => {
+    if (!eValue.trim()) return;
+    noteDB.updateEntry({ ...entry, label: eLabel, value: eValue });
+    onSaved(entry.id!, entry.label, entry.value, eLabel, eValue);
+    setEditing(false);
+  };
+
   if (editing) {
     return (
       <div className="flex flex-col gap-1.5 p-2 bg-[var(--c-bg-2)] rounded border border-[var(--c-border)]">
         <input type="text" value={eLabel} onChange={e => setELabel(e.target.value)} placeholder="表示名（省略可）"
           className="w-full px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]" />
         <input type="url" value={eValue} onChange={e => setEValue(e.target.value)} placeholder="URL"
-          className="w-full px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]" />
+          className="w-full px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]"
+          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }} />
         <div className="flex gap-1">
-          <button onClick={() => { noteDB.updateEntry({ ...entry, label: eLabel, value: eValue }); setEditing(false); }}
-            className="btn btn--primary btn--sm text-xs">保存</button>
+          <button onClick={handleSave} className="btn btn--primary btn--sm text-xs">保存</button>
           <button onClick={() => setEditing(false)} className="btn btn--ghost btn--sm text-xs">キャンセル</button>
         </div>
       </div>
@@ -94,7 +141,7 @@ function LinkEntry({ entry, onDelete, onCopy }: {
           className="p-0.5 text-[var(--c-text-3)] hover:text-[var(--c-text)]">
           <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z"/></svg>
         </button>
-        <button onClick={() => onDelete(entry.id!)} title="削除"
+        <button onClick={() => onDelete(entry.id!, entry.label ? `${entry.label} (${entry.value})` : entry.value)} title="削除"
           className="p-0.5 text-[var(--c-text-3)] hover:text-red-400">
           <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
         </button>
@@ -105,15 +152,26 @@ function LinkEntry({ entry, onDelete, onCopy }: {
 
 // ── フィールド値表示コンポーネント ────────────────
 function FieldView({
-  field, entries, allTasks,
+  field,
+  taskId,
+  entries,
+  allTasks,
   onEntriesChange,
+  onGoToNote,
+  onTouchTask,
+  onRecordHistory,
 }: {
   field: NoteField;
+  taskId: number;
   entries: NoteEntry[];
   allTasks: NoteTask[];
   onEntriesChange: () => void;
+  onGoToNote: (noteTaskId: number) => void;
+  onTouchTask: () => Promise<void>;
+  onRecordHistory: (fieldId: number | string, oldVal: string, newVal: string) => Promise<void>;
 }) {
   const { success } = useToast();
+  const setActiveTab = useTabStore(s => s.setActiveTab);
   const [showForm, setShowForm] = useState(false);
   const [formLabel, setFormLabel] = useState('');
   const [formValue, setFormValue] = useState('');
@@ -125,9 +183,6 @@ function FieldView({
   const [todoPickerItems, setTodoPickerItems] = useState<KanbanTask[]>([]);
   const textTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const opts = (field.options || []) as FieldOption[];
-
-  // タスクID (entries から親タスクIDを取得)
-  const taskId = entries[0]?.task_id;
 
   // TODO リンク読み込み
   useEffect(() => {
@@ -173,14 +228,27 @@ function FieldView({
     Clipboard.copy(text).then(() => success('コピーしました'));
   };
 
-  const deleteLinkEntry = async (entryId: number) => {
+  const deleteLinkEntry = async (entryId: number, oldDisplay: string) => {
     await noteDB.deleteEntry(entryId);
+    await onRecordHistory(field.id!, oldDisplay, '');
+    await onTouchTask();
+    onEntriesChange();
+  };
+
+  const handleLinkSaved = async (_entryId: number, oldLabel: string, oldValue: string, newLabel: string, newValue: string) => {
+    const oldDisplay = oldLabel ? `${oldLabel} (${oldValue})` : oldValue;
+    const newDisplay = newLabel ? `${newLabel} (${newValue})` : newValue;
+    await onRecordHistory(field.id!, oldDisplay, newDisplay);
+    await onTouchTask();
     onEntriesChange();
   };
 
   const addLinkEntry = async () => {
     if (!formValue.trim() || !taskId) return;
     await noteDB.addEntry(taskId, field.id!, formLabel.trim(), formValue.trim());
+    const display = formLabel.trim() ? `${formLabel.trim()} (${formValue.trim()})` : formValue.trim();
+    await onRecordHistory(field.id!, '', display);
+    await onTouchTask();
     setFormLabel(''); setFormValue(''); setShowForm(false);
     onEntriesChange();
   };
@@ -189,34 +257,43 @@ function FieldView({
     if (textTimer.current) clearTimeout(textTimer.current);
     textTimer.current = setTimeout(async () => {
       if (!taskId) return;
+      const oldVal = entryId ? (entries.find(x => x.id === entryId)?.value ?? '') : '';
       if (entryId) {
         const e = entries.find(x => x.id === entryId);
         if (e) await noteDB.updateEntry({ ...e, value });
       } else {
         await noteDB.addEntry(taskId, field.id!, '', value);
       }
+      await onRecordHistory(field.id!, oldVal, value);
+      await onTouchTask();
       onEntriesChange();
     }, 600);
-  }, [taskId, field.id, entries, onEntriesChange]);
+  }, [taskId, field.id, entries, onEntriesChange, onTouchTask, onRecordHistory]);
 
   const saveDate = async (dateStr: string) => {
     if (!taskId) return;
     const entry = entries[0];
+    const oldVal = entry?.value ?? '';
     if (entry) {
       if (dateStr) await noteDB.updateEntry({ ...entry, value: dateStr });
       else await noteDB.deleteEntry(entry.id!);
     } else if (dateStr) {
       await noteDB.addEntry(taskId, field.id!, '', dateStr);
     }
+    await onRecordHistory(field.id!, oldVal, dateStr);
+    await onTouchTask();
     onEntriesChange();
   };
 
   const toggleSelect = async (optName: string) => {
     if (!taskId) return;
     const entry = entries[0];
+    const oldVal = entry?.value ?? '';
     const newVal = entry?.value === optName ? '' : optName;
     if (entry) await noteDB.updateEntry({ ...entry, value: newVal });
     else if (newVal) await noteDB.addEntry(taskId, field.id!, '', newVal);
+    await onRecordHistory(field.id!, oldVal, newVal);
+    await onTouchTask();
     onEntriesChange();
   };
 
@@ -225,24 +302,30 @@ function FieldView({
     const entry = entries[0];
     let labels: string[] = [];
     if (entry) { try { labels = JSON.parse(entry.value); } catch { labels = []; } }
+    const oldVal = JSON.stringify(labels);
     const idx = labels.indexOf(optName);
     if (idx >= 0) labels.splice(idx, 1); else labels.push(optName);
     const newVal = JSON.stringify(labels);
     if (entry) await noteDB.updateEntry({ ...entry, value: newVal });
     else await noteDB.addEntry(taskId, field.id!, '', newVal);
+    await onRecordHistory(field.id!, oldVal, newVal);
+    await onTouchTask();
     onEntriesChange();
   };
 
   const saveDropdown = async (value: string) => {
     if (!taskId) return;
     const entry = entries[0];
+    const oldVal = entry?.value ?? '';
     if (entry) await noteDB.updateEntry({ ...entry, value });
     else if (value) await noteDB.addEntry(taskId, field.id!, '', value);
     else return;
+    await onRecordHistory(field.id!, oldVal, value);
+    await onTouchTask();
     onEntriesChange();
   };
 
-  const removeTodoLink = async (linkId: number) => {
+  const removeTodoLink = async (linkId: number, title: string) => {
     const db = await openKanbanDB();
     if (!db) return;
     try {
@@ -253,12 +336,18 @@ function FieldView({
       });
       db.close();
       setTodoLinks(prev => prev.filter(l => l.linkId !== linkId));
+      await onRecordHistory(HIST_TODO, title, '');
+      await onTouchTask();
+      onEntriesChange();
     } catch { db.close(); }
   };
 
-  const removeNoteLink = async (linkId: number) => {
+  const removeNoteLink = async (linkId: number, title: string) => {
     await noteDB.deleteNoteLink(linkId);
     setNoteLinks(prev => prev.filter(l => l.linkId !== linkId));
+    await onRecordHistory(HIST_NOTE, title, '');
+    await onTouchTask();
+    onEntriesChange();
   };
 
   const openTodoPicker = async () => {
@@ -288,6 +377,9 @@ function FieldView({
       });
       db.close();
       setTodoLinks(prev => [...prev, { linkId: id, taskId: kTask.id, title: kTask.title }]);
+      await onRecordHistory(HIST_TODO, '', kTask.title);
+      await onTouchTask();
+      onEntriesChange();
     } catch { db.close(); }
     setShowTodoPicker(false);
   };
@@ -299,10 +391,13 @@ function FieldView({
 
   const selectNoteLink = async (target: NoteTask) => {
     if (!taskId || !target.id) return;
-    await noteDB.addNoteLink(taskId, target.id);
-    const taskMap = new Map(allTasks.map(t => [t.id!, t]));
-    setNoteLinks(prev => [...prev, { linkId: Date.now(), linkedId: target.id!, title: taskMap.get(target.id!)?.title ?? '' }]);
+    const link = await noteDB.addNoteLink(taskId, target.id);
+    if (!link) return;
+    setNoteLinks(prev => [...prev, { linkId: link.id!, linkedId: target.id!, title: target.title }]);
+    await onRecordHistory(HIST_NOTE, '', target.title);
+    await onTouchTask();
     setShowNotePicker(false);
+    onEntriesChange();
   };
 
   // ── レンダリング ──────────────────────────────
@@ -315,8 +410,12 @@ function FieldView({
         </div>
         {todoLinks.map(l => (
           <div key={l.linkId} className="flex items-center gap-1 py-0.5">
-            <span className="text-xs flex-1 truncate text-[var(--c-text-2)]">{l.title}</span>
-            <button onClick={() => removeTodoLink(l.linkId)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs">×</button>
+            <button
+              onClick={() => setActiveTab('TODO')}
+              className="text-xs flex-1 truncate text-left text-[var(--c-accent)] hover:underline"
+              title="TODOで開く"
+            >{l.title}</button>
+            <button onClick={() => removeTodoLink(l.linkId, l.title)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs shrink-0">×</button>
           </div>
         ))}
         {showTodoPicker && (
@@ -348,8 +447,12 @@ function FieldView({
         </div>
         {noteLinks.map(l => (
           <div key={l.linkId} className="flex items-center gap-1 py-0.5">
-            <span className="text-xs flex-1 truncate text-[var(--c-accent)] hover:underline cursor-pointer">{l.title}</span>
-            <button onClick={() => removeNoteLink(l.linkId)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs">×</button>
+            <button
+              onClick={() => onGoToNote(l.linkedId)}
+              className="text-xs flex-1 truncate text-left text-[var(--c-accent)] hover:underline"
+              title="関連ノートを開く"
+            >{l.title}</button>
+            <button onClick={() => removeNoteLink(l.linkId, l.title)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs shrink-0">×</button>
           </div>
         ))}
         {showNotePicker && (
@@ -377,7 +480,13 @@ function FieldView({
     return (
       <div>
         {sorted.map(e => (
-          <LinkEntry key={e.id} entry={e} onDelete={deleteLinkEntry} onCopy={copyText} />
+          <LinkEntry
+            key={e.id}
+            entry={e}
+            onDelete={deleteLinkEntry}
+            onCopy={copyText}
+            onSaved={handleLinkSaved}
+          />
         ))}
         {showForm ? (
           <div className="flex flex-col gap-1.5 mt-1 p-2 bg-[var(--c-bg-2)] rounded border border-[var(--c-border)]">
@@ -414,11 +523,12 @@ function FieldView({
   if (field.type === 'date') {
     const entry = entries[0] ?? null;
     return (
-      <input
-        type="date"
+      <DatePicker
         value={entry?.value ?? ''}
-        onChange={e => saveDate(e.target.value)}
-        className="px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] cursor-pointer"
+        onChange={saveDate}
+        onClear={() => saveDate('')}
+        compact
+        placeholder="日付を選択..."
       />
     );
   }
@@ -479,6 +589,159 @@ function FieldView({
   return null;
 }
 
+// ── ソータブル・フィールド行 ──────────────────────
+function SortableFieldRow({
+  field,
+  isEditingName,
+  editingNameVal,
+  onStartEditName,
+  onEditNameChange,
+  onCommitName,
+  onCancelEdit,
+  onDelete,
+  onUpdateWidth,
+  onUpdateListVisible,
+  onUpdateNewRow,
+  onUpdateVisible,
+  onOpenOptions,
+}: {
+  field: NoteField;
+  isEditingName: boolean;
+  editingNameVal: string;
+  onStartEditName: (id: number, name: string) => void;
+  onEditNameChange: (val: string) => void;
+  onCommitName: (field: NoteField) => void;
+  onCancelEdit: () => void;
+  onDelete: (id: number) => void;
+  onUpdateWidth: (field: NoteField, w: NoteFieldWidth) => void;
+  onUpdateListVisible: (field: NoteField, v: boolean) => void;
+  onUpdateNewRow: (field: NoteField, v: boolean) => void;
+  onUpdateVisible: (field: NoteField, v: boolean) => void;
+  onOpenOptions: (field: NoteField) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: field.id! });
+
+  const isSpecial  = field.type === 'todo' || field.type === 'note_link';
+  const hasOptions = field.type === 'select' || field.type === 'label' || field.type === 'dropdown';
+  const badgeColor = FIELD_TYPE_COLORS[field.type];
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: DndCSS.Transform.toString(transform), transition, opacity: isDragging ? 0 : 1 }}
+      className="group border border-[var(--c-border)] rounded-xl bg-[var(--c-surface)] hover:border-[var(--c-border-2)] transition-colors"
+    >
+      {/* 上段: ドラッグハンドル・型バッジ・名前・アクション */}
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <button
+          {...attributes} {...listeners}
+          className="text-[var(--c-text-3)] hover:text-[var(--c-text-2)] cursor-grab active:cursor-grabbing p-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity touch-none"
+          tabIndex={-1}
+          aria-label="ドラッグして並び替え"
+        >
+          <GripVertical size={14} />
+        </button>
+
+        <span
+          className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap"
+          style={{ background: `${badgeColor}22`, color: badgeColor }}
+        >
+          {FIELD_TYPE_LABELS[field.type]}
+        </span>
+
+        <div className="flex-1 min-w-0">
+          {isEditingName ? (
+            <input
+              autoFocus
+              type="text"
+              value={editingNameVal}
+              onChange={e => onEditNameChange(e.target.value)}
+              onBlur={() => onCommitName(field)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) onCommitName(field);
+                if (e.key === 'Escape') onCancelEdit();
+              }}
+              className="w-full px-2 py-0.5 text-sm border border-[var(--c-accent)] rounded-md bg-[var(--c-bg)] text-[var(--c-text)] outline-none shadow-[0_0_0_3px_var(--c-accent-dim)]"
+            />
+          ) : (
+            <span
+              className="text-sm font-medium text-[var(--c-text)] truncate block leading-tight cursor-text"
+              onClick={() => onStartEditName(field.id!, field.name)}
+            >
+              {field.name}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => onStartEditName(field.id!, field.name)}
+            className="p-1.5 rounded-md text-[var(--c-text-3)] hover:text-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] transition-colors"
+            title="フィールド名を変更"
+          >
+            <Pencil size={12} />
+          </button>
+          {!isSpecial && (
+            <>
+              <button
+                onClick={() => onDelete(field.id!)}
+                className="p-1.5 rounded-md text-[var(--c-text-3)] hover:text-red-400 hover:bg-[var(--c-danger-bg)] transition-colors"
+                title="フィールドを削除"
+              >
+                <Trash2 size={12} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 下段: 設定コントロール */}
+      <div className="flex items-center gap-3 px-3 pb-2.5 border-t border-[var(--c-border)]/60 pt-2 flex-wrap">
+        {!isSpecial && (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-[var(--c-text-3)] shrink-0">幅</span>
+              <Select
+                className="toolbar-select"
+                options={WIDTH_SELECT_OPTIONS}
+                value={field.width}
+                onChange={v => onUpdateWidth(field, v as NoteFieldWidth)}
+              />
+            </div>
+            <label className="toggle-wrap">
+              <input type="checkbox" className="toggle-input" checked={!!field.listVisible} onChange={e => onUpdateListVisible(field, e.target.checked)} />
+              <span className="toggle-track"><span className="toggle-thumb" /></span>
+              <span className="toggle-label" style={{ fontSize: '11px' }}>一覧</span>
+            </label>
+          </>
+        )}
+        {isSpecial && (
+          <label className="toggle-wrap">
+            <input type="checkbox" className="toggle-input" checked={field.visible !== false} onChange={e => onUpdateVisible(field, e.target.checked)} />
+            <span className="toggle-track"><span className="toggle-thumb" /></span>
+            <span className="toggle-label" style={{ fontSize: '11px' }}>表示</span>
+          </label>
+        )}
+        <label className="toggle-wrap">
+          <input type="checkbox" className="toggle-input" checked={!!field.newRow} onChange={e => onUpdateNewRow(field, e.target.checked)} />
+          <span className="toggle-track"><span className="toggle-thumb" /></span>
+          <span className="toggle-label" style={{ fontSize: '11px' }}>行頭</span>
+        </label>
+        {hasOptions && (
+          <button
+            onClick={() => onOpenOptions(field)}
+            className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-[var(--c-accent)] hover:text-[var(--c-accent-hover)] px-2 py-1 rounded-md hover:bg-[var(--c-accent-dim)] transition-colors"
+          >
+            <Tag size={11} />
+            {field.type === 'label' ? 'ラベル管理' : '選択肢管理'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── フィールド管理モーダル ────────────────────────
 function FieldModal({
   fields,
@@ -492,12 +755,18 @@ function FieldModal({
   const [localFields, setLocalFields] = useState(fields);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<NoteFieldType>('link');
-  const [editingOptions, setEditingOptions] = useState<Record<number, string>>({});
-  const [optionInputs, setOptionInputs] = useState<Record<number, string>>({});
+  const [labelManagerField, setLabelManagerField] = useState<NoteField | null>(null);
+  const [editingNameId, setEditingNameId] = useState<number | null>(null);
+  const [editingNameVal, setEditingNameVal] = useState('');
+  const [activeDragId, setActiveDragId] = useState<number | null>(null);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const activeDragField = activeDragId ? localFields.find(f => f.id === activeDragId) ?? null : null;
 
   const reload = async () => {
     const f = await noteDB.getAllFields();
     setLocalFields(f);
+    setLabelManagerField(prev => prev ? (f.find(ff => ff.id === prev.id) ?? null) : null);
     onChanged();
   };
 
@@ -511,6 +780,14 @@ function FieldModal({
   const deleteField = async (id: number) => {
     if (!confirm('このフィールドを削除しますか？関連するエントリもすべて削除されます。')) return;
     await noteDB.deleteField(id);
+    await reload();
+  };
+
+  const commitFieldName = async (field: NoteField) => {
+    const name = editingNameVal.trim();
+    setEditingNameId(null);
+    if (!name || name === field.name) return;
+    await noteDB.updateField({ ...field, name });
     await reload();
   };
 
@@ -529,127 +806,227 @@ function FieldModal({
     await reload();
   };
 
-  const moveField = async (idx: number, dir: -1 | 1) => {
-    const arr = [...localFields];
-    const other = arr[idx + dir];
-    if (!other) return;
-    [arr[idx].position, other.position] = [other.position, arr[idx].position];
-    await Promise.all([noteDB.updateField(arr[idx]), noteDB.updateField(other)]);
+  const updateNewRow = async (field: NoteField, v: boolean) => {
+    await noteDB.updateField({ ...field, newRow: v });
     await reload();
   };
 
-  const addOption = async (field: NoteField) => {
-    const name = (optionInputs[field.id!] ?? '').trim();
-    if (!name) return;
-    const opts = (field.options as FieldOption[]) ?? [];
-    const colors = ['#8957e5','#1f6feb','#2da44e','#e16b2d','#d4325e','#7c8591'];
-    const color = colors[opts.length % colors.length];
-    await noteDB.updateField({ ...field, options: [...opts, { name, color }] });
-    setOptionInputs(p => ({ ...p, [field.id!]: '' }));
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as number);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = localFields.findIndex(f => f.id === active.id);
+    const newIdx = localFields.findIndex(f => f.id === over.id);
+    const reordered = arrayMove(localFields, oldIdx, newIdx);
+    const updated = reordered.map((f, i) => ({ ...f, position: i }));
+    setLocalFields(updated);
+    await Promise.all(updated.map(f => noteDB.updateField(f)));
+    onChanged();
+  };
+
+  // LabelManager コールバック
+  const optionsToLabelItems = (opts: FieldOption[]): LabelItem[] =>
+    opts.map((o, i) => ({ id: i + 1, name: o.name, color: o.color }));
+
+  const handleLabelAdd = async (name: string, color: string): Promise<LabelItem> => {
+    if (!labelManagerField) throw new Error('no field');
+    const opts = (labelManagerField.options as FieldOption[]) ?? [];
+    if (opts.some(o => o.name === name)) throw new Error('duplicate');
+    const newOpts = [...opts, { name, color }];
+    await noteDB.updateField({ ...labelManagerField, options: newOpts });
+    await reload();
+    return { id: newOpts.length, name, color };
+  };
+
+  const handleLabelUpdate = async (id: number, name: string, color: string) => {
+    if (!labelManagerField) return;
+    const opts = (labelManagerField.options as FieldOption[]) ?? [];
+    const idx = id - 1;
+    if (idx < 0 || idx >= opts.length) return;
+    const oldName = opts[idx].name;
+    const newOpts = opts.map((o, i) => i === idx ? { name, color } : o);
+    await noteDB.updateField({ ...labelManagerField, options: newOpts });
+    // 名前が変わった場合、エントリの値を更新
+    if (oldName !== name) {
+      const affected = await noteDB.entries.where('field_id').equals(labelManagerField.id!).toArray();
+      if (labelManagerField.type === 'select' || labelManagerField.type === 'dropdown') {
+        for (const e of affected) {
+          if (e.value === oldName) await noteDB.updateEntry({ ...e, value: name });
+        }
+      } else if (labelManagerField.type === 'label') {
+        for (const e of affected) {
+          try {
+            const labels: string[] = JSON.parse(e.value);
+            const i = labels.indexOf(oldName);
+            if (i !== -1) { labels[i] = name; await noteDB.updateEntry({ ...e, value: JSON.stringify(labels) }); }
+          } catch { /* skip */ }
+        }
+      }
+    }
     await reload();
   };
 
-  const removeOption = async (field: NoteField, name: string) => {
-    const opts = (field.options as FieldOption[]).filter(o => o.name !== name);
-    await noteDB.updateField({ ...field, options: opts });
+  const handleLabelDelete = async (id: number) => {
+    if (!labelManagerField) return;
+    const opts = (labelManagerField.options as FieldOption[]) ?? [];
+    const idx = id - 1;
+    if (idx < 0 || idx >= opts.length) return;
+    const optToDelete = opts[idx];
+    const newOpts = opts.filter((_, i) => i !== idx);
+    await noteDB.updateField({ ...labelManagerField, options: newOpts });
+    // 削除オプションを参照するエントリも整理
+    const affected = await noteDB.entries.where('field_id').equals(labelManagerField.id!).toArray();
+    if (labelManagerField.type === 'select' || labelManagerField.type === 'dropdown') {
+      for (const e of affected) {
+        if (e.value === optToDelete.name) await noteDB.deleteEntry(e.id!);
+      }
+    } else if (labelManagerField.type === 'label') {
+      for (const e of affected) {
+        try {
+          const labels: string[] = JSON.parse(e.value);
+          const filtered = labels.filter(l => l !== optToDelete.name);
+          if (filtered.length !== labels.length) {
+            if (filtered.length === 0) await noteDB.deleteEntry(e.id!);
+            else await noteDB.updateEntry({ ...e, value: JSON.stringify(filtered) });
+          }
+        } catch { /* skip */ }
+      }
+    }
+    await reload();
+  };
+
+  const handleLabelReorder = async (reordered: LabelItem[]) => {
+    if (!labelManagerField) return;
+    const newOpts = reordered.map(l => ({ name: l.name, color: l.color }));
+    await noteDB.updateField({ ...labelManagerField, options: newOpts });
     await reload();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-[var(--c-bg)] border border-[var(--c-border)] rounded-xl shadow-xl w-[560px] max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
-          <h2 className="font-semibold text-sm">フィールド管理</h2>
-          <button onClick={onClose} className="text-[var(--c-text-3)] hover:text-[var(--c-text)]">✕</button>
-        </div>
-        <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
-          {localFields.length === 0 && <p className="text-xs text-[var(--c-text-3)]">フィールドがありません</p>}
-          {localFields.map((f, i) => {
-            const hasOptions = f.type === 'select' || f.type === 'label' || f.type === 'dropdown';
-            const isSpecial = f.type === 'todo' || f.type === 'note_link';
-            return (
-              <div key={f.id} className="border border-[var(--c-border)] rounded-lg p-3 flex flex-col gap-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-col gap-0.5">
-                    <button onClick={() => moveField(i, -1)} disabled={i === 0} className="text-[var(--c-text-3)] hover:text-[var(--c-text)] disabled:opacity-30 text-[10px] leading-none">▲</button>
-                    <button onClick={() => moveField(i, 1)} disabled={i === localFields.length - 1} className="text-[var(--c-text-3)] hover:text-[var(--c-text)] disabled:opacity-30 text-[10px] leading-none">▼</button>
-                  </div>
-                  <span className="font-medium flex-1">{f.name}</span>
-                  <span className="text-[var(--c-text-3)] text-[10px] bg-[var(--c-bg-2)] px-1.5 py-0.5 rounded">{FIELD_TYPE_LABELS[f.type]}</span>
-                  <button onClick={() => deleteField(f.id!)} className="text-red-400 hover:text-red-300 text-[10px]">削除</button>
-                </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                  {!isSpecial && (
-                    <>
-                      <label className="flex items-center gap-1 text-[var(--c-text-2)]">
-                        一覧表示
-                        <input type="checkbox" checked={f.listVisible} onChange={e => updateListVisible(f, e.target.checked)} className="accent-[var(--c-accent)]" />
-                      </label>
-                      <label className="flex items-center gap-1 text-[var(--c-text-2)]">
-                        幅
-                        <select value={f.width} onChange={e => updateWidth(f, e.target.value as NoteFieldWidth)}
-                          className="text-xs bg-[var(--c-bg)] border border-[var(--c-border)] rounded px-1 text-[var(--c-text)]">
-                          {WIDTH_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
-                        </select>
-                      </label>
-                    </>
-                  )}
-                  {isSpecial && (
-                    <label className="flex items-center gap-1 text-[var(--c-text-2)]">
-                      表示
-                      <input type="checkbox" checked={f.visible !== false} onChange={e => updateVisible(f, e.target.checked)} className="accent-[var(--c-accent)]" />
-                    </label>
-                  )}
-                </div>
-                {hasOptions && (
-                  <div>
-                    <div className="flex flex-wrap gap-1 mb-1">
-                      {(f.options as FieldOption[]).map(o => (
-                        <span key={o.name} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                          style={{ background: `${o.color}22`, color: o.color, border: `1px solid ${o.color}66` }}>
-                          {o.name}
-                          <button onClick={() => removeOption(f, o.name)} className="ml-0.5 opacity-60 hover:opacity-100">×</button>
-                        </span>
-                      ))}
-                    </div>
-                    {editingOptions[f.id!] !== undefined ? (
-                      <div className="flex gap-1">
-                        <input type="text" value={optionInputs[f.id!] ?? ''} onChange={e => setOptionInputs(p => ({ ...p, [f.id!]: e.target.value }))}
-                          placeholder="選択肢名" autoFocus
-                          className="flex-1 px-1.5 py-0.5 text-xs border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] rounded outline-none"
-                          onKeyDown={e => { if (e.key === 'Enter') addOption(f); if (e.key === 'Escape') setEditingOptions(p => { const n = {...p}; delete n[f.id!]; return n; }); }} />
-                        <button onClick={() => addOption(f)} className="btn btn--primary btn--sm text-[10px]">追加</button>
-                        <button onClick={() => setEditingOptions(p => { const n = {...p}; delete n[f.id!]; return n; })} className="btn btn--ghost btn--sm text-[10px]">閉</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setEditingOptions(p => ({ ...p, [f.id!]: '' }))}
-                        className="text-[10px] text-[var(--c-accent)] hover:underline">＋ 選択肢追加</button>
-                    )}
+    <>
+      {/* バックドロップ */}
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      >
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
+        <div className="relative bg-[var(--c-bg)] border border-[var(--c-border)] rounded-2xl shadow-[var(--shadow-lg)] w-[640px] max-h-[85vh] flex flex-col">
+
+          {/* ヘッダー */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--c-border)] shrink-0">
+            <Settings2 size={15} className="text-[var(--c-accent)] shrink-0" />
+            <h2 className="font-semibold text-sm flex-1">フィールド管理</h2>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--c-bg-2)] text-[var(--c-text-3)]">
+              {localFields.length} フィールド
+            </span>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors ml-1"
+              aria-label="閉じる"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          {/* フィールドリスト */}
+          <div className="flex-1 overflow-auto px-4 py-3 flex flex-col gap-2 min-h-0">
+            {localFields.length === 0 && (
+              <p className="text-xs text-[var(--c-text-3)] text-center py-8">フィールドがありません</p>
+            )}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={localFields.map(f => f.id!)} strategy={verticalListSortingStrategy}>
+                {localFields.map(f => (
+                  <SortableFieldRow
+                    key={f.id}
+                    field={f}
+                    isEditingName={editingNameId === f.id}
+                    editingNameVal={editingNameVal}
+                    onStartEditName={(id, name) => { setEditingNameId(id); setEditingNameVal(name); }}
+                    onEditNameChange={setEditingNameVal}
+                    onCommitName={commitFieldName}
+                    onCancelEdit={() => setEditingNameId(null)}
+                    onDelete={deleteField}
+                    onUpdateWidth={updateWidth}
+                    onUpdateListVisible={updateListVisible}
+                    onUpdateNewRow={updateNewRow}
+                    onUpdateVisible={updateVisible}
+                    onOpenOptions={setLabelManagerField}
+                  />
+                ))}
+              </SortableContext>
+              <DragOverlay>
+                {activeDragField && (
+                  <div className="border border-[var(--c-accent)] rounded-xl bg-[var(--c-surface)] shadow-[var(--shadow-md)] px-3 py-2.5 flex items-center gap-2.5 opacity-95 cursor-grabbing">
+                    <GripVertical size={14} className="text-[var(--c-accent)] shrink-0" />
+                    <span
+                      className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ background: `${FIELD_TYPE_COLORS[activeDragField.type]}22`, color: FIELD_TYPE_COLORS[activeDragField.type] }}
+                    >
+                      {FIELD_TYPE_LABELS[activeDragField.type]}
+                    </span>
+                    <span className="text-sm font-medium text-[var(--c-text)]">{activeDragField.name}</span>
                   </div>
                 )}
+              </DragOverlay>
+            </DndContext>
+          </div>
+
+          {/* フィールド追加フォーム */}
+          <div className="border-t border-[var(--c-border)] px-5 py-4 bg-[var(--c-bg-2)]/40 rounded-b-2xl shrink-0">
+            <p className="text-[10px] font-semibold text-[var(--c-text-3)] uppercase tracking-wider mb-3">フィールドを追加</p>
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="フィールド名"
+                className="flex-1 px-3 py-2 text-sm rounded-lg border border-[var(--c-border)] bg-[var(--c-surface)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] focus:shadow-[0_0_0_3px_var(--c-accent-dim)] transition-all"
+                onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addField(); }}
+              />
+              <div className="w-36 shrink-0">
+                <Select
+                  options={TYPE_SELECT_OPTIONS}
+                  value={newType}
+                  onChange={v => setNewType(v as NoteFieldType)}
+                />
               </div>
-            );
-          })}
-        </div>
-        {/* 新規フィールド追加フォーム */}
-        <div className="border-t border-[var(--c-border)] px-4 py-3 flex gap-2 items-end">
-          <div className="flex flex-col gap-1 flex-1">
-            <label className="text-[10px] text-[var(--c-text-3)]">フィールド名</label>
-            <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="名前"
-              className="px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]"
-              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addField(); }} />
+              <button
+                onClick={addField}
+                disabled={!newName.trim()}
+                className="btn btn--primary btn--sm flex items-center gap-1.5 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Plus size={13} />
+                追加
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-[var(--c-text-3)]">種類</label>
-            <select value={newType} onChange={e => setNewType(e.target.value as NoteFieldType)}
-              className="px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)]">
-              {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </div>
-          <button onClick={addField} className="btn btn--primary btn--sm text-xs shrink-0">追加</button>
+
         </div>
       </div>
-    </div>
+
+      {/* ラベル/選択肢管理モーダル */}
+      {labelManagerField && (
+        <LabelManager
+          open={true}
+          title={`${labelManagerField.name} — ${labelManagerField.type === 'label' ? 'ラベル' : '選択肢'}設定`}
+          labels={optionsToLabelItems((labelManagerField.options as FieldOption[]) ?? [])}
+          onAdd={handleLabelAdd}
+          onUpdate={handleLabelUpdate}
+          onDelete={handleLabelDelete}
+          onClose={() => setLabelManagerField(null)}
+          onReorder={handleLabelReorder}
+        />
+      )}
+    </>
   );
 }
 
@@ -683,8 +1060,12 @@ export function NotePage() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<Array<{ field: NoteField | undefined; old_value: string; new_value: string; changed_at: number }>>([]);
+  const [history, setHistory] = useState<Array<{ fieldId: number | string; fieldName: string; old_value: string; new_value: string; changed_at: number }>>([]);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  // インラインタスク追加フォーム
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const addInputRef = useRef<HTMLInputElement>(null);
 
   // ── データ読み込み ────────────────────────────────
   const loadAll = useCallback(async () => {
@@ -769,12 +1150,14 @@ export function NotePage() {
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
 
   // ── タスク操作 ────────────────────────────────────
-  const addTask = async () => {
-    const title = window.prompt('タスクのタイトルを入力してください');
-    if (!title?.trim()) return;
-    const task = await noteDB.addTask(title.trim());
+  const commitAddTask = async () => {
+    const title = newTaskTitle.trim();
+    if (!title) return;
+    const task = await noteDB.addTask(title);
     setTasks(prev => [...prev, task]);
     setSelectedTaskId(task.id!);
+    setShowAddForm(false);
+    setNewTaskTitle('');
     activityDB.add({ page: 'note', action: 'create', target_type: 'note', target_id: String(task.id), summary: `ノート「${task.title}」を追加`, created_at: new Date().toISOString() });
   };
 
@@ -783,10 +1166,29 @@ export function NotePage() {
     if (!confirm(`「${selectedTask.title}」を削除しますか？`)) return;
     activityDB.add({ page: 'note', action: 'delete', target_type: 'note', target_id: String(selectedTaskId), summary: `ノート「${selectedTask.title}」を削除`, created_at: new Date().toISOString() });
     await noteDB.deleteTask(selectedTaskId);
+    // kanban_db の note_links もカスケード削除
+    openKanbanDB().then(db => {
+      if (!db) return;
+      const noteId = selectedTaskId;
+      new Promise<void>(resolve => {
+        try {
+          const req = db.transaction('note_links').objectStore('note_links').index('note_task_id').getAll(noteId);
+          req.onsuccess = (e) => {
+            const links = ((e.target as IDBRequest).result as { id: number }[]) ?? [];
+            if (!links.length) { resolve(); return; }
+            const tx = db.transaction('note_links', 'readwrite');
+            links.forEach(l => tx.objectStore('note_links').delete(l.id));
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+          };
+          req.onerror = () => resolve();
+        } catch { resolve(); }
+      }).then(() => db.close());
+    }).catch(() => {});
     setTasks(prev => prev.filter(t => t.id !== selectedTaskId));
     setSelectedTaskId(null);
     setTaskEntries([]);
-    await loadAll();
+    setAllEntries(prev => prev.filter(e => e.task_id !== selectedTaskId));
   };
 
   const startEditTitle = () => {
@@ -801,13 +1203,15 @@ export function NotePage() {
     const newTitle = titleInput.trim() || selectedTask.title;
     setEditingTitle(false);
     if (newTitle !== selectedTask.title) {
+      const oldTitle = selectedTask.title;
       const updated = await noteDB.updateTask({ ...selectedTask, title: newTitle });
       setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+      await noteDB.addHistory({ task_id: selectedTask.id!, field_id: HIST_TITLE, old_value: oldTitle, new_value: newTitle });
       activityDB.add({ page: 'note', action: 'update', target_type: 'note', target_id: String(selectedTask.id), summary: `ノート「${selectedTask.title}」のタイトルを変更`, created_at: new Date().toISOString() });
     }
   };
 
-  // ── エントリ再読み込み ────────────────────────────
+  // ── エントリ再読み込み + タスク更新日時更新 ──────
   const refreshEntries = useCallback(async () => {
     const [e, all] = await Promise.all([
       selectedTaskId ? noteDB.getEntriesByTask(selectedTaskId) : Promise.resolve([]),
@@ -815,6 +1219,17 @@ export function NotePage() {
     ]);
     setTaskEntries(e);
     setAllEntries(all);
+  }, [selectedTaskId]);
+
+  const touchTask = useCallback(async () => {
+    if (!selectedTask) return;
+    const updated = await noteDB.updateTask({ ...selectedTask });
+    setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+  }, [selectedTask]);
+
+  const recordHistory = useCallback(async (fieldId: number | string, oldVal: string, newVal: string) => {
+    if (!selectedTaskId) return;
+    await noteDB.addHistory({ task_id: selectedTaskId, field_id: fieldId, old_value: oldVal, new_value: newVal });
   }, [selectedTaskId]);
 
   // ── フィルター操作 ────────────────────────────────
@@ -853,11 +1268,8 @@ export function NotePage() {
     const json = JSON.stringify(data, null, 2);
     const now = new Date();
     const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-    a.download = `note_export_${ts}.json`;
-    a.click();
-    showSuccess('エクスポートしました');
+    const ok = await FileSaver.save(json, `note_export_${ts}.json`, { mimeType: 'application/json' });
+    if (ok) showSuccess('エクスポートしました');
   };
 
   const importData = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -880,7 +1292,16 @@ export function NotePage() {
   const openHistory = async () => {
     if (!selectedTaskId) return;
     const h = await noteDB.getHistory(selectedTaskId);
-    setHistory(h.map(r => ({ field: fields.find(f => f.id === r.field_id), old_value: r.old_value, new_value: r.new_value, changed_at: r.changed_at })));
+    setHistory(h.map(r => {
+      const fieldId = r.field_id;
+      let fieldName = '不明なフィールド';
+      if (typeof fieldId === 'string') {
+        fieldName = SPECIAL_FIELD_NAMES[fieldId] ?? fieldId;
+      } else {
+        fieldName = fields.find(f => f.id === fieldId)?.name ?? '不明なフィールド';
+      }
+      return { fieldId, fieldName, old_value: r.old_value, new_value: r.new_value, changed_at: r.changed_at };
+    }));
     setShowHistory(true);
   };
 
@@ -1032,9 +1453,31 @@ export function NotePage() {
           }
         </div>
 
-        {/* 追加ボタン */}
+        {/* 追加フォーム */}
         <div className="p-3 border-t border-[var(--c-border)]">
-          <button onClick={addTask} className="w-full btn btn--primary btn--sm text-xs">＋ ノート追加</button>
+          {showAddForm ? (
+            <div className="flex flex-col gap-1.5">
+              <input
+                ref={addInputRef}
+                type="text"
+                value={newTaskTitle}
+                onChange={e => setNewTaskTitle(e.target.value)}
+                placeholder="ノートのタイトル"
+                autoFocus
+                className="w-full px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]"
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitAddTask();
+                  if (e.key === 'Escape') { setShowAddForm(false); setNewTaskTitle(''); }
+                }}
+              />
+              <div className="flex gap-1">
+                <button onClick={commitAddTask} className="flex-1 btn btn--primary btn--sm text-xs">追加</button>
+                <button onClick={() => { setShowAddForm(false); setNewTaskTitle(''); }} className="btn btn--ghost btn--sm text-xs">取消</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => { setShowAddForm(true); setTimeout(() => addInputRef.current?.focus(), 50); }} className="w-full btn btn--primary btn--sm text-xs">＋ ノート追加</button>
+          )}
         </div>
       </div>
 
@@ -1100,18 +1543,38 @@ export function NotePage() {
             <div className="flex-1 overflow-auto px-4 py-4">
               <div className="flex flex-wrap gap-4">
                 {detailFields.map(field => {
-                  const fieldEntries = taskEntries.filter(e => e.field_id === field.id).map(e => ({ ...e, task_id: selectedTaskId! }));
-                  const widthCls = field.width === 'full' ? 'w-full' : field.width === 'wide' || field.width === 'w5' ? 'min-w-[280px]' : 'min-w-[180px]';
+                  const fieldEntries = taskEntries
+                    .filter(e => e.field_id === field.id)
+                    .map(e => ({ ...e, task_id: selectedTaskId! }));
+
+                  // newRow: flex break で強制改行
+                  const breakEl = field.newRow
+                    ? <div key={`break-${field.id}`} className="basis-full h-0" />
+                    : null;
+
+                  const widthCls = field.width === 'full'
+                    ? 'w-full'
+                    : field.width === 'wide' || field.width === 'w5'
+                      ? 'min-w-[280px]'
+                      : 'min-w-[180px]';
+
                   return (
-                    <div key={field.id} className={`flex flex-col gap-1 ${widthCls} grow`}>
-                      <div className="text-[10px] font-semibold text-[var(--c-text-3)] uppercase tracking-wide">{field.name}</div>
-                      <FieldView
-                        field={field}
-                        entries={fieldEntries}
-                        allTasks={tasks}
-                        onEntriesChange={refreshEntries}
-                      />
-                    </div>
+                    <React.Fragment key={field.id}>
+                      {breakEl}
+                      <div className={`flex flex-col gap-1 ${widthCls} grow`}>
+                        <div className="text-[10px] font-semibold text-[var(--c-text-3)]">{field.name}</div>
+                        <FieldView
+                          field={field}
+                          taskId={selectedTaskId!}
+                          entries={fieldEntries}
+                          allTasks={tasks}
+                          onEntriesChange={refreshEntries}
+                          onGoToNote={setSelectedTaskId}
+                          onTouchTask={touchTask}
+                          onRecordHistory={recordHistory}
+                        />
+                      </div>
+                    </React.Fragment>
                   );
                 })}
               </div>
@@ -1146,13 +1609,19 @@ export function NotePage() {
                 : history.map((h, i) => (
                   <div key={i} className="border-b border-[var(--c-border)] py-2 text-xs">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-[var(--c-text-2)]">{h.field?.name ?? '不明なフィールド'}</span>
+                      <span className="font-medium text-[var(--c-text-2)]">{h.fieldName}</span>
                       <span className="text-[var(--c-text-3)] text-[10px]">{new Date(h.changed_at).toLocaleString('ja-JP')}</span>
                     </div>
                     <div className="flex items-center gap-1 text-[10px]">
-                      <span className="text-[var(--c-text-3)] truncate max-w-[40%]">{h.old_value || '（空）'}</span>
+                      {h.old_value
+                        ? <span className="text-[var(--c-text-3)] truncate max-w-[40%] line-through">{h.old_value}</span>
+                        : <span className="text-[var(--c-text-3)] truncate max-w-[40%] opacity-40">（空）</span>
+                      }
                       <span className="text-[var(--c-text-3)] shrink-0">→</span>
-                      <span className="text-[var(--c-text)] truncate max-w-[40%]">{h.new_value || '（空）'}</span>
+                      {h.new_value
+                        ? <span className="text-[var(--c-text)] truncate max-w-[40%]">{h.new_value}</span>
+                        : <span className="text-[var(--c-text-3)] truncate max-w-[40%] opacity-40">（空）</span>
+                      }
                     </div>
                   </div>
                 ))
