@@ -7,7 +7,9 @@ import { useToast } from '../components/Toast';
 import { DatePicker } from '../components/DatePicker';
 import { LabelManager, type LabelItem } from '../components/LabelManager';
 import { Select, type SelectOption } from '../components/Select';
+import { Picker, type PickerItem } from '../components/Picker';
 import { noteDB, type NoteTask, type NoteField, type NoteEntry, type NoteFieldType, type NoteFieldWidth } from '../db/note_db';
+import { kanbanDB } from '../db/kanban_db';
 import { activityDB } from '../db/activity_db';
 import { Clipboard } from '../core/clipboard';
 import { FileSaver } from '../core/file_saver';
@@ -18,7 +20,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS as DndCSS } from '@dnd-kit/utilities';
-import { GripVertical, Pencil, Trash2, Tag, Settings2, X, Plus } from 'lucide-react';
+import { GripVertical, Pencil, Trash2, Tag, Settings2, X, Plus, MoreHorizontal, ExternalLink, Check } from 'lucide-react';
 
 // ── localStorage キー ─────────────────────────────
 const KEY_SORT         = 'note_sort';
@@ -65,6 +67,15 @@ const FIELD_TYPE_COLORS: Record<NoteFieldType, string> = {
   note_link: '#6366f1',
 };
 
+const COL_SPAN: Record<string, string> = {
+  narrow: 'col-span-1',
+  auto:   'col-span-2',
+  w3:     'col-span-3',
+  wide:   'col-span-4',
+  w5:     'col-span-5',
+  full:   'col-span-6',
+};
+
 type SortKey = 'created_at-desc' | 'created_at-asc' | 'updated_at-desc' | 'updated_at-asc' | 'title-asc' | 'title-desc';
 
 interface FieldOption { name: string; color: string; }
@@ -82,17 +93,23 @@ async function openKanbanDB(): Promise<IDBDatabase | null> {
 }
 
 // ── リンクエントリコンポーネント ─────────────────
-function LinkEntry({ entry, onDelete, onCopy, onSaved }: {
+function LinkEntry({ entry, onDelete, onCopy, onSaved, showSubline = true }: {
   entry: NoteEntry;
   onDelete: (id: number, oldDisplay: string) => void;
   onCopy: (text: string) => void;
   onSaved: (entryId: number, oldLabel: string, oldValue: string, newLabel: string, newValue: string) => void;
+  showSubline?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [eLabel, setELabel] = useState(entry.label);
   const [eValue, setEValue] = useState(entry.value);
+  const [hoveredBtn, setHoveredBtn] = useState<'label' | 'url' | null>(null);
 
-  const display = entry.label || entry.value;
+  const domain = (() => {
+    try { return new URL(entry.value).hostname; } catch {}
+    try { return new URL('https://' + entry.value).hostname; } catch {}
+    return entry.value;
+  })();
 
   const handleSave = () => {
     if (!eValue.trim()) return;
@@ -101,49 +118,83 @@ function LinkEntry({ entry, onDelete, onCopy, onSaved }: {
     setEditing(false);
   };
 
+  const linkInputCls = 'flex-1 px-0 py-0.5 text-xs bg-transparent border-0 border-b border-[var(--c-border)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] placeholder:text-[var(--c-text-3)] transition-colors';
+
   if (editing) {
     return (
-      <div className="flex flex-col gap-1.5 p-2 bg-[var(--c-bg-2)] rounded border border-[var(--c-border)]">
-        <input type="text" value={eLabel} onChange={e => setELabel(e.target.value)} placeholder="表示名（省略可）"
-          className="w-full px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]" />
-        <input type="url" value={eValue} onChange={e => setEValue(e.target.value)} placeholder="URL"
-          className="w-full px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]"
-          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }} />
-        <div className="flex gap-1">
-          <button onClick={handleSave} className="btn btn--primary btn--sm text-xs">保存</button>
-          <button onClick={() => setEditing(false)} className="btn btn--ghost btn--sm text-xs">キャンセル</button>
+      <div className="border-l-2 border-[var(--c-accent)] pl-3 py-1 my-0.5">
+        <div className="flex items-center gap-2 mb-2">
+          <Tag size={11} className="shrink-0 text-[var(--c-text-3)]" />
+          <input autoFocus type="text" value={eLabel} onChange={e => setELabel(e.target.value)}
+            placeholder="表示名（省略可）" className={linkInputCls} />
+        </div>
+        <div className="flex items-center gap-2">
+          <ExternalLink size={11} className="shrink-0 text-[var(--c-text-3)]" />
+          <input type="url" value={eValue} onChange={e => setEValue(e.target.value)}
+            placeholder="URL" className={linkInputCls}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSave(); if (e.key === 'Escape') setEditing(false); }} />
+          <button onClick={handleSave} title="保存（Enter）"
+            className="shrink-0 p-1 rounded text-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] transition-colors">
+            <Check size={13} />
+          </button>
+          <button onClick={() => setEditing(false)} title="キャンセル（Esc）"
+            className="shrink-0 p-1 rounded text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors">
+            <X size={13} />
+          </button>
         </div>
       </div>
     );
   }
 
+  const copyIcon = (
+    <svg viewBox="0 0 16 16" className="w-3 h-3" fill="currentColor">
+      <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/>
+      <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/>
+    </svg>
+  );
+
+  // showSubline=true: メイン行は常にラベル、サブラインでコピー対象を示す
+  // showSubline=false: サブラインなし、URLコピーホバー時にメイン行をURLに切替
+  const mainText = (!showSubline && hoveredBtn === 'url' && entry.label) ? entry.value : (entry.label || entry.value);
+  const showSubLine = showSubline && !!entry.label;
+  const subLineText = hoveredBtn === 'label' ? entry.label : hoveredBtn === 'url' ? entry.value : domain;
+
   return (
-    <div className="flex items-center gap-1 group py-0.5">
-      <a href={entry.value} target="_blank" rel="noopener noreferrer"
-        className="flex items-center gap-1 text-xs text-[var(--c-accent)] hover:underline min-w-0 flex-1 truncate">
-        <svg viewBox="0 0 16 16" className="w-3 h-3 shrink-0" fill="currentColor">
-          <path d="M3.75 2h3.5a.75.75 0 0 1 0 1.5h-3.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-3.5a.75.75 0 0 1 1.5 0v3.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25v-8.5C2 2.784 2.784 2 3.75 2Zm6.854-1h4.146a.25.25 0 0 1 .25.25v4.146a.25.25 0 0 1-.427.177L13.03 4.03 9.28 7.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.75-3.75-1.543-1.543A.25.25 0 0 1 10.604 1Z"/>
-        </svg>
-        {display}
-      </a>
-      <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+    <div className="group flex items-start gap-2 py-1.5 px-2 -mx-2 rounded-lg hover:bg-[var(--c-bg-2)] transition-colors">
+      <div className="shrink-0 mt-0.5 flex items-center justify-center w-5 h-5 rounded-md bg-[var(--c-accent-dim)] text-[var(--c-accent)]">
+        <ExternalLink size={10} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <a href={entry.value} target="_blank" rel="noopener noreferrer"
+          className="text-xs font-medium text-[var(--c-accent)] hover:underline block truncate leading-5 transition-colors">
+          {mainText}
+        </a>
+        {showSubLine && (
+          <div className={`text-[10px] truncate leading-4 transition-colors ${hoveredBtn ? 'text-[var(--c-accent)]' : 'text-[var(--c-text-3)]'}`}>
+            {subLineText}
+          </div>
+        )}
+      </div>
+      <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 pt-0.5">
         {entry.label && (
           <button onClick={() => onCopy(entry.label)} title="表示名をコピー"
-            className="p-0.5 text-[var(--c-text-3)] hover:text-[var(--c-text)]">
-            <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+            onMouseEnter={() => setHoveredBtn('label')} onMouseLeave={() => setHoveredBtn(null)}
+            className="p-1 rounded text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg)]">
+            {copyIcon}
           </button>
         )}
         <button onClick={() => onCopy(entry.value)} title="URLをコピー"
-          className="p-0.5 text-[var(--c-text-3)] hover:text-[var(--c-text)]">
-          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+          onMouseEnter={() => setHoveredBtn('url')} onMouseLeave={() => setHoveredBtn(null)}
+          className="p-1 rounded text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg)]">
+          {copyIcon}
         </button>
         <button onClick={() => setEditing(true)} title="編集"
-          className="p-0.5 text-[var(--c-text-3)] hover:text-[var(--c-text)]">
-          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z"/></svg>
+          className="p-1 rounded text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg)]">
+          <Pencil size={11} />
         </button>
         <button onClick={() => onDelete(entry.id!, entry.label ? `${entry.label} (${entry.value})` : entry.value)} title="削除"
-          className="p-0.5 text-[var(--c-text-3)] hover:text-red-400">
-          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
+          className="p-1 rounded text-[var(--c-text-3)] hover:text-red-400 hover:bg-[var(--c-bg)]">
+          <Trash2 size={11} />
         </button>
       </div>
     </div>
@@ -156,6 +207,7 @@ function FieldView({
   taskId,
   entries,
   allTasks,
+  refreshKey,
   onEntriesChange,
   onGoToNote,
   onTouchTask,
@@ -165,24 +217,26 @@ function FieldView({
   taskId: number;
   entries: NoteEntry[];
   allTasks: NoteTask[];
+  refreshKey: number;
   onEntriesChange: () => void;
   onGoToNote: (noteTaskId: number) => void;
   onTouchTask: () => Promise<void>;
   onRecordHistory: (fieldId: number | string, oldVal: string, newVal: string) => Promise<void>;
 }) {
   const { success } = useToast();
-  const setActiveTab = useTabStore(s => s.setActiveTab);
+  const setActiveTab     = useTabStore(s => s.setActiveTab);
+  const setPendingTodoId = useTabStore(s => s.setPendingTodoId);
   const [showForm, setShowForm] = useState(false);
   const [formLabel, setFormLabel] = useState('');
   const [formValue, setFormValue] = useState('');
   const [todoLinks, setTodoLinks] = useState<{ linkId: number; taskId: number; title: string }[]>([]);
   const [noteLinks, setNoteLinks] = useState<{ linkId: number; linkedId: number; title: string }[]>([]);
-  const [showTodoPicker, setShowTodoPicker] = useState(false);
-  const [showNotePicker, setShowNotePicker] = useState(false);
-  const [pickerSearch, setPickerSearch] = useState('');
-  const [todoPickerItems, setTodoPickerItems] = useState<KanbanTask[]>([]);
+  const [pickerState, setPickerState] = useState<{ x: number; y: number; type: 'todo' | 'note'; items: PickerItem[] } | null>(null);
   const textTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textFocusValRef = useRef('');
   const opts = (field.options || []) as FieldOption[];
+  const [textVal, setTextVal] = useState(entries[0]?.value ?? '');
 
   // TODO リンク読み込み
   useEffect(() => {
@@ -198,7 +252,11 @@ function FieldView({
             req.onerror = () => resolve([]);
           } catch { resolve([]); }
         });
-        if (links.length === 0) { db.close(); return; }
+        if (links.length === 0) {
+          db.close();
+          setTodoLinks([]);
+          return;
+        }
         const kTasks: KanbanTask[] = await new Promise((res, rej) => {
           const req = db.transaction('tasks').objectStore('tasks').getAll();
           req.onsuccess = (e) => res((e.target as IDBRequest).result);
@@ -209,7 +267,7 @@ function FieldView({
         setTodoLinks(links.map(l => ({ linkId: l.id, taskId: l.todo_task_id, title: taskMap.get(l.todo_task_id)?.title ?? `(ID:${l.todo_task_id})` })));
       } catch { db.close(); }
     })();
-  }, [field.type, taskId]);
+  }, [field.type, taskId, refreshKey]);
 
   // 関連ノートリンク読み込み
   useEffect(() => {
@@ -222,7 +280,23 @@ function FieldView({
         return { linkId: l.id!, linkedId, title: taskMap.get(linkedId)?.title ?? `(ID:${linkedId})` };
       }));
     })();
-  }, [field.type, taskId, allTasks]);
+  }, [field.type, taskId, allTasks, refreshKey]);
+
+  // テキストフィールドの値をエントリに同期（タスク切り替え時）
+  const entry0Id = entries[0]?.id;
+  useEffect(() => {
+    if (field.type === 'text') setTextVal(entries[0]?.value ?? '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [field.type, entry0Id]);
+
+  // テキストエリアの自動高さ調整
+  useEffect(() => {
+    if (field.type !== 'text') return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [field.type, textVal]);
 
   const copyText = (text: string) => {
     Clipboard.copy(text).then(() => success('コピーしました'));
@@ -257,18 +331,16 @@ function FieldView({
     if (textTimer.current) clearTimeout(textTimer.current);
     textTimer.current = setTimeout(async () => {
       if (!taskId) return;
-      const oldVal = entryId ? (entries.find(x => x.id === entryId)?.value ?? '') : '';
       if (entryId) {
         const e = entries.find(x => x.id === entryId);
         if (e) await noteDB.updateEntry({ ...e, value });
       } else {
         await noteDB.addEntry(taskId, field.id!, '', value);
       }
-      await onRecordHistory(field.id!, oldVal, value);
       await onTouchTask();
       onEntriesChange();
     }, 600);
-  }, [taskId, field.id, entries, onEntriesChange, onTouchTask, onRecordHistory]);
+  }, [taskId, field.id, entries, onEntriesChange, onTouchTask]);
 
   const saveDate = async (dateStr: string) => {
     if (!taskId) return;
@@ -302,13 +374,14 @@ function FieldView({
     const entry = entries[0];
     let labels: string[] = [];
     if (entry) { try { labels = JSON.parse(entry.value); } catch { labels = []; } }
-    const oldVal = JSON.stringify(labels);
     const idx = labels.indexOf(optName);
-    if (idx >= 0) labels.splice(idx, 1); else labels.push(optName);
+    const isRemoving = idx >= 0;
+    if (isRemoving) labels.splice(idx, 1); else labels.push(optName);
     const newVal = JSON.stringify(labels);
     if (entry) await noteDB.updateEntry({ ...entry, value: newVal });
     else await noteDB.addEntry(taskId, field.id!, '', newVal);
-    await onRecordHistory(field.id!, oldVal, newVal);
+    // デルタ記録: 削除は optName→"", 追加は ""→optName（1行表示）
+    await onRecordHistory(field.id!, isRemoving ? optName : '', isRemoving ? '' : optName);
     await onTouchTask();
     onEntriesChange();
   };
@@ -325,7 +398,7 @@ function FieldView({
     onEntriesChange();
   };
 
-  const removeTodoLink = async (linkId: number, title: string) => {
+  const removeTodoLink = async (linkId: number, todoTaskId: number, title: string) => {
     const db = await openKanbanDB();
     if (!db) return;
     try {
@@ -338,140 +411,145 @@ function FieldView({
       setTodoLinks(prev => prev.filter(l => l.linkId !== linkId));
       await onRecordHistory(HIST_TODO, title, '');
       await onTouchTask();
+      const currentNoteTitle = allTasks.find(t => t.id === taskId)?.title || '';
+      await kanbanDB.addActivity(todoTaskId, 'note_link_remove', { noteTaskId: taskId, title: currentNoteTitle });
       onEntriesChange();
     } catch { db.close(); }
   };
 
-  const removeNoteLink = async (linkId: number, title: string) => {
+  const removeNoteLink = async (linkId: number, linkedId: number, title: string) => {
     await noteDB.deleteNoteLink(linkId);
     setNoteLinks(prev => prev.filter(l => l.linkId !== linkId));
     await onRecordHistory(HIST_NOTE, title, '');
     await onTouchTask();
+    const currentNoteTitle = allTasks.find(t => t.id === taskId)?.title || '';
+    await noteDB.addHistory({ task_id: linkedId, field_id: HIST_NOTE, old_value: currentNoteTitle, new_value: '' });
     onEntriesChange();
   };
 
-  const openTodoPicker = async () => {
+  const openTodoPicker = async (e: React.MouseEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = Math.min(r.left, window.innerWidth - 268 - 8);
     const db = await openKanbanDB();
     if (!db) return;
     const kTasks: KanbanTask[] = await new Promise((res, rej) => {
       const req = db.transaction('tasks').objectStore('tasks').getAll();
-      req.onsuccess = (e) => res((e.target as IDBRequest).result);
-      req.onerror = (e) => rej(e);
+      req.onsuccess = (ev) => res((ev.target as IDBRequest).result);
+      req.onerror = (ev) => rej(ev);
     });
     db.close();
     const linkedIds = new Set(todoLinks.map(l => l.taskId));
-    setTodoPickerItems(kTasks.filter(t => !linkedIds.has(t.id)));
-    setPickerSearch('');
-    setShowTodoPicker(true);
+    const items: PickerItem[] = kTasks
+      .filter(t => !linkedIds.has(t.id))
+      .map(t => ({ id: t.id, label: t.title }));
+    setPickerState({ x, y: r.bottom + 4, type: 'todo', items });
   };
 
-  const selectTodoTask = async (kTask: KanbanTask) => {
+  const selectTodoTask = async (id: number, title: string) => {
     if (!taskId) return;
     const db = await openKanbanDB();
     if (!db) return;
     try {
-      const id: number = await new Promise((res, rej) => {
-        const req = db.transaction('note_links', 'readwrite').objectStore('note_links').add({ todo_task_id: kTask.id, note_task_id: taskId });
+      const linkId: number = await new Promise((res, rej) => {
+        const req = db.transaction('note_links', 'readwrite').objectStore('note_links').add({ todo_task_id: id, note_task_id: taskId });
         req.onsuccess = (e) => res((e.target as IDBRequest).result as number);
         req.onerror = (e) => rej(e);
       });
       db.close();
-      setTodoLinks(prev => [...prev, { linkId: id, taskId: kTask.id, title: kTask.title }]);
-      await onRecordHistory(HIST_TODO, '', kTask.title);
+      setTodoLinks(prev => [...prev, { linkId, taskId: id, title }]);
+      await onRecordHistory(HIST_TODO, '', title);
       await onTouchTask();
+      const currentNoteTitle = allTasks.find(t => t.id === taskId)?.title || '';
+      await kanbanDB.addActivity(id, 'note_link_add', { noteTaskId: taskId, title: currentNoteTitle });
       onEntriesChange();
     } catch { db.close(); }
-    setShowTodoPicker(false);
+    setPickerState(null);
   };
 
-  const openNotePicker = () => {
-    setPickerSearch('');
-    setShowNotePicker(true);
+  const openNotePicker = (e: React.MouseEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = Math.min(r.left, window.innerWidth - 268 - 8);
+    const linkedIds = new Set(noteLinks.map(l => l.linkedId));
+    const items: PickerItem[] = allTasks
+      .filter(t => t.id !== taskId && !linkedIds.has(t.id!))
+      .map(t => ({ id: t.id!, label: t.title }));
+    setPickerState({ x, y: r.bottom + 4, type: 'note', items });
   };
 
-  const selectNoteLink = async (target: NoteTask) => {
-    if (!taskId || !target.id) return;
-    const link = await noteDB.addNoteLink(taskId, target.id);
+  const selectNoteLink = async (id: number, title: string) => {
+    if (!taskId) return;
+    const link = await noteDB.addNoteLink(taskId, id);
     if (!link) return;
-    setNoteLinks(prev => [...prev, { linkId: link.id!, linkedId: target.id!, title: target.title }]);
-    await onRecordHistory(HIST_NOTE, '', target.title);
+    setNoteLinks(prev => [...prev, { linkId: link.id!, linkedId: id, title }]);
+    await onRecordHistory(HIST_NOTE, '', title);
     await onTouchTask();
-    setShowNotePicker(false);
+    const currentNoteTitle = allTasks.find(t => t.id === taskId)?.title || '';
+    await noteDB.addHistory({ task_id: id, field_id: HIST_NOTE, old_value: '', new_value: currentNoteTitle });
+    setPickerState(null);
     onEntriesChange();
   };
 
+  // ── ピッカー共通要素 ──────────────────────────
+  const pickerEl = pickerState ? (
+    <Picker
+      items={pickerState.items}
+      x={pickerState.x}
+      y={pickerState.y}
+      placeholder={pickerState.type === 'todo' ? 'TODOを検索…' : 'ノートを検索…'}
+      onSelect={(id) => {
+        const item = pickerState.items.find(i => i.id === id);
+        if (!item) return;
+        if (pickerState.type === 'todo') selectTodoTask(id, item.label);
+        else selectNoteLink(id, item.label);
+      }}
+      onClose={() => setPickerState(null)}
+    />
+  ) : null;
+
   // ── レンダリング ──────────────────────────────
   if (field.type === 'todo') {
-    const filtered = todoPickerItems.filter(t => t.title.toLowerCase().includes(pickerSearch.toLowerCase()));
     return (
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <button onClick={openTodoPicker} className="text-xs text-[var(--c-accent)] hover:underline">＋ 追加</button>
-        </div>
-        {todoLinks.map(l => (
-          <div key={l.linkId} className="flex items-center gap-1 py-0.5">
-            <button
-              onClick={() => setActiveTab('TODO')}
-              className="text-xs flex-1 truncate text-left text-[var(--c-accent)] hover:underline"
-              title="TODOで開く"
-            >{l.title}</button>
-            <button onClick={() => removeTodoLink(l.linkId, l.title)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs shrink-0">×</button>
+      <>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <button onClick={openTodoPicker} className="text-xs text-[var(--c-accent)] hover:underline">＋ 追加</button>
           </div>
-        ))}
-        {showTodoPicker && (
-          <div className="mt-1 border border-[var(--c-border)] rounded bg-[var(--c-bg)] shadow-lg z-20">
-            <input autoFocus type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
-              placeholder="検索..." className="w-full px-2 py-1 text-xs border-b border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none" />
-            <div className="max-h-32 overflow-auto">
-              {filtered.length === 0
-                ? <p className="px-2 py-1 text-xs text-[var(--c-text-3)]">候補がありません</p>
-                : filtered.map(t => (
-                  <div key={t.id} onClick={() => selectTodoTask(t)}
-                    className="px-2 py-1 text-xs hover:bg-[var(--c-bg-2)] cursor-pointer">{t.title}</div>
-                ))
-              }
+          {todoLinks.map(l => (
+            <div key={l.linkId} className="flex items-center gap-1 py-0.5">
+              <button
+                onClick={() => { setActiveTab('TODO'); setPendingTodoId(l.taskId); }}
+                className="text-xs flex-1 truncate text-left text-[var(--c-accent)] hover:underline"
+                title="TODOで開く"
+              >{l.title}</button>
+              <button onClick={() => removeTodoLink(l.linkId, l.taskId, l.title)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs shrink-0">×</button>
             </div>
-            <button onClick={() => setShowTodoPicker(false)} className="w-full text-xs text-[var(--c-text-3)] py-1 hover:bg-[var(--c-bg-2)]">閉じる</button>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+        {pickerEl}
+      </>
     );
   }
 
   if (field.type === 'note_link') {
-    const filtered = allTasks.filter(t => t.id !== taskId && t.title.toLowerCase().includes(pickerSearch.toLowerCase()));
     return (
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <button onClick={openNotePicker} className="text-xs text-[var(--c-accent)] hover:underline">＋ 追加</button>
-        </div>
-        {noteLinks.map(l => (
-          <div key={l.linkId} className="flex items-center gap-1 py-0.5">
-            <button
-              onClick={() => onGoToNote(l.linkedId)}
-              className="text-xs flex-1 truncate text-left text-[var(--c-accent)] hover:underline"
-              title="関連ノートを開く"
-            >{l.title}</button>
-            <button onClick={() => removeNoteLink(l.linkId, l.title)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs shrink-0">×</button>
+      <>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <button onClick={openNotePicker} className="text-xs text-[var(--c-accent)] hover:underline">＋ 追加</button>
           </div>
-        ))}
-        {showNotePicker && (
-          <div className="mt-1 border border-[var(--c-border)] rounded bg-[var(--c-bg)] shadow-lg z-20">
-            <input autoFocus type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
-              placeholder="検索..." className="w-full px-2 py-1 text-xs border-b border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none" />
-            <div className="max-h-32 overflow-auto">
-              {filtered.length === 0
-                ? <p className="px-2 py-1 text-xs text-[var(--c-text-3)]">候補がありません</p>
-                : filtered.map(t => (
-                  <div key={t.id} onClick={() => selectNoteLink(t)}
-                    className="px-2 py-1 text-xs hover:bg-[var(--c-bg-2)] cursor-pointer">{t.title}</div>
-                ))
-              }
+          {noteLinks.map(l => (
+            <div key={l.linkId} className="flex items-center gap-1 py-0.5">
+              <button
+                onClick={() => onGoToNote(l.linkedId)}
+                className="text-xs flex-1 truncate text-left text-[var(--c-accent)] hover:underline"
+                title="関連ノートを開く"
+              >{l.title}</button>
+              <button onClick={() => removeNoteLink(l.linkId, l.linkedId, l.title)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs shrink-0">×</button>
             </div>
-            <button onClick={() => setShowNotePicker(false)} className="w-full text-xs text-[var(--c-text-3)] py-1 hover:bg-[var(--c-bg-2)]">閉じる</button>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+        {pickerEl}
+      </>
     );
   }
 
@@ -486,18 +564,31 @@ function FieldView({
             onDelete={deleteLinkEntry}
             onCopy={copyText}
             onSaved={handleLinkSaved}
+            showSubline={field.showSubline !== false}
           />
         ))}
         {showForm ? (
-          <div className="flex flex-col gap-1.5 mt-1 p-2 bg-[var(--c-bg-2)] rounded border border-[var(--c-border)]">
-            <input type="text" value={formLabel} onChange={e => setFormLabel(e.target.value)} placeholder="表示名（省略可）"
-              className="w-full px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]" />
-            <input type="url" value={formValue} onChange={e => setFormValue(e.target.value)} placeholder="URL"
-              className="w-full px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]"
-              onKeyDown={e => { if (e.key === 'Enter') addLinkEntry(); }} />
-            <div className="flex gap-1">
-              <button onClick={addLinkEntry} className="btn btn--primary btn--sm text-xs">追加</button>
-              <button onClick={() => { setShowForm(false); setFormLabel(''); setFormValue(''); }} className="btn btn--ghost btn--sm text-xs">キャンセル</button>
+          <div className="border-l-2 border-[var(--c-accent)] pl-3 py-1 mt-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Tag size={11} className="shrink-0 text-[var(--c-text-3)]" />
+              <input autoFocus type="text" value={formLabel} onChange={e => setFormLabel(e.target.value)}
+                placeholder="表示名（省略可）"
+                className="flex-1 px-0 py-0.5 text-xs bg-transparent border-0 border-b border-[var(--c-border)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] placeholder:text-[var(--c-text-3)] transition-colors" />
+            </div>
+            <div className="flex items-center gap-2">
+              <ExternalLink size={11} className="shrink-0 text-[var(--c-text-3)]" />
+              <input type="url" value={formValue} onChange={e => setFormValue(e.target.value)}
+                placeholder="URL"
+                className="flex-1 px-0 py-0.5 text-xs bg-transparent border-0 border-b border-[var(--c-border)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] placeholder:text-[var(--c-text-3)] transition-colors"
+                onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addLinkEntry(); if (e.key === 'Escape') { setShowForm(false); setFormLabel(''); setFormValue(''); } }} />
+              <button onClick={addLinkEntry} title="追加（Enter）"
+                className="shrink-0 p-1 rounded text-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] transition-colors">
+                <Check size={13} />
+              </button>
+              <button onClick={() => { setShowForm(false); setFormLabel(''); setFormValue(''); }} title="キャンセル（Esc）"
+                className="shrink-0 p-1 rounded text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors">
+                <X size={13} />
+              </button>
             </div>
           </div>
         ) : (
@@ -511,11 +602,17 @@ function FieldView({
     const entry = entries[0] ?? null;
     return (
       <textarea
-        defaultValue={entry?.value ?? ''}
-        onChange={e => saveText(e.target.value, entry?.id ?? null)}
-        rows={3}
+        ref={textareaRef}
+        value={textVal}
+        onChange={e => { setTextVal(e.target.value); saveText(e.target.value, entry?.id ?? null); }}
+        onFocus={() => { textFocusValRef.current = textVal; }}
+        onBlur={async () => {
+          if (textVal !== textFocusValRef.current) {
+            await onRecordHistory(field.id!, textFocusValRef.current, textVal);
+          }
+        }}
         placeholder="テキストを入力..."
-        className="w-full px-3 py-2 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] resize-y outline-none focus:border-[var(--c-accent)]"
+        className="w-full px-3 py-2 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] resize-none overflow-hidden outline-none focus:border-[var(--c-accent)] min-h-[72px]"
       />
     );
   }
@@ -527,7 +624,6 @@ function FieldView({
         value={entry?.value ?? ''}
         onChange={saveDate}
         onClear={() => saveDate('')}
-        compact
         placeholder="日付を選択..."
       />
     );
@@ -577,12 +673,17 @@ function FieldView({
   if (field.type === 'dropdown') {
     if (opts.length === 0) return <p className="text-xs text-[var(--c-text-3)]">選択肢が設定されていません</p>;
     const currentValue = entries[0]?.value ?? '';
+    const dropdownOptions: SelectOption[] = [
+      { value: '', label: '（未選択）' },
+      ...opts.map(opt => ({ value: opt.name, label: opt.name, color: opt.color })),
+    ];
     return (
-      <select value={currentValue} onChange={e => saveDropdown(e.target.value)}
-        className="px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]">
-        <option value="">（未選択）</option>
-        {opts.map(opt => <option key={opt.name} value={opt.name}>{opt.name}</option>)}
-      </select>
+      <Select
+        options={dropdownOptions}
+        value={currentValue}
+        onChange={saveDropdown}
+        placeholder="（未選択）"
+      />
     );
   }
 
@@ -603,6 +704,7 @@ function SortableFieldRow({
   onUpdateListVisible,
   onUpdateNewRow,
   onUpdateVisible,
+  onUpdateShowSubline,
   onOpenOptions,
 }: {
   field: NoteField;
@@ -617,6 +719,7 @@ function SortableFieldRow({
   onUpdateListVisible: (field: NoteField, v: boolean) => void;
   onUpdateNewRow: (field: NoteField, v: boolean) => void;
   onUpdateVisible: (field: NoteField, v: boolean) => void;
+  onUpdateShowSubline: (field: NoteField, v: boolean) => void;
   onOpenOptions: (field: NoteField) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -728,6 +831,13 @@ function SortableFieldRow({
           <span className="toggle-track"><span className="toggle-thumb" /></span>
           <span className="toggle-label" style={{ fontSize: '11px' }}>行頭</span>
         </label>
+        {field.type === 'link' && (
+          <label className="toggle-wrap">
+            <input type="checkbox" className="toggle-input" checked={field.showSubline !== false} onChange={e => onUpdateShowSubline(field, e.target.checked)} />
+            <span className="toggle-track"><span className="toggle-thumb" /></span>
+            <span className="toggle-label" style={{ fontSize: '11px' }}>サブライン</span>
+          </label>
+        )}
         {hasOptions && (
           <button
             onClick={() => onOpenOptions(field)}
@@ -808,6 +918,11 @@ function FieldModal({
 
   const updateNewRow = async (field: NoteField, v: boolean) => {
     await noteDB.updateField({ ...field, newRow: v });
+    await reload();
+  };
+
+  const updateShowSubline = async (field: NoteField, v: boolean) => {
+    await noteDB.updateField({ ...field, showSubline: v });
     await reload();
   };
 
@@ -959,6 +1074,7 @@ function FieldModal({
                     onUpdateListVisible={updateListVisible}
                     onUpdateNewRow={updateNewRow}
                     onUpdateVisible={updateVisible}
+                    onUpdateShowSubline={updateShowSubline}
                     onOpenOptions={setLabelManagerField}
                   />
                 ))}
@@ -1034,10 +1150,17 @@ function FieldModal({
 export function NotePage() {
   const { success: showSuccess, error: showError } = useToast();
 
+  const pendingNoteId    = useTabStore(s => s.pendingNoteId);
+  const setPendingNoteId = useTabStore(s => s.setPendingNoteId);
+  const activeTabId      = useTabStore(s => s.activeTabId);
+  const tabConfig        = useTabStore(s => s.config);
+
   const [tasks, setTasks] = useState<NoteTask[]>([]);
   const [fields, setFields] = useState<NoteField[]>([]);
   const [allEntries, setAllEntries] = useState<NoteEntry[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [fieldViewRefreshKey, setFieldViewRefreshKey] = useState(0);
+  const prevActiveTabIdRef = useRef('');
   const [taskEntries, setTaskEntries] = useState<NoteEntry[]>([]);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortKey>(() => (localStorage.getItem(KEY_SORT) as SortKey) ?? 'created_at-desc');
@@ -1062,6 +1185,8 @@ export function NotePage() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<Array<{ fieldId: number | string; fieldName: string; old_value: string; new_value: string; changed_at: number }>>([]);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   // インラインタスク追加フォーム
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -1082,12 +1207,43 @@ export function NotePage() {
     setTaskEntries(e);
   }, []);
 
+  // TODO 詳細からのノート遷移: pendingNoteId をセレクト
+  useEffect(() => {
+    if (pendingNoteId == null) return;
+    setPendingNoteId(null);
+    if (pendingNoteId === selectedTaskId) {
+      // 既に同じノートを表示中 → useEffect の deps が変わらないため強制再ロード
+      setFieldViewRefreshKey(k => k + 1);
+    } else {
+      setSelectedTaskId(pendingNoteId);
+    }
+  }, [pendingNoteId, setPendingNoteId, selectedTaskId]);
+
+  // タブ切り替えでノートタブがアクティブになったときにリンクを再ロード
+  useEffect(() => {
+    const noteTabId = tabConfig.find(t => t.pageSrc === 'pages/note.html');
+    const noteId = noteTabId ? `TAB-${noteTabId.label}` : '';
+    if (noteId && prevActiveTabIdRef.current !== activeTabId && activeTabId === noteId) {
+      setFieldViewRefreshKey(k => k + 1);
+    }
+    prevActiveTabIdRef.current = activeTabId;
+  }, [activeTabId, tabConfig]);
+
   useEffect(() => { loadAll(); }, [loadAll]);
 
   useEffect(() => {
     if (selectedTaskId) loadTaskEntries(selectedTaskId);
     else setTaskEntries([]);
   }, [selectedTaskId, loadTaskEntries]);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showMenu]);
 
   // ── フィルター永続化 ──────────────────────────────
   const saveFilter = useCallback((f: Record<number, Set<string>>) => {
@@ -1455,6 +1611,7 @@ export function NotePage() {
 
         {/* 追加フォーム */}
         <div className="p-3 border-t border-[var(--c-border)]">
+          <button onClick={() => setShowFieldModal(true)} className="w-full btn btn--ghost btn--sm text-xs mb-2">フィールド管理</button>
           {showAddForm ? (
             <div className="flex flex-col gap-1.5">
               <input
@@ -1505,7 +1662,7 @@ export function NotePage() {
                       value={titleInput}
                       onChange={e => setTitleInput(e.target.value)}
                       onBlur={commitTitle}
-                      onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitTitle(); if (e.key === 'Escape') setEditingTitle(false); }}
                       className="w-full text-base font-semibold bg-[var(--c-bg)] text-[var(--c-text)] border-b-2 border-[var(--c-accent)] outline-none"
                     />
                   ) : (
@@ -1522,52 +1679,50 @@ export function NotePage() {
                   <button onClick={openHistory} title="変更履歴" className="p-1.5 text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] rounded">
                     <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M1.643 3.143 1.26 7.23a.45.45 0 0 0 .498.498l4.084-.382c.246-.023.33-.329.116-.44L4.24 6.23a6.25 6.25 0 1 1-.21 4.741.75.75 0 0 0-1.403.527A7.75 7.75 0 1 0 3.735 5.014l-.706-.854a.246.246 0 0 0-.386.983Z"/></svg>
                   </button>
+                  <div ref={menuRef} className="relative">
+                    <button onClick={() => setShowMenu(p => !p)} title="その他の操作"
+                      className={`p-1.5 rounded transition-colors ${showMenu ? 'text-[var(--c-accent)] bg-[var(--c-bg-2)]' : 'text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)]'}`}>
+                      <MoreHorizontal size={14} />
+                    </button>
+                    {showMenu && (
+                      <div className="absolute right-0 top-full mt-1 bg-[var(--c-bg)] border border-[var(--c-border)] rounded-lg shadow-lg z-20 min-w-[140px] overflow-hidden">
+                        <button onClick={() => { exportData(); setShowMenu(false); }}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--c-bg-2)] text-[var(--c-text)]">
+                          エクスポート
+                        </button>
+                        <label className="flex w-full px-3 py-2 text-xs hover:bg-[var(--c-bg-2)] text-[var(--c-text)] cursor-pointer">
+                          インポート
+                          <input type="file" accept=".json" className="hidden" onChange={e => { importData(e); setShowMenu(false); }} />
+                        </label>
+                      </div>
+                    )}
+                  </div>
                   <button onClick={deleteTask} title="削除" className="p-1.5 text-red-400 hover:text-red-300 hover:bg-[var(--c-bg-2)] rounded">
                     <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>
                   </button>
                 </div>
               </div>
             </div>
-            {/* ヘッダーアクション */}
-            <div className="px-4 py-2 border-b border-[var(--c-border)] flex items-center gap-2 shrink-0">
-              <button onClick={() => setShowFieldModal(true)} className="btn btn--ghost btn--sm text-xs">フィールド管理</button>
-              <div className="ml-auto flex items-center gap-1">
-                <button onClick={exportData} className="btn btn--ghost btn--sm text-xs">エクスポート</button>
-                <label className="btn btn--ghost btn--sm text-xs cursor-pointer">
-                  インポート
-                  <input type="file" accept=".json" className="hidden" onChange={importData} />
-                </label>
-              </div>
-            </div>
             {/* フィールド一覧 */}
             <div className="flex-1 overflow-auto px-4 py-4">
-              <div className="flex flex-wrap gap-4">
+              <div className="grid grid-cols-6 gap-4 items-start">
                 {detailFields.map(field => {
                   const fieldEntries = taskEntries
                     .filter(e => e.field_id === field.id)
                     .map(e => ({ ...e, task_id: selectedTaskId! }));
 
-                  // newRow: flex break で強制改行
-                  const breakEl = field.newRow
-                    ? <div key={`break-${field.id}`} className="basis-full h-0" />
-                    : null;
-
-                  const widthCls = field.width === 'full'
-                    ? 'w-full'
-                    : field.width === 'wide' || field.width === 'w5'
-                      ? 'min-w-[280px]'
-                      : 'min-w-[180px]';
+                  const colCls = `${COL_SPAN[field.width ?? 'full'] ?? 'col-span-6'} ${field.newRow ? 'col-start-1' : ''}`;
 
                   return (
                     <React.Fragment key={field.id}>
-                      {breakEl}
-                      <div className={`flex flex-col gap-1 ${widthCls} grow`}>
+                      <div className={`flex flex-col gap-2 ${colCls} bg-[var(--c-surface)] border border-[var(--c-border)] rounded-xl px-4 py-3 shadow-sm hover:border-[var(--c-border-2)] focus-within:border-[var(--c-border-2)] transition-colors`}>
                         <div className="text-[10px] font-semibold text-[var(--c-text-3)]">{field.name}</div>
                         <FieldView
                           field={field}
                           taskId={selectedTaskId!}
                           entries={fieldEntries}
                           allTasks={tasks}
+                          refreshKey={fieldViewRefreshKey}
                           onEntriesChange={refreshEntries}
                           onGoToNote={setSelectedTaskId}
                           onTouchTask={touchTask}
@@ -1593,43 +1748,65 @@ export function NotePage() {
       )}
 
       {/* 変更履歴モーダル */}
-      {showHistory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={e => { if (e.target === e.currentTarget) setShowHistory(false); }}>
-          <div className="bg-[var(--c-bg)] border border-[var(--c-border)] rounded-xl shadow-xl w-[480px] max-h-[70vh] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
-              <h2 className="font-semibold text-sm">変更履歴</h2>
-              <div className="flex gap-2">
-                <button onClick={async () => { if (!selectedTaskId) return; await noteDB.clearHistory(selectedTaskId); setHistory([]); }} className="text-xs text-red-400 hover:underline">クリア</button>
-                <button onClick={() => setShowHistory(false)} className="text-[var(--c-text-3)] hover:text-[var(--c-text)]">✕</button>
+      {showHistory && (() => {
+        const groups = history.reduce((acc, h) => {
+          const date = new Date(h.changed_at).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+          if (!acc[date]) acc[date] = [];
+          acc[date].push(h);
+          return acc;
+        }, {} as Record<string, typeof history>);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={e => { if (e.target === e.currentTarget) setShowHistory(false); }}>
+            <div className="bg-[var(--c-bg)] border border-[var(--c-border)] rounded-xl shadow-xl w-[560px] max-h-[70vh] flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--c-border)]">
+                <h2 className="font-semibold text-sm">変更履歴</h2>
+                <div className="flex items-center gap-3">
+                  <button onClick={async () => { if (!selectedTaskId) return; await noteDB.clearHistory(selectedTaskId); setHistory([]); }} className="text-xs text-red-400 hover:underline">クリア</button>
+                  <button onClick={() => setShowHistory(false)} className="text-[var(--c-text-3)] hover:text-[var(--c-text)]">
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto px-4 py-2">
+                {history.length === 0
+                  ? <p className="py-6 text-center text-xs text-[var(--c-text-3)] italic">変更履歴がありません</p>
+                  : Object.entries(groups).map(([date, items]) => (
+                    <div key={date}>
+                      <div className="text-[11px] font-bold text-[var(--c-text-3)] uppercase tracking-wide py-3 border-b border-[var(--c-border)] mb-1 first:pt-2">
+                        {date}
+                      </div>
+                      {items.map((h, i) => {
+                        const isAdd    = !h.old_value && !!h.new_value;
+                        const isRemove = !!h.old_value && !h.new_value;
+                        const time = new Date(h.changed_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+                        return (
+                          <div key={i} className="flex items-start gap-2.5 px-1 py-2 rounded-lg hover:bg-[var(--c-bg-2)] transition-colors">
+                            <span className="shrink-0 text-[11px] font-medium text-[var(--c-text-3)] tabular-nums pt-0.5 min-w-[36px]">{time}</span>
+                            <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--c-accent-dim)] text-[var(--c-accent)] whitespace-nowrap max-w-[100px] truncate" title={h.fieldName}>{h.fieldName}</span>
+                            <div className="flex-1 text-xs flex flex-wrap items-center gap-1 min-w-0">
+                              {isAdd ? (
+                                <span className="text-[var(--c-success)] font-medium break-all">＋ {h.new_value}</span>
+                              ) : isRemove ? (
+                                <span className="text-red-400 break-all">－ {h.old_value}</span>
+                              ) : (
+                                <>
+                                  <span className="text-[var(--c-text-3)] line-through break-all">{h.old_value || '（空）'}</span>
+                                  <span className="text-[var(--c-text-3)] shrink-0">→</span>
+                                  <span className="text-[var(--c-text)] font-medium break-all">{h.new_value || '（空）'}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                }
               </div>
             </div>
-            <div className="flex-1 overflow-auto p-4">
-              {history.length === 0
-                ? <p className="text-xs text-[var(--c-text-3)]">変更履歴がありません</p>
-                : history.map((h, i) => (
-                  <div key={i} className="border-b border-[var(--c-border)] py-2 text-xs">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-[var(--c-text-2)]">{h.fieldName}</span>
-                      <span className="text-[var(--c-text-3)] text-[10px]">{new Date(h.changed_at).toLocaleString('ja-JP')}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px]">
-                      {h.old_value
-                        ? <span className="text-[var(--c-text-3)] truncate max-w-[40%] line-through">{h.old_value}</span>
-                        : <span className="text-[var(--c-text-3)] truncate max-w-[40%] opacity-40">（空）</span>
-                      }
-                      <span className="text-[var(--c-text-3)] shrink-0">→</span>
-                      {h.new_value
-                        ? <span className="text-[var(--c-text)] truncate max-w-[40%]">{h.new_value}</span>
-                        : <span className="text-[var(--c-text-3)] truncate max-w-[40%] opacity-40">（空）</span>
-                      }
-                    </div>
-                  </div>
-                ))
-              }
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

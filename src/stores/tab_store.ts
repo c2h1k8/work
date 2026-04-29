@@ -60,6 +60,12 @@ interface TabStore {
   activityLogOpen: boolean;
   isLoading: boolean;
 
+  // ページ間ナビゲーション（ペンディング ID）
+  pendingNoteId: number | null;
+  pendingTodoId: number | null;
+  setPendingNoteId: (id: number | null) => void;
+  setPendingTodoId: (id: number | null) => void;
+
   // 初期化
   loadConfig: () => Promise<void>;
 
@@ -91,6 +97,10 @@ export const useTabStore = create<TabStore>((set, get) => ({
   settingsOpen: false,
   activityLogOpen: false,
   isLoading: true,
+  pendingNoteId: null,
+  pendingTodoId: null,
+  setPendingNoteId: (id) => set({ pendingNoteId: id }),
+  setPendingTodoId: (id) => set({ pendingTodoId: id }),
 
   loadConfig: async () => {
     const config = await loadTabConfigFromDB();

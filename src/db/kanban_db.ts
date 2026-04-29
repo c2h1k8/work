@@ -181,6 +181,10 @@ class KanbanDatabase extends Dexie {
     return this.tasks.toArray();
   }
 
+  async getTask(id: number): Promise<KanbanTask | undefined> {
+    return this.tasks.get(id);
+  }
+
   async getTasksByColumn(column: string): Promise<KanbanTask[]> {
     const tasks = await this.tasks.where('column').equals(column).toArray();
     return sortByPosition(tasks);

@@ -42,6 +42,7 @@ export interface NoteField {
   listVisible: boolean;
   visible?: boolean;
   newRow?: boolean;
+  showSubline?: boolean;
 }
 
 export interface NoteEntry {

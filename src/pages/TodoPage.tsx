@@ -42,10 +42,10 @@ import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import { noteDB } from '../db/note_db';
-import type { NoteTask } from '../db/note_db';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
 import { LabelManager, type LabelItem } from '../components/LabelManager';
+import { Picker, type PickerItem } from '../components/Picker';
 import { searchRegistry } from '../stores/search_store';
 import { useTabStore } from '../stores/tab_store';
 
@@ -346,108 +346,6 @@ const KanbanColumnView = React.memo(function KanbanColumnView({
   );
 });
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// TaskPicker（タスク選択ポップオーバー）
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-interface TaskPickerProps {
-  tasks: KanbanTask[];
-  columns: KanbanColumn[];
-  x: number;
-  y: number;
-  onSelect: (taskId: number) => void;
-  onClose: () => void;
-}
-
-function TaskPicker({ tasks, columns, x, y, onSelect, onClose }: TaskPickerProps) {
-  const [q, setQ] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
-  const filtered = useMemo(
-    () => q ? tasks.filter((t) => t.title.toLowerCase().includes(q.toLowerCase())) : tasks,
-    [tasks, q],
-  );
-
-  return (
-    <>
-      <div className="fixed inset-0 z-[390]" onClick={onClose} />
-      <div className={styles['task-picker']} style={{ left: x, top: y, zIndex: 400 }}>
-        <input
-          ref={inputRef}
-          className={styles['task-picker__input']}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="タスクを検索…"
-          onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
-        />
-        <ul className={styles['task-picker__list']}>
-          {filtered.length === 0 && <li className={styles['task-picker__empty']}>該当なし</li>}
-          {filtered.map((t) => (
-            <li key={t.id} className={styles['task-picker__item']} onClick={() => onSelect(t.id!)}>
-              <span className={styles['task-picker__item-title']}>{t.title}</span>
-              <span className={styles['task-picker__item-column']}>{columns.find((c) => c.key === t.column)?.name}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </>
-  );
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// NotePicker（ノート選択ポップオーバー）
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-interface NotePickerProps {
-  x: number;
-  y: number;
-  excludeIds: number[];
-  onSelect: (noteTaskId: number) => void;
-  onClose: () => void;
-}
-
-function NotePicker({ x, y, excludeIds, onSelect, onClose }: NotePickerProps) {
-  const [q, setQ] = useState('');
-  const [notes, setNotes] = useState<NoteTask[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    noteDB.getAllTasks().then((tasks) => setNotes(tasks.filter((t) => !excludeIds.includes(t.id!))));
-    inputRef.current?.focus();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const filtered = useMemo(
-    () => q ? notes.filter((n) => n.title.toLowerCase().includes(q.toLowerCase())) : notes,
-    [notes, q],
-  );
-
-  return (
-    <>
-      <div className="fixed inset-0 z-[390]" onClick={onClose} />
-      <div className={styles['task-picker']} style={{ left: x, top: y, zIndex: 400 }}>
-        <input
-          ref={inputRef}
-          className={styles['task-picker__input']}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="ノートを検索…"
-          onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
-        />
-        <ul className={styles['task-picker__list']}>
-          {filtered.length === 0 && <li className={styles['task-picker__empty']}>該当なし</li>}
-          {filtered.map((n) => (
-            <li key={n.id} className={styles['task-picker__item']} onClick={() => onSelect(n.id!)}>
-              <span className={styles['task-picker__item-title']}>{n.title}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </>
-  );
-}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // TaskModal（タスク詳細編集）
@@ -469,6 +367,7 @@ interface TaskModalProps {
 
 function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDeleted, onArchived, onColumnChange, onDepsMutated, onLabelsChanged }: TaskModalProps) {
   const toast = useToast();
+  const { setActiveTab, setPendingNoteId, setPendingTodoId, config: tabConfig } = useTabStore();
 
   // ── 基本フィールド ──────────────────────────────────────
   const [title,        setTitle]        = useState(task.title);
@@ -524,7 +423,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
 
   // ── タスクピッカー ──────────────────────────────────────
   type PickerType = 'dep-pre' | 'dep-suc' | 'parent' | 'child' | 'related' | 'note';
-  const [picker,   setPicker]   = useState<{ type: PickerType; x: number; y: number } | null>(null);
+  const [picker,   setPicker]   = useState<{ type: PickerType; x: number; y: number; items: PickerItem[] } | null>(null);
   const [allTasks, setAllTasks] = useState<KanbanTask[]>([]);
 
   // マウント後にアニメーション開始
@@ -880,12 +779,19 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     const link = await kanbanDB.addNoteLink(task.id!, noteTaskId);
     const noteTasks = await noteDB.getAllTasks();
     const noteTask = noteTasks.find((t) => t.id === noteTaskId);
-    setNoteLinks((prev) => [...prev, { link, noteTitle: noteTask?.title || `ノート #${noteTaskId}` }]);
+    const noteTitle = noteTask?.title || `ノート #${noteTaskId}`;
+    setNoteLinks((prev) => [...prev, { link, noteTitle }]);
+    const act = await kanbanDB.addActivity(task.id!, 'note_link_add', { noteTaskId, title: noteTitle });
+    setActivities((prev) => [...prev, act].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+    await noteDB.addHistory({ task_id: noteTaskId, field_id: '__todo_link__', old_value: '', new_value: task.title });
   }
 
-  async function removeNoteLink(linkId: number) {
+  async function removeNoteLink(linkId: number, noteTaskId: number, noteTitle: string) {
     await kanbanDB.deleteNoteLink(linkId);
     setNoteLinks((prev) => prev.filter((x) => x.link.id !== linkId));
+    const act = await kanbanDB.addActivity(task.id!, 'note_link_remove', { noteTaskId, title: noteTitle });
+    setActivities((prev) => [...prev, act].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+    await noteDB.addHistory({ task_id: noteTaskId, field_id: '__todo_link__', old_value: task.title, new_value: '' });
   }
 
   // ── テンプレート保存 ────────────────────────────────────
@@ -1014,6 +920,8 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
       case 'checklist_edit':     return <FileEditIcon size={s} />;
       case 'dep_add':
       case 'dep_remove':         return <GitMergeIcon size={s} />;
+      case 'note_link_add':
+      case 'note_link_remove':   return <LinkIcon size={s} />;
       case 'archive':            return <ArchiveIcon size={s} />;
       case 'restore_archive':    return <RotateCcwIcon size={s} />;
       default:                   return <CircleDotIcon size={s} />;
@@ -1070,28 +978,44 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
       case 'dep_remove':         return c.relation === 'blocking'
         ? `先行タスク「${c.taskTitle ?? ''}」の依存を解除`
         : `後続タスク「${c.taskTitle ?? ''}」の依存を解除`;
+      case 'note_link_add':      return `ノート「${c.title ?? ''}」を紐づけ`;
+      case 'note_link_remove':   return `ノート「${c.title ?? ''}」の紐づけを解除`;
       case 'archive':            return 'アーカイブへ移動';
       case 'restore_archive':    return 'アーカイブから復元';
       default:                   return '変更';
     }
   }
 
-  // ── ピッカー除外 ID ──────────────────────────────────────
-  function getExcludedIds(): number[] {
-    const base = [task.id!];
-    if (!picker) return base;
-    if (picker.type === 'dep-pre')  return [...base, ...predecessors.map((x) => x.task.id!)];
-    if (picker.type === 'dep-suc')  return [...base, ...successors.map((x) => x.task.id!)];
-    if (picker.type === 'parent')   return [...base, ...relChildren.map((x) => x.task.id!)];
-    if (picker.type === 'child')    return [...base, ...(relParent ? [relParent.task.id!] : []), ...relChildren.map((x) => x.task.id!)];
-    if (picker.type === 'related')  return [...base, ...relRelated.map((x) => x.task.id!)];
-    return base;
-  }
-
-  function openPicker(e: React.MouseEvent, type: PickerType) {
+  async function openPicker(e: React.MouseEvent, type: PickerType) {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = Math.min(r.left, window.innerWidth - 268 - 8);
-    setPicker({ type, x, y: r.bottom + 4 });
+    const y = r.bottom + 4;
+
+    let items: PickerItem[];
+    if (type === 'note') {
+      const allNotes = await noteDB.getAllTasks();
+      const excludeNoteIds = noteLinks.map((nl) => nl.link.note_task_id);
+      items = allNotes
+        .filter((n) => !excludeNoteIds.includes(n.id!))
+        .map((n) => ({ id: n.id!, label: n.title }));
+    } else {
+      const base = [task.id!];
+      let excludedIds: number[];
+      if      (type === 'dep-pre')  excludedIds = [...base, ...predecessors.map((x) => x.task.id!), ...successors.map((x) => x.task.id!)];
+      else if (type === 'dep-suc')  excludedIds = [...base, ...predecessors.map((x) => x.task.id!), ...successors.map((x) => x.task.id!)];
+      else if (type === 'parent')   excludedIds = [...base, ...relChildren.map((x) => x.task.id!), ...(relParent ? [relParent.task.id!] : [])];
+      else if (type === 'child')    excludedIds = [...base, ...(relParent ? [relParent.task.id!] : []), ...relRelated.map((x) => x.task.id!)];
+      else if (type === 'related')  excludedIds = [...base, ...(relParent ? [relParent.task.id!] : []), ...relChildren.map((x) => x.task.id!)];
+      else                          excludedIds = base;
+      items = allTasks
+        .filter((t) => !excludedIds.includes(t.id!))
+        .map((t) => ({
+          id: t.id!,
+          label: t.title,
+          sublabel: columns.find((c) => c.key === t.column)?.name,
+        }));
+    }
+    setPicker({ type, x, y, items });
   }
 
   const doneCheck = checklist.filter((c) => c.done).length;
@@ -1585,7 +1509,12 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                 <span className={styles['modal__relation-sublabel']}>先行タスク（完了待ち）</span>
                 {predecessors.map(({ dep, task: t }) => (
                   <div key={dep.id} className={styles['relation-chip']}>
-                    <span className={styles['relation-chip__title']}>{t.title}</span>
+                    <button
+                      className={styles['relation-chip__title']}
+                      style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, textAlign: 'left' }}
+                      onClick={() => setPendingTodoId(t.id!)}
+                      title="タスク詳細を開く"
+                    >{t.title}</button>
                     <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === t.column)?.name}
                     </span>
@@ -1603,7 +1532,12 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                 <span className={styles['modal__relation-sublabel']}>後続タスク</span>
                 {successors.map(({ dep, task: t }) => (
                   <div key={dep.id} className={styles['relation-chip']}>
-                    <span className={styles['relation-chip__title']}>{t.title}</span>
+                    <button
+                      className={styles['relation-chip__title']}
+                      style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, textAlign: 'left' }}
+                      onClick={() => setPendingTodoId(t.id!)}
+                      title="タスク詳細を開く"
+                    >{t.title}</button>
                     <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === t.column)?.name}
                     </span>
@@ -1628,7 +1562,12 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                 <span className={styles['modal__relation-sublabel']}>親タスク</span>
                 {relParent && (
                   <div className={styles['relation-chip']}>
-                    <span className={styles['relation-chip__title']}>{relParent.task.title}</span>
+                    <button
+                      className={styles['relation-chip__title']}
+                      style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, textAlign: 'left' }}
+                      onClick={() => setPendingTodoId(relParent.task.id!)}
+                      title="タスク詳細を開く"
+                    >{relParent.task.title}</button>
                     <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === relParent.task.column)?.name}
                     </span>
@@ -1648,7 +1587,12 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                 <span className={styles['modal__relation-sublabel']}>子タスク</span>
                 {relChildren.map(({ task: t, relationId }) => (
                   <div key={relationId} className={styles['relation-chip']}>
-                    <span className={styles['relation-chip__title']}>{t.title}</span>
+                    <button
+                      className={styles['relation-chip__title']}
+                      style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, textAlign: 'left' }}
+                      onClick={() => setPendingTodoId(t.id!)}
+                      title="タスク詳細を開く"
+                    >{t.title}</button>
                     <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === t.column)?.name}
                     </span>
@@ -1666,7 +1610,12 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                 <span className={styles['modal__relation-sublabel']}>関連タスク</span>
                 {relRelated.map(({ task: t, relationId }) => (
                   <div key={relationId} className={styles['relation-chip']}>
-                    <span className={styles['relation-chip__title']}>{t.title}</span>
+                    <button
+                      className={styles['relation-chip__title']}
+                      style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, textAlign: 'left' }}
+                      onClick={() => setPendingTodoId(t.id!)}
+                      title="タスク詳細を開く"
+                    >{t.title}</button>
                     <span className={styles['relation-chip__column']}>
                       {columns.find((c) => c.key === t.column)?.name}
                     </span>
@@ -1685,14 +1634,22 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
             {/* ノート紐づけ */}
             <div className={styles['modal__sidebar-item']}>
               <span className={clsx(styles['modal__sidebar-label'], styles['modal__sidebar-label--icon'])}>
-                <LinkIcon size={11} aria-hidden="true" />ノート紐づけ
+                <LinkIcon size={11} aria-hidden="true" />関連ノート
               </span>
               <div className={styles['modal__relation-group']}>
                 {noteLinks.map(({ link, noteTitle }) => (
                   <div key={link.id} className={styles['relation-chip']}>
-                    <span className={styles['relation-chip__title']}>{noteTitle}</span>
+                    <button
+                      className={styles['relation-chip__title']}
+                      style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, textAlign: 'left' }}
+                      onClick={() => {
+                        const noteLabel = tabConfig.find((t) => t.pageSrc === 'pages/note.html')?.label;
+                        if (noteLabel) { setActiveTab(noteLabel); setPendingNoteId(link.note_task_id); }
+                      }}
+                      title="ノート詳細を開く"
+                    >{noteTitle}</button>
                     <button className={styles['relation-chip__remove']}
-                      onClick={() => removeNoteLink(link.id!)} aria-label="削除">
+                      onClick={() => removeNoteLink(link.id!, link.note_task_id, noteTitle)} aria-label="削除">
                       <XIcon size={10} />
                     </button>
                   </div>
@@ -1738,28 +1695,20 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
       />
 
       {/* タスクピッカー */}
-      {picker && picker.type !== 'note' && (
-        <TaskPicker
-          tasks={allTasks.filter((t) => !getExcludedIds().includes(t.id!))}
-          columns={columns}
+      {picker && (
+        <Picker
+          items={picker.items}
           x={picker.x}
           y={picker.y}
-          onSelect={(taskId) => {
-            if (picker.type === 'dep-pre')      addDependency('pre', taskId);
-            else if (picker.type === 'dep-suc') addDependency('suc', taskId);
-            else if (picker.type === 'parent')  addRelation('parent', taskId);
-            else if (picker.type === 'child')   addRelation('child', taskId);
-            else if (picker.type === 'related') addRelation('related', taskId);
+          placeholder={picker.type === 'note' ? 'ノートを検索…' : 'タスクを検索…'}
+          onSelect={(id) => {
+            if      (picker.type === 'note')     addNoteLink(id);
+            else if (picker.type === 'dep-pre')  addDependency('pre', id);
+            else if (picker.type === 'dep-suc')  addDependency('suc', id);
+            else if (picker.type === 'parent')   addRelation('parent', id);
+            else if (picker.type === 'child')    addRelation('child', id);
+            else if (picker.type === 'related')  addRelation('related', id);
           }}
-          onClose={() => setPicker(null)}
-        />
-      )}
-      {picker?.type === 'note' && (
-        <NotePicker
-          x={picker.x}
-          y={picker.y}
-          excludeIds={noteLinks.map((x) => x.link.note_task_id)}
-          onSelect={addNoteLink}
           onClose={() => setPicker(null)}
         />
       )}
@@ -2228,7 +2177,7 @@ export function TodoPage() {
   // ref で最新の tasksMap を保持し、ハンドラを一度だけ登録する。
   // tasksMap を deps に入れると update のたびに unregister/register が走り
   // その窓で検索が来ると結果が返らなくなるため ref パターンを使用。
-  const { config: tabConfig, setActiveTab } = useTabStore();
+  const { config: tabConfig, setActiveTab, pendingTodoId, setPendingTodoId } = useTabStore();
   const tasksMapRef = useRef(tasksMap);
   tasksMapRef.current = tasksMap; // レンダーのたびに同期更新
 
@@ -2337,6 +2286,13 @@ export function TodoPage() {
     setSelectedTaskLabels(new Set(tls.map((tl) => tl.label_id)));
     setSelectedTask(task);
   }, []);
+
+  // ノート詳細からの TODO 遷移: pendingTodoId をモーダルで開く
+  useEffect(() => {
+    if (pendingTodoId == null) return;
+    setPendingTodoId(null);
+    kanbanDB.getTask(pendingTodoId).then((task) => { if (task) openTask(task); });
+  }, [pendingTodoId, setPendingTodoId, openTask]);
 
   // ── ラベル CRUD ──────────────────────────────────────────
   const handleLabelAdd = useCallback(async (name: string, color: string): Promise<LabelItem> => {

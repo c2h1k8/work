@@ -36,12 +36,24 @@ DB 名: `note_db` version 2
 ### DnD（フィールド並び替え）
 - `@dnd-kit/core` + `@dnd-kit/sortable`（FieldModal 内のフィールドリスト）
 
+### リンクフィールド追加フォーム
+- 編集フォームと同一スタイル: 左アクセントボーダー（`border-l-2 border-[var(--c-accent)]`）+ アンダーラインインプット + `Tag`/`ExternalLink` アイコンプレフィックス + `Check`/`X` アイコンボタン
+- Enter で追加 / Escape でキャンセル（`setShowForm(false)` + フォームリセット）
+
+### リンクエントリ表示（`LinkEntry`）
+- `showSubline?: boolean`（`NoteField.showSubline`）で制御。デフォルト `true`（後方互換）
+- **showSubline=true**: メイン行 = ラベル（常に固定）。サブライン = `hostname`（ドメイン）、ラベルコピーホバー → サブラインにラベル名、URLコピーホバー → サブラインにフル URL（どちらもアクセントカラー）
+- **showSubline=false**: サブラインなし。URLコピーホバー時のみメイン行がラベルから URL に切替。ラベルコピーホバーは演出なし（ラベルがメイン行に常時表示のため）
+- ドメイン抽出: `new URL()` 失敗時 → `https://` 補完を試みる → それでも失敗なら `entry.value` をそのまま使用
+- FieldModal: `link` 型のフィールド行に「サブライン」トグル（`.toggle-wrap`）を表示
+
 ### Markdown
 - `react-markdown` + `rehype-sanitize`（`text` 型フィールドのプレビュー）
 
 ### 日付フィールド
-- `<DatePicker compact />` (`src/components/DatePicker.tsx`) を使用
-- プロパティ: `value`, `onChange(date)`, `onClear()`, `compact`, `placeholder`
+- `<DatePicker>` (`src/components/DatePicker.tsx`) を使用（`compact` なし・通常サイズ）
+- プロパティ: `value`, `onChange(date)`, `onClear()`, `placeholder`
+- compact モードはトリガー背景が transparent でカードと区別できないため使わない
 
 ### ラベル色管理
 - `<LabelManager>` (`src/components/LabelManager.tsx`) でオプション名・色を編集
@@ -49,18 +61,67 @@ DB 名: `note_db` version 2
 - オプション名変更時: 既存エントリを一括更新（`handleLabelUpdate`）
 - オプション削除時: 参照エントリを一括削除（`handleLabelDelete`）
 
+### アクティビティ・履歴の記録ルール（リンク操作）
+
+| 操作 | 操作元側 | 相手側 |
+|---|---|---|
+| TODO詳細 → ノート紐づけ **追加** | `kanbanDB.addActivity(todoId, 'note_link_add', ...)` | `noteDB.addHistory({ task_id: noteId, field_id: '__todo_link__', old: '', new: todoTitle })` |
+| TODO詳細 → ノート紐づけ **解除** | `kanbanDB.addActivity(todoId, 'note_link_remove', ...)` | `noteDB.addHistory({ task_id: noteId, field_id: '__todo_link__', old: todoTitle, new: '' })` |
+| ノート詳細 → TODOリンク **追加** | `onRecordHistory(HIST_TODO, '', todoTitle)` | `kanbanDB.addActivity(todoId, 'note_link_add', { noteTaskId, title: noteTitle })` |
+| ノート詳細 → TODOリンク **解除** | `onRecordHistory(HIST_TODO, todoTitle, '')` | `kanbanDB.addActivity(todoId, 'note_link_remove', { noteTaskId, title: noteTitle })` |
+| ノート詳細 → 関連ノート **追加** | `onRecordHistory(HIST_NOTE, '', linkedTitle)` | `noteDB.addHistory({ task_id: linkedId, field_id: '__note_link__', old: '', new: currentNoteTitle })` |
+| ノート詳細 → 関連ノート **解除** | `onRecordHistory(HIST_NOTE, linkedTitle, '')` | `noteDB.addHistory({ task_id: linkedId, field_id: '__note_link__', old: currentNoteTitle, new: '' })` |
+
 ### TODOリンク・関連ノートリンクのナビゲーション
-- TODOリンク → `useTabStore(s => s.setActiveTab)('TODO')` でタブ移動
+- TODOリンク → `setActiveTab('TODO')` + `setPendingTodoId(taskId)` でタブ移動 & タスクモーダルを開く
 - 関連ノート → `setSelectedTaskId(linkedId)` でノート内ジャンプ
+- `pendingNoteId`（`tab_store`）を監視し、非 null になったら `setSelectedTaskId` してリセット
+- ページ間ナビゲーションは `tab_store` の `pendingNoteId` / `pendingTodoId` で仲介
+  - TODO 詳細のノートリンクチップクリック → `tabConfig.find(t => t.pageSrc === 'pages/note.html')?.label` でタブラベルを取得してから `setActiveTab(noteLabel)` + `setPendingNoteId(noteId)`（ラベルのハードコード禁止）
+  - Note の TODO リンクボタンクリック → `setActiveTab('TODO')` + `setPendingTodoId(taskId)`
+
+### ピッカー UI（TODO / 関連ノート追加）
+- 共通コンポーネント `<Picker>` (`src/components/Picker.tsx`) を使用
+- `＋ 追加` ボタンクリック時に `getBoundingClientRect()` で位置を取得してフローティング表示
+- `PickerItem[]` 形式（`{ id, label, sublabel? }`）でアイテムを渡す
+- 画面下端に収まらない場合は上方向に開く（`useLayoutEffect` で判定）
+- Escape キー・背景クリックで閉じる
+- TODO ピッカー: kanban_db からタスク取得、既リンク済み ID を除外
+- ノートピッカー: `allTasks` を使用、現在のノートと既リンク済みを除外
 
 ### タスク追加
 - `window.prompt()` を廃止。インラインフォーム (`showAddForm` + `addInputRef`) に置き換え
 - Enter で確定 / Escape でキャンセル / フォーカスアウトで確定
 
+### ツールバー構成
+- 詳細ヘッダーボタン: 変更履歴 / ⋮メニュー（エクスポート・インポート） / 削除
+- ⋮メニューは `showMenu` + `menuRef` で外側クリック検知して閉じる
+- 「フィールド管理」ボタンはサイドバー下部（追加ボタンの上）に配置
+- 旧2段ツールバー（フィールド管理・エクスポ/インポを常時表示していた行）は廃止
+
+### ドロップダウンフィールドのUI
+- `<Select>` コンポーネント（`src/components/Select.tsx`）を使用したカスタムドロップダウン
+- 先頭に「（未選択）`value: ''`」オプションを追加。選択すると `saveDropdown('')` で空値保存
+- `select`（単一ラベル）はバッジトグル形式のまま。両者は視覚的に区別される
+
+### テキストフィールド
+- シンプルな `<textarea>`（Markdownプレビューなし）
+- テキスト値は `textVal` state（controlled）で管理。タスク切り替え時に `entry0Id` 依存の useEffect で同期
+- 保存: 600ms debounce（`saveText`）
+- 履歴記録: フォーカスアウト時のみ。`textFocusValRef` にフォーカス時の値を保持し、blur 時に差分があれば `onRecordHistory` を呼ぶ
+- 自動高さ調整: `textareaRef` + useEffect で `scrollHeight` に基づいて高さを設定。`resize-none overflow-hidden min-h-[72px]`
+- Markdown対応が必要になった場合は別途フィールド定義する方針
+
 ### 変更履歴の記録
 - `recordHistory(field_id, old_value, new_value)` が全フィールド書き込み時に呼ばれる
 - `touchTask()` で `tasks.updated_at` も同時更新
-- 履歴モーダル: 旧値を打ち消し線で表示 / 空値は「（空）」と表示
+- `label` 型はデルタ記録: 追加 `("", optName)` / 削除 `(optName, "")` — JSON配列は保存しない
+- 履歴モーダル（タイムライン形式）:
+  - 日付単位でグループ化（日付ヘッダー: `toLocaleDateString('ja-JP', { weekday: 'short' ... })`）
+  - 各行: 時刻（tabular-nums 固定幅）+ フィールド名バッジ（`--c-accent-dim`/`--c-accent`）+ 変更内容
+  - 追加（old空・new非空）→ `--c-success` で「＋ {new_value}」（1行）
+  - 削除（old非空・new空）→ `red-400` で「－ {old_value}」（1行）
+  - 変更 → 旧値（打ち消し線・グレー）→ 新値（太字）
 
 ### エクスポート
 - `FileSaver.save(json, filename, { mimeType: 'application/json' })` を使用（直接ダウンロード禁止）
@@ -69,7 +130,10 @@ DB 名: `note_db` version 2
 - `noteDB.deleteTask(id)` に加え、`kanban_db` の `note_links` インデックス (`note_task_id`) も raw IDB API で削除
 
 ### フィールドレイアウト
-- `newRow: true` のフィールドの直前に `<div className="basis-full h-0" />` を挿入して強制改行
+- コンテナは `grid grid-cols-6 gap-4 items-start`（CSS Grid 6列、`items-start` で高さ連動を防止）
+- `COL_SPAN` マップで幅を `col-span-N` に変換（narrow=1 / auto=2 / w3=3 / wide=4 / w5=5 / full=6）
+- `newRow: true` のフィールドは `col-start-1` を付与して行頭強制（breakEl 不要）
+- 各フィールドはカード形式: `bg-[var(--c-surface)] border border-[var(--c-border)] rounded-xl px-4 py-3 shadow-sm`、ホバー・フォーカスで `border-[var(--c-border-2)]`
 - フィールド名ラベルのスタイル: `text-[10px] font-semibold text-[var(--c-text-3)]`（uppercase なし）
 
 ### FieldModal デザイン
