@@ -66,6 +66,7 @@ DB 名: `sql_db` version 2
 
 - **左サイドバー幅**: 400px（カラム名・テーブル名・検索フィールドの表示改善のため拡大）
 - **ビュー切り替え**: `seg-ctrl` でテーブル/カラムの2択（サイドバー上部）
+- **選択状態**: 背景色 `bg-[var(--c-accent)]/10` のみ（border-l なし）。テーブルビューは `mx-1.5 my-0.5 rounded-lg`（モダン inset スタイル）。カラムビューは全幅のテーブル形式を維持
 - **カラム一覧グリッド**: `grid-cols-[3fr_auto_2fr]`（テーブル.カラム列を型列より広く）
 - **テーブル表示の列数**: `<Columns size={9}/>` アイコン + `text-[9px] font-mono` テキストで表示（`mt-1 text-[var(--c-text-3)]` のフレックス行）
 - **カラム定義 NN/PK**: Tailwind トグルピルボタン（amber/accent カラー）
@@ -93,6 +94,10 @@ DB 名: `sql_db` version 2
   - デフォルト: `['created_at','updated_at','deleted_at','created_by','updated_by','deleted_by','created_date','updated_date']`
   - `excludeSet`（useMemo）で小文字 Set を生成し、関連テーブル計算時にスキップ
   - タグ + × ボタンで個別削除、テキスト入力 + Enter/追加ボタンで追加、「デフォルトに戻す」リンク
+
+## グローバル検索
+
+`searchRegistry.register('sql-memo', ...)` でテーブル定義メモを検索対象に登録（`SqlPage` 常時）。テーブル名・スキーマ名・コメント・メモ・カラム名を検索。結果クリックで SQL ページに遷移してメモタブに切替し、`pendingMemoId` → `MemoTab` の `useEffect` で対象テーブルを選択。
 
 ## localStorage キー
 

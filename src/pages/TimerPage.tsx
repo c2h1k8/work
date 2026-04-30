@@ -7,6 +7,7 @@ import { Download, Upload, FileDown } from 'lucide-react';
 import { Tooltip } from '../components/Tooltip';
 import { DatePicker } from '../components/DatePicker';
 import { useToast } from '../components/Toast';
+import { getTagColor } from '../core/utils';
 import { timerDB, type TimerPreset, type TimerSession } from '../db/timer_db';
 
 // ── ストレージキー ─────────────────────────────────
@@ -41,13 +42,7 @@ function toHHMM(iso: string) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-const TAG_PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6','#84cc16'];
-function tagColor(tag: string) {
-  if (!tag) return TAG_PALETTE[0];
-  let h = 0;
-  for (let i = 0; i < tag.length; i++) h = (Math.imul(31, h) + tag.charCodeAt(i)) | 0;
-  return TAG_PALETTE[Math.abs(h) % TAG_PALETTE.length];
-}
+const tagColor = getTagColor;
 
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
 

@@ -36,6 +36,19 @@ activityDB.add({
 })
 ```
 
+## 共通ユーティリティ（src/core/utils.ts）
+
+| 関数 | 用途 |
+|---|---|
+| `escapeHtml(str)` | HTML エスケープ |
+| `sortByPosition(arr)` | position 昇順ソート |
+| `getString(origin, params)` | プレースホルダー置換 |
+| `isValidUrl(url)` | URL バリデーション |
+| `getTagColor(tag)` | タグ名ハッシュ → 決定論的カラー（16色）|
+| `extractExcerpt(text, query)` | 検索クエリ周辺の抜粋テキストを返す（グローバル検索の excerpt 用）|
+
+`getTagColor` は同じ文字列に対して常に同じ色を返す。スニペット・タイマーで共用。
+
 ## ハマりポイント
 
 - **インスタンスID（Dashboard）**: `useTabLabel()` フック（`src/contexts/TabContext.ts`）で取得

@@ -13,7 +13,9 @@ import { kanbanDB } from '../db/kanban_db';
 import { activityDB } from '../db/activity_db';
 import { Clipboard } from '../core/clipboard';
 import { FileSaver } from '../core/file_saver';
+import { extractExcerpt } from '../core/utils';
 import { useTabStore } from '../stores/tab_store';
+import { searchRegistry } from '../stores/search_store';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay,
   type DragStartEvent, type DragEndEvent,
@@ -1163,6 +1165,7 @@ export function NotePage() {
   const setPendingNoteId = useTabStore(s => s.setPendingNoteId);
   const activeTabId      = useTabStore(s => s.activeTabId);
   const tabConfig        = useTabStore(s => s.config);
+  const setGlobalTab     = useTabStore(s => s.setActiveTab);
 
   const [tasks, setTasks] = useState<NoteTask[]>([]);
   const [fields, setFields] = useState<NoteField[]>([]);
@@ -1242,6 +1245,47 @@ export function NotePage() {
     if (selectedTaskId) loadTaskEntries(selectedTaskId);
     else setTaskEntries([]);
   }, [selectedTaskId, loadTaskEntries]);
+
+  // グローバル検索登録
+  useEffect(() => {
+    const noteLabel = tabConfig.find(t => t.pageSrc === 'pages/note.html')?.label ?? '';
+    searchRegistry.register('note', async (query) => {
+      const q = query.toLowerCase();
+      const [allTasks, allFields, allEntries] = await Promise.all([
+        noteDB.getAllTasks(),
+        noteDB.getAllFields(),
+        noteDB.getAllEntries(),
+      ]);
+      const searchableFieldIds = new Set(
+        allFields.filter(f => f.type === 'text' || f.type === 'link').map(f => f.id!)
+      );
+      const entryMatchMap = new Map<number, string>();
+      for (const e of allEntries) {
+        if (!searchableFieldIds.has(e.field_id)) continue;
+        const hit = (e.label && e.label.toLowerCase().includes(q)) ||
+                    (e.value && e.value.toLowerCase().includes(q));
+        if (hit && !entryMatchMap.has(e.task_id)) {
+          entryMatchMap.set(e.task_id, e.value || e.label || '');
+        }
+      }
+      return allTasks
+        .filter(t => t.title.toLowerCase().includes(q) || entryMatchMap.has(t.id!))
+        .slice(0, 10)
+        .map(t => ({
+          id: `note-${t.id}`,
+          pageSrc: 'pages/note.html',
+          title: t.title,
+          excerpt: entryMatchMap.has(t.id!)
+            ? extractExcerpt(entryMatchMap.get(t.id!)!, query)
+            : '',
+          onSelect: () => {
+            if (noteLabel) setGlobalTab(noteLabel);
+            setSelectedTaskId(t.id!);
+          },
+        }));
+    });
+    return () => searchRegistry.unregister('note');
+  }, [tabConfig, setGlobalTab]);
 
   // ── フィルター永続化 ──────────────────────────────
   const saveFilter = useCallback((f: Record<number, Set<string>>) => {
@@ -1605,12 +1649,20 @@ export function NotePage() {
         )}
 
         {/* タスクリスト */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto py-1">
           {visibleTasks.length === 0
             ? <p className="p-4 text-center text-xs text-[var(--c-text-3)]">タスクがありません</p>
             : visibleTasks.map(task => (
-              <div key={task.id} onClick={() => setSelectedTaskId(task.id!)}
-                className={`px-3 py-2 cursor-pointer border-b border-[var(--c-border)] transition-colors ${selectedTaskId === task.id ? 'bg-[var(--c-accent)]/10 border-l-2 border-l-[var(--c-accent)]' : 'hover:bg-[var(--c-bg-2)]'}`}>
+              <div key={task.id}
+                tabIndex={0}
+                onClick={() => setSelectedTaskId(task.id!)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { setSelectedTaskId(task.id!); return; }
+                  const idx = visibleTasks.findIndex(t => t.id === task.id);
+                  if (e.key === 'ArrowDown' && idx < visibleTasks.length - 1) setSelectedTaskId(visibleTasks[idx + 1].id!);
+                  if (e.key === 'ArrowUp' && idx > 0) setSelectedTaskId(visibleTasks[idx - 1].id!);
+                }}
+                className={`mx-1.5 my-0.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ring-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--c-accent)] ${selectedTaskId === task.id ? 'bg-[var(--c-accent)]/10 ring-[var(--c-accent)]/40' : 'ring-[var(--c-border)] hover:bg-[var(--c-bg-2)]'}`}>
                 <div className={`text-xs font-medium text-[var(--c-text)] ${titleLines === 1 ? 'truncate' : titleLines === 2 ? 'line-clamp-2' : ''}`}>
                   {task.title}
                 </div>

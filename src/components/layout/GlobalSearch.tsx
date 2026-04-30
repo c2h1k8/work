@@ -56,17 +56,11 @@ export function GlobalSearch() {
 
     // ページ内コンテンツ検索（非同期）
     const contentItems = await searchRegistry.searchAll(lower);
-    if (id !== searchIdRef.current) return; // 古い検索結果は捨てる
+    if (id !== searchIdRef.current) return;
 
     const contentResults: SearchResult[] = contentItems.map((item) => {
       const tab = config.find((t) => t.pageSrc === item.pageSrc);
-      return {
-        type: 'content',
-        label: item.title,
-        icon: tab?.icon ?? '',
-        excerpt: item.excerpt,
-        item,
-      };
+      return { type: 'content', label: item.title, icon: tab?.icon ?? '', excerpt: item.excerpt, item };
     });
 
     const allResults = [...tabResults, ...contentResults];
@@ -74,6 +68,26 @@ export function GlobalSearch() {
     setOpen(allResults.length > 0);
     setFocusIdx(-1);
   }, [config]);
+
+  // 表示用グループ（focusIdx はフラット results のインデックスを維持）
+  const grouped = (() => {
+    const tabItems: { r: SearchResult; idx: number }[] = [];
+    const contentMap = new Map<string, { pageLabel: string; items: { r: SearchResult; idx: number }[] }>();
+    results.forEach((r, idx) => {
+      if (r.type === 'tab') {
+        tabItems.push({ r, idx });
+      } else {
+        const pageSrc = (r as ContentResult).item.pageSrc;
+        const pageLabel = config.find((t) => t.pageSrc === pageSrc)?.label ?? pageSrc;
+        if (!contentMap.has(pageSrc)) contentMap.set(pageSrc, { pageLabel, items: [] });
+        contentMap.get(pageSrc)!.items.push({ r, idx });
+      }
+    });
+    const sections: { header: string; items: { r: SearchResult; idx: number }[] }[] = [];
+    if (tabItems.length > 0) sections.push({ header: 'タブ', items: tabItems });
+    contentMap.forEach((g) => sections.push({ header: g.pageLabel, items: g.items }));
+    return sections;
+  })();
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const q = e.target.value;
@@ -157,33 +171,31 @@ export function GlobalSearch() {
         onFocus={() => query && setOpen(results.length > 0)}
       />
       <span className="global-search__kbd">{isMac ? '⌘K' : 'Ctrl+K'}</span>
-      {open && results.length > 0 && (
+      {open && grouped.length > 0 && (
         <div className="global-search__results" id="global-search-results">
-          {results.map((r, i) => (
-            <button
-              key={r.type === 'tab' ? `tab-${r.label}` : r.item.id}
-              type="button"
-              className={`global-search__item${r.type === 'content' ? ' global-search__item--content' : ''}${i === focusIdx ? ' global-search__item--focused' : ''}`}
-              onMouseDown={(e) => { e.preventDefault(); handleSelect(r); }}
-            >
-              <span
-                className="global-search__item-icon"
-                dangerouslySetInnerHTML={{ __html: r.icon }}
-              />
-              {r.type === 'content' ? (
-                <span className="global-search__item-body">
-                  <span className="global-search__item-label">{r.label}</span>
-                  {r.excerpt && (
-                    <span className="global-search__item-excerpt">{r.excerpt}</span>
+          {grouped.map((section, si) => (
+            <div key={section.header}>
+              {si > 0 && <div className="global-search__group-divider" />}
+              <div className="global-search__group-label">{section.header}</div>
+              {section.items.map(({ r, idx }) => (
+                <button
+                  key={r.type === 'tab' ? `tab-${r.label}` : (r as ContentResult).item.id}
+                  type="button"
+                  className={`global-search__item${r.type === 'content' ? ' global-search__item--content' : ''}${idx === focusIdx ? ' global-search__item--focused' : ''}`}
+                  onMouseDown={(e) => { e.preventDefault(); handleSelect(r); }}
+                >
+                  <span className="global-search__item-icon" dangerouslySetInnerHTML={{ __html: r.icon }} />
+                  {r.type === 'content' ? (
+                    <span className="global-search__item-body">
+                      <span className="global-search__item-label">{r.label}</span>
+                      {r.excerpt && <span className="global-search__item-excerpt">{r.excerpt}</span>}
+                    </span>
+                  ) : (
+                    <span className="global-search__item-label">{r.label}</span>
                   )}
-                </span>
-              ) : (
-                <span className="global-search__item-label">{r.label}</span>
-              )}
-              <span className="global-search__item-type">
-                {r.type === 'tab' ? 'タブ' : r.item.pageSrc.replace('pages/', '').replace('.html', '').toUpperCase()}
-              </span>
-            </button>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}

@@ -416,8 +416,9 @@ body {
 .global-search__results {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
-  min-width: 300px;
+  right: 0;
+  min-width: 320px;
+  max-width: min(480px, calc(100vw - 24px));
   max-height: 360px;
   overflow-y: auto;
   background: var(--c-surface);
@@ -453,6 +454,7 @@ body {
 }
 .global-search__item-label {
   flex: 1;
+  min-width: 0;
   font-size: 13px;
   color: var(--c-text);
   overflow: hidden;
@@ -463,6 +465,19 @@ body {
   font-size: 11px;
   color: var(--c-text-3);
   flex-shrink: 0;
+}
+.global-search__group-label {
+  padding: 6px 12px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--c-text-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.global-search__group-divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--c-border);
 }
 /* コンテンツ検索結果（タイトル＋抜粋の縦並び） */
 .global-search__item--content { align-items: flex-start; }

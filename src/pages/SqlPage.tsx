@@ -11,6 +11,9 @@ import { sqlDB, type SqlEnv, type TableMemo, type TableColumn, type TableIndex }
 import { activityDB } from '../db/activity_db';
 import { Clipboard } from '../core/clipboard';
 import { FileSaver } from '../core/file_saver';
+import { extractExcerpt } from '../core/utils';
+import { useTabStore } from '../stores/tab_store';
+import { searchRegistry } from '../stores/search_store';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -981,10 +984,18 @@ function SortableColRow({ id, col, i, updCol, remCol }: {
   );
 }
 
-function MemoTab() {
+function MemoTab({ pendingSelId, onClearPending }: { pendingSelId?: number | null; onClearPending?: () => void }) {
   const { success, error: showError } = useToast();
   const [memos, setMemos]       = useState<TableMemo[]>([]);
   const [selId, setSelId]       = useState<number | null>(null);
+
+  // 検索結果からのジャンプ: pendingSelId が来たら選択して通知
+  useEffect(() => {
+    if (pendingSelId != null) {
+      setSelId(pendingSelId);
+      onClearPending?.();
+    }
+  }, [pendingSelId, onClearPending]);
   const [view, setView]         = useState<MemoViewMode>(() => (localStorage.getItem(SK_MEMO_VIEW) as MemoViewMode) || 'table');
   const [query, setQuery]       = useState('');
   const [editMemo, setEditMemo] = useState<TableMemo | null>(null);
@@ -1180,7 +1191,7 @@ function MemoTab() {
                   const fullName = m.schema_name ? `${m.schema_name}.${m.table_name}` : m.table_name;
                   return (
                     <div key={m.id} onClick={() => { setSelId(m.id!); setShowForm(false); }}
-                      className={`px-3 py-2.5 cursor-pointer border-b border-[var(--c-border)] transition-colors ${selId === m.id ? 'bg-[var(--c-accent)]/10 border-l-2 border-l-[var(--c-accent)]' : 'hover:bg-[var(--c-bg-2)]'}`}>
+                      className={`mx-1.5 my-0.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ring-1 ${selId === m.id ? 'bg-[var(--c-accent)]/10 ring-[var(--c-accent)]/40' : 'ring-[var(--c-border)] hover:bg-[var(--c-bg-2)]'}`}>
                       <div className="font-mono text-xs font-semibold truncate">{hlText(fullName, q)}</div>
                       {m.comment && <div className="text-[10px] text-[var(--c-text-2)] truncate mt-0.5">{hlText(m.comment, q)}</div>}
                       <div className="flex items-center gap-1 mt-1 text-[var(--c-text-3)]">
@@ -1566,8 +1577,45 @@ export function SqlPage() {
     const s = localStorage.getItem(SK_TAB);
     return (s === 'setup' || s === 'analyze' || s === 'memo') ? s : 'setup';
   });
+  const [pendingMemoId, setPendingMemoId] = useState<number | null>(null);
+
+  const { config: tabConfig, setActiveTab: setGlobalTab } = useTabStore();
 
   const switchTab = (t: SqlTab) => { setActiveTab(t); localStorage.setItem(SK_TAB, t); };
+
+  // グローバル検索登録
+  useEffect(() => {
+    const sqlLabel = tabConfig.find(t => t.pageSrc === 'pages/sql.html')?.label ?? '';
+    searchRegistry.register('sql-memo', async (query) => {
+      const q = query.toLowerCase();
+      const all = await sqlDB.getAllTableMemos();
+      return all
+        .filter(m =>
+          m.table_name?.toLowerCase().includes(q) ||
+          m.schema_name?.toLowerCase().includes(q) ||
+          m.comment?.toLowerCase().includes(q) ||
+          m.memo?.toLowerCase().includes(q) ||
+          m.columns.some(c => c.name.toLowerCase().includes(q) || c.comment?.toLowerCase().includes(q))
+        )
+        .slice(0, 10)
+        .map(m => {
+          const fullName = m.schema_name ? `${m.schema_name}.${m.table_name}` : m.table_name;
+          const excerptBase = m.comment || m.memo || m.columns.map(c => c.name).join(' ');
+          return {
+            id: `sql-memo-${m.id}`,
+            pageSrc: 'pages/sql.html',
+            title: fullName,
+            excerpt: extractExcerpt(excerptBase, query),
+            onSelect: () => {
+              if (sqlLabel) setGlobalTab(sqlLabel);
+              switchTab('memo');
+              setPendingMemoId(m.id!);
+            },
+          };
+        });
+    });
+    return () => searchRegistry.unregister('sql-memo');
+  }, [tabConfig, setGlobalTab]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -1590,7 +1638,7 @@ export function SqlPage() {
       <div className="flex-1 overflow-hidden">
         {activeTab === 'setup'   && <SetupTab />}
         {activeTab === 'analyze' && <AnalyzeTab />}
-        {activeTab === 'memo'    && <MemoTab />}
+        {activeTab === 'memo'    && <MemoTab pendingSelId={pendingMemoId} onClearPending={() => setPendingMemoId(null)} />}
       </div>
     </div>
   );

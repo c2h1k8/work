@@ -97,6 +97,16 @@ DB 名: `note_db` version 2
 - 詳細ヘッダーボタン: 変更履歴 / 削除（2つのみ）
 - ⋮メニューは廃止。エクスポート・インポートはサイドバーフッターに移動
 
+### グローバル検索
+
+`searchRegistry.register('note', ...)` でタスクを検索対象に登録。タイトル・`text` 型フィールド・`link` 型フィールド（ラベル・URL）を検索。結果クリックで Note ページに遷移し該当タスクを選択。
+
+### タスクリスト（左サイドバー）
+- **選択状態**: 背景色 `bg-[var(--c-accent)]/10` のみ（border-l なし）。`mx-1.5 my-0.5 rounded-lg` のモダン inset スタイル
+- **コンテナ**: `flex-1 overflow-auto py-1`（上下に 4px の余白）
+- **キーボードナビゲーション**: `tabIndex={0}` + `onKeyDown`。↑↓ で前後ノートに移動、Enter で選択
+- **フォーカスリング**: `outline-none focus-visible:ring-2 focus-visible:ring-[var(--c-accent)]`（マウスクリックでは発火しない）
+
 ### サイドバー構成
 - **検索行**: アイコン付きフルwidth 検索入力（`Search` アイコン）
 - **ソート・行数行**: `<Select>` カスタムコンポーネント（`SORT_OPTIONS`）+ 行数トグル（1行/2行/全）を同行に並べる
