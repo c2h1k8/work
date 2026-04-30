@@ -20,7 +20,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS as DndCSS } from '@dnd-kit/utilities';
-import { GripVertical, Pencil, Trash2, Tag, Settings2, X, Plus, MoreHorizontal, ExternalLink, Check } from 'lucide-react';
+import { GripVertical, Pencil, Trash2, Tag, Settings2, X, Plus, Download, Upload, Search, FilterX, ExternalLink, Check } from 'lucide-react';
 
 // ── localStorage キー ─────────────────────────────
 const KEY_SORT         = 'note_sort';
@@ -55,6 +55,15 @@ const WIDTH_SELECT_OPTIONS: SelectOption[] = [
 const TYPE_SELECT_OPTIONS: SelectOption[] = Object.entries(FIELD_TYPE_LABELS)
   .filter(([k]) => k !== 'todo' && k !== 'note_link')
   .map(([k, v]) => ({ value: k, label: v }));
+
+const SORT_OPTIONS: SelectOption[] = [
+  { value: 'created_at-desc', label: '作成↓' },
+  { value: 'created_at-asc',  label: '作成↑' },
+  { value: 'updated_at-desc', label: '更新↓' },
+  { value: 'updated_at-asc',  label: '更新↑' },
+  { value: 'title-asc',       label: '名前↑' },
+  { value: 'title-desc',      label: '名前↓' },
+];
 
 const FIELD_TYPE_COLORS: Record<NoteFieldType, string> = {
   link:      '#3b82f6',
@@ -1185,8 +1194,6 @@ export function NotePage() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<Array<{ fieldId: number | string; fieldName: string; old_value: string; new_value: string; changed_at: number }>>([]);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const [showMenu, setShowMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   // インラインタスク追加フォーム
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -1235,15 +1242,6 @@ export function NotePage() {
     if (selectedTaskId) loadTaskEntries(selectedTaskId);
     else setTaskEntries([]);
   }, [selectedTaskId, loadTaskEntries]);
-
-  useEffect(() => {
-    if (!showMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showMenu]);
 
   // ── フィルター永続化 ──────────────────────────────
   const saveFilter = useCallback((f: Record<number, Set<string>>) => {
@@ -1418,6 +1416,12 @@ export function NotePage() {
     });
   };
 
+  const clearAllFilters = () => {
+    setListFilter({});
+    saveFilter({});
+    setFilterOpen(false);
+  };
+
   // ── エクスポート / インポート ─────────────────────
   const exportData = async () => {
     const data = await noteDB.exportData();
@@ -1507,45 +1511,56 @@ export function NotePage() {
     <div className="flex h-full overflow-hidden">
       {/* サイドバー */}
       <div className="w-64 flex flex-col shrink-0 border-r border-[var(--c-border)]">
-        {/* サイドバーヘッダー */}
-        <div className="px-3 py-2 border-b border-[var(--c-border)] flex items-center gap-2">
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="検索..."
-            className="flex-1 min-w-0 px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]"
-          />
-          <select value={sort} onChange={e => { setSort(e.target.value as SortKey); localStorage.setItem(KEY_SORT, e.target.value); }}
-            className="text-xs bg-[var(--c-bg)] border border-[var(--c-border)] rounded px-1 text-[var(--c-text)] outline-none">
-            <option value="created_at-desc">作成↓</option>
-            <option value="created_at-asc">作成↑</option>
-            <option value="updated_at-desc">更新↓</option>
-            <option value="updated_at-asc">更新↑</option>
-            <option value="title-asc">名前↑</option>
-            <option value="title-desc">名前↓</option>
-          </select>
+        {/* 検索 */}
+        <div className="px-3 py-2 border-b border-[var(--c-border)]">
+          <div className="relative">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--c-text-3)] pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="検索..."
+              className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] transition-colors"
+            />
+          </div>
         </div>
-
-        {/* タイトル行数 */}
-        <div className="px-3 py-1.5 border-b border-[var(--c-border)] flex items-center gap-1">
-          {[{lines: 1, label: '1行'}, {lines: 2, label: '2行'}, {lines: 0, label: '全'}].map(item => (
-            <button key={item.lines} onClick={() => { setTitleLines(item.lines); localStorage.setItem(KEY_TITLE_LINES, String(item.lines)); }}
-              className={`text-[10px] px-2 py-0.5 rounded ${titleLines === item.lines ? 'bg-[var(--c-accent)] text-white' : 'text-[var(--c-text-2)] hover:bg-[var(--c-bg-2)]'}`}>
-              {item.label}
-            </button>
-          ))}
+        {/* ソート・行数 */}
+        <div className="px-3 py-1.5 border-b border-[var(--c-border)] flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <Select
+              options={SORT_OPTIONS}
+              value={sort}
+              onChange={v => { setSort(v as SortKey); localStorage.setItem(KEY_SORT, v); }}
+            />
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            {[{lines: 1, label: '1行'}, {lines: 2, label: '2行'}, {lines: 0, label: '全'}].map(item => (
+              <button key={item.lines}
+                onClick={() => { setTitleLines(item.lines); localStorage.setItem(KEY_TITLE_LINES, String(item.lines)); }}
+                className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${titleLines === item.lines ? 'bg-[var(--c-accent)] text-white' : 'text-[var(--c-text-2)] hover:bg-[var(--c-bg-2)]'}`}>
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* フィルター */}
         {filterFields.length > 0 && (
           <div className="px-3 py-1.5 border-b border-[var(--c-border)]">
-            <button onClick={() => setFilterOpen(p => !p)}
-              className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${filterOpen ? 'bg-[var(--c-accent)]/20 text-[var(--c-accent)]' : 'text-[var(--c-text-2)] hover:bg-[var(--c-bg-2)]'}`}>
-              <svg viewBox="0 0 16 16" className="w-3 h-3" fill="currentColor"><path d="M.75 3h14.5a.75.75 0 0 0 0-1.5H.75a.75.75 0 0 0 0 1.5ZM3 7.75A.75.75 0 0 1 3.75 7h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 3 7.75Zm3 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/></svg>
-              フィルター
-              {totalActiveFilters > 0 && <span className="bg-[var(--c-accent)] text-white text-[9px] px-1 rounded-full">{totalActiveFilters}</span>}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setFilterOpen(p => !p)}
+                className={`inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border transition-colors ${filterOpen || totalActiveFilters > 0 ? 'border-[var(--c-accent)] bg-[var(--c-accent-dim)] text-[var(--c-accent)]' : 'border-[var(--c-border)] text-[var(--c-text-2)] hover:border-[var(--c-border-2)] hover:text-[var(--c-text)]'}`}>
+                <svg viewBox="0 0 16 16" className="w-3 h-3 shrink-0" fill="currentColor"><path d="M.75 3h14.5a.75.75 0 0 0 0-1.5H.75a.75.75 0 0 0 0 1.5ZM3 7.75A.75.75 0 0 1 3.75 7h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 3 7.75Zm3 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/></svg>
+                フィルター
+                {totalActiveFilters > 0 && <span className="text-[10px] font-semibold tabular-nums">{totalActiveFilters}</span>}
+              </button>
+              {totalActiveFilters > 0 && (
+                <button onClick={clearAllFilters} title="フィルターをクリア"
+                  className="p-1 rounded-full border border-[var(--c-border)] text-[var(--c-text-3)] hover:border-[var(--c-border-2)] hover:text-[var(--c-text)] transition-colors">
+                  <FilterX size={11} />
+                </button>
+              )}
+            </div>
             {totalActiveFilters > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
                 {filterFields.map(f => {
@@ -1609,11 +1624,10 @@ export function NotePage() {
           }
         </div>
 
-        {/* 追加フォーム */}
-        <div className="p-3 border-t border-[var(--c-border)]">
-          <button onClick={() => setShowFieldModal(true)} className="w-full btn btn--ghost btn--sm text-xs mb-2">フィールド管理</button>
+        {/* フッター */}
+        <div className="px-3 py-2 border-t border-[var(--c-border)]">
           {showAddForm ? (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1">
               <input
                 ref={addInputRef}
                 type="text"
@@ -1621,19 +1635,45 @@ export function NotePage() {
                 onChange={e => setNewTaskTitle(e.target.value)}
                 placeholder="ノートのタイトル"
                 autoFocus
-                className="w-full px-2 py-1 text-xs rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]"
+                className="flex-1 min-w-0 px-2 py-1.5 text-xs rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] transition-colors"
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.nativeEvent.isComposing) commitAddTask();
                   if (e.key === 'Escape') { setShowAddForm(false); setNewTaskTitle(''); }
                 }}
               />
-              <div className="flex gap-1">
-                <button onClick={commitAddTask} className="flex-1 btn btn--primary btn--sm text-xs">追加</button>
-                <button onClick={() => { setShowAddForm(false); setNewTaskTitle(''); }} className="btn btn--ghost btn--sm text-xs">取消</button>
-              </div>
+              <button onClick={commitAddTask} title="追加（Enter）"
+                className="shrink-0 p-1.5 rounded-lg text-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] transition-colors">
+                <Check size={13} />
+              </button>
+              <button onClick={() => { setShowAddForm(false); setNewTaskTitle(''); }} title="取消（Esc）"
+                className="shrink-0 p-1.5 rounded-lg text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors">
+                <X size={13} />
+              </button>
             </div>
           ) : (
-            <button onClick={() => { setShowAddForm(true); setTimeout(() => addInputRef.current?.focus(), 50); }} className="w-full btn btn--primary btn--sm text-xs">＋ ノート追加</button>
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button onClick={() => setShowFieldModal(true)} title="フィールド管理"
+                  className="p-1.5 rounded-lg text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors">
+                  <Settings2 size={13} />
+                </button>
+                <button onClick={exportData} title="エクスポート"
+                  className="p-1.5 rounded-lg text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors">
+                  <Download size={13} />
+                </button>
+                <label title="インポート"
+                  className="p-1.5 rounded-lg text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] transition-colors cursor-pointer">
+                  <Upload size={13} />
+                  <input type="file" accept=".json" className="hidden" onChange={importData} />
+                </label>
+              </div>
+              <button
+                onClick={() => { setShowAddForm(true); setTimeout(() => addInputRef.current?.focus(), 50); }}
+                className="flex-1 btn btn--primary btn--sm text-xs flex items-center justify-center gap-1">
+                <Plus size={12} />
+                ノート追加
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -1679,24 +1719,6 @@ export function NotePage() {
                   <button onClick={openHistory} title="変更履歴" className="p-1.5 text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)] rounded">
                     <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M1.643 3.143 1.26 7.23a.45.45 0 0 0 .498.498l4.084-.382c.246-.023.33-.329.116-.44L4.24 6.23a6.25 6.25 0 1 1-.21 4.741.75.75 0 0 0-1.403.527A7.75 7.75 0 1 0 3.735 5.014l-.706-.854a.246.246 0 0 0-.386.983Z"/></svg>
                   </button>
-                  <div ref={menuRef} className="relative">
-                    <button onClick={() => setShowMenu(p => !p)} title="その他の操作"
-                      className={`p-1.5 rounded transition-colors ${showMenu ? 'text-[var(--c-accent)] bg-[var(--c-bg-2)]' : 'text-[var(--c-text-3)] hover:text-[var(--c-text)] hover:bg-[var(--c-bg-2)]'}`}>
-                      <MoreHorizontal size={14} />
-                    </button>
-                    {showMenu && (
-                      <div className="absolute right-0 top-full mt-1 bg-[var(--c-bg)] border border-[var(--c-border)] rounded-lg shadow-lg z-20 min-w-[140px] overflow-hidden">
-                        <button onClick={() => { exportData(); setShowMenu(false); }}
-                          className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--c-bg-2)] text-[var(--c-text)]">
-                          エクスポート
-                        </button>
-                        <label className="flex w-full px-3 py-2 text-xs hover:bg-[var(--c-bg-2)] text-[var(--c-text)] cursor-pointer">
-                          インポート
-                          <input type="file" accept=".json" className="hidden" onChange={e => { importData(e); setShowMenu(false); }} />
-                        </label>
-                      </div>
-                    )}
-                  </div>
                   <button onClick={deleteTask} title="削除" className="p-1.5 text-red-400 hover:text-red-300 hover:bg-[var(--c-bg-2)] rounded">
                     <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="currentColor"><path d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75ZM4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.748 1.748 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15ZM6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25Z"/></svg>
                   </button>
