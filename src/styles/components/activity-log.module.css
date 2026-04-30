@@ -84,15 +84,15 @@
   flex-shrink: 0;
 }
 .actlog-filters__dates {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
 }
 .actlog-filters__sep { font-size: 12px; color: var(--c-text-3); }
 
-/* DatePicker をフィルター行幅に合わせる */
-:global(.actlog-datepicker) { flex: 1; min-width: 0; }
+/* DatePicker をグリッドセル内に収める */
+:global(.actlog-datepicker) { min-width: 0; }
 :global(.actlog-datepicker) .dp-trigger { font-size: 12px; padding: 4px 8px; }
 
 /* ページチップ：未選択はグレースケール、選択でカラー */
