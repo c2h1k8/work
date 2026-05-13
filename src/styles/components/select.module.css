@@ -125,6 +125,21 @@
   text-overflow: ellipsis;
 }
 
+/* テーブル行内コンパクト variant（compact prop で適用） */
+.cs-wrapper--compact .cs-trigger {
+  padding: 2px 6px;
+  font-size: 11px;
+  gap: 4px;
+}
+.cs-wrapper--compact .cs-trigger__swatch {
+  width: 8px;
+  height: 8px;
+}
+.cs-wrapper--compact .cs-option__swatch {
+  width: 8px;
+  height: 8px;
+}
+
 /* ツールバー用コンパクト（外部から className prop で渡すためグローバル） */
 :global(.toolbar-select) { width: 120px; flex-shrink: 0; }
 :global(.toolbar-select) .cs-trigger { padding: 3px 8px; font-size: 12px; gap: 5px; }

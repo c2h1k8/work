@@ -16,6 +16,7 @@ interface SelectProps {
   placeholder?: string;
   icon?: React.ReactNode;
   dropdownAlign?: 'left' | 'right';
+  compact?: boolean;
 
   // 単一選択
   value?: string;
@@ -30,6 +31,7 @@ interface SelectProps {
 export function Select({
   options, className = '', placeholder, icon,
   dropdownAlign = 'left',
+  compact = false,
   value, onChange,
   multiple, values = [], onChangeMultiple,
 }: SelectProps) {
@@ -136,6 +138,7 @@ export function Select({
       styles['cs-wrapper'],
       open && styles['cs-wrapper--open'],
       open && (openUp ? styles['cs-wrapper--open-up'] : styles['cs-wrapper--open-down']),
+      compact && styles['cs-wrapper--compact'],
       className,
     )}>
       <button
