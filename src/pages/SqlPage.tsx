@@ -9,6 +9,7 @@ import { DatePicker } from '../components/DatePicker';
 import { Select, type SelectOption } from '../components/Select';
 import { sqlDB, type SqlEnv, type TableMemo, type TableColumn, type TableIndex } from '../db/sql_db';
 import { activityDB } from '../db/activity_db';
+import { ActivityLogger } from '../core/activity_logger';
 import { Clipboard } from '../core/clipboard';
 import { FileSaver } from '../core/file_saver';
 import { extractExcerpt } from '../core/utils';
@@ -1081,8 +1082,10 @@ function MemoTab({ pendingSelId, onClearPending }: { pendingSelId?: number | nul
     if (!editMemo.table_name.trim()) { showError('テーブル名を入力してください'); return; }
     if (editMemo.id !== undefined) {
       await sqlDB.updateTableMemo(editMemo.id, editMemo);
+      ActivityLogger.log('sql', 'update', 'table_memo', editMemo.id, `テーブル定義「${editMemo.table_name}」を更新`);
     } else {
       const id = await sqlDB.addTableMemo(editMemo);
+      ActivityLogger.log('sql', 'create', 'table_memo', id, `テーブル定義「${editMemo.table_name}」を追加`);
       setSelId(id);
     }
     await load(); cancelForm(); success('保存しました');
@@ -1090,6 +1093,7 @@ function MemoTab({ pendingSelId, onClearPending }: { pendingSelId?: number | nul
 
   const deleteMemo = async (m: TableMemo) => {
     if (!confirm(`「${m.table_name}」を削除しますか？`)) return;
+    ActivityLogger.log('sql', 'delete', 'table_memo', m.id!, `テーブル定義「${m.table_name}」を削除`);
     await sqlDB.deleteTableMemo(m.id!);
     setMemos(prev => prev.filter(x => x.id !== m.id));
     if (selId === m.id) setSelId(null);

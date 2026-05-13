@@ -20,9 +20,18 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type Dexie from 'dexie';
 import { useTabStore } from '../../stores/tab_store';
 import { ICON_PALETTE, GENERIC_ICON, type TabConfig } from '../../constants/tabs';
 import { Toast } from '../Toast';
+import { FileSaver } from '../../core/file_saver';
+import { appDB } from '../../db/app_db';
+import { kanbanDB } from '../../db/kanban_db';
+import { noteDB } from '../../db/note_db';
+import { sqlDB } from '../../db/sql_db';
+import { wbsDB } from '../../db/wbs_db';
+import { snippetDB } from '../../db/snippet_db';
+import { dashboardDB } from '../../db/dashboard_db';
 
 // --------------------------------------------------
 // アイコンピッカー（ポップオーバー）
@@ -160,7 +169,7 @@ function TabSettingItem({ tab }: { tab: TabConfig }) {
           onChange={(e) => setRenameVal(e.target.value)}
           onBlur={handleRenameSave}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleRenameSave();
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleRenameSave();
             if (e.key === 'Escape') setRenaming(false);
           }}
         />
@@ -196,12 +205,93 @@ function TabSettingItem({ tab }: { tab: TabConfig }) {
 // --------------------------------------------------
 // バックアップ機能
 // --------------------------------------------------
+type BackupData = {
+  type: string;
+  version: number;
+  timestamp: string;
+  databases: Record<string, Record<string, unknown[]>>;
+};
+
+async function _dumpDB(db: Dexie, storeNames: string[]): Promise<Record<string, unknown[]>> {
+  await db.open();
+  const data: Record<string, unknown[]> = {};
+  for (const name of storeNames) {
+    try { data[name] = await db.table(name).toArray(); }
+    catch { data[name] = []; }
+  }
+  return data;
+}
+
+async function _loadDB(db: Dexie, storeData: Record<string, unknown[]>): Promise<void> {
+  await db.open();
+  for (const [name, records] of Object.entries(storeData)) {
+    if (!db.tables.some((t) => t.name === name)) continue;
+    const table = db.table(name);
+    await table.clear();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (records.length > 0) await table.bulkPut(records as any[]);
+  }
+}
+
 async function backupAllData() {
-  Toast.info('バックアップ機能は Phase 4 で実装予定です');
+  try {
+    const [appData, kanbanData, noteData, sqlData, wbsData, snippetData, dashboardData] = await Promise.all([
+      _dumpDB(appDB,      ['settings']),
+      _dumpDB(kanbanDB,   ['tasks', 'comments', 'labels', 'task_labels', 'columns', 'activities', 'task_relations', 'note_links', 'templates', 'archives', 'dependencies']),
+      _dumpDB(noteDB,     ['tasks', 'fields', 'entries', 'note_links', 'history']),
+      _dumpDB(sqlDB,      ['envs', 'table_memos']),
+      _dumpDB(wbsDB,      ['tasks']),
+      _dumpDB(snippetDB,  ['snippets']),
+      _dumpDB(dashboardDB,['sections', 'items', 'app_config', 'presets']),
+    ]);
+    const backup: BackupData = {
+      type: 'full_backup',
+      version: 1,
+      timestamp: new Date().toISOString(),
+      databases: { app: appData, kanban: kanbanData, note: noteData, sql: sqlData, wbs: wbsData, snippet: snippetData, dashboard: dashboardData },
+    };
+    const json = JSON.stringify(backup, null, 2);
+    const now = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    const ts = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+    const saved = await FileSaver.save(json, `mytools_backup_${ts}.json`);
+    if (saved) Toast.success('全データのバックアップが完了しました。');
+  } catch (err) {
+    Toast.error('バックアップに失敗しました: ' + (err instanceof Error ? err.message : String(err)));
+  }
 }
 
 async function restoreAllData() {
-  Toast.info('復元機能は Phase 4 で実装予定です');
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    let data: BackupData;
+    try { data = JSON.parse(await file.text()) as BackupData; }
+    catch { Toast.error('JSONの解析に失敗しました'); return; }
+    if (data.type !== 'full_backup') {
+      Toast.error('全データバックアップファイルではありません');
+      return;
+    }
+    if (!confirm('現在の全データが上書きされます。この操作は元に戻せません。\nよろしいですか？')) return;
+    const dbs = data.databases ?? {};
+    try {
+      if (dbs.app)       await _loadDB(appDB,       dbs.app);
+      if (dbs.kanban)    await _loadDB(kanbanDB,     dbs.kanban);
+      if (dbs.note)      await _loadDB(noteDB,       dbs.note);
+      if (dbs.sql)       await _loadDB(sqlDB,        dbs.sql);
+      if (dbs.wbs)       await _loadDB(wbsDB,        dbs.wbs);
+      if (dbs.snippet)   await _loadDB(snippetDB,    dbs.snippet);
+      if (dbs.dashboard) await _loadDB(dashboardDB,  dbs.dashboard);
+      Toast.success('全データの復元が完了しました。ページを再読み込みします。');
+      window.location.reload();
+    } catch (err) {
+      Toast.error('復元に失敗しました: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+  input.click();
 }
 
 // --------------------------------------------------
@@ -210,8 +300,6 @@ async function restoreAllData() {
 export function SettingsPanel() {
   const { config, settingsOpen, closeSettings, addTab, reorderTabs } = useTabStore();
   const [newLabel, setNewLabel] = useState('');
-  const [newType, setNewType]   = useState<'url' | 'dashboard'>('url');
-  const [newUrl, setNewUrl]     = useState('');
 
   const sensors = useSensors(useSensor(PointerSensor, {
     activationConstraint: { distance: 5 },
@@ -237,20 +325,16 @@ export function SettingsPanel() {
       Toast.error('同じ名前のタブが既に存在します');
       return;
     }
-    const pageSrc = newType === 'dashboard'
-      ? `pages/dashboard.html?instance=${Date.now()}`
-      : newUrl.trim() || '#';
     await addTab({
       label,
-      pageSrc,
+      pageSrc: 'pages/dashboard.html',
       icon: GENERIC_ICON,
       visible: true,
       isBuiltIn: false,
     });
     setNewLabel('');
-    setNewUrl('');
     Toast.success(`「${label}」タブを追加しました`);
-  }, [newLabel, newType, newUrl, config, addTab]);
+  }, [newLabel, config, addTab]);
 
   if (!settingsOpen) return null;
 
@@ -285,25 +369,8 @@ export function SettingsPanel() {
               placeholder="ラベル名"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleAddTab(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAddTab(); }}
             />
-            <select
-              className={styles['settings-select']}
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as 'url' | 'dashboard')}
-            >
-              <option value="url">カスタムURL</option>
-              <option value="dashboard">ダッシュボード</option>
-            </select>
-            {newType === 'url' && (
-              <input
-                type="text"
-                className={styles['settings-input']}
-                placeholder="URL（例: mypage.html）"
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-              />
-            )}
             <button type="button" className="btn btn--primary btn--sm" onClick={handleAddTab}>
               追加
             </button>

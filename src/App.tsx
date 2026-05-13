@@ -49,7 +49,7 @@ function TabContent() {
   return (
     <main className="tab-viewport" role="main">
       {config.map((tab) => {
-        const PageComponent = PAGE_REGISTRY[tab.pageSrc];
+        const PageComponent = PAGE_REGISTRY[tab.pageSrc.split('?')[0]];
         const isActive = tab.label === activeLabel;
         return (
           <div
@@ -59,22 +59,12 @@ function TabContent() {
             aria-label={tab.label}
             hidden={!isActive}
           >
-            {PageComponent ? (
+            {PageComponent && (
               <Suspense fallback={<div className="tab-placeholder"><span>読み込み中…</span></div>}>
                 <TabContext.Provider value={tab.label}>
                   <PageComponent />
                 </TabContext.Provider>
               </Suspense>
-            ) : (
-              <div className="tab-placeholder">
-                <div
-                  className="tab-placeholder__icon"
-                  dangerouslySetInnerHTML={{ __html: tab.icon }}
-                />
-                <h2>{tab.label}</h2>
-                <p>このページは移行予定です。</p>
-                <p className="tab-placeholder__src">{tab.pageSrc}</p>
-              </div>
             )}
           </div>
         );

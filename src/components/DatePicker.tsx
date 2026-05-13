@@ -19,6 +19,7 @@ export interface DatePickerProps {
   className?: string;
   disabled?: boolean;
   compact?: boolean;
+  align?: 'left' | 'center';
 }
 
 // --------------------------------------------------
@@ -206,6 +207,7 @@ export function DatePicker({
   className = '',
   disabled = false,
   compact = false,
+  align = 'center',
 }: DatePickerProps) {
   const [open, setOpen]             = useState(false);
   const [pendingDate, setPendingDate] = useState(() => parseDate(value) ? value.split('T')[0] : '');
@@ -502,10 +504,11 @@ export function DatePicker({
           type="button"
           className={clsx(
             styles['dp-trigger'],
-            compact              && styles['dp-trigger--compact'],
-            status === 'overdue' && styles['dp-trigger--overdue'],
-            status === 'today'   && styles['dp-trigger--today'],
-            open                 && styles['dp-trigger--open'],
+            compact                       && styles['dp-trigger--compact'],
+            compact && align === 'left'   && styles['dp-trigger--align-left'],
+            status === 'overdue'          && styles['dp-trigger--overdue'],
+            status === 'today'            && styles['dp-trigger--today'],
+            open                          && styles['dp-trigger--open'],
           )}
           onClick={() => setOpen(o => !o)}
           aria-haspopup="true"

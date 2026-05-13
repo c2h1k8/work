@@ -20,6 +20,16 @@ src/components/layout/         AppShell レイアウト部品
 
 - `useTabLabel()` — `TabContext.ts` から instanceId を取得（Dashboard の複数インスタンス識別に使用）
 
+## ページルックアップ（App.tsx）
+
+`PAGE_REGISTRY[tab.pageSrc.split('?')[0]]` でクエリ文字列を除去してルックアップ。
+旧バージョンで `pages/dashboard.html?instance=...` として保存されたタブも正しく表示できる後方互換対応。
+
+## ダッシュボードタブ追加（SettingsPanel.tsx）
+
+ダッシュボードタブ追加時の `pageSrc` は `pages/dashboard.html`（クエリなし）。
+React 版ではインスタンス識別を `useTabLabel()`（タブラベル）で行うため、`?instance=` クエリは不要。
+
 ## テーマ
 
 - `theme_store.ts` で `localStorage('mytools_theme')` を管理

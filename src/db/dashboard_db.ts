@@ -12,6 +12,11 @@
 import Dexie, { type Table } from 'dexie';
 import { sortByPosition } from '../core/utils';
 
+// セクション埋め込み・共通プリセット両方で使う共通型
+export type BindPreset = { id: number; name: string; values: Record<string, string> };
+// セクション固有プリセット（インライン保存のため id は string | number どちらでも可）
+export type SectionPreset = { id: string | number; name: string; values: Record<string, string> };
+
 export type SectionType =
   | 'list'
   | 'grid'
@@ -36,24 +41,29 @@ export interface DashboardSection {
   width: SectionWidth;
   // バインド変数
   table_bind_vars?: string[];
-  table_presets?: Array<{ id: string; name: string; values: Record<string, string> }>;
-  table_vars_ui_type?: 'select' | 'tabs' | 'segment';
+  table_presets?: SectionPreset[];
+  table_vars_ui_type?: 'pill' | 'segment' | 'tabs' | 'select';
   table_vars_bar_label?: string;
   list_bind_vars?: string[];
-  list_presets?: Array<{ id: string; name: string; values: Record<string, string> }>;
-  list_vars_ui_type?: 'select' | 'tabs' | 'segment';
+  list_presets?: SectionPreset[];
+  list_vars_ui_type?: 'pill' | 'segment' | 'tabs' | 'select';
   list_vars_bar_label?: string;
   grid_bind_vars?: string[];
-  grid_presets?: Array<{ id: string; name: string; values: Record<string, string> }>;
-  grid_vars_ui_type?: 'select' | 'tabs' | 'segment';
+  grid_presets?: SectionPreset[];
+  grid_vars_ui_type?: 'pill' | 'segment' | 'tabs' | 'select';
   grid_vars_bar_label?: string;
+  // list 専用
+  show_filter?: boolean;
   // command_builder 専用
   command_template?: string;
   action_mode?: 'copy' | 'open';
   cmd_buttons?: Array<{ id: string; label: string; template: string; action_mode: 'copy' | 'open' }>;
+  history_limit?: number;
   // table 専用
   columns?: Array<{ id: string; label: string; type: 'text' | 'copy' | 'link' }>;
   page_size?: number;
+  // checklist 専用
+  checklist_reset?: 'never' | 'daily' | 'weekly' | 'monthly' | 'yearly';
   // memo 専用
   memo_content?: string;
   // markdown 専用
@@ -63,6 +73,8 @@ export interface DashboardSection {
   iframe_height?: number;
   // countdown 専用
   countdown_mode?: 'calendar' | 'business';
+  // レイアウト
+  new_row?: boolean;
 }
 
 export interface DashboardItem {
@@ -110,6 +122,31 @@ class DashboardDatabase extends Dexie {
       app_config: 'name',
       presets: '++id, instance_id',
     });
+    // TODO: 次リリースで .upgrade() を削除（スキーマ変更なし）
+    this.version(3)
+      .stores({
+        sections:   '++id, position, instance_id',
+        items:      '++id, section_id, position',
+        app_config: 'name',
+        presets:    '++id, instance_id',
+      })
+      .upgrade(async (tx) => {
+        const sections = await tx.table('sections').toArray();
+        for (const s of sections) {
+          if (!s.cmd_buttons?.length) continue;
+          const existing = await tx.table('items').where('section_id').equals(s.id).count();
+          if (existing > 0) continue;
+          for (let i = 0; i < s.cmd_buttons.length; i++) {
+            const btn = s.cmd_buttons[i];
+            await tx.table('items').add({
+              section_id: s.id, position: i, use_count: 0,
+              item_type: btn.action_mode === 'open' ? 'link' : 'copy',
+              label: btn.label, value: btn.template, hint: '',
+            });
+          }
+          await tx.table('sections').update(s.id, { cmd_buttons: [] });
+        }
+      });
   }
 
   // ── Sections ──────────────────────────
@@ -125,6 +162,10 @@ class DashboardDatabase extends Dexie {
 
   async updateSection(data: DashboardSection): Promise<void> {
     await this.sections.put(data);
+  }
+
+  async patchSection(id: number, patch: Partial<DashboardSection>): Promise<void> {
+    await this.sections.update(id, patch);
   }
 
   async deleteSection(id: number): Promise<void> {

@@ -45,6 +45,10 @@
   justify-content: center;
   text-align: center;
 }
+.dp-trigger.dp-trigger--compact.dp-trigger--align-left {
+  justify-content: flex-start;
+  text-align: left;
+}
 .dp-trigger.dp-trigger--compact span {
   flex: none;
 }
