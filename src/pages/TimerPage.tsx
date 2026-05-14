@@ -1,5 +1,5 @@
 // ==================================================
-// TimerPage — 定型作業タイマー（React 移行版）
+// TimerPage — MyTools（React 移行版）
 // ==================================================
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -9,6 +9,8 @@ import { DatePicker } from '../components/DatePicker';
 import { useToast } from '../components/Toast';
 import { getTagColor } from '../core/utils';
 import { timerDB, type TimerPreset, type TimerSession } from '../db/timer_db';
+import { useTabStore } from '../stores/tab_store';
+import { searchRegistry } from '../stores/search_store';
 
 // ── ストレージキー ─────────────────────────────────
 const KEY_ACTIVE_PRESET = 'timer_active_preset';
@@ -647,11 +649,11 @@ export function TimerPage() {
   // ── ページタイトル更新 ─────────────────────────────
   useEffect(() => {
     if (running) {
-      document.title = `${mode === 'work' ? '▶' : '☕'} ${fmtMMSS(remaining)} 定型作業タイマー`;
+      document.title = `${mode === 'work' ? '▶' : '☕'} ${fmtMMSS(remaining)} MyTools`;
     } else {
-      document.title = '定型作業タイマー';
+      document.title = 'MyTools';
     }
-    return () => { document.title = '定型作業タイマー'; };
+    return () => { document.title = 'MyTools'; };
   }, [running, remaining, mode]);
 
   // ── セッション読み込み ────────────────────────────
@@ -879,7 +881,7 @@ export function TimerPage() {
       setTotal(preset.work_sec);     totalRef.current     = preset.work_sec;
     }
     clearTimerState();
-    document.title = '定型作業タイマー';
+    document.title = 'MyTools';
   }, [getActivePreset, clearTimerState]);
 
   // ── タイマー開始 ──────────────────────────────────
@@ -1015,6 +1017,40 @@ export function TimerPage() {
     }
     clearTimerState();
   }, [getActivePreset, clearTimerState]);
+
+  // ── グローバル検索登録（プリセット） ───────────────
+  const { config: timerTabConfig, setActiveTab: setGlobalTab } = useTabStore();
+  useEffect(() => {
+    const label = timerTabConfig.find(t => t.pageSrc === 'pages/timer.html')?.label;
+    searchRegistry.register('timer-presets', async (query) => {
+      const q = query.toLowerCase();
+      const all = await timerDB.getPresets();
+      return all
+        .filter(p => p.name.toLowerCase().includes(q))
+        .slice(0, 10)
+        .map(p => ({
+          id: `timer-preset-${p.id}`,
+          pageSrc: 'pages/timer.html',
+          title: p.name,
+          excerpt: `作業 ${Math.round(p.work_sec / 60)}分 / 休憩 ${Math.round(p.break_sec / 60)}分`,
+          onSelect: async () => {
+            if (label) setGlobalTab(label);
+            if (runningRef.current) return;
+            setActivePresetId(p.id!);
+            activePresetRef.current = p.id!;
+            localStorage.setItem(KEY_ACTIVE_PRESET, String(p.id!));
+            const freshPresets = await timerDB.getPresets();
+            const preset = freshPresets.find(x => x.id === p.id);
+            if (preset) {
+              const rem = modeRef.current === 'work' ? preset.work_sec : preset.break_sec;
+              setRemaining(rem); remainingRef.current = rem;
+              setTotal(rem); totalRef.current = rem;
+            }
+          },
+        }));
+    });
+    return () => searchRegistry.unregister('timer-presets');
+  }, [timerTabConfig, setGlobalTab]);
 
   // ── プリセット保存 ────────────────────────────────
   const savePreset = useCallback(async (name: string, workMin: number, breakMin: number) => {

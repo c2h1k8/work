@@ -1590,6 +1590,20 @@ export function SqlPage() {
   // グローバル検索登録
   useEffect(() => {
     const sqlLabel = tabConfig.find(t => t.pageSrc === 'pages/sql.html')?.label ?? '';
+
+    searchRegistry.register('sql-nav', async (query) => {
+      const q = query.toLowerCase();
+      return TABS
+        .filter(t => t.label.toLowerCase().includes(q))
+        .map(t => ({
+          id: `sql-nav-${t.id}`,
+          pageSrc: 'pages/sql.html',
+          title: t.label,
+          excerpt: '',
+          onSelect: () => { if (sqlLabel) setGlobalTab(sqlLabel); switchTab(t.id); },
+        }));
+    });
+
     searchRegistry.register('sql-memo', async (query) => {
       const q = query.toLowerCase();
       const all = await sqlDB.getAllTableMemos();
@@ -1618,7 +1632,10 @@ export function SqlPage() {
           };
         });
     });
-    return () => searchRegistry.unregister('sql-memo');
+    return () => {
+      searchRegistry.unregister('sql-nav');
+      searchRegistry.unregister('sql-memo');
+    };
   }, [tabConfig, setGlobalTab]);
 
   return (

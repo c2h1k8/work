@@ -17,7 +17,7 @@ DB 名: `kanban_db` version 2
 ## React 版固有
 
 - DnD: `@dnd-kit/core` + `@dnd-kit/sortable`（Vanilla の SortableJS とは異なる）
-- アクティビティログ: `activityDB.add({ page: 'todo', action, target_type, target_id: String(id), summary, created_at: new Date().toISOString() })`
+- アクティビティログ: `ActivityLogger.log('todo', action, 'task', id, summary)` — `disabledPages` チェック込み（直接 `activityDB.add()` は使わない）
 
 ### ページ間ナビゲーション
 

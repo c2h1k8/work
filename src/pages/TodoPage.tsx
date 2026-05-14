@@ -36,7 +36,7 @@ import {
   type KanbanComment, type KanbanActivity, type KanbanNoteLink,
   type KanbanTemplate,
 } from '../db/kanban_db';
-import { activityDB } from '../db/activity_db';
+import { ActivityLogger } from '../core/activity_logger';
 import { useToast } from '../components/Toast';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
@@ -500,7 +500,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
       onSaved(updated);
       const act = await kanbanDB.addActivity(task.id, 'column_change', { from, to });
       setActivities((prev) => [...prev, act].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
-      await activityDB.add({ page: 'todo', action: 'move', target_type: 'task', target_id: String(task.id), summary: `${from} → ${to}`, created_at: new Date().toISOString() });
+      ActivityLogger.log('todo', 'move', 'task', task.id, `${from} → ${to}`);
       onColumnChange(task.id, nextKey);
     } catch (e) {
       toast.error(`アクティビティ記録に失敗: ${e instanceof Error ? e.message : String(e)}`);
@@ -510,7 +510,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   async function handleDelete() {
     if (!confirm(`「${task.title}」を削除しますか？`)) return;
     await kanbanDB.deleteTask(task.id!);
-    await activityDB.add({ page: 'todo', action: 'delete', target_type: 'task', target_id: String(task.id!), summary: task.title, created_at: new Date().toISOString() });
+    ActivityLogger.log('todo', 'delete', 'task', task.id!, task.title);
     onDeleted(task.id!);
     toast.success('削除しました');
   }
@@ -531,7 +531,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     await kanbanDB.archiveTask(task);
     await kanbanDB.deleteTask(task.id!);
     const colName = columns.find(c => c.key === task.column)?.name ?? task.column;
-    await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(task.id!), summary: `タスク「${task.title || '(無題)'}」をアーカイブ（${colName}）`, created_at: new Date().toISOString() });
+    ActivityLogger.log('todo', 'archive', 'task', task.id!, `タスク「${task.title || '(無題)'}」をアーカイブ（${colName}）`);
     onArchived(task);
     toast.success('アーカイブしました');
   }
@@ -1844,7 +1844,7 @@ function ArchiveModal({ columns, labels, onClose, onRestored }: ArchiveModalProp
     }
     await kanbanDB.addActivity(newTask.id!, 'restore_archive', {});
     await kanbanDB.deleteArchive(archive.id!);
-    await activityDB.add({ page: 'todo', action: 'create', target_type: 'task', target_id: String(newTask.id!), summary: `「${archive.title}」をアーカイブから復元`, created_at: new Date().toISOString() });
+    ActivityLogger.log('todo', 'create', 'task', newTask.id!, `「${archive.title}」をアーカイブから復元`);
     setArchives((prev) => prev.filter((a) => a.id !== archive.id));
     onRestored();
     toast.success('復元しました');
@@ -2275,7 +2275,7 @@ export function TodoPage() {
     // タスク固有アクティビティ（詳細画面タイムライン用）
     await kanbanDB.addActivity(task.id!, 'task_create', {}).catch(() => {});
     // 全体アクティビティログ
-    await activityDB.add({ page: 'todo', action: 'create', target_type: 'task', target_id: String(task.id!), summary: title, created_at: new Date().toISOString() });
+    ActivityLogger.log('todo', 'create', 'task', task.id!, title);
     await load();
     toast.success('タスクを追加しました');
   }, [tasksMap, load, toast]);
@@ -2322,7 +2322,7 @@ export function TodoPage() {
     await kanbanDB.archiveTask(task);
     await kanbanDB.deleteTask(task.id!);
     const colName = columns.find(c => c.key === task.column)?.name ?? task.column;
-    await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(task.id!), summary: `タスク「${task.title || '(無題)'}」をアーカイブ（${colName}）`, created_at: new Date().toISOString() });
+    ActivityLogger.log('todo', 'archive', 'task', task.id!, `タスク「${task.title || '(無題)'}」をアーカイブ（${colName}）`);
     await load();
     toast.success('アーカイブしました');
   }, [columns, load, toast]);
@@ -2331,7 +2331,7 @@ export function TodoPage() {
   const deleteCard = useCallback(async (task: KanbanTask) => {
     if (!confirm(`「${task.title}」を削除しますか？`)) return;
     await kanbanDB.deleteTask(task.id!);
-    await activityDB.add({ page: 'todo', action: 'delete', target_type: 'task', target_id: String(task.id!), summary: task.title, created_at: new Date().toISOString() });
+    ActivityLogger.log('todo', 'delete', 'task', task.id!, task.title);
     await load();
     toast.success('削除しました');
   }, [load, toast]);
@@ -2346,7 +2346,7 @@ export function TodoPage() {
       await kanbanDB.addActivity(t.id!, 'archive', {});
       await kanbanDB.archiveTask(t);
       await kanbanDB.deleteTask(t.id!);
-      await activityDB.add({ page: 'todo', action: 'archive', target_type: 'task', target_id: String(t.id!), summary: `タスク「${t.title || '(無題)'}」をアーカイブ（${colName}）`, created_at: new Date().toISOString() });
+      ActivityLogger.log('todo', 'archive', 'task', t.id!, `タスク「${t.title || '(無題)'}」をアーカイブ（${colName}）`);
     }
     await load();
     toast.success('アーカイブしました');
@@ -2368,7 +2368,7 @@ export function TodoPage() {
       }
     }
     await kanbanDB.addActivity(task.id!, 'task_create', {}).catch(() => {});
-    await activityDB.add({ page: 'todo', action: 'create', target_type: 'task', target_id: String(task.id!), summary: task.title, created_at: new Date().toISOString() });
+    ActivityLogger.log('todo', 'create', 'task', task.id!, task.title);
     await load();
     toast.success('タスクを追加しました');
   }, [tasksMap, load, toast]);
@@ -2530,7 +2530,7 @@ export function TodoPage() {
       const to   = columns.find((c) => c.key === targetColumnKey)?.name ?? targetColumnKey;
       try {
         await kanbanDB.addActivity(activeTaskId, 'column_change', { from, to });
-        await activityDB.add({ page: 'todo', action: 'move', target_type: 'task', target_id: String(activeTaskId), summary: `${from} → ${to}`, created_at: new Date().toISOString() });
+        ActivityLogger.log('todo', 'move', 'task', activeTaskId, `${from} → ${to}`);
       } catch (e) {
         toast.error(`アクティビティ記録に失敗: ${e instanceof Error ? e.message : String(e)}`);
       }

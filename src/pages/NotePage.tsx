@@ -10,7 +10,7 @@ import { Select, type SelectOption } from '../components/Select';
 import { Picker, type PickerItem } from '../components/Picker';
 import { noteDB, type NoteTask, type NoteField, type NoteEntry, type NoteFieldType, type NoteFieldWidth } from '../db/note_db';
 import { kanbanDB } from '../db/kanban_db';
-import { activityDB } from '../db/activity_db';
+import { ActivityLogger } from '../core/activity_logger';
 import { Clipboard } from '../core/clipboard';
 import { FileSaver } from '../core/file_saver';
 import { extractExcerpt } from '../core/utils';
@@ -1356,13 +1356,13 @@ export function NotePage() {
     setSelectedTaskId(task.id!);
     setShowAddForm(false);
     setNewTaskTitle('');
-    activityDB.add({ page: 'note', action: 'create', target_type: 'note', target_id: String(task.id), summary: `ノート「${task.title}」を追加`, created_at: new Date().toISOString() });
+    ActivityLogger.log('note', 'create', 'note', task.id!, `ノート「${task.title}」を追加`);
   };
 
   const deleteTask = async () => {
     if (!selectedTaskId || !selectedTask) return;
     if (!confirm(`「${selectedTask.title}」を削除しますか？`)) return;
-    activityDB.add({ page: 'note', action: 'delete', target_type: 'note', target_id: String(selectedTaskId), summary: `ノート「${selectedTask.title}」を削除`, created_at: new Date().toISOString() });
+    ActivityLogger.log('note', 'delete', 'note', selectedTaskId, `ノート「${selectedTask.title}」を削除`);
     await noteDB.deleteTask(selectedTaskId);
     // kanban_db の note_links もカスケード削除
     openKanbanDB().then(db => {
@@ -1405,7 +1405,7 @@ export function NotePage() {
       const updated = await noteDB.updateTask({ ...selectedTask, title: newTitle });
       setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
       await noteDB.addHistory({ task_id: selectedTask.id!, field_id: HIST_TITLE, old_value: oldTitle, new_value: newTitle });
-      activityDB.add({ page: 'note', action: 'update', target_type: 'note', target_id: String(selectedTask.id), summary: `ノート「${selectedTask.title}」のタイトルを変更`, created_at: new Date().toISOString() });
+      ActivityLogger.log('note', 'update', 'note', selectedTask.id!, `ノート「${selectedTask.title}」のタイトルを変更`);
     }
   };
 

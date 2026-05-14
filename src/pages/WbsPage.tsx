@@ -28,7 +28,9 @@ import { DatePicker } from '../components/DatePicker';
 import { Tooltip } from '../components/Tooltip';
 import { useIsActiveTab } from '../contexts/TabContext';
 import { wbsDB, type WbsTask, type WbsStatus } from '../db/wbs_db';
-import { activityDB } from '../db/activity_db';
+import { ActivityLogger } from '../core/activity_logger';
+import { useTabStore } from '../stores/tab_store';
+import { searchRegistry } from '../stores/search_store';
 
 // ── ストレージキー ────────────────────────────────
 const KEY_HOLIDAYS        = 'wbs_custom_holidays';
@@ -410,6 +412,27 @@ export function WbsPage() {
 
   useEffect(() => { loadTasks(); }, [loadTasks]);
 
+  // ── グローバル検索登録 ────────────────────────────
+  const { config: tabConfig, setActiveTab: setGlobalTab } = useTabStore();
+  useEffect(() => {
+    const label = tabConfig.find(t => t.pageSrc === 'pages/wbs.html')?.label;
+    searchRegistry.register('wbs', async (query) => {
+      const q = query.toLowerCase();
+      const all = await wbsDB.getAllTasks();
+      return all
+        .filter(t => t.title.toLowerCase().includes(q))
+        .slice(0, 10)
+        .map(t => ({
+          id: `wbs-${t.id}`,
+          pageSrc: 'pages/wbs.html',
+          title: t.title,
+          excerpt: t.memo || '',
+          onSelect: () => { if (label) setGlobalTab(label); setSelectedId(t.id!); },
+        }));
+    });
+    return () => searchRegistry.unregister('wbs');
+  }, [tabConfig, setGlobalTab]);
+
   // ── スクロール同期 ────────────────────────────────
   useEffect(() => {
     const tBody = tBodyRef.current;
@@ -515,7 +538,7 @@ export function WbsPage() {
     const task = tasks.find(t => t.id === id);
     if (!confirm('このタスクを削除しますか？')) return;
     pendingNewIds.current.delete(id);
-    if (task) activityDB.add({ page: 'wbs', action: 'delete', target_type: 'task', target_id: String(id), summary: `WBSタスク「${task.title}」を削除`, created_at: new Date().toISOString() });
+    if (task) ActivityLogger.log('wbs', 'delete', 'task', id, `WBSタスク「${task.title}」を削除`);
     await wbsDB.deleteTask(id);
     if (selectedId === id) setSelectedId(null);
     setCollapsed(prev => { const next = new Set(prev); next.delete(id); return next; });
@@ -610,7 +633,7 @@ export function WbsPage() {
     await wbsDB.updateTask(updated);
     if (field === 'title' && pendingNewIds.current.has(taskId)) {
       pendingNewIds.current.delete(taskId);
-      activityDB.add({ page: 'wbs', action: 'create', target_type: 'task', target_id: String(taskId), summary: `WBSタスク「${newVal}」を追加`, created_at: new Date().toISOString() });
+      ActivityLogger.log('wbs', 'create', 'task', taskId, `WBSタスク「${newVal}」を追加`);
       showSuccess(`「${newVal}」を追加しました`);
     }
     setEditingCell(null);
@@ -629,8 +652,8 @@ export function WbsPage() {
     if (!task) return;
     const oldStatus = task.status;
     await wbsDB.updateTask({ ...task, status });
-    if (status === 'done') activityDB.add({ page: 'wbs', action: 'complete', target_type: 'task', target_id: String(taskId), summary: `WBSタスク「${task.title}」を完了`, created_at: new Date().toISOString() });
-    else if (oldStatus === 'done') activityDB.add({ page: 'wbs', action: 'update', target_type: 'task', target_id: String(taskId), summary: `WBSタスク「${task.title}」を${STATUS_CONFIG[status].label}に変更`, created_at: new Date().toISOString() });
+    if (status === 'done') ActivityLogger.log('wbs', 'complete', 'task', taskId, `WBSタスク「${task.title}」を完了`);
+    else if (oldStatus === 'done') ActivityLogger.log('wbs', 'update', 'task', taskId, `WBSタスク「${task.title}」を${STATUS_CONFIG[status].label}に変更`);
     await loadTasks();
   }, [tasks, loadTasks]);
 

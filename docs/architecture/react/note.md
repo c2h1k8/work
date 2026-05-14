@@ -184,12 +184,7 @@ DB 名: `note_db` version 2
 ## アクティビティログ
 
 ```ts
-activityDB.add({
-  page: 'note',
-  action,
-  target_type,
-  target_id: String(id),
-  summary,
-  created_at: new Date().toISOString()
-})
+ActivityLogger.log('note', action, 'note', id, summary)
 ```
+
+`disabledPages` チェック込み。直接 `activityDB.add()` は使わない。

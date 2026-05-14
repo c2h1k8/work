@@ -5,6 +5,8 @@
 // ==================================================
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTabStore } from '../stores/tab_store';
+import { searchRegistry } from '../stores/search_store';
 import { Toast, useToast } from '../components/Toast';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
@@ -1348,10 +1350,29 @@ export function OpsPage() {
     () => (localStorage.getItem(STORAGE_ACTIVE_SECTION) as Section) || 'log-viewer'
   );
 
-  const switchSection = (s: Section) => {
+  const switchSection = useCallback((s: Section) => {
     setActive(s);
     localStorage.setItem(STORAGE_ACTIVE_SECTION, s);
-  };
+  }, []);
+
+  const { config, setActiveTab: setGlobalTab } = useTabStore();
+  useEffect(() => {
+    const label = config.find(t => t.pageSrc === 'pages/ops.html')?.label;
+    searchRegistry.register('ops-nav', async (query) => {
+      const q = query.toLowerCase();
+      return SECTIONS
+        .filter(s => s.label.toLowerCase().includes(q))
+        .map(s => ({
+          id: `ops-nav-${s.id}`,
+          pageSrc: 'pages/ops.html',
+          title: s.label,
+          excerpt: '',
+          onSelect: () => { if (label) setGlobalTab(label); switchSection(s.id); },
+        }));
+    });
+    return () => searchRegistry.unregister('ops-nav');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, setGlobalTab]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

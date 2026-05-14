@@ -25,6 +25,7 @@ import { useTabStore } from '../../stores/tab_store';
 import { ICON_PALETTE, GENERIC_ICON, type TabConfig } from '../../constants/tabs';
 import { Toast } from '../Toast';
 import { FileSaver } from '../../core/file_saver';
+import { ActivityLogger } from '../../core/activity_logger';
 import { appDB } from '../../db/app_db';
 import { kanbanDB } from '../../db/kanban_db';
 import { noteDB } from '../../db/note_db';
@@ -203,6 +204,18 @@ function TabSettingItem({ tab }: { tab: TabConfig }) {
 }
 
 // --------------------------------------------------
+// アクティビティログ設定
+// --------------------------------------------------
+const ACTIVITY_PAGES = [
+  { id: 'todo',      label: 'Todo (Kanban)', color: '#3b82f6' },
+  { id: 'note',      label: 'ノート',         color: '#22c55e' },
+  { id: 'snippet',   label: 'スニペット',      color: '#a855f7' },
+  { id: 'wbs',       label: 'WBS',           color: '#06b6d4' },
+  { id: 'dashboard', label: 'ダッシュボード',  color: '#f97316' },
+  { id: 'sql',       label: 'SQL',           color: '#ef4444' },
+] as const;
+
+// --------------------------------------------------
 // バックアップ機能
 // --------------------------------------------------
 type BackupData = {
@@ -300,6 +313,7 @@ async function restoreAllData() {
 export function SettingsPanel() {
   const { config, settingsOpen, closeSettings, addTab, reorderTabs } = useTabStore();
   const [newLabel, setNewLabel] = useState('');
+  const [disabledPages, setDisabledPages] = useState<Set<string>>(new Set());
 
   const sensors = useSensors(useSensor(PointerSensor, {
     activationConstraint: { distance: 5 },
@@ -311,6 +325,23 @@ export function SettingsPanel() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [settingsOpen, closeSettings]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    appDB.get<{ disabledPages?: string[] }>('activity_log_config').then((cfg) => {
+      setDisabledPages(new Set(cfg?.disabledPages ?? []));
+    }).catch(() => {});
+  }, [settingsOpen]);
+
+  const handleActivityToggle = useCallback((pageId: string, enabled: boolean) => {
+    setDisabledPages(prev => {
+      const next = new Set(prev);
+      if (enabled) next.delete(pageId);
+      else next.add(pageId);
+      ActivityLogger.saveConfig([...next]).catch(() => {});
+      return next;
+    });
+  }, []);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -327,7 +358,7 @@ export function SettingsPanel() {
     }
     await addTab({
       label,
-      pageSrc: 'pages/dashboard.html',
+      pageSrc: `pages/dashboard.html?instance=${crypto.randomUUID()}`,
       icon: GENERIC_ICON,
       visible: true,
       isBuiltIn: false,
@@ -374,6 +405,34 @@ export function SettingsPanel() {
             <button type="button" className="btn btn--primary btn--sm" onClick={handleAddTab}>
               追加
             </button>
+          </div>
+
+          {/* アクティビティログ */}
+          <div className={styles['settings-actlog-form']}>
+            <h3>アクティビティログ</h3>
+            <p className={styles['settings-actlog-desc']}>ページごとに操作履歴の記録を切り替えます</p>
+            <div className={styles['settings-actlog-pages']}>
+              {ACTIVITY_PAGES.map(({ id, label, color }) => {
+                const enabled = !disabledPages.has(id);
+                return (
+                  <label
+                    key={id}
+                    className={clsx(styles['settings-actlog-row'], !enabled && styles['settings-actlog-row--disabled'])}
+                  >
+                    <span className={styles['settings-actlog-dot']} style={{ background: color }} />
+                    <span className={styles['settings-actlog-label']}>{label}</span>
+                    <span className={styles['actlog-toggle']}>
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={(e) => handleActivityToggle(id, e.target.checked)}
+                      />
+                      <span className={styles['actlog-toggle-track']} />
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           {/* 全データバックアップ */}

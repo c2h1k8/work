@@ -18,17 +18,44 @@ src/components/layout/         AppShell レイアウト部品
 
 ## フック
 
-- `useTabLabel()` — `TabContext.ts` から instanceId を取得（Dashboard の複数インスタンス識別に使用）
+- `useTabLabel()` — `TabContext.ts` からタブラベルを取得
 
 ## ページルックアップ（App.tsx）
 
 `PAGE_REGISTRY[tab.pageSrc.split('?')[0]]` でクエリ文字列を除去してルックアップ。
-旧バージョンで `pages/dashboard.html?instance=...` として保存されたタブも正しく表示できる後方互換対応。
+`pages/dashboard.html?instance=...` として保存されたタブも正しく表示できる。
 
 ## ダッシュボードタブ追加（SettingsPanel.tsx）
 
-ダッシュボードタブ追加時の `pageSrc` は `pages/dashboard.html`（クエリなし）。
-React 版ではインスタンス識別を `useTabLabel()`（タブラベル）で行うため、`?instance=` クエリは不要。
+ダッシュボードタブ追加時の `pageSrc` は `pages/dashboard.html?instance=${crypto.randomUUID()}`。
+`instanceId` は `pageSrc` の `?instance=` クエリ文字列から取得（Vanilla JS との互換性のため）。
+`?instance=` がない場合は `""` → Vanilla JS 版のデフォルトと一致。
+
+## アクティビティログ設定（SettingsPanel.tsx）
+
+`ACTIVITY_PAGES` 定数で管理対象ページを定義（todo / note / snippet / wbs / dashboard / sql）。
+設定は `appDB.get('activity_log_config')` → `{ disabledPages: string[] }` に永続化。
+各ページは `ActivityLogger.log()` 経由で記録 — `disabledPages` に含まれるページは自動スキップ。
+直接 `activityDB.add()` を呼ぶと設定が無視されるため禁止。
+
+## グローバル検索（GlobalSearch.tsx / search_store.ts）
+
+`searchRegistry.register(key, handler)` で各ページがハンドラを登録。全タブは hidden でも mount 済みのため、ページ未訪問でもハンドラは有効。
+
+| ページ | ハンドラキー | 種別 | 内容 |
+|---|---|---|---|
+| Todo | `'todo'` | コンテンツ | タスク名・説明文 |
+| Note | `'note'` | コンテンツ | ノート一覧 |
+| Snippet | `'snippet'` | コンテンツ | スニペット一覧 |
+| SQL | `'sql-nav'` | ナビゲーション | サブタブ名（接続・設定 / 実行計画 / テーブルメモ） |
+| SQL | `'sql-memo'` | コンテンツ | テーブル定義メモ |
+| テキスト処理 | `'text-nav'` | ナビゲーション | サブタブ名（正規表現 / エンコード / ケース変換 / … 全7件） |
+| Ops | `'ops-nav'` | ナビゲーション | セクション名（ログビューア / cron / HTTP / ポート番号） |
+| WBS | `'wbs'` | コンテンツ | タスク名・メモ |
+| タイマー | `'timer-presets'` | コンテンツ | プリセット名・作業/休憩時間 |
+
+ナビゲーション結果の `onSelect`: タブ切り替え + `localStorage` 更新 + 状態 setter 呼び出し。
+コンテンツ結果: DB 直接検索（ページ state 非依存）。
 
 ## テーマ
 

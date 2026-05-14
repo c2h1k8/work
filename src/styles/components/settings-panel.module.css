@@ -259,3 +259,104 @@
   display: flex;
   gap: 8px;
 }
+
+/* ── アクティビティログ ───────────────────────────── */
+.settings-actlog-form {
+  padding: 12px 16px;
+  border-top: 1px solid var(--c-border);
+}
+.settings-actlog-form h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.settings-actlog-desc {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: var(--c-text-3);
+  line-height: 1.5;
+}
+.settings-actlog-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.settings-actlog-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--t);
+  user-select: none;
+}
+.settings-actlog-row:hover {
+  background: var(--c-surface-hover);
+}
+.settings-actlog-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: opacity var(--t);
+}
+.settings-actlog-row--disabled .settings-actlog-dot {
+  opacity: 0.35;
+}
+.settings-actlog-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-text);
+  transition: color var(--t);
+}
+.settings-actlog-row--disabled .settings-actlog-label {
+  color: var(--c-text-3);
+}
+
+/* iOS スタイル トグルスイッチ */
+.actlog-toggle {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.actlog-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.actlog-toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 99px;
+  background: var(--c-border-2);
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.actlog-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.actlog-toggle input:checked + .actlog-toggle-track {
+  background: var(--c-accent);
+}
+.actlog-toggle input:checked + .actlog-toggle-track::after {
+  transform: translateX(16px);
+}
+.actlog-toggle input:focus-visible + .actlog-toggle-track {
+  box-shadow: 0 0 0 3px var(--c-accent-dim);
+}

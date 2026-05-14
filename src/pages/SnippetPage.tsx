@@ -11,7 +11,7 @@ import { ShortcutHelp } from '../components/ShortcutHelp';
 import { Tooltip } from '../components/Tooltip';
 import { getTagColor, extractExcerpt } from '../core/utils';
 import { snippetDB, type Snippet } from '../db/snippet_db';
-import { activityDB } from '../db/activity_db';
+import { ActivityLogger } from '../core/activity_logger';
 import { Clipboard } from '../core/clipboard';
 import { FileSaver } from '../core/file_saver';
 import { useIsActiveTab } from '../contexts/TabContext';
@@ -404,14 +404,14 @@ export function SnippetPage() {
       const updated = { ...modalSnippet, ...data, updated_at: now };
       await snippetDB.updateSnippet(updated);
       setSnippets(prev => prev.map(s => s.id === updated.id ? updated : s));
-      activityDB.add({ page: 'snippet', action: 'update', target_type: 'snippet', target_id: String(updated.id), summary: `スニペット「${updated.title}」を更新`, created_at: now });
+      ActivityLogger.log('snippet', 'update', 'snippet', updated.id!, `スニペット「${updated.title}」を更新`);
       success('スニペットを更新しました');
     } else {
       const added = await snippetDB.addSnippet({ ...data, created_at: now, updated_at: now, position: snippets.length });
       setSnippets(prev => [...prev, added]);
       setSelected(added.id!);
       localStorage.setItem(KEY_SELECTED, String(added.id));
-      activityDB.add({ page: 'snippet', action: 'create', target_type: 'snippet', target_id: String(added.id), summary: `スニペット「${added.title}」を追加`, created_at: now });
+      ActivityLogger.log('snippet', 'create', 'snippet', added.id!, `スニペット「${added.title}」を追加`);
       success('スニペットを追加しました');
     }
     setShowModal(false);
@@ -419,8 +419,7 @@ export function SnippetPage() {
 
   const handleDelete = async (s: Snippet) => {
     if (!confirm(`「${s.title}」を削除しますか？`)) return;
-    const now = new Date().toISOString();
-    activityDB.add({ page: 'snippet', action: 'delete', target_type: 'snippet', target_id: String(s.id), summary: `スニペット「${s.title}」を削除`, created_at: now });
+    ActivityLogger.log('snippet', 'delete', 'snippet', s.id!, `スニペット「${s.title}」を削除`);
     await snippetDB.deleteSnippet(s.id!);
     setSnippets(prev => prev.filter(x => x.id !== s.id));
     if (selectedId === s.id) {

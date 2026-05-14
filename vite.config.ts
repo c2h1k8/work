@@ -22,7 +22,6 @@ export default defineConfig({
     },
   },
 
-  // file:// 環境対応
   base: './',
 
   build: {

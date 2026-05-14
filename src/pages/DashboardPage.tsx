@@ -31,6 +31,7 @@ import {
   type SectionType, type SectionWidth, type SectionPreset,
 } from '../db/dashboard_db';
 import { useTabLabel } from '../contexts/TabContext';
+import { useTabStore } from '../stores/tab_store';
 import { useToast } from '../components/Toast';
 import { DatePicker } from '../components/DatePicker';
 import { Select, type SelectOption } from '../components/Select';
@@ -3698,7 +3699,16 @@ function DashboardSettingsPanel({
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export function DashboardPage() {
-  const instanceId = useTabLabel();
+  const tabLabel = useTabLabel();
+  const { config } = useTabStore();
+  // pageSrc の ?instance= パラメータを instanceId として使用（VanillaJS 互換）
+  // 例: 'pages/dashboard.html'           → instanceId = ""
+  //     'pages/dashboard.html?instance=x' → instanceId = "x"
+  const instanceId = useMemo(() => {
+    const tab = config.find(t => t.label === tabLabel);
+    const qs = tab?.pageSrc.split('?')[1] ?? '';
+    return new URLSearchParams(qs).get('instance') ?? '';
+  }, [tabLabel, config]);
   const toast = useToast();
 
   const [sections,       setSections]       = useState<DashboardSection[]>([]);

@@ -11,6 +11,8 @@ import { Toast } from '../components/Toast';
 import { ShortcutHelp } from '../components/ShortcutHelp';
 import { textDB, type RegexPattern } from '../db/text_db';
 import { Select, type SelectOption } from '../components/Select';
+import { useTabStore } from '../stores/tab_store';
+import { searchRegistry } from '../stores/search_store';
 
 function escHtml(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1423,6 +1425,25 @@ export function TextPage() {
     setSection(s);
     localStorage.setItem('text_active_section', s);
   }, []);
+
+  const { config, setActiveTab: setGlobalTab } = useTabStore();
+  useEffect(() => {
+    const label = config.find(t => t.pageSrc === 'pages/text.html')?.label;
+    searchRegistry.register('text-nav', async (query) => {
+      const q = query.toLowerCase();
+      return TAB_LABELS
+        .filter(({ label: l }) => l.toLowerCase().includes(q))
+        .map(({ id, label: l }) => ({
+          id: `text-nav-${id}`,
+          pageSrc: 'pages/text.html',
+          title: l,
+          excerpt: '',
+          onSelect: () => { if (label) setGlobalTab(label); switchSection(id); },
+        }));
+    });
+    return () => searchRegistry.unregister('text-nav');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, setGlobalTab]);
 
   return (
     <div className={styles['text-page']}>
