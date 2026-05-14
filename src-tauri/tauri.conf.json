@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.mytools.dev",
   "build": {
-    "beforeBuildCommand": "npm run prepare-dist",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:52700"
+    "devUrl": "http://localhost:5173"
   },
   "app": {
     "windows": [

@@ -1,0 +1,96 @@
+/* ================================================== */
+/* Utility Buttons (.btn)                             */
+/* ================================================== */
+/*
+ * 使い方:  <button class="btn btn--primary btn--sm">保存</button>
+ * 基底:    .btn（必須）
+ * バリアント: --primary / --secondary / --ghost / --danger / --icon
+ * サイズ:  --sm（ツールバー・モーダル内はほぼ必須）
+ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  transition: background var(--t), color var(--t), border-color var(--t),
+              box-shadow var(--t), transform var(--t);
+}
+.btn svg { width: 14px; height: 14px; fill: currentColor; flex-shrink: 0; }
+.btn:active { transform: translateY(1px) !important; box-shadow: none !important; }
+
+/* ── Primary: そのコンテキストで最重要な1アクション ── */
+.btn--primary {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(99,102,241,0.30), 0 1px 2px rgba(0,0,0,0.08);
+}
+.btn--primary:hover {
+  background: var(--c-accent-hover);
+  border-color: var(--c-accent-hover);
+  box-shadow: 0 3px 8px rgba(99,102,241,0.40), 0 1px 3px rgba(0,0,0,0.10);
+  transform: translateY(-1px);
+}
+
+/* ── Secondary: primary に次ぐ重要度（primary と並べる場合）── */
+.btn--secondary {
+  background: var(--c-surface);
+  border-color: var(--c-border);
+  color: var(--c-text);
+}
+.btn--secondary:hover {
+  background: var(--c-bg);
+  border-color: var(--c-border-2);
+}
+
+/* ── Ghost: 補助アクション（キャンセル・閉じる・編集・コピー）── */
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--c-text-3);
+  padding: 4px 6px;
+}
+.btn--ghost:hover {
+  background: var(--c-bg-2);
+  border-color: var(--c-border);
+  color: var(--c-text-2);
+}
+.btn--ghost svg { width: 14px; height: 14px; }
+
+/* ── Danger: 取り消しできない破壊的操作の確認 ── */
+.btn--danger {
+  background: var(--c-danger-bg);
+  border-color: var(--c-danger);
+  color: var(--c-danger);
+}
+.btn--danger:hover { background: var(--c-danger); color: #fff; }
+
+/* ── Icon: アイコンのみのツールバーボタン ── */
+.btn--icon {
+  padding: 5px;
+  border-color: var(--c-border);
+  color: var(--c-text-3);
+  background: transparent;
+}
+.btn--icon:hover {
+  color: var(--c-text);
+  background: var(--c-bg-2);
+  border-color: var(--c-border);
+}
+.btn--icon svg { width: 16px; height: 16px; }
+
+/* ── Size modifier ── */
+.btn--sm { padding: 4px 10px; font-size: 12px; gap: 5px; }
+.btn--sm svg { width: 12px; height: 12px; }
+.btn--icon.btn--sm { padding: 4px; }
+.btn--icon.btn--sm svg { width: 14px; height: 14px; }

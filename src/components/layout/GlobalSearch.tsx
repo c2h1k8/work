@@ -1,0 +1,204 @@
+// ==================================================
+// GlobalSearch: グローバル検索バー
+// ==================================================
+// Ctrl+K でフォーカス。タブ名とページ内コンテンツをインクリメンタル検索する。
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTabStore } from '../../stores/tab_store';
+import { searchRegistry } from '../../stores/search_store';
+import type { ContentSearchResult } from '../../stores/search_store';
+import type { TabConfig } from '../../constants/tabs';
+
+const isMac = (() => {
+  const p =
+    (navigator as Navigator & { userAgentData?: { platform: string } }).userAgentData?.platform ??
+    navigator.platform ?? '';
+  return p ? /mac/i.test(p) : /Macintosh|Mac OS X/i.test(navigator.userAgent);
+})();
+
+interface TabResult {
+  type: 'tab';
+  label: string;
+  icon: string;
+  tab: TabConfig;
+}
+
+interface ContentResult {
+  type: 'content';
+  label: string;
+  icon: string;
+  excerpt: string;
+  item: ContentSearchResult;
+}
+
+type SearchResult = TabResult | ContentResult;
+
+export function GlobalSearch() {
+  const [query,    setQuery]    = useState('');
+  const [results,  setResults]  = useState<SearchResult[]>([]);
+  const [focusIdx, setFocusIdx] = useState(-1);
+  const [open,     setOpen]     = useState(false);
+  const inputRef   = useRef<HTMLInputElement>(null);
+  const wrapRef    = useRef<HTMLDivElement>(null);
+  const searchIdRef = useRef(0);
+
+  const { config, setActiveTab } = useTabStore();
+
+  const search = useCallback(async (q: string) => {
+    if (!q.trim()) { setResults([]); setOpen(false); return; }
+    const id = ++searchIdRef.current;
+    const lower = q.toLowerCase();
+
+    // タブ名検索（同期）
+    const tabResults: SearchResult[] = config
+      .filter((t) => t.visible && t.label.toLowerCase().includes(lower))
+      .map((t) => ({ type: 'tab', label: t.label, icon: t.icon, tab: t }));
+
+    // ページ内コンテンツ検索（非同期）
+    const contentItems = await searchRegistry.searchAll(lower);
+    if (id !== searchIdRef.current) return;
+
+    const contentResults: SearchResult[] = contentItems.map((item) => {
+      const tab = config.find((t) => t.pageSrc === item.pageSrc);
+      return { type: 'content', label: item.title, icon: tab?.icon ?? '', excerpt: item.excerpt, item };
+    });
+
+    const allResults = [...tabResults, ...contentResults];
+    setResults(allResults);
+    setOpen(allResults.length > 0);
+    setFocusIdx(-1);
+  }, [config]);
+
+  // 表示用グループ（focusIdx はフラット results のインデックスを維持）
+  const grouped = (() => {
+    const tabItems: { r: SearchResult; idx: number }[] = [];
+    const contentMap = new Map<string, { pageLabel: string; items: { r: SearchResult; idx: number }[] }>();
+    results.forEach((r, idx) => {
+      if (r.type === 'tab') {
+        tabItems.push({ r, idx });
+      } else {
+        const pageSrc = (r as ContentResult).item.pageSrc;
+        const pageLabel = config.find((t) => t.pageSrc === pageSrc)?.label ?? pageSrc;
+        if (!contentMap.has(pageSrc)) contentMap.set(pageSrc, { pageLabel, items: [] });
+        contentMap.get(pageSrc)!.items.push({ r, idx });
+      }
+    });
+    const sections: { header: string; items: { r: SearchResult; idx: number }[] }[] = [];
+    if (tabItems.length > 0) sections.push({ header: 'タブ', items: tabItems });
+    contentMap.forEach((g) => sections.push({ header: g.pageLabel, items: g.items }));
+    return sections;
+  })();
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const q = e.target.value;
+    setQuery(q);
+    search(q);
+  }, [search]);
+
+  const handleSelect = useCallback((result: SearchResult) => {
+    if (result.type === 'tab') {
+      setActiveTab(result.label);
+    } else {
+      result.item.onSelect();
+    }
+    setQuery('');
+    setResults([]);
+    setOpen(false);
+    inputRef.current?.blur();
+  }, [setActiveTab]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusIdx((i) => Math.min(i + 1, results.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusIdx((i) => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter') {
+      if (focusIdx >= 0 && results[focusIdx]) {
+        handleSelect(results[focusIdx]);
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      setQuery('');
+      inputRef.current?.blur();
+    }
+  }, [open, results, focusIdx, handleSelect]);
+
+  // Ctrl+K でフォーカス
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  // 外部クリックで閉じる
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="global-search" id="global-search-wrap">
+      <svg className="global-search__icon" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z" />
+      </svg>
+      <input
+        ref={inputRef}
+        id="global-search-input"
+        className="global-search__input"
+        type="text"
+        placeholder={`検索 (${isMac ? '⌘' : 'Ctrl'}+K)`}
+        autoComplete="off"
+        aria-label="全ページを検索"
+        value={query}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onFocus={() => query && setOpen(results.length > 0)}
+      />
+      <span className="global-search__kbd">{isMac ? '⌘K' : 'Ctrl+K'}</span>
+      {open && grouped.length > 0 && (
+        <div className="global-search__results" id="global-search-results">
+          {grouped.map((section, si) => (
+            <div key={section.header}>
+              {si > 0 && <div className="global-search__group-divider" />}
+              <div className="global-search__group-label">{section.header}</div>
+              {section.items.map(({ r, idx }) => (
+                <button
+                  key={r.type === 'tab' ? `tab-${r.label}` : (r as ContentResult).item.id}
+                  type="button"
+                  className={`global-search__item${r.type === 'content' ? ' global-search__item--content' : ''}${idx === focusIdx ? ' global-search__item--focused' : ''}`}
+                  onMouseDown={(e) => { e.preventDefault(); handleSelect(r); }}
+                >
+                  <span className="global-search__item-icon" dangerouslySetInnerHTML={{ __html: r.icon }} />
+                  {r.type === 'content' ? (
+                    <span className="global-search__item-body">
+                      <span className="global-search__item-label">{r.label}</span>
+                      {r.excerpt && <span className="global-search__item-excerpt">{r.excerpt}</span>}
+                    </span>
+                  ) : (
+                    <span className="global-search__item-label">{r.label}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

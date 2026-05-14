@@ -9,7 +9,7 @@
 | `index.html`             | タブナビゲーションのエントリポイント                                                                                         |
 | `pages/todo.html`        | Kanban形式のTODO管理ボード（動的カラム追加削除・ソート・カスタムカレンダー・ラベルフィルター・タスク紐づけ・エクスポート／インポート付き） |
 | `pages/dashboard.html`   | カスタマイズ可能なホームダッシュボード（設定画面からセクション・アイテムを自由に作成。list/grid/table/command_builder/markdown/iframe/countdown でバインド変数プリセット対応。使用頻度順ソート対応） |
-| `pages/sql.html`         | Oracle SQL\*Plusコマンド・チューニングリファレンス（接続環境管理・SQL整形・実行計画ガイド検索・テーブル定義メモをIndexedDBで管理。カラム横断検索・カラム一覧ビュー・テーブル間リレーション自動検出・カラムコピー・テーブル比較対応） |
+| `pages/sql.html`         | Oracle SQL\*Plus ワークフロー支援ツール（接続・設定タブ: 接続環境管理・セッション設定ワンクリックコピー・バインド変数生成 / 実行計画 & チューニングタブ: 実行計画テキスト解析・チューニングガイド参照を左右分割で同時表示 / テーブル定義メモタブ: カラム一覧ビュー・テーブル間リレーション自動検出・テーブル比較・CREATE TABLE パース対応） |
 | `pages/note.html`        | ノート管理（設計書・テストケース・エビデンス等のリンクや備考を可変フィールドで管理。フィールド幅 narrow/auto/wide/full・DatePicker対応。リンク表示名コピー・ドロップダウンフィールド・ノート間リンク・変更履歴対応） |
 | `pages/wbs.html`         | WBS管理（タスク名・予定/実績の開始日・日数・終了日（自動算出）・進捗・ステータス。土日/祝日/カスタム休業日を考慮した営業日計算。ガントチャート表示。DnDによる行の並び替え・親移動時は子孫も一括移動） |
 | `pages/timer.html`       | 定型作業タイマー（ポモドーロ等のプリセット選択・作業/休憩フェーズ管理・セッションログ記録。今日/今週/今月/先月/カスタム期間の切替、日別推移・タグ別・タスク別・曜日別集計グラフ、1日の目標時間と達成率・連続達成ストリーク、CSV エクスポート対応） |
@@ -18,7 +18,80 @@
 | `pages/ops.html`         | 運用インフラツール（ログビューア・cron式エディタ・HTTPステータスコード辞典・ポート番号リファレンス・サブネット計算機 の5ツールをタブで統合） |
 | `pages/text.html`        | テキスト処理・変換ツール（エンコード・ケース変換・正規表現テスター・文字カウント・タイムスタンプ・TSV/CSV・フォーマッタ の7ツールをタブで統合） |
 
-## 技術スタック
+## React 移行（feature/react-migration ブランチ）
+
+`feature/react-migration` ブランチで Vanilla JS → React + TypeScript + Tailwind への全面移行が完了。
+各ページが `src/pages/` 配下の React コンポーネントとして実装されている（iframe を排除）。
+
+| ページコンポーネント | 対応 pageSrc |
+|---|---|
+| `src/pages/TodoPage.tsx`      | `pages/todo.html` |
+| `src/pages/DashboardPage.tsx` | `pages/dashboard.html` |
+| `src/pages/SqlPage.tsx`       | `pages/sql.html` |
+| `src/pages/NotePage.tsx`      | `pages/note.html` |
+| `src/pages/WbsPage.tsx`       | `pages/wbs.html` |
+| `src/pages/TimerPage.tsx`     | `pages/timer.html` |
+| `src/pages/SnippetPage.tsx`   | `pages/snippet.html` |
+| `src/pages/DiffToolPage.tsx`  | `pages/diff_tool.html` |
+| `src/pages/OpsPage.tsx`       | `pages/ops.html` |
+| `src/pages/TextPage.tsx`      | `pages/text.html` |
+
+**React 版の技術スタック:**
+
+| カテゴリ | 採用技術 |
+|---|---|
+| UI フレームワーク | React 19 + TypeScript 5 |
+| ビルドツール | Vite 6 |
+| スタイル | Tailwind CSS v4 + CSS 変数（ダークモード対応） |
+| ルーター | TanStack Router v1 |
+| 状態管理 | Zustand v5 |
+| DB | Dexie.js v4（IndexedDB。既存 DB スキーマ互換） |
+| DnD | @dnd-kit/core + @dnd-kit/sortable |
+| Markdown | react-markdown + rehype-sanitize |
+| シンタックスハイライト | Shiki v4 |
+| アイコン | Lucide React |
+
+新しいページを追加する場合は `src/pages/<Name>Page.tsx` を作成し、`src/pages/registry.ts` に `PAGE_REGISTRY` エントリを追加する。
+
+### React 版ディレクトリ構成（src/）
+
+```
+src/
+├── App.tsx                 # ルートコンポーネント（AppShell）
+├── main.tsx                # エントリポイント
+├── contexts/
+│   └── TabContext.ts       # タブラベルを instanceId として提供するコンテキスト
+├── components/             # 共通コンポーネント
+│   ├── Toast.tsx           # トースト通知
+│   ├── ShortcutHelp.tsx    # ショートカットヘルプ
+│   └── layout/             # AppShell レイアウト部品
+├── core/                   # ユーティリティ（utils.ts 等）
+├── db/                     # Dexie.js DB クラス（各ページ対応）
+│   ├── activity_db.ts      # アクティビティログ
+│   ├── app_db.ts           # タブ設定（app_db）
+│   ├── kanban_db.ts        # todo.html
+│   ├── dashboard_db.ts     # dashboard.html
+│   ├── note_db.ts          # note.html
+│   ├── sql_db.ts           # sql.html
+│   ├── wbs_db.ts           # wbs.html
+│   ├── timer_db.ts         # timer.html
+│   ├── snippet_db.ts       # snippet.html
+│   ├── ops_db.ts           # ops.html
+│   └── text_db.ts          # text.html
+├── pages/                  # 各ページ React コンポーネント
+│   ├── registry.ts         # pageSrc → React コンポーネントのマッピング
+│   ├── TodoPage.tsx
+│   ├── DashboardPage.tsx
+│   ├── ...（全10ページ）
+│   └── WbsPage.tsx
+└── stores/                 # Zustand ストア
+    ├── tab_store.ts        # タブ設定
+    └── theme_store.ts      # テーマ
+```
+
+---
+
+## 技術スタック（Vanilla JS 版 / main ブランチ）
 
 - **フロントエンド**: Vanilla JS（全ページ統一）
 - **スタイル**: LESS → CSS（手動コンパイル）。デザイントークンは `css/core/tokens.less` に一元管理
@@ -178,6 +251,19 @@ work/
     ├── timer.less + css/timer/        # パーシャル分割
     ├── snippet.{less,css}
     └── diff_tool.{less,css}
+└── docs/
+    ├── architecture/
+    │   ├── react/             # React 版（feature/react-migration）ページ別アーキテクチャ
+    │   │   ├── index.md / todo.md / dashboard.md / note.md / sql.md
+    │   │   ├── wbs.md / timer.md / ops.md / text.md / snippet.md
+    │   └── vanilla/           # Vanilla JS 版（main）ページ別アーキテクチャ
+    │       ├── index.md / todo.md / dashboard.md / note.md / sql.md
+    │       └── wbs.md / timer.md / ops.md / text.md / snippet.md
+    ├── coding/                # コーディング規約詳細
+    │   ├── react.md           # React 版規約・ハマりポイント
+    │   └── vanilla-js.md      # Vanilla JS コアユーティリティ・コンポーネント一覧
+    └── design/
+        └── buttons.md         # ボタンコンポーネントデザインガイド
 ```
 
 ## 使い方

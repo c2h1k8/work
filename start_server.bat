@@ -4,6 +4,17 @@ cd /d "%~dp0"
 
 set PORT=52700
 
+:: ── dist\ が存在しなければビルドを促す ──
+if not exist "%~dp0dist\" (
+    echo [ERROR] dist\ フォルダが見つかりません。
+    echo.
+    echo 先に以下を実行してください:
+    echo   npm run build
+    echo.
+    pause
+    exit /b 1
+)
+
 :: ── すでにポートが使用中なら再起動しない ──
 netstat -ano | findstr ":%PORT% " | findstr "LISTENING" > nul 2>&1
 if %ERRORLEVEL% == 0 (
@@ -15,7 +26,7 @@ if %ERRORLEVEL% == 0 (
 python --version > nul 2>&1
 if %ERRORLEVEL% == 0 (
     powershell -ExecutionPolicy Bypass -WindowStyle Hidden -Command ^
-        "Start-Process python -ArgumentList '-m','http.server','%PORT%' -WorkingDirectory '%CD%' -WindowStyle Hidden"
+        "Start-Process python -ArgumentList '-m','http.server','%PORT%','--directory','dist' -WorkingDirectory '%CD%' -WindowStyle Hidden"
     timeout /t 1 /nobreak > nul
     start "" "http://localhost:%PORT%"
     exit /b 0
@@ -25,7 +36,7 @@ if %ERRORLEVEL% == 0 (
 python3 --version > nul 2>&1
 if %ERRORLEVEL% == 0 (
     powershell -ExecutionPolicy Bypass -WindowStyle Hidden -Command ^
-        "Start-Process python3 -ArgumentList '-m','http.server','%PORT%' -WorkingDirectory '%CD%' -WindowStyle Hidden"
+        "Start-Process python3 -ArgumentList '-m','http.server','%PORT%','--directory','dist' -WorkingDirectory '%CD%' -WindowStyle Hidden"
     timeout /t 1 /nobreak > nul
     start "" "http://localhost:%PORT%"
     exit /b 0
@@ -35,7 +46,7 @@ if %ERRORLEVEL% == 0 (
 node --version > nul 2>&1
 if %ERRORLEVEL% == 0 (
     powershell -ExecutionPolicy Bypass -WindowStyle Hidden -Command ^
-        "Start-Process cmd -ArgumentList '/c npx --yes serve -p %PORT% .' -WorkingDirectory '%CD%' -WindowStyle Hidden"
+        "Start-Process cmd -ArgumentList '/c npx --yes serve -p %PORT% dist' -WorkingDirectory '%CD%' -WindowStyle Hidden"
     timeout /t 2 /nobreak > nul
     start "" "http://localhost:%PORT%"
     exit /b 0

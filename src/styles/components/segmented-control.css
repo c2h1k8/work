@@ -1,0 +1,61 @@
+/* ============================================================
+   Segmented Control — グローバル共通コンポーネント
+   ============================================================
+   使い方:
+     <div class="seg-ctrl">
+       <button class="seg-btn seg-btn--active">A</button>
+       <button class="seg-btn">B</button>
+     </div>
+   サイズ修飾子:
+     （なし）    … ツールバー・セクション主操作（padding 5px 14px / 13px）
+     .seg-btn--sm … インラインツールバー内コンパクト（padding 3px 10px / 12px）
+   ============================================================ */
+
+.seg-ctrl {
+  display: inline-flex;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--c-bg);
+  flex-shrink: 0;
+}
+
+.seg-btn {
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  border: none;
+  border-right: 1.5px solid var(--c-border);
+  background: transparent;
+  color: var(--c-text-2);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.seg-btn:last-child {
+  border-right: none;
+}
+
+.seg-btn:hover:not(.seg-btn--active) {
+  background: var(--c-surface-raised);
+  color: var(--c-text);
+}
+
+.seg-btn--active {
+  background: var(--c-accent);
+  color: var(--c-accent-text);
+  font-weight: 600;
+}
+
+.seg-btn--active:hover {
+  background: var(--c-accent-hover);
+}
+
+/* コンパクトサイズ: インラインツールバー内 */
+.seg-btn--sm {
+  padding: 3px 10px;
+  font-size: 12px;
+}
