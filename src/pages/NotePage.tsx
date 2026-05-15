@@ -23,6 +23,16 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS as DndCSS } from '@dnd-kit/utilities';
 import { GripVertical, Pencil, Trash2, Tag, Settings2, X, Plus, Download, Upload, Search, FilterX, ExternalLink, Check } from 'lucide-react';
+import { ShortcutHelp } from '../components/ShortcutHelp';
+
+const NOTE_SHORTCUTS = [{
+  name: 'ショートカット',
+  shortcuts: [
+    { keys: ['N'],      description: '新規ノート追加' },
+    { keys: ['F'],      description: '検索にフォーカス' },
+    { keys: ['Escape'], description: '詳細パネルの選択を解除' },
+  ],
+}];
 
 // ── localStorage キー ─────────────────────────────
 const KEY_SORT         = 'note_sort';
@@ -1197,6 +1207,7 @@ export function NotePage() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<Array<{ fieldId: number | string; fieldName: string; old_value: string; new_value: string; changed_at: number }>>([]);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   // インラインタスク追加フォーム
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -1246,6 +1257,30 @@ export function NotePage() {
     else setTaskEntries([]);
   }, [selectedTaskId, loadTaskEntries]);
 
+  // ── グローバルキーボードショートカット ─────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
+      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
+      const inInput = ['input', 'textarea', 'select'].includes(tag ?? '')
+        || (document.activeElement as HTMLElement)?.isContentEditable;
+      if (inInput) return;
+
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setShowAddForm(true);
+        setTimeout(() => addInputRef.current?.focus(), 50);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === 'Escape') {
+        setSelectedTaskId(null);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
   // グローバル検索登録
   useEffect(() => {
     const noteLabel = tabConfig.find(t => t.pageSrc === 'pages/note.html')?.label ?? '';
@@ -1268,10 +1303,16 @@ export function NotePage() {
           entryMatchMap.set(e.task_id, e.value || e.label || '');
         }
       }
-      return allTasks
-        .filter(t => t.title.toLowerCase().includes(q) || entryMatchMap.has(t.id!))
-        .slice(0, 10)
-        .map(t => ({
+      const matched = allTasks.filter(t => t.title.toLowerCase().includes(q) || entryMatchMap.has(t.id!));
+      // タイトル前方一致 → タイトル部分一致 → フィールドマッチ の順に優先して並べる
+      matched.sort((a, b) => {
+        const aTitle = a.title.toLowerCase();
+        const bTitle = b.title.toLowerCase();
+        const aStart = aTitle.startsWith(q) ? 0 : aTitle.includes(q) ? 1 : 2;
+        const bStart = bTitle.startsWith(q) ? 0 : bTitle.includes(q) ? 1 : 2;
+        return aStart - bStart;
+      });
+      return matched.slice(0, 20).map(t => ({
           id: `note-${t.id}`,
           pageSrc: 'pages/note.html',
           title: t.title,
@@ -1560,6 +1601,7 @@ export function NotePage() {
           <div className="relative">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--c-text-3)] pointer-events-none" />
             <input
+              ref={searchInputRef}
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -1881,6 +1923,8 @@ export function NotePage() {
           </div>
         );
       })()}
+
+      <ShortcutHelp categories={NOTE_SHORTCUTS} />
     </div>
   );
 }

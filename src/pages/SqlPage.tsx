@@ -29,6 +29,14 @@ import {
   Settings, Terminal, BarChart2, FileText, Columns,
   ArrowLeftRight, GripVertical, Database,
 } from 'lucide-react';
+import { ShortcutHelp } from '../components/ShortcutHelp';
+
+const SQL_SHORTCUTS = [{
+  name: 'ショートカット',
+  shortcuts: [
+    { keys: ['Ctrl', 'Enter'], description: '接続コマンドをコピー' },
+  ],
+}];
 
 // ================================================================
 // 型・定数
@@ -1661,6 +1669,8 @@ export function SqlPage() {
         {activeTab === 'analyze' && <AnalyzeTab />}
         {activeTab === 'memo'    && <MemoTab pendingSelId={pendingMemoId} onClearPending={() => setPendingMemoId(null)} />}
       </div>
+
+      <ShortcutHelp categories={SQL_SHORTCUTS} />
     </div>
   );
 }

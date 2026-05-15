@@ -14,7 +14,7 @@
 | **スタイル** | Tailwind CSS v4 クラス + CSS 変数（`var(--c-*)`, `var(--shadow-*)` 等） |
 | **DB** | Dexie.js。既存 Vanilla JS の DB 名・バージョンと完全互換を保つ |
 | **DnD** | `@dnd-kit/core` + `@dnd-kit/sortable`（SortableJS 禁止） |
-| **Markdown** | `react-markdown` + `rehype-sanitize`（marked.js 禁止） |
+| **Markdown** | `<MarkdownBody>` (`src/components/MarkdownBody.tsx`) を使う。`react-markdown` 直接使用禁止。プラグイン: `remark-gfm` + `remark-breaks` + `rehype-sanitize`。シンタックスハイライト: `react-syntax-highlighter`（PrismLight）|
 | **アイコン** | `lucide-react` |
 | **Toast** | `useToast()` フック（`src/components/Toast.tsx`） |
 

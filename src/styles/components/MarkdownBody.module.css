@@ -1,0 +1,187 @@
+.md-body {
+  font-size: 14px;
+  color: var(--c-text, var(--color-text));
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 要素間余白 */
+.md-body > * {
+  margin-bottom: 10px;
+}
+.md-body > *:last-child {
+  margin-bottom: 0;
+}
+
+/* 段落 */
+.md-body p {
+  margin-bottom: 10px;
+}
+.md-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* 見出し */
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4,
+.md-body h5,
+.md-body h6 {
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+.md-body h1 {
+  font-size: 1.6em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid var(--c-border, var(--color-border));
+}
+.md-body h2 {
+  font-size: 1.35em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--c-border, var(--color-border));
+}
+.md-body h3 { font-size: 1.15em; }
+.md-body h4 { font-size: 1em; }
+.md-body h5 { font-size: 0.9em; }
+.md-body h6 {
+  font-size: 0.85em;
+  color: var(--c-text-2, var(--color-text-muted));
+}
+
+/* リンク */
+.md-body a {
+  color: var(--c-accent, var(--color-accent));
+  text-decoration: none;
+}
+.md-body a:hover {
+  text-decoration: underline;
+}
+
+/* インラインコード */
+.md-body code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 85%;
+  background: rgba(175, 184, 193, 0.2);
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+}
+
+/* コードブロック（言語なし） */
+.md-pre {
+  background: var(--c-bg-2, var(--color-bg));
+  border-radius: 6px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin-bottom: 10px;
+}
+.md-pre:last-child {
+  margin-bottom: 0;
+}
+.md-pre code {
+  background: none;
+  padding: 0;
+  font-size: 85%;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* コードブロック（言語あり）: react-syntax-highlighter が描画 */
+.md-body :global(.syntax-highlighter-wrap) {
+  margin-bottom: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.md-body :global(.syntax-highlighter-wrap):last-child {
+  margin-bottom: 0;
+}
+
+/* 引用 */
+.md-body blockquote {
+  padding: 2px 12px;
+  color: var(--c-text-2, var(--color-text-muted));
+  border-left: 4px solid var(--c-accent, var(--color-accent));
+  margin: 0 0 10px;
+  opacity: 0.85;
+}
+.md-body blockquote:last-child {
+  margin-bottom: 0;
+}
+.md-body blockquote p {
+  margin-bottom: 4px;
+}
+.md-body blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* リスト */
+.md-body ul,
+.md-body ol {
+  padding-left: 1.75em;
+  margin-bottom: 10px;
+}
+.md-body ul:last-child,
+.md-body ol:last-child {
+  margin-bottom: 0;
+}
+.md-body li + li {
+  margin-top: 0.2em;
+}
+
+/* チェックリスト */
+.md-body ul.contains-task-list {
+  padding-left: 0.5em;
+}
+.md-body li.task-list-item,
+.md-body li:has(> input[type="checkbox"]) {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.md-task-checkbox {
+  cursor: pointer;
+  accent-color: var(--c-accent, var(--color-accent));
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+/* テーブル */
+.md-body table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.md-body table:last-child {
+  margin-bottom: 0;
+}
+.md-body th,
+.md-body td {
+  border: 1px solid var(--c-border, var(--color-border));
+  padding: 5px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.md-body th {
+  background: var(--c-bg-2, var(--color-bg));
+  font-weight: 600;
+}
+.md-body tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--c-bg-2, var(--color-bg)) 60%, transparent);
+}
+
+/* 水平線 */
+.md-body hr {
+  height: 1px;
+  border: 0;
+  background: var(--c-border, var(--color-border));
+  margin: 14px 0;
+}
+
+/* 装飾 */
+.md-body strong { font-weight: 600; }
+.md-body em { font-style: italic; }
+.md-body del { text-decoration: line-through; }

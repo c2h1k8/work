@@ -57,3 +57,8 @@ State.dependencies: Map<taskId, { blocking: Set<taskId>, blockedBy: Set<taskId> 
 - `archives`: 完了カラムヘッダーにアーカイブボタン（一括アーカイブ）。`#archive-modal` で検索・復元・完全削除
 - `dependencies`: `from`=先行（ブロッカー）、`to`=後続。循環依存チェック（DFS）。ブロックされているカードにロックアイコン（`Icons.lock`）
 - カラムは動的追加・削除可能。削除時にタスクが残っていればブロック
+
+## バックアップ（Backup）
+
+- `Backup.export(db)`: try-catch あり。エラー時は `Toast.error` でメッセージを表示
+- `Backup.import(db)`: try-catch あり。フォーマット不正・確認キャンセル時は早期リターン

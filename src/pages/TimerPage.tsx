@@ -11,6 +11,17 @@ import { getTagColor } from '../core/utils';
 import { timerDB, type TimerPreset, type TimerSession } from '../db/timer_db';
 import { useTabStore } from '../stores/tab_store';
 import { searchRegistry } from '../stores/search_store';
+import { ShortcutHelp } from '../components/ShortcutHelp';
+
+const TIMER_SHORTCUTS = [{
+  name: 'ショートカット',
+  shortcuts: [
+    { keys: ['Space'], description: 'タイマー開始/停止' },
+    { keys: ['R'],     description: 'タイマーリセット' },
+    { keys: ['Ctrl', '←'], description: '前のプリセット' },
+    { keys: ['Ctrl', '→'], description: '次のプリセット' },
+  ],
+}];
 
 // ── ストレージキー ─────────────────────────────────
 const KEY_ACTIVE_PRESET = 'timer_active_preset';
@@ -45,6 +56,15 @@ function toHHMM(iso: string) {
 }
 
 const tagColor = getTagColor;
+
+// Tauri 環境ではネイティブウィンドウタイトルも同時に更新する
+// document.title だけでは Tauri のウィンドウタイトルに反映されないため
+function setWindowTitle(title: string) {
+  document.title = title;
+  type TauriWindow = { getCurrentWindow: () => { setTitle: (t: string) => Promise<void> } };
+  const tw = (window as unknown as { __TAURI__?: { window?: TauriWindow } }).__TAURI__?.window;
+  tw?.getCurrentWindow().setTitle(title).catch(() => {});
+}
 
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -649,11 +669,11 @@ export function TimerPage() {
   // ── ページタイトル更新 ─────────────────────────────
   useEffect(() => {
     if (running) {
-      document.title = `${mode === 'work' ? '▶' : '☕'} ${fmtMMSS(remaining)} MyTools`;
+      setWindowTitle(`${mode === 'work' ? '▶' : '☕'} ${fmtMMSS(remaining)} MyTools`);
     } else {
-      document.title = 'MyTools';
+      setWindowTitle('MyTools');
     }
-    return () => { document.title = 'MyTools'; };
+    return () => { setWindowTitle('MyTools'); };
   }, [running, remaining, mode]);
 
   // ── セッション読み込み ────────────────────────────
@@ -881,7 +901,7 @@ export function TimerPage() {
       setTotal(preset.work_sec);     totalRef.current     = preset.work_sec;
     }
     clearTimerState();
-    document.title = 'MyTools';
+    setWindowTitle('MyTools');
   }, [getActivePreset, clearTimerState]);
 
   // ── タイマー開始 ──────────────────────────────────
@@ -1700,6 +1720,8 @@ export function TimerPage() {
           onClose={() => setShowPresetModal(false)}
         />
       )}
+
+      <ShortcutHelp categories={TIMER_SHORTCUTS} />
     </div>
   );
 }

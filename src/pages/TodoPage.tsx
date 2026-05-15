@@ -38,16 +38,25 @@ import {
 } from '../db/kanban_db';
 import { ActivityLogger } from '../core/activity_logger';
 import { useToast } from '../components/Toast';
-import ReactMarkdown from 'react-markdown';
-import rehypeSanitize from 'rehype-sanitize';
-import remarkGfm from 'remark-gfm';
+import { MarkdownBody } from '../components/MarkdownBody';
 import { noteDB } from '../db/note_db';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
 import { LabelManager, type LabelItem } from '../components/LabelManager';
 import { Picker, type PickerItem } from '../components/Picker';
+import { ShortcutHelp } from '../components/ShortcutHelp';
 import { searchRegistry } from '../stores/search_store';
 import { useTabStore } from '../stores/tab_store';
+
+const TODO_SHORTCUTS = [{
+  name: 'ショートカット',
+  shortcuts: [
+    { keys: ['N'],                    description: '先頭カラムに新規タスク追加' },
+    { keys: ['F'],                    description: '検索にフォーカス' },
+    { keys: ['Ctrl', 'Shift', 'A'],   description: '完了カラムを一括アーカイブ' },
+    { keys: ['Escape'],               description: 'モーダルを閉じる' },
+  ],
+}];
 
 // ── localStorage ───────────────────────────────────────────
 const LS_SORT         = 'kanban_sort';
@@ -223,12 +232,13 @@ interface ColumnProps {
   onEditColumn: (column: KanbanColumn) => void;
   onArchiveCard: (task: KanbanTask) => void;
   onDeleteCard: (task: KanbanTask) => void;
+  addBtnRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 const KanbanColumnView = React.memo(function KanbanColumnView({
   column, tasks, labels, taskLabels, dependencies, isDragOver, templates,
   onCardClick, onAddCard, onAddFromTemplate, onArchiveColumn, onEditColumn,
-  onArchiveCard, onDeleteCard,
+  onArchiveCard, onDeleteCard, addBtnRef,
 }: ColumnProps) {
   const { setNodeRef } = useDroppable({ id: `col-${column.key}` });
   const [adding, setAdding] = useState(false);
@@ -278,7 +288,7 @@ const KanbanColumnView = React.memo(function KanbanColumnView({
           <Settings2Icon size={12} aria-hidden="true" />
         </button>
         <div className="relative">
-          <button onClick={startAdd} aria-label={`${column.name}にタスクを追加`}
+          <button ref={addBtnRef} onClick={startAdd} aria-label={`${column.name}にタスクを追加`}
             className="p-0.5 rounded hover:bg-[var(--c-bg)] text-[var(--c-fg-3)] hover:text-[var(--c-fg)]">
             <PlusIcon size={14} aria-hidden="true" />
           </button>
@@ -388,6 +398,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   const [descEditing,  setDescEditing]  = useState(false);
   const [descSubTab,   setDescSubTab]   = useState<'write' | 'preview'>('write');
   const committedDesc = useRef(task.description || '');
+  const descTextareaRef = useRef<HTMLTextAreaElement>(null);
 
 
   // ── チェックリスト インライン編集 ────────────────────────
@@ -884,6 +895,13 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     handleLabelManagerChanged();
   }
 
+  // 編集タブに切り替えたとき textarea にフォーカスを戻す
+  useEffect(() => {
+    if (descEditing && descSubTab === 'write') {
+      descTextareaRef.current?.focus();
+    }
+  }, [descEditing, descSubTab]);
+
   // ── タイムライン縦線の高さを CSS 変数で設定 ─────────────────
   useEffect(() => {
     const el = commentsRef.current;
@@ -1066,8 +1084,8 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
           {/* メインエリア */}
           <div className={styles['modal__main']}>
 
-            {/* ── 説明セクション（参照 / 編集 切替） ── */}
-            <div className={styles['modal__section']}>
+            {/* ── 説明エリア（ラベルなし・GitHub 方式） ── */}
+            <div className={styles['desc-area']}>
               {descEditing ? (
                 <div className={styles['desc-editor']}>
                   <div className={styles['desc-editor__tabs']}>
@@ -1082,11 +1100,12 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                     <button
                       className={styles['desc-editor__confirm']}
                       onMouseDown={(e) => { e.preventDefault(); commitDesc(); }}
-                      title="確定"
+                      title="確定 (Esc でキャンセル)"
                     >確定</button>
                   </div>
                   {descSubTab === 'write' ? (
                     <textarea
+                      ref={descTextareaRef}
                       className={clsx(styles['modal__description'], styles['modal__description--editing'])}
                       value={description}
                       autoFocus
@@ -1099,90 +1118,49 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                       placeholder="説明を入力（Markdown対応）…"
                     />
                   ) : (
-                    <div
-                      className={clsx(styles['desc-editor__preview'], styles['md-body'])}
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); setDescSubTab('write'); } }}
-                    >
-                      {description ? (() => {
-                        let cbIdx = 0;
-                        return (
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[rehypeSanitize]}
-                            components={{
-                              input: ({ type, checked }) => {
-                                if (type === 'checkbox') {
-                                  const idx = cbIdx++;
-                                  return (
-                                    <input type="checkbox" checked={!!checked} className={styles['md-task-checkbox']}
-                                      onChange={(e) => {
-                                        const next = toggleCheckboxInMarkdown(description, idx, e.target.checked);
-                                        setDescription(next); committedDesc.current = next;
-                                        kanbanDB.updateTask(task.id!, { description: next }).then(onSaved);
-                                      }} />
-                                  );
-                                }
-                                return <input type={type} />;
-                              },
-                            }}
-                          >{description}</ReactMarkdown>
-                        );
-                      })() : <span className={styles['desc-editor__empty']}>（内容なし）</span>}
+                    <div className={styles['desc-editor__preview']}>
+                      {description ? (
+                        <MarkdownBody
+                          onCheckboxChange={(idx, checked) => {
+                            const next = toggleCheckboxInMarkdown(description, idx, checked);
+                            setDescription(next); committedDesc.current = next;
+                            kanbanDB.updateTask(task.id!, { description: next }).then(onSaved);
+                          }}
+                        >{description}</MarkdownBody>
+                      ) : <span className={styles['desc-editor__empty']}>（内容なし）</span>}
                     </div>
                   )}
                 </div>
               ) : (
-                <div
-                  className={clsx(styles['modal__desc-preview'], styles['md-body'], !description && styles['modal__desc-preview--empty'])}
-                  onClick={() => { setDescEditing(true); setDescSubTab('write'); }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { setDescEditing(true); setDescSubTab('write'); } }}
-                  title="クリックして編集"
-                >
-                  {description ? (() => {
-                    let cbIdx = 0;
-                    return (
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeSanitize]}
-                        components={{
-                          input: ({ type, checked }) => {
-                            if (type === 'checkbox') {
-                              const idx = cbIdx++;
-                              return (
-                                <input
-                                  type="checkbox"
-                                  checked={!!checked}
-                                  className={styles['md-task-checkbox']}
-                                  onChange={(e) => {
-                                    const next = toggleCheckboxInMarkdown(description, idx, e.target.checked);
-                                    setDescription(next);
-                                    committedDesc.current = next;
-                                    kanbanDB.updateTask(task.id!, { description: next }).then(onSaved);
-                                  }}
-                                />
-                              );
-                            }
-                            return <input type={type} />;
-                          },
-                        }}
-                      >
-                        {description}
-                      </ReactMarkdown>
-                    );
-                  })() : null}
+                <div className={styles['desc-preview-wrap']}>
+                  <button
+                    className={styles['desc-edit-btn']}
+                    onClick={() => { setDescEditing(true); setDescSubTab('write'); }}
+                    title="説明を編集"
+                    aria-label="説明を編集"
+                  >
+                    <PencilIcon size={11} aria-hidden="true" />
+                    編集
+                  </button>
+                  {description ? (
+                    <MarkdownBody
+                      onCheckboxChange={(idx, checked) => {
+                        const next = toggleCheckboxInMarkdown(description, idx, checked);
+                        setDescription(next);
+                        committedDesc.current = next;
+                        kanbanDB.updateTask(task.id!, { description: next }).then(onSaved);
+                      }}
+                    >{description}</MarkdownBody>
+                  ) : (
+                    <p className={styles['desc-empty']}>説明なし</p>
+                  )}
                 </div>
               )}
             </div>
 
             {/* ── チェックリストセクション（進捗バー + インライン編集） ── */}
-            <div className={styles['modal__section']}>
-              <h4 className={styles['modal__section-title']}>
-                <CheckIcon size={14} aria-hidden="true" />
-                チェックリスト
-              </h4>
+            <div className={clsx(styles['modal__section'], styles['modal__section--checklist'])}>
+              <h4 className={styles['modal__section-title']}>チェックリスト</h4>
               {checklist.length > 0 && (
                 <div className={styles['checklist-progress']}>
                   <div className={styles['checklist-progress__bar']}>
@@ -1249,12 +1227,9 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
             </div>
 
             {/* ── タイムライン（コメント + アクティビティ）セクション ── */}
-            <div className={styles['modal__section']}>
+            <div className={clsx(styles['modal__section'], styles['modal__section--grow'])}>
               <div className={styles['timeline-header']}>
-                <h4 className={styles['modal__section-title']}>
-                  <MessageSquareIcon size={14} aria-hidden="true" />
-                  アクティビティ
-                </h4>
+                <h4 className={styles['modal__section-title']}>アクティビティ</h4>
                 <div className={styles['timeline-header__right']}>
                   <div className={styles['timeline-tabs']}>
                     <button
@@ -1340,37 +1315,13 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                             </div>
                           </>
                         ) : (
-                          <div className={clsx(styles['comment-item__body'], styles['md-body'])}>
-                            {(() => {
-                              let cbIdx = 0;
-                              return (
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkGfm]}
-                                  rehypePlugins={[rehypeSanitize]}
-                                  components={{
-                                    input: ({ type, checked }) => {
-                                      if (type === 'checkbox') {
-                                        const idx = cbIdx++;
-                                        return (
-                                          <input
-                                            type="checkbox"
-                                            checked={!!checked}
-                                            className={styles['md-task-checkbox']}
-                                            onChange={(e) => {
-                                              const next = toggleCheckboxInMarkdown(c.body, idx, e.target.checked);
-                                              updateComment(c.id!, next);
-                                            }}
-                                          />
-                                        );
-                                      }
-                                      return <input type={type} />;
-                                    },
-                                  }}
-                                >
-                                  {c.body}
-                                </ReactMarkdown>
-                              );
-                            })()}
+                          <div className={styles['comment-item__body']}>
+                            <MarkdownBody
+                              onCheckboxChange={(idx, checked) => {
+                                const next = toggleCheckboxInMarkdown(c.body, idx, checked);
+                                updateComment(c.id!, next);
+                              }}
+                            >{c.body}</MarkdownBody>
                           </div>
                         )}
                       </div>
@@ -2110,7 +2061,9 @@ export function TodoPage() {
   const [showArchive,    setShowArchive]      = useState(false);
   const [showTemplateMgr, setShowTemplateMgr] = useState(false);
 
-  const importFileRef = useRef<HTMLInputElement>(null);
+  const importFileRef   = useRef<HTMLInputElement>(null);
+  const filterInputRef  = useRef<HTMLInputElement>(null);
+  const firstColAddRef  = useRef<HTMLButtonElement>(null);
 
   // フィルター・ソート
   const [filterText,    setFilterText]    = useState(() => lsGet(LS_FILTER) || '');
@@ -2351,6 +2304,48 @@ export function TodoPage() {
     await load();
     toast.success('アーカイブしました');
   }, [columns, tasksMap, load, toast]);
+
+  // ── 完了カラム一括アーカイブ（Ctrl+Shift+A） ────────────────
+  const archiveDoneColumns = useCallback(async () => {
+    const doneCols = columns.filter((c) => c.done);
+    const totalTasks = doneCols.reduce((n, c) => n + (tasksMap[c.key]?.length ?? 0), 0);
+    if (!totalTasks) { toast.info('アーカイブ対象のタスクがありません'); return; }
+    if (!confirm(`完了カラムの ${totalTasks} 件をすべてアーカイブしますか？`)) return;
+    for (const col of doneCols) {
+      for (const t of (tasksMap[col.key] || [])) {
+        await kanbanDB.addActivity(t.id!, 'archive', {});
+        await kanbanDB.archiveTask(t);
+        await kanbanDB.deleteTask(t.id!);
+        ActivityLogger.log('todo', 'archive', 'task', t.id!, `タスク「${t.title || '(無題)'}」をアーカイブ（${col.name}）`);
+      }
+    }
+    await load();
+    toast.success(`${totalTasks} 件をアーカイブしました`);
+  }, [columns, tasksMap, load, toast]);
+
+  // ── グローバルキーボードショートカット ──────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.isComposing) return;
+      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
+      const inInput = ['input', 'textarea', 'select'].includes(tag ?? '')
+        || (document.activeElement as HTMLElement)?.isContentEditable;
+      if (inInput) return;
+
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        firstColAddRef.current?.click();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        filterInputRef.current?.focus();
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        archiveDoneColumns();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [archiveDoneColumns]);
 
   // ── テンプレートからタスク追加 ───────────────────────────────
   const addTaskFromTemplate = useCallback(async (columnKey: string, template: KanbanTemplate) => {
@@ -2611,6 +2606,7 @@ export function TodoPage() {
         {/* 検索 */}
         <div className="relative">
           <input
+            ref={filterInputRef}
             value={filterText}
             onChange={(e) => { setFilterText(e.target.value); lsSet(LS_FILTER, e.target.value); }}
             placeholder="検索…"
@@ -2735,7 +2731,7 @@ export function TodoPage() {
           onDragEnd={handleDragEnd}
         >
           <div className="flex gap-4 h-full">
-            {columns.map((col) => (
+            {columns.map((col, idx) => (
               <KanbanColumnView
                 key={col.key}
                 column={col}
@@ -2752,6 +2748,7 @@ export function TodoPage() {
                 onEditColumn={openEditColumn}
                 onArchiveCard={archiveCard}
                 onDeleteCard={deleteCard}
+                addBtnRef={idx === 0 ? firstColAddRef : undefined}
               />
             ))}
           </div>
@@ -2839,6 +2836,7 @@ export function TodoPage() {
         onChange={handleImportFile}
       />
 
+      <ShortcutHelp categories={TODO_SHORTCUTS} />
     </div>
   );
 }

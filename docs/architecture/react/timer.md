@@ -19,3 +19,4 @@ DB 名: `timer_db` version 1
 - Web Worker ベースのカウントダウン（バックグラウンドタブ対応）
 - `file://` 環境では setInterval フォールバック
 - タイマー状態: `localStorage('timer_running_state')` に毎秒保存。リロード後に復元
+- ウィンドウタイトル更新: `setWindowTitle()` ヘルパー（`TimerPage.tsx` 内）で `document.title` と Tauri の `getCurrentWindow().setTitle()` を同時更新。Tauri ではネイティブウィンドウタイトルに `document.title` が反映されないため

@@ -16,9 +16,17 @@ const FileSaver = (() => {
       } catch (_) { return null; }
     })();
     if (!w) return null;
-    const dialog = w.__TAURI__?.dialog;
-    const fs = w.__TAURI__?.fs;
-    if (!dialog?.save || !fs?.writeTextFile) return null;
+    const tauri = w.__TAURI__;
+    const dialog = tauri?.dialog;
+    const fs = tauri?.fs;
+    if (!dialog?.save || !fs?.writeTextFile) {
+      console.warn('[FileSaver] Tauri API structure:', {
+        keys: tauri ? Object.keys(tauri) : null,
+        dialogKeys: dialog ? Object.keys(dialog) : null,
+        fsKeys: fs ? Object.keys(fs) : null,
+      });
+      return null;
+    }
     return { dialog, fs };
   }
 
@@ -42,8 +50,10 @@ const FileSaver = (() => {
   async function _saveTauri(content, defaultName, opts) {
     const apis = _getTauriAPIs();
     if (!apis) {
-      // API が取得できない場合はブラウザフォールバック
-      return _saveBrowser(content, defaultName, opts);
+      // Tauri 環境で API が取得できない場合は開発者向けにログを出してエラーを投げる
+      // （ブラウザフォールバックはTauriアプリ内で機能しないため）
+      console.error('[FileSaver] Tauri APIs not found. window.__TAURI__:', window.__TAURI__);
+      throw new Error('Tauri のファイル保存APIが利用できません。アプリを再起動してください。');
     }
 
     const filters = opts.filters || [{ name: 'JSON', extensions: ['json'] }];

@@ -31,6 +31,20 @@ import { wbsDB, type WbsTask, type WbsStatus } from '../db/wbs_db';
 import { ActivityLogger } from '../core/activity_logger';
 import { useTabStore } from '../stores/tab_store';
 import { searchRegistry } from '../stores/search_store';
+import { ShortcutHelp } from '../components/ShortcutHelp';
+
+const WBS_SHORTCUTS = [{
+  name: 'ショートカット',
+  shortcuts: [
+    { keys: ['N'],          description: '新規タスク追加' },
+    { keys: ['Tab'],        description: 'インデント（右）' },
+    { keys: ['Shift', 'Tab'], description: 'インデント（左）' },
+    { keys: ['Delete'],     description: '選択タスクを削除' },
+    { keys: ['Ctrl', '↑'], description: 'タスクを上に移動' },
+    { keys: ['Ctrl', '↓'], description: 'タスクを下に移動' },
+    { keys: ['Ctrl', 'D'], description: '選択タスクを複製' },
+  ],
+}];
 
 // ── ストレージキー ────────────────────────────────
 const KEY_HOLIDAYS        = 'wbs_custom_holidays';
@@ -1293,6 +1307,8 @@ export function WbsPage() {
           </div>
         </div>
       )}
+
+      <ShortcutHelp categories={WBS_SHORTCUTS} />
     </div>
   );
 }
