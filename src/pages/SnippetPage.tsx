@@ -347,6 +347,21 @@ export function SnippetPage() {
   useEffect(() => {
     snippetDB.getAllSnippets().then(all => {
       setSnippets(all);
+
+      // 保存されたフィルタ値が現在のスニペットに存在しない場合はリセット
+      const langs = new Set(all.map(s => s.language).filter(Boolean));
+      const storedLang = localStorage.getItem(KEY_FILTER_LANG) || '';
+      if (storedLang && !langs.has(storedLang)) {
+        setFilterLang('');
+        localStorage.removeItem(KEY_FILTER_LANG);
+      }
+      const tagSet = new Set(all.flatMap(s => s.tags || []));
+      const storedTag = localStorage.getItem(KEY_FILTER_TAG) || '';
+      if (storedTag && !tagSet.has(storedTag)) {
+        setFilterTag('');
+        localStorage.removeItem(KEY_FILTER_TAG);
+      }
+
       const savedId = Number(localStorage.getItem(KEY_SELECTED));
       const found = savedId && all.some(s => s.id === savedId);
       setSelected(found ? savedId : (all[0]?.id ?? null));
@@ -411,6 +426,15 @@ export function SnippetPage() {
       setSnippets(prev => [...prev, added]);
       setSelected(added.id!);
       localStorage.setItem(KEY_SELECTED, String(added.id));
+      // 追加したスニペットが現在のフィルタに一致しない場合はフィルタをクリアして表示する
+      if (filterLang && added.language !== filterLang) {
+        setFilterLang('');
+        localStorage.removeItem(KEY_FILTER_LANG);
+      }
+      if (filterTag && !(added.tags || []).includes(filterTag)) {
+        setFilterTag('');
+        localStorage.removeItem(KEY_FILTER_TAG);
+      }
       ActivityLogger.log('snippet', 'create', 'snippet', added.id!, `スニペット「${added.title}」を追加`);
       success('スニペットを追加しました');
     }

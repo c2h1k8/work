@@ -18,7 +18,7 @@ DB 名: `dashboard_db` version 2
 
 - インスタンスID: `useTabLabel()` フック（`src/contexts/TabContext.ts`）で取得
   - Vanilla 版の `?instance=<id>` URL パラメータの代替
-- Markdown: `react-markdown` + `rehype-sanitize`（Vanilla の marked.js + DOMPurify とは異なる）
+- Markdown: `MarkdownBody` コンポーネント（`remark-gfm` / `remark-breaks` / Prism シンタックスハイライト。Todo ページと統一）
 - DnD: `@dnd-kit/core` + `@dnd-kit/sortable`
 
 ## コンポーネント構成
@@ -33,10 +33,10 @@ DB 名: `dashboard_db` version 2
 | `ColumnManagerPopover` | 列管理ポップオーバー（iOS トグル・DnD 並び替え・仮想列対応・列順リセット） |
 | `SortableColRow` | DnD 対応列行（列管理ポップオーバー内） |
 | `CommandBuilderSection` | コマンドビルダー（cmd_buttons 複数ボタン対応） |
-| `MemoSection` | コンテンツ系セクション |
+| `MemoSection` | テキストメモ（auto-grow textarea・max-h-[480px]・Note ページ準拠） |
 | `ChecklistSection` | チェックリスト（インライン追加・編集・削除・DnD 並び替え） |
 | `SortableChecklistItem` | チェックリスト1行（useSortable・ドラッグハンドル・カスタム checkbox・インライン編集） |
-| `MarkdownSection` | Markdown（editing/onToggleEdit props で SectionCard から制御） |
+| `MarkdownSection` | Markdown（editing/onToggleEdit props で SectionCard から制御。表示は `MarkdownBody`・編集は auto-grow textarea） |
 | `IframeSection` | 埋め込み iframe |
 | `CountdownSection` | カウントダウン（インライン追加・編集・削除・日付変更） |
 | `SectionEditModal` | セクション追加/編集モーダル |
@@ -97,7 +97,7 @@ DB 名: `dashboard_db` version 2
 - **テーブル列管理（`ColumnManagerPopover`）**: ツールバー右端の「列」ボタン → ポータルポップオーバー。iOS トグルで表示/非表示、ドラッグで並び替え。`USE_COUNT_COL`（`id: '__use_count'`）は仮想列（`section.columns` に含まない）として末尾固定・デフォルト非表示。列ヘッダークリックでソート（`__use_count` は `item.use_count` の数値比較）。フッターの「列順をリセット」で `section.columns` の定義順に戻す（localStorage 削除）。「すべて表示」は全 hidden を解除（`__use_count` 含む）
 - **list セクションの頻度ソート**: `SectionCard` ヘッダー右端の `ArrowUpDownIcon` ボタン（list タイプのみ表示）。`sortByUsage` state は `SectionCard` で管理し `SectionProps` 経由で `ListSection` に渡す。ON 時はアクセントカラー + `--c-accent-dim` 背景
 - **アクティビティログ**: `ActivityLogger.log('dashboard', ...)` でセクション追加/更新/削除、アイテム追加/更新/削除を記録。チェックリスト・カウントダウンのインライン操作も対象
-- **メインビューにボタン類は表示しない**（ドット背景グリッドはシンプルにセクションカードのみ）
+- **メインビューにボタン類は表示しない**（ドット背景グリッドはシンプルにセクションカードのみ）。ただし `section.show_add_btn === true` のセクション（list/grid/table）はヘッダに `PlusIcon` ボタンを表示 → `ItemManagerModal` を開く
 - **空状態**: 「セクションを追加」ボタンクリックで設定パネルを開く（`setSettingsOpen(true)`）
 
 ## デザイン仕様
@@ -117,6 +117,7 @@ DB 名: `dashboard_db` version 2
 - **セクション一覧先頭の固定ナビ行**: `{x}` + 「共通バインド変数」 + プリセット件数バッジ（0件時は非表示）+ 右矢印。クリックで `BindVarModal` を開く。`DndContext` 外に置くため DnD 対象外
 - **`BindVarModal`**: 汎用モーダル。共通バインド変数では z-[400]・DB コールバック、セクション固有では z-[500]・ローカル state コールバックを渡す。`title` prop でタイトルを変更。固定サイズ `w-[780px] h-[760px]`。ヘッダーは常に `{x}` + タイトル固定。プリセット追加/編集フォームのキャンセル/保存ボタンで右列を切替。左列（変数設定）は常時表示
 - **`SortableSettingsRow`**: 上段レイアウト = ドラッグハンドル → タイプバッジ（左） → アイコン絵文字 → タイトル → アクションボタン（ノートの `SortableFieldRow` と同順）。下段 = 幅 `Select`（`w-28`）+ `toggle-wrap` カスタムトグルで「行頭」切替。背景色は `--c-surface`（ノートのフィールド行と統一）
+- **ヘッダ追加ボタン表示トグル（セクション単位）**: `section.show_add_btn?: boolean`（IndexedDB）で管理。デフォルト `false`。`SortableSettingsRow` 下段に `toggle-wrap`「追加ボタン」トグルを表示（list/grid/table のみ）。`SectionEditModal` 各タイプの設定欄にも同トグルを追加。変更は `dashboardDB.patchSection()` で即時保存 → `setSections` で楽観的更新
 - **ジャンプナビ**: 3件以上で固定右上表示、各カードに `id="section-{id}"`
 
 ## セクション別デザイン仕様

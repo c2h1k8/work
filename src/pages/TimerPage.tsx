@@ -66,6 +66,15 @@ function setWindowTitle(title: string) {
   tw?.getCurrentWindow().setTitle(title).catch(() => {});
 }
 
+// macOS Dock バッジ / Windows タスクバーオーバーレイアイコンを更新する
+// label: "MM:SS" 形式 → 表示、null → クリア
+type TauriCore = { invoke: (cmd: string, args?: unknown) => Promise<void> };
+function setTimerBadge(label: string | null) {
+  const invoke = (window as unknown as { __TAURI__?: { core?: TauriCore } }).__TAURI__?.core?.invoke;
+  if (!invoke) return;
+  invoke('set_timer_badge', { label }).catch(() => {});
+}
+
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
 
 function fmtDateHeader(dateStr: string) {
@@ -666,14 +675,20 @@ export function TimerPage() {
     return pList.find(p => p.id === id) || pList[0] || null;
   }, []);
 
-  // ── ページタイトル更新 ─────────────────────────────
+  // ── ページタイトル・バッジ更新 ──────────────────────
   useEffect(() => {
     if (running) {
-      setWindowTitle(`${mode === 'work' ? '▶' : '☕'} ${fmtMMSS(remaining)} MyTools`);
+      const timeStr = fmtMMSS(remaining);
+      setWindowTitle(`${mode === 'work' ? '▶' : '☕'} ${timeStr} MyTools`);
+      setTimerBadge(timeStr);
     } else {
       setWindowTitle('MyTools');
+      setTimerBadge(null);
     }
-    return () => { setWindowTitle('MyTools'); };
+    return () => {
+      setWindowTitle('MyTools');
+      setTimerBadge(null);
+    };
   }, [running, remaining, mode]);
 
   // ── セッション読み込み ────────────────────────────

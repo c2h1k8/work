@@ -54,6 +54,8 @@ export interface DashboardSection {
   grid_vars_bar_label?: string;
   // list 専用
   show_filter?: boolean;
+  // list / grid / table 専用
+  show_add_btn?: boolean;
   // command_builder 専用
   command_template?: string;
   action_mode?: 'copy' | 'open';

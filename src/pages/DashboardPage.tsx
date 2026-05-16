@@ -8,8 +8,7 @@
 
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import ReactMarkdown from 'react-markdown';
-import rehypeSanitize from 'rehype-sanitize';
+import { MarkdownBody } from '../components/MarkdownBody';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -1033,6 +1032,14 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
 function MemoSection({ section }: SectionProps) {
   const [content, setContent] = useState(section.memo_content || '');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [content]);
 
   async function handleChange(val: string) {
     setContent(val);
@@ -1044,9 +1051,10 @@ function MemoSection({ section }: SectionProps) {
 
   return (
     <textarea
+      ref={textareaRef}
       value={content}
       onChange={(e) => handleChange(e.target.value)}
-      className="w-full min-h-[120px] px-3 py-2 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm resize-y focus:outline-none focus:border-[var(--c-accent)]"
+      className="w-full min-h-[72px] max-h-[480px] px-3 py-2 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm resize-none overflow-y-auto focus:outline-none focus:border-[var(--c-accent)]"
       placeholder="メモを入力…"
     />
   );
@@ -1274,6 +1282,15 @@ interface MarkdownSectionProps extends SectionProps {
 
 function MarkdownSection({ section, editing, onToggleEdit }: MarkdownSectionProps) {
   const [body, setBody] = useState(section.body || '');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!editing) return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [editing, body]);
 
   async function save() {
     await dashboardDB.updateSection({ ...section, body });
@@ -1284,9 +1301,10 @@ function MarkdownSection({ section, editing, onToggleEdit }: MarkdownSectionProp
     return (
       <div>
         <textarea
+          ref={textareaRef}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          className="w-full min-h-[200px] px-3 py-2 border-b border-[var(--c-border)] bg-[var(--c-bg-2)] text-[var(--c-fg)] text-sm font-mono resize-y focus:outline-none"
+          className="w-full min-h-[200px] px-3 py-2 border-b border-[var(--c-border)] bg-[var(--c-bg-2)] text-[var(--c-fg)] text-sm font-mono resize-none overflow-hidden focus:outline-none"
           autoFocus
         />
         <div className="flex gap-2 justify-end px-3 py-2 bg-[var(--c-bg-2)]">
@@ -1298,9 +1316,7 @@ function MarkdownSection({ section, editing, onToggleEdit }: MarkdownSectionProp
   }
 
   return body ? (
-    <div className="prose prose-sm max-w-none dark:prose-invert text-[var(--c-fg)]">
-      <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{body}</ReactMarkdown>
-    </div>
+    <MarkdownBody>{body}</MarkdownBody>
   ) : (
     <p className="text-xs text-[var(--c-fg-3)] py-4 text-center">Markdownを入力…（ヘッダーの編集ボタンをクリック）</p>
   );
@@ -1477,10 +1493,12 @@ function CountdownSection({ section, items, onItemsChange, countdownMode: mode }
 // セクションカード（折りたたみ + ヘッダー + コンテンツ）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-interface SectionCardProps extends SectionProps {}
+interface SectionCardProps extends SectionProps {
+  onOpenItemMgr?: (section: DashboardSection) => void;
+}
 
 const SectionCard = React.memo(function SectionCard({
-  section, items, presets, activePresetId, globalVarNames, onItemsChange,
+  section, items, presets, activePresetId, globalVarNames, onItemsChange, onOpenItemMgr,
 }: SectionCardProps) {
   const colSpan = WIDTH_COLS[section.width] || 2;
   const [collapsed, setCollapsed] = useState<boolean>(() => lsGet(COLLAPSE_PREFIX + section.id) === '1');
@@ -1555,6 +1573,15 @@ const SectionCard = React.memo(function SectionCard({
             title={mdEditing ? '表示モードに切替' : '編集'}
           >
             <PencilIcon size={13} />
+          </button>
+        )}
+        {onOpenItemMgr && section.show_add_btn && ['list', 'grid', 'table'].includes(section.type) && (
+          <button
+            onClick={() => onOpenItemMgr(section)}
+            className="p-1.5 rounded text-[var(--c-fg-3)] hover:bg-[var(--c-bg)] hover:text-[var(--c-accent)] transition-colors shrink-0"
+            title="アイテムを追加"
+          >
+            <PlusIcon size={13} />
           </button>
         )}
         <button onClick={toggleCollapse} aria-expanded={!collapsed}
@@ -1651,6 +1678,7 @@ function SectionEditModal({ section, instanceId, items, onClose, onSaved, onDele
   // list 専用
   const hasItems = items.length > 0;
   const [showFilterBar, setShowFilterBar] = useState(section?.show_filter ?? false);
+  const [showAddBtn, setShowAddBtn] = useState(section?.show_add_btn ?? false);
   // 列 DnD
   const columnSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   // command_builder 専用
@@ -1772,6 +1800,7 @@ function SectionEditModal({ section, instanceId, items, onClose, onSaved, onDele
       columns,
       page_size: parseInt(pageSize) || 0,
       show_filter: showFilterBar,
+      show_add_btn: showAddBtn,
       history_limit: parseInt(historyLimit) || 10,
       checklist_reset: checklistReset as DashboardSection['checklist_reset'],
       // セクション固有バインド変数（保存時に全タイプ分を維持する）
@@ -1924,6 +1953,11 @@ function SectionEditModal({ section, instanceId, items, onClose, onSaved, onDele
                   </div>
                 </DndContext>
               </div>
+              <label className="toggle-wrap">
+                <input type="checkbox" className="toggle-input" checked={showAddBtn} onChange={(e) => setShowAddBtn(e.target.checked)} />
+                <span className="toggle-track"><span className="toggle-thumb" /></span>
+                <span className="toggle-label">ヘッダに追加ボタンを表示する</span>
+              </label>
               <button type="button" onClick={() => setSectionBindTarget('table')}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-[7px] border border-[var(--c-border)] bg-[var(--c-bg)] text-sm text-[var(--c-fg)] hover:border-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] transition-colors">
                 <span className="font-mono text-xs text-[var(--c-accent)] shrink-0">{'{x}'}</span>
@@ -1940,6 +1974,11 @@ function SectionEditModal({ section, instanceId, items, onClose, onSaved, onDele
                 <input type="checkbox" className="toggle-input" checked={showFilterBar} onChange={(e) => setShowFilterBar(e.target.checked)} />
                 <span className="toggle-track"><span className="toggle-thumb" /></span>
                 <span className="toggle-label">フィルターバーを表示する</span>
+              </label>
+              <label className="toggle-wrap">
+                <input type="checkbox" className="toggle-input" checked={showAddBtn} onChange={(e) => setShowAddBtn(e.target.checked)} />
+                <span className="toggle-track"><span className="toggle-thumb" /></span>
+                <span className="toggle-label">ヘッダに追加ボタンを表示する</span>
               </label>
               <button type="button" onClick={() => setSectionBindTarget('list')}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-[7px] border border-[var(--c-border)] bg-[var(--c-bg)] text-sm text-[var(--c-fg)] hover:border-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] transition-colors">
@@ -1968,13 +2007,20 @@ function SectionEditModal({ section, instanceId, items, onClose, onSaved, onDele
           )}
 
           {type === 'grid' && (
-            <button type="button" onClick={() => setSectionBindTarget('grid')}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-[7px] border border-[var(--c-border)] bg-[var(--c-bg)] text-sm text-[var(--c-fg)] hover:border-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] transition-colors">
-              <span className="font-mono text-xs text-[var(--c-accent)] shrink-0">{'{x}'}</span>
-              <span className="flex-1 text-left">バインド変数を設定</span>
-              {(gridBindVars.length > 0 || gridPresets.length > 0) && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--c-accent-dim)] text-[var(--c-accent)] shrink-0">{gridBindVars.length}変数 / {gridPresets.length}プリセット</span>}
-              <ChevronRightIcon size={13} className="text-[var(--c-fg-3)] shrink-0" />
-            </button>
+            <div className="space-y-2">
+              <label className="toggle-wrap">
+                <input type="checkbox" className="toggle-input" checked={showAddBtn} onChange={(e) => setShowAddBtn(e.target.checked)} />
+                <span className="toggle-track"><span className="toggle-thumb" /></span>
+                <span className="toggle-label">ヘッダに追加ボタンを表示する</span>
+              </label>
+              <button type="button" onClick={() => setSectionBindTarget('grid')}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-[7px] border border-[var(--c-border)] bg-[var(--c-bg)] text-sm text-[var(--c-fg)] hover:border-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] transition-colors">
+                <span className="font-mono text-xs text-[var(--c-accent)] shrink-0">{'{x}'}</span>
+                <span className="flex-1 text-left">バインド変数を設定</span>
+                {(gridBindVars.length > 0 || gridPresets.length > 0) && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--c-accent-dim)] text-[var(--c-accent)] shrink-0">{gridBindVars.length}変数 / {gridPresets.length}プリセット</span>}
+                <ChevronRightIcon size={13} className="text-[var(--c-fg-3)] shrink-0" />
+              </button>
+            </div>
           )}
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--c-border)]">
@@ -3321,6 +3367,7 @@ function SortableSettingsRow({
   onOpenItemMgr,
   onToggleNewRow,
   onToggleShowFilter,
+  onToggleShowAddBtn,
   onUpdateWidth,
 }: {
   section: DashboardSection;
@@ -3329,6 +3376,7 @@ function SortableSettingsRow({
   onOpenItemMgr: (s: DashboardSection) => void;
   onToggleNewRow: (s: DashboardSection, value: boolean) => void;
   onToggleShowFilter: (s: DashboardSection, value: boolean) => void;
+  onToggleShowAddBtn: (s: DashboardSection, value: boolean) => void;
   onUpdateWidth: (s: DashboardSection, width: SectionWidth) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id! });
@@ -3395,6 +3443,14 @@ function SortableSettingsRow({
               onChange={(e) => onToggleShowFilter(section, e.target.checked)} />
             <span className="toggle-track"><span className="toggle-thumb" /></span>
             <span className="toggle-label" style={{ fontSize: '11px' }}>フィルタ</span>
+          </label>
+        )}
+        {['list', 'grid', 'table'].includes(section.type) && (
+          <label className="toggle-wrap">
+            <input type="checkbox" className="toggle-input" checked={section.show_add_btn ?? false}
+              onChange={(e) => onToggleShowAddBtn(section, e.target.checked)} />
+            <span className="toggle-track"><span className="toggle-thumb" /></span>
+            <span className="toggle-label" style={{ fontSize: '11px' }}>追加ボタン</span>
           </label>
         )}
       </div>
@@ -3509,11 +3565,12 @@ interface DashboardSettingsPanelProps {
   onExport: () => void;
   onImportClick: () => void;
   isOverlaid?: boolean;
+  onToggleShowAddBtn: (section: DashboardSection, value: boolean) => void;
 }
 
 function DashboardSettingsPanel({
   open, onClose, sections, onDragEnd, onAddSectionDirect, onEditSection, onDeleteSection,
-  onToggleNewRow, onToggleShowFilter, onUpdateWidth, onOpenItemMgr,
+  onToggleNewRow, onToggleShowFilter, onToggleShowAddBtn, onUpdateWidth, onOpenItemMgr,
   instanceId, presets, activePresetId, bindConfig, onPresetsChanged, onActiveChange,
   onExport, onImportClick, isOverlaid = false,
 }: DashboardSettingsPanelProps) {
@@ -3599,6 +3656,7 @@ function DashboardSettingsPanel({
                       onOpenItemMgr={onOpenItemMgr}
                       onToggleNewRow={onToggleNewRow}
                       onToggleShowFilter={onToggleShowFilter}
+                      onToggleShowAddBtn={onToggleShowAddBtn}
                       onUpdateWidth={onUpdateWidth}
                     />
                   ))}
@@ -3787,6 +3845,12 @@ export function DashboardPage() {
     setEditingSection(s);
   }, []);
 
+  // ── ヘッダ追加ボタン表示設定（セクション単位で DB に保存） ──
+  async function handleToggleShowAddBtn(section: DashboardSection, value: boolean) {
+    await dashboardDB.patchSection(section.id!, { show_add_btn: value });
+    setSections((prev) => prev.map((s) => s.id === section.id ? { ...s, show_add_btn: value } : s));
+  }
+
   // ── エクスポート ──────────────────────────────────────
   async function handleExport() {
     const data = await dashboardDB.exportInstance(instanceId);
@@ -3901,6 +3965,7 @@ export function DashboardPage() {
                 activePresetId={activePresetId}
                 globalVarNames={bindConfig.varNames}
                 onItemsChange={() => reloadItems(section.id)}
+                onOpenItemMgr={handleOpenItemMgr}
               />
             ))}
           </div>
@@ -3941,6 +4006,7 @@ export function DashboardPage() {
         onActiveChange={changeActivePreset}
         onExport={handleExport}
         onImportClick={() => importRef.current?.click()}
+        onToggleShowAddBtn={handleToggleShowAddBtn}
       />
       <input ref={importRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
 
