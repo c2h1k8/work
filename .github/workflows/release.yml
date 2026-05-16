@@ -32,21 +32,21 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
 
           # Mac 用: .command ファイルに実行権限を付与
-          chmod +x start_server.command stop_server.command
+          chmod +x scripts/start_server.command scripts/stop_server.command
 
           # Windows ZIP
           ZIP_WIN="mytools-${TAG}-windows.zip"
           zip -r "${ZIP_WIN}" \
             dist/ \
-            start_server.bat \
-            stop_server.bat
+            scripts/start_server.bat \
+            scripts/stop_server.bat
 
           # Mac ZIP
           ZIP_MAC="mytools-${TAG}-mac.zip"
           zip -r "${ZIP_MAC}" \
             dist/ \
-            start_server.command \
-            stop_server.command
+            scripts/start_server.command \
+            scripts/stop_server.command
 
           echo "ZIP_WIN=${ZIP_WIN}" >> "$GITHUB_ENV"
           echo "ZIP_MAC=${ZIP_MAC}" >> "$GITHUB_ENV"
