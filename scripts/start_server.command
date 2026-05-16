@@ -1,11 +1,12 @@
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 PORT=52700
+DIST_DIR="$ROOT_DIR/dist"
 
 # ── dist/ が存在しなければビルドを促す ──
-if [ ! -d "$SCRIPT_DIR/dist" ]; then
+if [ ! -d "$DIST_DIR" ]; then
     osascript -e 'display alert "ビルドが必要です" message "dist/ フォルダが見つかりません。\nターミナルで以下を実行してください:\n\n  npm run build"'
     exit 1
 fi
@@ -29,17 +30,17 @@ start_and_open() {
 
 # ── Python3 を試みる ──
 if command -v python3 &>/dev/null; then
-    start_and_open "python3 -m http.server $PORT --directory dist"
+    start_and_open "python3 -m http.server $PORT --directory $DIST_DIR"
 fi
 
 # ── Python を試みる ──
 if command -v python &>/dev/null; then
-    start_and_open "python -m http.server $PORT --directory dist"
+    start_and_open "python -m http.server $PORT --directory $DIST_DIR"
 fi
 
 # ── Node.js を試みる ──
 if command -v node &>/dev/null; then
-    start_and_open "npx --yes serve -p $PORT dist"
+    start_and_open "npx --yes serve -p $PORT $DIST_DIR"
 fi
 
 # ── どちらも見つからない ──

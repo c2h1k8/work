@@ -1,11 +1,11 @@
-﻿@echo off
+@echo off
 chcp 65001 > nul
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 set PORT=52700
 
 :: ── dist\ が存在しなければビルドを促す ──
-if not exist "%~dp0dist\" (
+if not exist "%CD%\dist\" (
     echo [ERROR] dist\ フォルダが見つかりません。
     echo.
     echo 先に以下を実行してください:
