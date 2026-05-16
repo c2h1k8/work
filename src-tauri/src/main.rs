@@ -1,6 +1,7 @@
 // MyTools — Tauri デスクトップアプリのエントリポイント
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(target_os = "windows")]
 use tauri::Manager;
 
 // ── タイマーバッジ Tauri コマンド ─────────────────────────────────
