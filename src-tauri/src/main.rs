@@ -1,12 +1,11 @@
 // MyTools — Tauri デスクトップアプリのエントリポイント
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[cfg(target_os = "windows")]
 use tauri::Manager;
 
 // ── タイマーバッジ Tauri コマンド ─────────────────────────────────
 //
-// macOS : Dock バッジに "MM:SS" テキストを表示
+// macOS : Dock バッジに "MM:SS" テキストを表示（objc 経由で NSApplication を直接操作）
 // Windows: タスクバーボタン右下にオーバーレイアイコン（32×32 RGBA）を表示
 //           ビットマップフォントで分数部分を大きく描画
 // その他 : 何もしない
@@ -17,9 +16,15 @@ use tauri::Manager;
 fn set_timer_badge(app: tauri::AppHandle, label: Option<String>) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        let dock = app.dock().map_err(|e| e.to_string())?;
-        let text = label.as_deref();
-        dock.set_badge(text).map_err(|e| e.to_string())?;
+        let window = app
+            .get_webview_window("main")
+            .ok_or_else(|| "main window not found".to_string())?;
+        let label_clone = label.clone();
+        window
+            .run_on_main_thread(move || {
+                set_dock_badge_macos(label_clone.as_deref());
+            })
+            .map_err(|e| e.to_string())?;
     }
 
     #[cfg(target_os = "windows")]
@@ -42,6 +47,39 @@ fn set_timer_badge(app: tauri::AppHandle, label: Option<String>) -> Result<(), S
     }
 
     Ok(())
+}
+
+// ── macOS: objc 経由で Dock バッジを設定 ─────────────────────────
+//
+// run_on_main_thread 内から呼ばれるため、メインスレッド保証済み。
+
+#[cfg(target_os = "macos")]
+fn set_dock_badge_macos(text: Option<&str>) {
+    use objc::runtime::Object;
+    use objc::{class, msg_send, sel, sel_impl};
+    use std::ffi::CString;
+
+    unsafe {
+        let app: *mut Object = msg_send![class!(NSApplication), sharedApplication];
+        let dock_tile: *mut Object = msg_send![app, dockTile];
+
+        let label_obj: *mut Object = if let Some(t) = text {
+            // null バイトを除去してから CString 化
+            let safe: String = t.chars().filter(|&c| c != '\0').collect();
+            match CString::new(safe) {
+                Ok(cstr) => {
+                    let obj: *mut Object = msg_send![class!(NSString), alloc];
+                    msg_send![obj, initWithUTF8String: cstr.as_ptr()]
+                }
+                Err(_) => std::ptr::null_mut(),
+            }
+        } else {
+            std::ptr::null_mut()
+        };
+
+        let _: () = msg_send![dock_tile, setBadgeLabel: label_obj];
+        let _: () = msg_send![dock_tile, display];
+    }
 }
 
 // ── Windows: 32×32 RGBA バッジ画像をビットマップフォントで生成 ──────
