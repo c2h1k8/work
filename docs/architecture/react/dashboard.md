@@ -42,7 +42,7 @@ DB 名: `dashboard_db` version 2
 | `SectionEditModal` | セクション追加/編集モーダル |
 | `ItemManagerModal` | アイテム管理モーダル（スプレッドシートUX。全タイプ統一レイアウト） |
 | `TemplateEditModal` | テンプレートアイテム編集サブモーダル（z-[450]。ラベル・ヒント・テンプレート textarea・日付プレースホルダー説明） |
-| `SpreadsheetCell` | スプレッドシートセル（未選択/選択/編集の3状態。選択→再クリック or Enter で編集モード。`isCellDirty` で薄い青背景） |
+| `SpreadsheetCell` | スプレッドシートセル（未選択/選択/編集の3状態。選択→再クリック or Enter/ダブルクリック で編集モード。Tab/Shift+Tab で次/前セルへ移動しながら編集モード継続。`isCellDirty` で薄い青背景） |
 | `SortableEditableRow` | インライン編集テーブル行（useSortable を `<tr>` に適用。SpColDef 列定義・タイプ選択 compact `<Select>`・新規行は琥珀背景・変更行は青ボーダー・`dirtyCellKeys` でセル単位ハイライト） |
 | `BindVarPanel` | バインド変数設定パネル（2カラム: 左 `w-96`=変数設定・表示形式横並び・バーラベル、右=プリセット検索＋一覧 or 追加/編集フォーム）。完全コールバック駆動で DB を呼ばない。`formState` prop で右列をフォーム/リスト切替。変数名タグをクリックで選択 → タグ下の編集エリアで名前を変更 |
 | `SectionJumpNav` | 固定ジャンプナビ（3件以上で右上に表示） |
@@ -126,7 +126,7 @@ DB 名: `dashboard_db` version 2
 |---|---|
 | list | 行ホバー `--c-accent-dim` |
 | grid | グリッドカード背景 `--c-bg`（カードに対して沈み込み）、ホバー `--c-accent-dim` |
-| table | `th` 背景 `--c-bg`・`border-b-2`・uppercase tracking で視覚的に強調。行ホバー `--c-accent-dim` |
+| table | `th` 背景 `--c-bg`・`border-b-2`・uppercase tracking で視覚的に強調。行ホバー `--c-accent-dim`。**列型の視覚化**: `th` に型アイコンを常時表示（copy=CopyIcon・link=ExternalLinkIcon）。`td` は型ごとにカーソル制御（text=cursor-text・copy/link=cursor-pointer）。link セル: テキスト右に ExternalLinkIcon 常時表示。copy セル: ホバー時に右端へ CopyIcon フェードイン（`group/copy`）。`<tr>` に cursor-pointer は付与しない |
 | checklist | edge-to-edge。プログレスバー（常時 `--c-success`、完了時カウンターも green）。カスタム角丸正方形 checkbox（18px、checked=緑塗り+白✓ SVG スケールアニメ、未選択ホバーで緑ボーダー）。チェック済みラベルは打ち消し線+opacity-40 |
 | countdown | 日数を pill バッジ表示（past=danger-bg、today=success-bg、soon=warning-bg、future=accent-dim）|
 | command_builder | 入力履歴を `{value, ts}` 形式で保存（旧 `string[]` は自動マイグレーション）。相対時刻を表示 |

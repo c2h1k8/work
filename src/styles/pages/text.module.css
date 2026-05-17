@@ -1408,6 +1408,14 @@
 .tsv-editable-cell:hover {
   cursor: cell;
 }
+.tsv-editable-cell.tsv-cell--selected {
+  outline: 2px solid var(--c-accent);
+  outline-offset: -2px;
+  background: var(--c-accent-dim) !important;
+}
+.tsv-editable-cell.tsv-cell--in-range {
+  background: rgba(99, 102, 241, 0.08) !important;
+}
 .tsv-cell-input {
   width: 100%;
   height: 100%;

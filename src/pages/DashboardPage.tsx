@@ -955,35 +955,45 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
               {visibleCols.map((c) => (
                 <th key={c.id} onClick={() => toggleSort(c.id)}
                   className="text-left px-3 py-2 border-b-2 border-[var(--c-border)] text-[var(--c-fg-3)] text-xs font-semibold tracking-wide uppercase cursor-pointer hover:text-[var(--c-fg)] whitespace-nowrap select-none bg-[var(--c-bg)]">
-                  {c.label}
-                  {sortState?.colId === c.id && <span className="ml-1 text-[var(--c-accent)]">{sortState.dir === 'asc' ? '↑' : '↓'}</span>}
+                  <span className="inline-flex items-center gap-1">
+                    {c.type === 'copy' && <CopyIcon size={10} className="shrink-0 opacity-60" />}
+                    {c.type === 'link' && <ExternalLinkIcon size={10} className="shrink-0 opacity-60" />}
+                    {c.label}
+                    {sortState?.colId === c.id && <span className="ml-0.5 text-[var(--c-accent)]">{sortState.dir === 'asc' ? '↑' : '↓'}</span>}
+                  </span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {pagedItems.map((item) => (
-              <tr key={item.id} className="hover:bg-[var(--c-accent-dim)] transition-colors cursor-pointer">
+              <tr key={item.id} className="hover:bg-[var(--c-accent-dim)] transition-colors">
                 {visibleCols.map((c) => {
                   if (c.id === '__use_count') {
                     return (
-                      <td key={c.id} className="px-3 py-2 border-b border-[var(--c-border)] text-right tabular-nums text-[var(--c-fg-2)]">
+                      <td key={c.id} className="px-3 py-2 border-b border-[var(--c-border)] text-right tabular-nums text-[var(--c-fg-2)] cursor-default">
                         {item.use_count ?? 0}
                       </td>
                     );
                   }
                   const val = resolve(item.row_data?.[c.id] ?? '');
                   return (
-                    <td key={c.id} className="px-3 py-2 border-b border-[var(--c-border)]">
+                    <td key={c.id} className={`px-3 py-2 border-b border-[var(--c-border)] ${c.type === 'text' ? 'cursor-text' : 'cursor-pointer'}`}>
                       {c.type === 'link' ? (
                         <a href={val} target="_blank" rel="noreferrer"
                           onClick={(e) => { e.preventDefault(); handleCellClick(item, c); }}
-                          className="text-[var(--c-accent)] hover:underline">{val}</a>
+                          className="inline-flex items-center gap-1.5 text-[var(--c-accent)] hover:underline">
+                          <span>{val}</span>
+                          <ExternalLinkIcon size={11} className="shrink-0 opacity-50" />
+                        </a>
                       ) : c.type === 'copy' ? (
                         <button onClick={() => handleCellClick(item, c)}
-                          className="text-left w-full hover:text-[var(--c-accent)]">{val}</button>
+                          className="group/copy text-left w-full flex items-center justify-between gap-2 hover:text-[var(--c-accent)]">
+                          <span className="truncate">{val}</span>
+                          <CopyIcon size={12} className="shrink-0 opacity-0 group-hover/copy:opacity-50 transition-opacity" />
+                        </button>
                       ) : (
-                        <span className="text-[var(--c-fg)]">{val}</span>
+                        <span className="text-[var(--c-fg)] select-text">{val}</span>
                       )}
                     </td>
                   );
@@ -2240,6 +2250,39 @@ function SpreadsheetCell({ value, isSelected, isEditing, isInRange = false, isCe
   mono?: boolean;
   openAsDialog?: boolean;
 }) {
+  const isComposingRef   = useRef(false);
+  const imeEscRef        = useRef(false); // IME変換中にEscが押されたフラグ
+  const inputRef         = useRef<HTMLInputElement>(null);
+  const committedRef     = useRef(false); // 多重コミット防止
+  const escapingRef      = useRef(false); // Esc 離脱中フラグ
+  const prevIsEditingRef = useRef(isEditing);
+
+  // render フェーズで isEditing 変化時にフラグをリセット（state 更新なし = 再レンダリングなし）
+  if (prevIsEditingRef.current !== isEditing) {
+    prevIsEditingRef.current = isEditing;
+    if (isEditing) {
+      committedRef.current = false;
+      escapingRef.current  = false;
+      imeEscRef.current    = false;
+    }
+  }
+
+  // commit: inputRef から現在値を読んで onChange → onCommit（Esc 以外で使用）
+  function commit(dir: 'right' | 'down' | 'left' | 'none') {
+    if (committedRef.current) return; // 多重コミット防止
+    committedRef.current = true;
+    const current = inputRef.current?.value ?? '';
+    if (current !== value) onChange(current); // 値が変わっていない場合は dirty にしない
+    onCommit(dir);
+  }
+
+  // Esc 離脱（onChange を呼ばない → 外部値が元のまま保持 = 自動リバート）
+  function escapeEdit() {
+    escapingRef.current = true;
+    inputRef.current?.blur(); // onBlur を1回だけ発火させてフラグを消費
+    onCommit('none');
+  }
+
   function handleClick(e: React.MouseEvent) {
     e.stopPropagation();
     if (e.shiftKey) { onShiftSelect(); return; }
@@ -2247,16 +2290,36 @@ function SpreadsheetCell({ value, isSelected, isEditing, isInRange = false, isCe
     else onSelect();
   }
 
+
   if (isEditing) {
     return (
-      <input autoFocus value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape')     { e.preventDefault(); e.stopPropagation(); onCommit('none'); }
-          else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); onCommit('down'); }
-          else if (e.key === 'Tab')   { e.preventDefault(); e.stopPropagation(); onCommit(e.shiftKey ? 'left' : 'right'); }
+      <input ref={inputRef} autoFocus
+        defaultValue={value}
+        onCompositionStart={() => { isComposingRef.current = true; }}
+        onCompositionEnd={() => {
+          isComposingRef.current = false;
+          if (imeEscRef.current) {
+            imeEscRef.current = false;
+            // compositionend の同期処理内で focus() を呼ぶと IME がフォーカスを上書きする
+            // ため、イベントサイクル完了後に離脱する
+            escapingRef.current = true; // この間に来る blur で commit させないガード
+            setTimeout(() => escapeEdit(), 0);
+          }
         }}
-        onBlur={() => onCommit('none')}
+        onKeyDown={(e) => {
+          if (isComposingRef.current) {
+            // IME変換中: Esc だけ記録して IME に処理させる
+            if (e.key === 'Escape') imeEscRef.current = true;
+            return;
+          }
+          if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); escapeEdit(); }
+          else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit('none'); }
+          else if (e.key === 'Tab')   { e.preventDefault(); e.stopPropagation(); commit(e.shiftKey ? 'left' : 'right'); }
+        }}
+        onBlur={() => {
+          if (escapingRef.current) { escapingRef.current = false; return; }
+          commit('none');
+        }}
         onClick={(e) => e.stopPropagation()}
         className={`w-full h-full px-2 py-1 text-sm outline-none bg-[var(--c-bg)] border border-[var(--c-accent)] text-[var(--c-fg)] ${mono ? 'font-mono' : ''}`}
       />
@@ -2355,7 +2418,7 @@ function SortableEditableRow({ item, rowIdx, section, colDefs, isDragDisabled, i
               isEditing={!isSpecial && editingColIdx === ci}
               isInRange={isCellInRange(ci)}
               isCellDirty={!isNew && !isSpecial && dirtyCellKeys.has(col.key)}
-              openAsDialog={isSpecial && item.id! > 0}
+              openAsDialog={isSpecial}
               onSelect={() => onCellSelect(ci)}
               onShiftSelect={() => onShiftCellSelect(ci)}
               onEdit={() => onCellEdit(ci)}
@@ -2417,9 +2480,9 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
   const tempIdCounter = useRef(-1);
   const isDirtyAny = dirtyIds.size > 0 || newIds.size > 0;
   // ── スプレッドシートセル選択状態 ─────────────────────────────────────
-  const [selCell,  setSelCell]  = useState<[number, number] | null>(null);
-  const [selEnd,   setSelEnd]   = useState<[number, number] | null>(null);
-  const [editCell, setEditCell] = useState<[number, number] | null>(null);
+  const [selCell,     setSelCell]     = useState<[number, number] | null>(null);
+  const [selEnd,      setSelEnd]      = useState<[number, number] | null>(null);
+  const [editCell,    setEditCell]    = useState<[number, number] | null>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const selRange = useMemo(() => {
     if (!selCell) return null;
@@ -2575,7 +2638,7 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
     const item = filteredItems[rowIdx];
     const col  = colDefs[colIdx];
     if (item && col?.isSpecial?.(item)) {
-      if (item.id! > 0) setTemplateEditItem(item);
+      setTemplateEditItem(item);
       return;
     }
     setSelCell([rowIdx, colIdx]); setSelEnd(null); setEditCell([rowIdx, colIdx]);
@@ -2598,18 +2661,33 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
   function handleCellCommit(dir: 'right' | 'down' | 'left' | 'none') {
     if (!selCell) return;
     setEditCell(null); setSelEnd(null);
+    // none（Esc・Enter）: selCell はそのまま維持してテーブルに戻す
+    if (dir === 'none') {
+      tableContainerRef.current?.focus();
+      return;
+    }
     const [row, col] = selCell;
     const maxRow = filteredItems.length - 1;
     const maxCol = colDefs.length - 1;
-    if (dir === 'down')       setSelCell([Math.min(row + 1, maxRow), col]);
+    let next: [number, number] | null = null;
+    if (dir === 'down')       next = [Math.min(row + 1, maxRow), col];
     else if (dir === 'right') {
-      if (col < maxCol) setSelCell([row, col + 1]);
-      else if (row < maxRow) setSelCell([row + 1, 0]);
-      else setSelCell(null);
+      if (col < maxCol) next = [row, col + 1];
+      else if (row < maxRow) next = [row + 1, 0];
     } else if (dir === 'left') {
-      if (col > 0) setSelCell([row, col - 1]);
-      else if (row > 0) setSelCell([row - 1, maxCol]);
-      else setSelCell(null);
+      if (col > 0) next = [row, col - 1];
+      else if (row > 0) next = [row - 1, maxCol];
+    }
+    setSelCell(next);
+    // Tab（right/left）は次セルもそのまま編集モードで継続
+    if (next && (dir === 'right' || dir === 'left')) {
+      const [nr, nc] = next;
+      const nextItem = filteredItems[nr];
+      const nextCol  = colDefs[nc];
+      if (nextItem && !nextCol?.isSpecial?.(nextItem)) {
+        setEditCell(next);
+        return; // input の autoFocus に任せるためテーブルへのフォーカスは不要
+      }
     }
     tableContainerRef.current?.focus();
   }
@@ -2739,7 +2817,7 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
         const kbItem = filteredItems[r];
         const kbCol  = colDefs[c];
         if (kbItem && kbCol?.isSpecial?.(kbItem)) {
-          if (kbItem.id! > 0) setTemplateEditItem(kbItem);
+          setTemplateEditItem(kbItem);
         } else {
           setEditCell(selCell);
         }
@@ -2765,6 +2843,8 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
         }
         break;
       }
+      default:
+        break;
     }
   }
 
@@ -2780,7 +2860,8 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
       if (e.key !== 'Escape' || e.isComposing) return; // IME 変換中は無視
       if (templateEditItem) return; // TemplateEditModal が最上位
       if (editCell) return;         // セル編集中は SpreadsheetCell 側で処理
-      if (selCell || selEnd) { setSelCell(null); setSelEnd(null); return; }
+      if (selEnd) { setSelEnd(null); return; }       // 範囲選択解除 → 起点セルはそのまま
+      if (selCell) { setSelCell(null); return; }
       if (filterQuery) { setFilterQuery(''); return; } // フィルターをクリア
       handleClose();
     }

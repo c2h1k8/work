@@ -1149,19 +1149,27 @@ function RegexSection() {
 // TsvSection — 検索・ソート・セル編集・エクスポート全種
 // ==================================================
 function TsvSection() {
-  const [input, setInput]     = useState('');
-  const [delim, setDelim]     = useState<'tab' | 'comma' | 'pipe'>(() => (localStorage.getItem('text_tsv_delimiter') as 'tab' | 'comma' | 'pipe') || 'tab');
-  const [quote, setQuote]     = useState<'none' | 'dquote' | 'squote'>(() => (localStorage.getItem('text_tsv_quote') as 'none' | 'dquote' | 'squote') || 'dquote');
+  const [input, setInput]       = useState('');
+  const [delim, setDelim]       = useState<'tab' | 'comma' | 'pipe'>(() => (localStorage.getItem('text_tsv_delimiter') as 'tab' | 'comma' | 'pipe') || 'tab');
+  const [quote, setQuote]       = useState<'none' | 'dquote' | 'squote'>(() => (localStorage.getItem('text_tsv_quote') as 'none' | 'dquote' | 'squote') || 'dquote');
   const [hasHeader, setHasHeader] = useState(() => localStorage.getItem('text_tsv_header') !== 'false');
-  const [data, setData]       = useState<string[][]>([]);
-  const [search, setSearch]   = useState('');
-  const [sortCol, setSortCol] = useState(-1);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [cellEdit, setCellEdit] = useState<{ row: number; col: number } | null>(null);
+  const [data, setData]         = useState<string[][]>([]);
+  const [search, setSearch]     = useState('');
+  const [sortCol, setSortCol]   = useState(-1);
+  const [sortDir, setSortDir]   = useState<'asc' | 'desc'>('asc');
+  // editCell / selCell / selEnd はすべて displayRows のインデックス基準
+  const [editCell, setEditCell] = useState<[number, number] | null>(null);
   const [cellValue, setCellValue] = useState('');
+  const [selCell, setSelCell]   = useState<[number, number] | null>(null);
+  const [selEnd, setSelEnd]     = useState<[number, number] | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const cellInputRef = useRef<HTMLInputElement>(null);
-  const dragCount    = useRef(0);
+  const cellInputRef  = useRef<HTMLInputElement>(null);
+  const tableRef      = useRef<HTMLDivElement>(null);
+  const dragCount     = useRef(0);
+  const editBeforeRef  = useRef('');    // 編集開始時の値（Esc で復元）
+  const isEscapingRef  = useRef(false); // Esc による blur を無視するフラグ
+  const isComposingRef = useRef(false); // IME変換中フラグ
+  const imeEscRef      = useRef(false); // IME変換中に Esc が押されたフラグ
 
   const DC = { tab: '\t', comma: ',', pipe: '|' } as const;
   const QC = { none: '', dquote: '"', squote: "'" } as const;
@@ -1169,13 +1177,14 @@ function TsvSection() {
   useEffect(() => {
     if (input) { setData(parseCSV(input, DC[delim], QC[quote])); setSortCol(-1); setSortDir('asc'); }
     else setData([]);
+    setSelCell(null); setSelEnd(null); setEditCell(null);
   }, [input, delim, quote]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { localStorage.setItem('text_tsv_delimiter', delim); }, [delim]);
   useEffect(() => { localStorage.setItem('text_tsv_quote', quote); }, [quote]);
   useEffect(() => { localStorage.setItem('text_tsv_header', String(hasHeader)); }, [hasHeader]);
 
-  useEffect(() => { if (cellEdit && cellInputRef.current) { cellInputRef.current.focus(); cellInputRef.current.select(); } }, [cellEdit]);
+  useEffect(() => { if (editCell && cellInputRef.current) { cellInputRef.current.focus(); } }, [editCell]);
 
   const headers  = hasHeader && data.length > 0 ? data[0] : null;
   const bodyRows = hasHeader && data.length > 0 ? data.slice(1) : data;
@@ -1195,23 +1204,69 @@ function TsvSection() {
     });
   }
 
-  const updateCell = useCallback((rowIdx: number, colIdx: number, val: string) => {
+  // 選択範囲（正規化済み）
+  const selRange = selCell ? (() => {
+    const end = selEnd ?? selCell;
+    return {
+      r1: Math.min(selCell[0], end[0]), r2: Math.max(selCell[0], end[0]),
+      c1: Math.min(selCell[1], end[1]), c2: Math.max(selCell[1], end[1]),
+    };
+  })() : null;
+
+  // data の rowIdx（ヘッダー込み）で1セルを更新
+  const updateCell = useCallback((dataRowIdx: number, colIdx: number, val: string) => {
     setData((prev) => {
       const next = prev.map((r) => [...r]);
-      while (next[rowIdx].length <= colIdx) next[rowIdx].push('');
-      next[rowIdx][colIdx] = val;
+      while (next[dataRowIdx].length <= colIdx) next[dataRowIdx].push('');
+      next[dataRowIdx][colIdx] = val;
       return next;
     });
   }, []);
 
-  const commitEdit = useCallback(() => {
-    if (!cellEdit) return;
-    updateCell(cellEdit.row, cellEdit.col, cellValue);
-    setCellEdit(null);
-  }, [cellEdit, cellValue, updateCell]);
+  // 編集確定 + フォーカス移動
+  function commitEdit(dir: 'right' | 'down' | 'left' | 'none' = 'none') {
+    if (!editCell) return;
+    const [displayIdx, colIdx] = editCell;
+    const dataRowIdx = displayRows[displayIdx]?.idx;
+    if (dataRowIdx !== undefined) updateCell(dataRowIdx, colIdx, cellValue);
 
-  const addRow = () => setData((prev) => [...prev, Array(Math.max(maxCols, 1)).fill('')]);
-  const deleteRow = (rowIdx: number) => setData((prev) => prev.filter((_, i) => i !== rowIdx));
+    // none（Enter・blur）: そのセルを選択したままテーブルに戻す
+    if (dir === 'none') {
+      setEditCell(null);
+      setSelCell([displayIdx, colIdx]);
+      setSelEnd(null);
+      tableRef.current?.focus();
+      return;
+    }
+
+    const maxRow = displayRows.length - 1;
+    const maxCol = maxCols - 1;
+    let nextSel: [number, number] = [displayIdx, colIdx];
+    if (dir === 'down')       nextSel = [Math.min(maxRow, displayIdx + 1), colIdx];
+    else if (dir === 'right') nextSel = colIdx < maxCol ? [displayIdx, colIdx + 1] : displayIdx < maxRow ? [displayIdx + 1, 0] : [displayIdx, colIdx];
+    else if (dir === 'left')  nextSel = colIdx > 0 ? [displayIdx, colIdx - 1] : displayIdx > 0 ? [displayIdx - 1, maxCol] : [displayIdx, colIdx];
+    setSelCell(nextSel);
+    setSelEnd(null);
+
+    // Tab（right/left）: 次セルも編集モードで継続
+    if (dir === 'right' || dir === 'left') {
+      const [nr, nc] = nextSel;
+      const nextRow = displayRows[nr];
+      if (nextRow) {
+        const nextVal = nextRow.cells[nc] ?? '';
+        editBeforeRef.current = nextVal;
+        setCellValue(nextVal);
+        setEditCell(nextSel);
+        return;
+      }
+    }
+
+    setEditCell(null);
+    tableRef.current?.focus();
+  }
+
+  const addRow    = () => setData((prev) => [...prev, Array(Math.max(maxCols, 1)).fill('')]);
+  const deleteRow = (dataRowIdx: number) => setData((prev) => prev.filter((_, i) => i !== dataRowIdx));
 
   const handleSortClick = (col: number) => {
     if (sortCol === col) {
@@ -1219,6 +1274,114 @@ function TsvSection() {
       else { setSortCol(-1); setSortDir('asc'); }
     } else { setSortCol(col); setSortDir('asc'); }
   };
+
+  // ── スプレッドシート操作 ──────────────────────────────────────────────
+
+  function handleCopy() {
+    if (!selRange) return;
+    const lines: string[] = [];
+    for (let r = selRange.r1; r <= selRange.r2; r++) {
+      const row = displayRows[r];
+      if (!row) continue;
+      lines.push(Array.from({ length: selRange.c2 - selRange.c1 + 1 }, (_, i) => row.cells[selRange.c1 + i] ?? '').join('\t'));
+    }
+    navigator.clipboard.writeText(lines.join('\n')).catch(() => {});
+    Toast.success('コピーしました');
+  }
+
+  async function handlePaste() {
+    if (!selCell) return;
+    let text: string;
+    try { text = await navigator.clipboard.readText(); } catch { return; }
+    if (!text.trim()) return;
+    // タブが含まれていればTSV、なければCSV として解析
+    const pasteDelim = text.includes('\t') ? '\t' : ',';
+    const pasteRows = parseCSV(text, pasteDelim, '');
+    if (pasteRows.length === 0) return;
+    const [startDi, startCol] = selCell;
+    setData((prev) => {
+      const next = prev.map((r) => [...r]);
+      for (let pr = 0; pr < pasteRows.length; pr++) {
+        const targetDi = startDi + pr;
+        if (targetDi < displayRows.length) {
+          const di = displayRows[targetDi].idx;
+          pasteRows[pr].forEach((v, pc) => {
+            const col = startCol + pc;
+            while (next[di].length <= col) next[di].push('');
+            next[di][col] = v;
+          });
+        } else {
+          // 行が足りなければ末尾に追加
+          const newRow: string[] = Array(startCol).fill('');
+          pasteRows[pr].forEach((v) => newRow.push(v));
+          next.push(newRow);
+        }
+      }
+      return next;
+    });
+    const endDi  = startDi  + pasteRows.length - 1;
+    const endCol = startCol + Math.max(...pasteRows.map((r) => r.length)) - 1;
+    setSelCell([startDi, startCol]);
+    setSelEnd([endDi, endCol]);
+  }
+
+  function handleTableKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (editCell) return;
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); handleCopy(); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); handlePaste(); return; }
+    if (!selCell) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'Enter') {
+        e.preventDefault();
+        if (displayRows.length > 0) setSelCell([0, 0]);
+      }
+      return;
+    }
+    const [row, col] = selCell;
+    const maxRow = displayRows.length - 1;
+    const maxCol = maxCols - 1;
+    const cur = selEnd ?? selCell;
+    switch (e.key) {
+      case 'ArrowUp':    e.preventDefault(); if (e.shiftKey) { setSelEnd([Math.max(0, cur[0] - 1), cur[1]]); } else { setSelCell([Math.max(0, row - 1), col]); setSelEnd(null); } break;
+      case 'ArrowDown':  e.preventDefault(); if (e.shiftKey) { setSelEnd([Math.min(maxRow, cur[0] + 1), cur[1]]); } else { setSelCell([Math.min(maxRow, row + 1), col]); setSelEnd(null); } break;
+      case 'ArrowLeft':  e.preventDefault(); if (e.shiftKey) { setSelEnd([cur[0], Math.max(0, cur[1] - 1)]); } else { setSelCell([row, Math.max(0, col - 1)]); setSelEnd(null); } break;
+      case 'ArrowRight': e.preventDefault(); if (e.shiftKey) { setSelEnd([cur[0], Math.min(maxCol, cur[1] + 1)]); } else { setSelCell([row, Math.min(maxCol, col + 1)]); setSelEnd(null); } break;
+      case 'Enter': case 'F2':
+        e.preventDefault();
+        if (displayRows[row]) {
+          const v = displayRows[row].cells[col] ?? '';
+          editBeforeRef.current = v;
+          setEditCell(selCell); setCellValue(v); setSelEnd(null);
+        }
+        break;
+      case 'Tab':
+        e.preventDefault();
+        if (e.shiftKey) { setSelCell(col > 0 ? [row, col - 1] : row > 0 ? [row - 1, maxCol] : selCell); }
+        else            { setSelCell(col < maxCol ? [row, col + 1] : row < maxRow ? [row + 1, 0] : selCell); }
+        setSelEnd(null);
+        break;
+      case 'Delete': case 'Backspace':
+        e.preventDefault();
+        if (selRange) {
+          setData((prev) => {
+            const next = prev.map((r) => [...r]);
+            for (let r = selRange.r1; r <= selRange.r2; r++) {
+              const di = displayRows[r]?.idx; if (di === undefined) continue;
+              for (let c = selRange.c1; c <= selRange.c2; c++) { if (next[di]?.[c] !== undefined) next[di][c] = ''; }
+            }
+            return next;
+          });
+        }
+        break;
+      case 'Escape':
+        if (selEnd) setSelEnd(null);       // 範囲選択解除 → 起点セルはそのまま
+        else setSelCell(null);
+        break;
+      default:
+        break;
+    }
+  }
+
+  // ── ファイルドロップ ──────────────────────────────────────────────────
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -1251,6 +1414,8 @@ function TsvSection() {
     };
     reader.readAsText(file);
   }, []);
+
+  // ── エクスポート ──────────────────────────────────────────────────────
 
   const buildExport = (dc: string, qc: string) =>
     data.map((row) =>
@@ -1315,7 +1480,18 @@ function TsvSection() {
         onDrop={handleDrop}>
         <textarea className={styles['txt-textarea']}
           placeholder="TSV / CSV データを貼り付け..."
-          value={input} onChange={(e) => setInput(e.target.value)} rows={6} spellCheck={false} />
+          value={input} onChange={(e) => setInput(e.target.value)} rows={6} spellCheck={false}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              const el = e.currentTarget;
+              const s = el.selectionStart ?? 0;
+              const end = el.selectionEnd ?? 0;
+              const next = input.slice(0, s) + '\t' + input.slice(end);
+              setInput(next);
+              requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = s + 1; });
+            }
+          }} />
         {isDragOver && (
           <div className={styles['tsv-drop-overlay']}>
             <span>ファイルをドロップ</span>
@@ -1339,7 +1515,11 @@ function TsvSection() {
             </span>
           </div>
 
-          <div className={styles['tsv-table-wrap']}>
+          {/* スプレッドシートテーブル */}
+          <div ref={tableRef} tabIndex={0}
+            onKeyDown={handleTableKeyDown}
+            onClick={() => { if (!editCell) tableRef.current?.focus(); }}
+            className={clsx(styles['tsv-table-wrap'], 'focus:outline-none')}>
             <table className={styles['tsv-table']}>
               {headers && (
                 <thead>
@@ -1360,32 +1540,101 @@ function TsvSection() {
                 </thead>
               )}
               <tbody>
-                {displayRows.map(({ idx: rowIdx, cells }) => (
-                  <tr key={rowIdx}>
+                {displayRows.map(({ idx: dataRowIdx, cells }, displayIdx) => (
+                  <tr key={dataRowIdx}>
                     {Array.from({ length: maxCols }, (_, colIdx) => {
                       const cell = cells[colIdx] ?? '';
-                      const isEditing = cellEdit?.row === rowIdx && cellEdit?.col === colIdx;
+                      const isEditing  = editCell?.[0] === displayIdx && editCell?.[1] === colIdx;
+                      const isSelected = selCell?.[0] === displayIdx && selCell?.[1] === colIdx;
+                      const isInRange  = selRange
+                        ? displayIdx >= selRange.r1 && displayIdx <= selRange.r2 && colIdx >= selRange.c1 && colIdx <= selRange.c2
+                        : false;
                       return (
                         <td key={colIdx}
-                          className={clsx(q && cell.toLowerCase().includes(q) && styles['tsv-cell--match'], styles['tsv-editable-cell'])}
-                          onDoubleClick={() => { setCellEdit({ row: rowIdx, col: colIdx }); setCellValue(cell); }}>
+                          className={clsx(
+                            q && cell.toLowerCase().includes(q) && styles['tsv-cell--match'],
+                            styles['tsv-editable-cell'],
+                            !isEditing && isInRange && isSelected  && styles['tsv-cell--selected'],
+                            !isEditing && isInRange && !isSelected && styles['tsv-cell--in-range'],
+                          )}
+                          onClick={(e) => {
+                            if (e.shiftKey && selCell) { setSelEnd([displayIdx, colIdx]); return; }
+                            if (isSelected && !isEditing) {
+                              editBeforeRef.current = cell;
+                              setEditCell([displayIdx, colIdx]); setCellValue(cell); setSelEnd(null); return;
+                            }
+                            setSelCell([displayIdx, colIdx]); setSelEnd(null); setEditCell(null);
+                            tableRef.current?.focus();
+                          }}
+                          onDoubleClick={() => {
+                            editBeforeRef.current = cell;
+                            setSelCell([displayIdx, colIdx]);
+                            setEditCell([displayIdx, colIdx]);
+                            setCellValue(cell);
+                            setSelEnd(null);
+                          }}>
                           {isEditing
                             ? <input ref={cellInputRef} type="text" className={styles['tsv-cell-input']}
                                 value={cellValue}
                                 onChange={(e) => setCellValue(e.target.value)}
-                                onBlur={commitEdit}
-                                onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setCellEdit(null); }} />
-                            : cell}
+                                onCompositionStart={() => { isComposingRef.current = true; }}
+                                onCompositionEnd={() => {
+                                  isComposingRef.current = false;
+                                  if (imeEscRef.current) {
+                                    imeEscRef.current = false;
+                                    isEscapingRef.current = true;
+                                    // compositionend の同期処理内で focus を動かすと IME が上書きするため遅延
+                                    setTimeout(() => {
+                                      const dr = displayRows[displayIdx]?.idx;
+                                      if (dr !== undefined) updateCell(dr, colIdx, editBeforeRef.current);
+                                      setCellValue(editBeforeRef.current);
+                                      setEditCell(null); setSelCell([displayIdx, colIdx]);
+                                      cellInputRef.current?.blur(); // isEscapingRef を onBlur で消費
+                                      tableRef.current?.focus();
+                                    }, 0);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  if (isEscapingRef.current) { isEscapingRef.current = false; return; }
+                                  commitEdit('none');
+                                }}
+                                onKeyDown={(e) => {
+                                  if (isComposingRef.current) {
+                                    if (e.key === 'Escape') imeEscRef.current = true;
+                                    return;
+                                  }
+                                  if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    isEscapingRef.current = true;
+                                    const dataRowIdx = displayRows[displayIdx]?.idx;
+                                    if (dataRowIdx !== undefined) updateCell(dataRowIdx, colIdx, editBeforeRef.current);
+                                    setCellValue(editBeforeRef.current);
+                                    setEditCell(null); setSelCell([displayIdx, colIdx]);
+                                    setTimeout(() => tableRef.current?.focus(), 0);
+                                  }
+                                  else if (e.key === 'Enter') { e.preventDefault(); commitEdit('none'); }
+                                  else if (e.key === 'Tab')   { e.preventDefault(); commitEdit(e.shiftKey ? 'left' : 'right'); }
+                                }} />
+                            : cell || <span className="text-[var(--c-fg-3)] text-xs select-none pointer-events-none">—</span>}
                         </td>
                       );
                     })}
                     <td className={styles['tsv-table__del-col']}>
-                      <button className={styles['tsv-del-row-btn']} onClick={() => deleteRow(rowIdx)} title="行を削除">✕</button>
+                      <button className={styles['tsv-del-row-btn']} onClick={() => deleteRow(dataRowIdx)} title="行を削除">✕</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* キーボードショートカットヒント */}
+          <div className="px-3 py-1 flex gap-4 text-[10px] text-[var(--c-fg-3)] border-t border-[var(--c-border)] select-none">
+            <span>クリックで選択 / 再クリックまたは Enter で編集</span>
+            <span>Shift+クリック・矢印で範囲選択</span>
+            <span>Ctrl+C コピー</span>
+            <span>Ctrl+V ペースト</span>
+            <span>Delete でセルクリア</span>
           </div>
 
           {/* 行操作・エクスポートバー */}
