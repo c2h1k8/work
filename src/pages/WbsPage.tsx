@@ -32,6 +32,7 @@ import { ActivityLogger } from '../core/activity_logger';
 import { useTabStore } from '../stores/tab_store';
 import { searchRegistry } from '../stores/search_store';
 import { ShortcutHelp } from '../components/ShortcutHelp';
+import { FileSaver } from '../core/file_saver';
 
 const WBS_SHORTCUTS = [{
   name: 'ショートカット',
@@ -676,11 +677,8 @@ export function WbsPage() {
     const json = await wbsDB.exportAll();
     const now = new Date();
     const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-    a.download = `wbs_export_${ts}.json`;
-    a.click();
-    showSuccess('エクスポートしました');
+    const ok = await FileSaver.save(json, `wbs_export_${ts}.json`);
+    if (ok) showSuccess('エクスポートしました');
   }, [showSuccess]);
 
   const importData = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -834,12 +832,15 @@ export function WbsPage() {
     const overlays: React.ReactNode[] = [];
     const cur = new Date(barStart); cur.setHours(0, 0, 0, 0);
     while (cur <= barEnd) {
-      const dayLeft = ganttLayout.dateToLeftX(cur);
-      const dayRight = ganttLayout.dateToRightX(cur);
-      if (dayRight - dayLeft === DAY_PX && isNonWorkingDay(cur, customSet)) {
-        overlays.push(
-          <div key={formatDate(cur)} className="absolute top-0 bottom-0 bg-black/20" style={{ left: dayLeft - barLeft, width: DAY_PX }} />
-        );
+      const ml = ganttLayout.months.find(m => cur >= m.firstDay && cur <= m.lastDay);
+      if (!ml?.collapsed) {
+        const dayLeft = ganttLayout.dateToLeftX(cur);
+        const dayRight = ganttLayout.dateToRightX(cur);
+        if (dayRight - dayLeft === DAY_PX && isNonWorkingDay(cur, customSet)) {
+          overlays.push(
+            <div key={formatDate(cur)} className="absolute top-0 bottom-0 bg-black/20" style={{ left: dayLeft - barLeft, width: DAY_PX }} />
+          );
+        }
       }
       cur.setDate(cur.getDate() + 1);
     }
@@ -1146,10 +1147,10 @@ export function WbsPage() {
             <div style={{ width: ganttLayout.totalWidth }}>
               {/* 月ヘッダー */}
               <div className="flex h-6 border-b border-[var(--c-border)]">
-                {ganttLayout.months.map(ml => (
+                {ganttLayout.months.map((ml) => (
                   <div
                     key={ml.key}
-                    className={`shrink-0 flex items-center justify-start pl-2 border-r border-[var(--c-border)] cursor-pointer text-[10px] font-medium text-[var(--c-text-2)] select-none hover:bg-[var(--c-accent)]/10 transition-colors overflow-hidden ${ml.collapsed ? 'bg-[var(--c-bg-2)]' : ''}`}
+                    className={`shrink-0 flex items-center justify-start pl-2 border-r border-r-[var(--c-accent)]/40 cursor-pointer text-[10px] font-medium text-[var(--c-text-2)] select-none hover:bg-[var(--c-accent)]/10 transition-colors overflow-hidden ${ml.collapsed ? 'bg-[var(--c-bg-2)]' : ''}`}
                     style={{ width: ml.width }}
                     onClick={() => toggleCollapseMonth(ml.key)}
                     title={ml.collapsed ? `${ml.key} 展開` : `${ml.key} 折りたたむ`}
@@ -1162,7 +1163,7 @@ export function WbsPage() {
               <div className="flex h-7">
                 {ganttLayout.months.map(ml => {
                   if (ml.collapsed) {
-                    return <div key={ml.key} className="shrink-0 border-r border-[var(--c-border)] bg-[var(--c-bg-2)]" style={{ width: ml.width }} />;
+                    return <div key={ml.key} className="shrink-0 border-r border-r-[var(--c-accent)]/40 bg-[var(--c-bg-2)]" style={{ width: ml.width }} />;
                   }
                   const days: React.ReactNode[] = [];
                   const cur = new Date(ml.firstDay);
@@ -1171,14 +1172,13 @@ export function WbsPage() {
                     const dow = cur.getDay();
                     const isHoliday = getJapaneseHolidays(cur.getFullYear()).has(str) || customSet.has(str);
                     const isToday = str === todayStr;
-                    const isMonthStart = cur.getDate() === 1;
-                    let cls = 'shrink-0 flex items-center justify-center text-[9px] border-r border-[var(--c-border)] select-none';
+                    const isMonthEnd = cur.getTime() === ml.lastDay.getTime();
+                    let cls = `shrink-0 flex items-center justify-center text-[9px] border-r ${isMonthEnd ? 'border-r-[var(--c-accent)]/40' : 'border-[var(--c-border)]'} select-none`;
                     if (isToday) cls += ' bg-[var(--c-accent)]/30 text-[var(--c-accent)] font-bold';
                     else if (dow === 0) cls += ' bg-red-500/10 text-red-400';
                     else if (isHoliday) cls += ' bg-yellow-500/10 text-yellow-500';
                     else if (dow === 6) cls += ' bg-blue-500/10 text-blue-400';
                     else cls += ' text-[var(--c-text-3)]';
-                    if (isMonthStart) cls += ' border-l-2 border-l-[var(--c-accent)]/40';
                     days.push(
                       <div key={str} className={cls} style={{ width: DAY_PX }}>
                         {cur.getDate()}
@@ -1231,7 +1231,7 @@ export function WbsPage() {
                     {/* 背景セル */}
                     {ganttLayout.months.map(ml => {
                       if (ml.collapsed) {
-                        return <div key={ml.key} className="shrink-0 h-full border-r border-[var(--c-border)] bg-[var(--c-bg-2)]" style={{ width: ml.width }} />;
+                        return <div key={ml.key} className="shrink-0 h-full border-r border-r-[var(--c-accent)]/40 bg-[var(--c-bg-2)]" style={{ width: ml.width }} />;
                       }
                       const bCells: React.ReactNode[] = [];
                       const cur = new Date(ml.firstDay);
@@ -1240,13 +1240,12 @@ export function WbsPage() {
                         const dow = cur.getDay();
                         const isHoliday = getJapaneseHolidays(cur.getFullYear()).has(str) || customSet.has(str);
                         const isToday = str === todayStr;
-                        const isMonthStart = cur.getDate() === 1;
-                        let cellCls = 'shrink-0 h-full border-r border-[var(--c-border)]';
+                        const isMonthEnd = cur.getTime() === ml.lastDay.getTime();
+                        let cellCls = `shrink-0 h-full border-r ${isMonthEnd ? 'border-r-[var(--c-accent)]/40' : 'border-[var(--c-border)]'}`;
                         if (isToday) cellCls += ' bg-[var(--c-accent)]/10';
                         else if (dow === 0) cellCls += ' bg-red-500/5';
                         else if (isHoliday) cellCls += ' bg-yellow-500/5';
                         else if (dow === 6) cellCls += ' bg-blue-500/5';
-                        if (isMonthStart) cellCls += ' border-l border-l-[var(--c-accent)]/20';
                         bCells.push(<div key={str} className={cellCls} style={{ width: DAY_PX }} />);
                         cur.setDate(cur.getDate() + 1);
                       }

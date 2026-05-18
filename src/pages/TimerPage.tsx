@@ -12,6 +12,7 @@ import { timerDB, type TimerPreset, type TimerSession } from '../db/timer_db';
 import { useTabStore } from '../stores/tab_store';
 import { searchRegistry } from '../stores/search_store';
 import { ShortcutHelp } from '../components/ShortcutHelp';
+import { FileSaver } from '../core/file_saver';
 
 const TIMER_SHORTCUTS = [{
   name: 'ショートカット',
@@ -238,12 +239,10 @@ async function exportCSV() {
     ].join(','));
   const bom = '\uFEFF';
   const csv = bom + [header.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = `timer_sessions_${toDateStr(new Date())}.csv`;
-  a.click(); URL.revokeObjectURL(url);
-  return true;
+  return FileSaver.save(csv, `timer_sessions_${toDateStr(new Date())}.csv`, {
+    mimeType: 'text/csv',
+    filters: [{ name: 'CSV', extensions: ['csv'] }],
+  });
 }
 
 // ================================================================
@@ -627,12 +626,13 @@ export function TimerPage() {
   const remainingRef    = useRef(0);
   const totalRef        = useRef(0);
   const modeRef         = useRef<TimerMode>('work');
-  const sessionStartRef = useRef<string | null>(null);
-  const pausedDurRef    = useRef(0);
-  const pauseStartRef   = useRef<number | null>(null);
-  const taskNameRef     = useRef('');
-  const tagRef          = useRef('');
-  const activePresetRef = useRef<number | null>(null);
+  const sessionStartRef   = useRef<string | null>(null);
+  const pausedDurRef      = useRef(0);
+  const pauseStartRef     = useRef<number | null>(null);
+  const taskNameRef       = useRef('');
+  const tagRef            = useRef('');
+  const activePresetRef   = useRef<number | null>(null);
+  const handlePhaseEndRef = useRef<() => void>(() => {});
 
   // ref を state と同期
   useEffect(() => { runningRef.current = running; }, [running]);
@@ -820,7 +820,7 @@ export function TimerPage() {
       const rem = e.data.remaining as number;
       setRemaining(rem); remainingRef.current = rem;
       saveTimerState();
-      if (rem <= 0) handlePhaseEnd();
+      if (rem <= 0) handlePhaseEndRef.current();
     };
     w.addEventListener('message', handler);
     return () => w.removeEventListener('message', handler);
@@ -881,6 +881,9 @@ export function TimerPage() {
     await loadSessions(historyView, customFrom, customTo);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyView, customFrom, customTo]);
+  // handlePhaseEnd は historyView/customFrom/customTo が変わるたびに再生成される。
+  // Worker・setInterval のクロージャが古い版を掴まないよう常に最新を ref に保持する。
+  handlePhaseEndRef.current = handlePhaseEnd;
 
   // ── セッション保存 ────────────────────────────────
   const doSaveSession = useCallback(async ({ minDuration = 5 }: { minDuration?: number }) => {
@@ -964,7 +967,7 @@ export function TimerPage() {
         const rem = Math.max(0, startRem - Math.floor((Date.now() - startedAt) / 1000));
         setRemaining(rem); remainingRef.current = rem;
         saveTimerState();
-        if (rem <= 0) handlePhaseEnd();
+        if (rem <= 0) handlePhaseEndRef.current();
       }, 1000);
     }
     saveTimerState();
@@ -1216,12 +1219,8 @@ export function TimerPage() {
     try {
       const data = await timerDB.exportAll();
       const json = JSON.stringify(data, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url; a.download = `timer_${toDateStr(new Date())}.json`;
-      a.click(); URL.revokeObjectURL(url);
-      success('エクスポートしました');
+      const ok = await FileSaver.save(json, `timer_${toDateStr(new Date())}.json`);
+      if (ok) success('エクスポートしました');
     } catch { showError('エクスポートに失敗しました'); }
   }, [success, showError]);
 

@@ -47,6 +47,7 @@ import { Picker, type PickerItem } from '../components/Picker';
 import { ShortcutHelp } from '../components/ShortcutHelp';
 import { searchRegistry } from '../stores/search_store';
 import { useTabStore } from '../stores/tab_store';
+import { FileSaver } from '../core/file_saver';
 
 const TODO_SHORTCUTS = [{
   name: 'ショートカット',
@@ -2372,16 +2373,10 @@ export function TodoPage() {
   const exportData = useCallback(async () => {
     const data = await kanbanDB.exportAll();
     const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
     const now = new Date();
     const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-    a.href = url;
-    a.download = `kanban_export_${stamp}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('エクスポートしました');
+    const ok = await FileSaver.save(json, `kanban_export_${stamp}.json`);
+    if (ok) toast.success('エクスポートしました');
   }, [toast]);
 
   // ── インポート ────────────────────────────────────────────
