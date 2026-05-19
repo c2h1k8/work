@@ -74,6 +74,7 @@ DB 名: `dashboard_db` version 2
 | `new_row` | `boolean?` | セクション行頭から開始（`gridColumn: 1 / span N`）。Vanilla JS版の `newRow` と互換読み取りあり |
 | `show_filter` | `boolean?` | list: フィルターバー表示（デフォルト false=非表示） |
 | `history_limit` | `number?` | command_builder: 履歴保持上限（デフォルト10） |
+| `cmd_placeholder` | `string?` | command_builder: 入力欄のプレースホルダー（未設定時は `"入力値 {INPUT}"`） |
 | `checklist_reset` | `'never'\|'daily'\|'weekly'\|'monthly'\|'yearly'?` | checklist: 自動リセット方式 |
 
 ## グリッドアイテム追加機能

@@ -57,6 +57,17 @@ src/components/layout/         AppShell レイアウト部品
 ナビゲーション結果の `onSelect`: タブ切り替え + `localStorage` 更新 + 状態 setter 呼び出し。
 コンテンツ結果: DB 直接検索（ページ state 非依存）。
 
+## TopNav タブ overflow（TopNav.tsx）
+
+タブが表示幅を超えた場合、超過分を「もっと見る」ボタン（`tab-more-btn`）にまとめる。
+
+- `ResizeObserver` で `top-nav__tabs`（`overflow: hidden`）の幅を監視
+- 各タブボタンの `offsetLeft + offsetWidth > containerWidth - MORE_BTN_WIDTH(72px)` で超過判定
+- 超過タブは `visibility: hidden; pointer-events: none; position: absolute`（DOM 上は残して幅測定に使う）
+- アクティブタブは常に表示エリアに置く（超過する場合は末尾の表示タブと swap）
+- 「もっと見る」ドロップダウンは外クリック・Escape で閉じる
+- アクティブタブがドロップダウン内にある場合、ボタンの下ボーダーがアクセント色になる
+
 ## テーマ
 
 - `theme_store.ts` で `localStorage('mytools_theme')` を管理

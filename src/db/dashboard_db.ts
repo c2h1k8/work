@@ -61,6 +61,7 @@ export interface DashboardSection {
   action_mode?: 'copy' | 'open';
   cmd_buttons?: Array<{ id: string; label: string; template: string; action_mode: 'copy' | 'open' }>;
   history_limit?: number;
+  cmd_placeholder?: string;
   // table 専用
   columns?: Array<{ id: string; label: string; type: 'text' | 'copy' | 'link' }>;
   page_size?: number;

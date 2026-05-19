@@ -613,7 +613,7 @@ function CommandBuilderSection({ section, items, presets, activePresetId, global
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && buttons.length > 0) execButton(buttons[0].template, buttons[0].actionMode); }}
-        placeholder="入力値 {INPUT}"
+        placeholder={section.cmd_placeholder || '入力値 {INPUT}'}
         className="w-full px-3 py-1.5 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-sm focus:outline-none focus:border-[var(--c-accent)]"
       />
       {history.length > 0 && (
@@ -1693,6 +1693,7 @@ function SectionEditModal({ section, instanceId, items, onClose, onSaved, onDele
   const columnSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   // command_builder 専用
   const [historyLimit, setHistoryLimit] = useState(String(section?.history_limit ?? 10));
+  const [cmdPlaceholder, setCmdPlaceholder] = useState(section?.cmd_placeholder || '');
   // checklist 専用
   const [checklistReset, setChecklistReset] = useState<NonNullable<DashboardSection['checklist_reset']>>(section?.checklist_reset || 'never');
   // セクション固有バインド変数（table / list / grid）
@@ -1812,6 +1813,7 @@ function SectionEditModal({ section, instanceId, items, onClose, onSaved, onDele
       show_filter: showFilterBar,
       show_add_btn: showAddBtn,
       history_limit: parseInt(historyLimit) || 10,
+      cmd_placeholder: cmdPlaceholder || undefined,
       checklist_reset: checklistReset as DashboardSection['checklist_reset'],
       // セクション固有バインド変数（保存時に全タイプ分を維持する）
       table_bind_vars: tableBindVars,
@@ -2009,10 +2011,18 @@ function SectionEditModal({ section, instanceId, items, onClose, onSaved, onDele
           )}
 
           {type === 'command_builder' && (
-            <div>
-              <label className="text-xs text-[var(--c-fg-3)]">履歴の上限件数（0=無効）</label>
-              <input value={historyLimit} onChange={(e) => setHistoryLimit(e.target.value)} type="number" min="0"
-                className="w-full px-3 py-1.5 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] focus:outline-none focus:border-[var(--c-accent)]" />
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-[var(--c-fg-3)]">入力欄のプレースホルダー</label>
+                <input value={cmdPlaceholder} onChange={(e) => setCmdPlaceholder(e.target.value)}
+                  placeholder="入力値 {INPUT}"
+                  className="w-full px-3 py-1.5 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] focus:outline-none focus:border-[var(--c-accent)]" />
+              </div>
+              <div>
+                <label className="text-xs text-[var(--c-fg-3)]">履歴の上限件数（0=無効）</label>
+                <input value={historyLimit} onChange={(e) => setHistoryLimit(e.target.value)} type="number" min="0"
+                  className="w-full px-3 py-1.5 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] focus:outline-none focus:border-[var(--c-accent)]" />
+              </div>
             </div>
           )}
 
