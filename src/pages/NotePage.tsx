@@ -532,9 +532,6 @@ function FieldView({
     return (
       <>
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <button onClick={openTodoPicker} className="text-xs text-[var(--c-accent)] hover:underline">＋ 追加</button>
-          </div>
           {todoLinks.map(l => (
             <div key={l.linkId} className="flex items-center gap-1 py-0.5">
               <button
@@ -545,6 +542,7 @@ function FieldView({
               <button onClick={() => removeTodoLink(l.linkId, l.taskId, l.title)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs shrink-0">×</button>
             </div>
           ))}
+          <button onClick={openTodoPicker} className="text-xs text-[var(--c-accent)] hover:underline mt-0.5">＋ 追加</button>
         </div>
         {pickerEl}
       </>
@@ -555,9 +553,6 @@ function FieldView({
     return (
       <>
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <button onClick={openNotePicker} className="text-xs text-[var(--c-accent)] hover:underline">＋ 追加</button>
-          </div>
           {noteLinks.map(l => (
             <div key={l.linkId} className="flex items-center gap-1 py-0.5">
               <button
@@ -568,6 +563,7 @@ function FieldView({
               <button onClick={() => removeNoteLink(l.linkId, l.linkedId, l.title)} className="text-[var(--c-text-3)] hover:text-red-400 text-xs shrink-0">×</button>
             </div>
           ))}
+          <button onClick={openNotePicker} className="text-xs text-[var(--c-accent)] hover:underline mt-0.5">＋ 追加</button>
         </div>
         {pickerEl}
       </>
