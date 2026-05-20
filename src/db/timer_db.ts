@@ -1,13 +1,18 @@
 // ==================================================
 // TimerDB - 定型作業タイマー IndexedDB（Dexie.js）
 // ==================================================
-// DB名: timer_db  version: 1
+// DB名: timer_db  version: 2
 //
 // ストア:
-//   sessions: id*, task_name, tag, notes, duration_sec, started_at, ended_at
+//   sessions: id*, task_name, tag, notes, duration_sec, started_at, ended_at, pause_intervals?
 //   presets:  id*, name, work_sec, break_sec, position
 
 import Dexie, { type Table } from 'dexie';
+
+export interface PauseInterval {
+  started_at: string;
+  ended_at: string;
+}
 
 export interface TimerSession {
   id?: number;
@@ -17,6 +22,7 @@ export interface TimerSession {
   duration_sec: number;
   started_at: string;
   ended_at: string;
+  pause_intervals?: PauseInterval[];
 }
 
 export interface TimerPreset {
@@ -41,6 +47,10 @@ class TimerDatabase extends Dexie {
   constructor() {
     super('timer_db');
     this.version(1).stores({
+      sessions: '++id, started_at, tag',
+      presets: '++id',
+    });
+    this.version(2).stores({
       sessions: '++id, started_at, tag',
       presets: '++id',
     });

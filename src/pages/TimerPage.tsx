@@ -408,58 +408,130 @@ function TodayTimeline({ sessions, goalSec }: {
   sessions: TimerSession[];
   goalSec: number;
 }) {
+  const nowMs = Date.now();
   if (!sessions.length) return null;
 
   const totalSec = sessions.reduce((s, x) => s + x.duration_sec, 0);
-
-  const startMs = sessions.map(s => new Date(s.started_at).getTime());
-  const endMs   = sessions.map(s =>
+  const startMsList = sessions.map(s => new Date(s.started_at).getTime());
+  const endMsList   = sessions.map(s =>
     s.ended_at ? new Date(s.ended_at).getTime() : new Date(s.started_at).getTime() + s.duration_sec * 1000
   );
-  const minMs     = Math.min(...startMs);
-  const maxMs     = Math.max(...endMs);
+  const minMs     = Math.min(...startMsList);
+  const maxMs     = Math.max(...endMsList);
   const range     = Math.max(maxMs - minMs, 1800 * 1000);
-  const padMs     = range * 0.06;
+  const padMs     = range * 0.05;
   const axisMin   = minMs - padMs;
   const axisMax   = maxMs + padMs;
   const axisRange = axisMax - axisMin;
 
-  function pct(ms: number) { return (ms - axisMin) / axisRange * 100; }
+  const pct = (ms: number) => (ms - axisMin) / axisRange * 100;
+
+  const hasPauseData = sessions.some(s => s.pause_intervals && s.pause_intervals.length > 0);
+  const showNow = nowMs >= axisMin && nowMs <= axisMax;
+
+  // 作業セグメントとツールチップ内容を生成
+  function getWorkSegments(s: TimerSession) {
+    const sMs   = new Date(s.started_at).getTime();
+    const eMs   = s.ended_at ? new Date(s.ended_at).getTime() : sMs + s.duration_sec * 1000;
+    const color = s.tag ? tagColor(s.tag) : 'var(--c-accent)';
+
+    if (!s.pause_intervals || s.pause_intervals.length === 0) {
+      const tip = `${s.task_name}\n${toHHMM(s.started_at)}〜${toHHMM(s.ended_at || new Date(eMs).toISOString())}（${fmtDuration(s.duration_sec)}）`;
+      return [{ sMs, eMs, color, tip }];
+    }
+
+    const segs: { sMs: number; eMs: number; color: string; tip: string }[] = [];
+    let cursor = sMs;
+    for (const iv of s.pause_intervals) {
+      const ps = new Date(iv.started_at).getTime();
+      const pe = new Date(iv.ended_at).getTime();
+      if (ps > cursor) {
+        const dur = Math.round((ps - cursor) / 1000);
+        segs.push({ sMs: cursor, eMs: ps, color, tip: `${s.task_name}\n${toHHMM(new Date(cursor).toISOString())}〜${toHHMM(new Date(ps).toISOString())}（${fmtDuration(dur)}）` });
+      }
+      cursor = pe;
+    }
+    if (cursor < eMs) {
+      const dur = Math.round((eMs - cursor) / 1000);
+      segs.push({ sMs: cursor, eMs, color, tip: `${s.task_name}\n${toHHMM(new Date(cursor).toISOString())}〜${toHHMM(new Date(eMs).toISOString())}（${fmtDuration(dur)}）` });
+    }
+    return segs;
+  }
 
   return (
-    <div className="rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] p-3">
+    <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-bg)] p-4">
+      {/* ヘッダー */}
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--c-fg-3)]">今日のタイムライン</div>
-        <div className="flex items-center gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--c-fg-3)]">今日のタイムライン</span>
+        <div className="flex items-center gap-2.5">
           {goalSec > 0 && (
-            <span className="text-[11px] text-[var(--c-fg-3)]">
-              目標 {Math.min(100, Math.round(totalSec / goalSec * 100))}%
-            </span>
+            <span className="text-[11px] text-[var(--c-fg-3)]">目標 {Math.min(100, Math.round(totalSec / goalSec * 100))}%</span>
           )}
-          <span className="text-[11px] font-semibold" style={{ color: 'var(--c-accent)' }}>{fmtDuration(totalSec)}</span>
+          <span className="text-[12px] font-bold" style={{ color: 'var(--c-accent)' }}>{fmtDuration(totalSec)}</span>
         </div>
       </div>
-      <div className="relative rounded overflow-hidden" style={{ height: 32, background: 'var(--c-bg-2)' }}>
-        {sessions.map(s => {
+
+      {/* トラック */}
+      <div className="relative rounded-lg overflow-hidden" style={{ height: 40, background: 'var(--c-bg-2)' }}>
+        {/* セッションエンベロープ（一時停止データありのみ：薄い色で全期間を示す） */}
+        {sessions.filter(s => s.pause_intervals && s.pause_intervals.length > 0).map(s => {
           const sMs   = new Date(s.started_at).getTime();
           const eMs   = s.ended_at ? new Date(s.ended_at).getTime() : sMs + s.duration_sec * 1000;
-          const left  = pct(sMs);
-          const width = Math.max(pct(eMs) - left, 0.4);
           const color = s.tag ? tagColor(s.tag) : 'var(--c-accent)';
+          const l = pct(sMs);
+          const w = Math.max(pct(eMs) - l, 0.3);
           return (
-            <div key={s.id}
-              className="absolute rounded-sm"
-              style={{ left: `${left}%`, width: `${width}%`, top: 3, bottom: 3, background: color, opacity: 0.85 }}
-              title={`${s.task_name}（${fmtDuration(s.duration_sec)}）`}
-            />
+            <div key={`env-${s.id}`} className="absolute" style={{
+              left: `${l}%`, width: `${w}%`, top: 4, bottom: 4,
+              background: color, opacity: 0.18, borderRadius: 3,
+            }} />
           );
         })}
+
+        {/* 作業セグメント（Tooltip付き） */}
+        {sessions.flatMap(s =>
+          getWorkSegments(s).map((seg, i) => {
+            const l = pct(seg.sMs);
+            const w = Math.max(pct(seg.eMs) - l, 0.3);
+            return (
+              <Tooltip key={`${s.id}-${i}`} content={seg.tip}>
+                <div className="absolute" style={{
+                  left: `${l}%`, width: `${w}%`, top: 4, bottom: 4,
+                  background: seg.color,
+                  boxShadow: `0 1px 4px ${seg.color}55`,
+                  borderRadius: 3,
+                }} />
+              </Tooltip>
+            );
+          })
+        )}
+
+        {/* 現在時刻マーカー */}
+        {showNow && (
+          <div className="absolute top-0 bottom-0 w-px" style={{ left: `${pct(nowMs)}%`, background: 'var(--c-fg-2)', opacity: 0.5 }} />
+        )}
       </div>
+
+      {/* 時刻軸 */}
       <div className="flex justify-between mt-1.5">
         <span className="text-[9px] text-[var(--c-fg-3)] tabular-nums">{toHHMM(new Date(axisMin).toISOString())}</span>
         <span className="text-[9px] text-[var(--c-fg-3)] tabular-nums">{toHHMM(new Date((axisMin + axisMax) / 2).toISOString())}</span>
         <span className="text-[9px] text-[var(--c-fg-3)] tabular-nums">{toHHMM(new Date(axisMax).toISOString())}</span>
       </div>
+
+      {/* 凡例（一時停止データがある場合のみ） */}
+      {hasPauseData && (
+        <div className="flex items-center gap-4 mt-3 pt-2.5 border-t border-[var(--c-border)]">
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-4 rounded-sm" style={{ background: 'var(--c-accent)' }} />
+            <span className="text-[10px] text-[var(--c-fg-3)]">作業</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-4 rounded-sm" style={{ background: 'var(--c-accent)', opacity: 0.18 }} />
+            <span className="text-[10px] text-[var(--c-fg-3)]">一時停止</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -629,6 +701,7 @@ export function TimerPage() {
   const sessionStartRef   = useRef<string | null>(null);
   const pausedDurRef      = useRef(0);
   const pauseStartRef     = useRef<number | null>(null);
+  const pauseIntervalsRef = useRef<{ started_at: number; ended_at: number }[]>([]);
   const taskNameRef       = useRef('');
   const tagRef            = useRef('');
   const activePresetRef   = useRef<number | null>(null);
@@ -662,6 +735,7 @@ export function TimerPage() {
       tag: tagRef.current,
       sessionStartTime: sessionStartRef.current,
       pausedDurationSec: pausedSec,
+      pauseIntervals: pauseIntervalsRef.current,
       savedAt: Date.now(),
     }));
   }, []);
@@ -796,6 +870,7 @@ export function TimerPage() {
               setTag(data.tag || '');           tagRef.current = data.tag || '';
               setPausedDuration(data.pausedDurationSec || 0); pausedDurRef.current = data.pausedDurationSec || 0;
               setPauseStartedAt(null); pauseStartRef.current = null;
+              pauseIntervalsRef.current = data.pauseIntervals || [];
               setRemaining(rem); remainingRef.current = rem;
             }
           }
@@ -851,6 +926,7 @@ export function TimerPage() {
 
     if (modeRef.current === 'work') {
       await doSaveSession({});
+      pauseIntervalsRef.current = [];
       setMode('break'); modeRef.current = 'break';
       success('作業完了！休憩しましょう 🎉');
       try {
@@ -873,6 +949,7 @@ export function TimerPage() {
     setSessionStartTime(null); sessionStartRef.current = null;
     setPausedDuration(0);      pausedDurRef.current = 0;
     setPauseStartedAt(null);   pauseStartRef.current = null;
+    pauseIntervalsRef.current = [];
     clearTimerState();
 
     const all = await timerDB.getAllSessions();
@@ -892,6 +969,7 @@ export function TimerPage() {
     const wallSec = Math.round((new Date(endTime).getTime() - new Date(sessionStartRef.current).getTime()) / 1000);
     const durSec  = Math.max(0, wallSec - pausedDurRef.current);
     if (durSec < minDuration) return false;
+    const completedIntervals = pauseIntervalsRef.current.filter(p => p.ended_at > 0);
     const session: Omit<TimerSession, 'id'> = {
       task_name: taskNameRef.current || '（未設定）',
       tag: tagRef.current || '',
@@ -899,6 +977,12 @@ export function TimerPage() {
       duration_sec: durSec,
       started_at: sessionStartRef.current,
       ended_at: endTime,
+      pause_intervals: completedIntervals.length > 0
+        ? completedIntervals.map(p => ({
+            started_at: new Date(p.started_at).toISOString(),
+            ended_at: new Date(p.ended_at).toISOString(),
+          }))
+        : undefined,
     };
     try { await timerDB.addSession(session); return true; } catch { return false; }
   }, []);
@@ -912,6 +996,7 @@ export function TimerPage() {
     setSessionStartTime(null); sessionStartRef.current = null;
     setPausedDuration(0); pausedDurRef.current = 0;
     setPauseStartedAt(null); pauseStartRef.current = null;
+    pauseIntervalsRef.current = [];
     const pList = await timerDB.getPresets();
     const preset = getActivePreset(pList, activePresetRef.current);
     if (preset) {
@@ -951,11 +1036,16 @@ export function TimerPage() {
       setSessionStartTime(now); sessionStartRef.current = now;
       setPausedDuration(0); pausedDurRef.current = 0;
       setPauseStartedAt(null); pauseStartRef.current = null;
+      pauseIntervalsRef.current = [];
     } else if (pauseStartRef.current !== null) {
-      const addedSec = Math.floor((Date.now() - pauseStartRef.current) / 1000);
+      const resumeMs = Date.now();
+      const addedSec = Math.floor((resumeMs - pauseStartRef.current) / 1000);
       const newPaused = pausedDurRef.current + addedSec;
       setPausedDuration(newPaused); pausedDurRef.current = newPaused;
       setPauseStartedAt(null); pauseStartRef.current = null;
+      // 最後の一時停止インターバルを閉じる
+      const last = pauseIntervalsRef.current[pauseIntervalsRef.current.length - 1];
+      if (last && last.ended_at === 0) last.ended_at = resumeMs;
     }
 
     if (workerRef.current) {
@@ -981,6 +1071,7 @@ export function TimerPage() {
     setRunning(false); runningRef.current = false;
     const now = Date.now();
     setPauseStartedAt(now); pauseStartRef.current = now;
+    pauseIntervalsRef.current.push({ started_at: now, ended_at: 0 });
     saveTimerState();
   }, [saveTimerState]);
 
@@ -992,6 +1083,7 @@ export function TimerPage() {
 
     if (modeRef.current === 'work' && sessionStartRef.current) {
       const saved = await doSaveSession({ minDuration: 1 });
+      pauseIntervalsRef.current = [];
       if (saved) success('作業を終了して記録しました');
       const all = await timerDB.getAllSessions();
       setAllSessions(all);
@@ -1009,6 +1101,7 @@ export function TimerPage() {
     setSessionStartTime(null); sessionStartRef.current = null;
     setPausedDuration(0); pausedDurRef.current = 0;
     setPauseStartedAt(null); pauseStartRef.current = null;
+    pauseIntervalsRef.current = [];
     clearTimerState();
   }, [doSaveSession, getActivePreset, historyView, customFrom, customTo, success, clearTimerState, loadSessions, updateAutocompleteCaches]);
 
@@ -1016,6 +1109,7 @@ export function TimerPage() {
   const handleSkip = useCallback(async () => {
     if (modeRef.current === 'work' && sessionStartRef.current) {
       await doSaveSession({});
+      pauseIntervalsRef.current = [];
       const all = await timerDB.getAllSessions();
       setAllSessions(all);
       updateAutocompleteCaches(all);
