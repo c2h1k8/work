@@ -403,10 +403,11 @@ function DailyChart({ sessions, historyView, customFrom, customTo, goalSec }: {
   );
 }
 
-// 今日のタイムライン（今日ビュー専用）
-function TodayTimeline({ sessions, goalSec }: {
+// 今日 / 昨日のタイムライン
+function TodayTimeline({ sessions, goalSec, historyView }: {
   sessions: TimerSession[];
   goalSec: number;
+  historyView: HistoryView;
 }) {
   const nowMs = Date.now();
   if (!sessions.length) return null;
@@ -462,7 +463,7 @@ function TodayTimeline({ sessions, goalSec }: {
     <div className="rounded-xl border border-[var(--c-border)] bg-[var(--c-bg)] p-4">
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--c-fg-3)]">今日のタイムライン</span>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--c-fg-3)]">{historyView === 'yesterday' ? '昨日のタイムライン' : '今日のタイムライン'}</span>
         <div className="flex items-center gap-2.5">
           {goalSec > 0 && (
             <span className="text-[11px] text-[var(--c-fg-3)]">目標 {Math.min(100, Math.round(totalSec / goalSec * 100))}%</span>
@@ -473,17 +474,17 @@ function TodayTimeline({ sessions, goalSec }: {
 
       {/* トラック */}
       <div className="relative rounded-lg overflow-hidden" style={{ height: 40, background: 'var(--c-bg-2)' }}>
-        {/* セッションエンベロープ（一時停止データありのみ：薄い色で全期間を示す） */}
+        {/* セッションエンベロープ（一時停止データありのみ：斜線パターンで全期間を示す） */}
         {sessions.filter(s => s.pause_intervals && s.pause_intervals.length > 0).map(s => {
-          const sMs   = new Date(s.started_at).getTime();
-          const eMs   = s.ended_at ? new Date(s.ended_at).getTime() : sMs + s.duration_sec * 1000;
-          const color = s.tag ? tagColor(s.tag) : 'var(--c-accent)';
+          const sMs = new Date(s.started_at).getTime();
+          const eMs = s.ended_at ? new Date(s.ended_at).getTime() : sMs + s.duration_sec * 1000;
           const l = pct(sMs);
           const w = Math.max(pct(eMs) - l, 0.3);
           return (
             <div key={`env-${s.id}`} className="absolute" style={{
               left: `${l}%`, width: `${w}%`, top: 4, bottom: 4,
-              background: color, opacity: 0.18, borderRadius: 3,
+              background: 'repeating-linear-gradient(-45deg, var(--c-border) 0px, var(--c-border) 2px, transparent 2px, transparent 6px)',
+              borderRadius: 3,
             }} />
           );
         })}
@@ -520,18 +521,28 @@ function TodayTimeline({ sessions, goalSec }: {
       </div>
 
       {/* 凡例（一時停止データがある場合のみ） */}
-      {hasPauseData && (
-        <div className="flex items-center gap-4 mt-3 pt-2.5 border-t border-[var(--c-border)]">
-          <div className="flex items-center gap-1.5">
-            <div className="h-2 w-4 rounded-sm" style={{ background: 'var(--c-accent)' }} />
-            <span className="text-[10px] text-[var(--c-fg-3)]">作業</span>
+      {hasPauseData && (() => {
+        const uniqueColors = [...new Set(sessions.map(s => s.tag ? tagColor(s.tag) : 'var(--c-accent)'))];
+        return (
+          <div className="flex items-center gap-4 mt-3 pt-2.5 border-t border-[var(--c-border)]">
+            <div className="flex items-center gap-1.5">
+              <div className="flex gap-0.5">
+                {uniqueColors.map((c, i) => (
+                  <div key={i} className="h-2 w-2 rounded-full" style={{ background: c }} />
+                ))}
+              </div>
+              <span className="text-[10px] text-[var(--c-fg-3)]">作業</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-4 rounded-sm" style={{
+                background: 'repeating-linear-gradient(-45deg, var(--c-border) 0px, var(--c-border) 2px, transparent 2px, transparent 6px)',
+                border: '1px solid var(--c-border)',
+              }} />
+              <span className="text-[10px] text-[var(--c-fg-3)]">一時停止</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-2 w-4 rounded-sm" style={{ background: 'var(--c-accent)', opacity: 0.18 }} />
-            <span className="text-[10px] text-[var(--c-fg-3)]">一時停止</span>
-          </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -628,7 +639,7 @@ function SessionRow({ session: s, onDelete, maxSec }: {
       <div className="mt-1.5 overflow-hidden rounded-full" style={{ height: 2, background: 'var(--c-bg-2)' }}>
         {hasPause ? (
           <div className="flex h-full" style={{ width: `${barWidthPct}%` }}>
-            <div style={{ flex: workPct, background: 'var(--c-accent)', minWidth: 2 }} />
+            <div style={{ flex: workPct, background: tagCol, minWidth: 2 }} />
             <div style={{ flex: 100 - workPct, background: 'var(--c-warning, #f59e0b)', opacity: 0.7, minWidth: 2 }} />
           </div>
         ) : (
@@ -1763,7 +1774,7 @@ export function TimerPage() {
             {/* 分析チャート */}
             <div className="flex flex-col gap-4 p-4">
               {(historyView === 'today' || historyView === 'yesterday') ? (
-                <TodayTimeline sessions={sessions} goalSec={dailyGoalSec} />
+                <TodayTimeline sessions={sessions} goalSec={dailyGoalSec} historyView={historyView} />
               ) : (
                 <DailyChart sessions={sessions} historyView={historyView} customFrom={customFrom} customTo={customTo} goalSec={dailyGoalSec} />
               )}

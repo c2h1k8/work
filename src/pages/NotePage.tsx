@@ -1800,7 +1800,7 @@ export function NotePage() {
                       {selectedTask.title}
                     </h2>
                   )}
-                  <div className="text-[10px] text-[var(--c-text-3)] mt-0.5">
+                  <div className="text-[10px] text-[var(--c-text-2)] mt-0.5">
                     作成: {new Date(selectedTask.created_at).toLocaleString('ja-JP')}
                     {selectedTask.updated_at !== selectedTask.created_at && ` ・ 更新: ${new Date(selectedTask.updated_at).toLocaleString('ja-JP')}`}
                   </div>

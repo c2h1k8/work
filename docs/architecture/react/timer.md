@@ -7,6 +7,11 @@ src/pages/TimerPage.tsx   メインコンポーネント
 src/db/timer_db.ts        Dexie.js（timer_db）
 ```
 
+## 日付フィルタリングの注意点
+
+`getSessionsByDate` / `getSessionsInRange` は `localDate(iso)` ヘルパーでローカル日付を取得して比較する。
+`started_at.slice(0, 10)` は UTC 日付になるため JST 0〜9 時の記録が前日扱いになるバグを防ぐため。
+
 ## DB スキーマ
 
 DB 名: `timer_db` version 2
@@ -45,10 +50,14 @@ DB 名: `timer_db` version 2
 - リセット・フェーズ終了・途中終了・スキップ後: `pauseIntervalsRef.current = []`
 - `saveTimerState` / ページ復元: `pauseIntervals` キーで `localStorage` に保存・復元
 
-## TodayTimeline（今日のタイムライン）
+## TodayTimeline（今日 / 昨日のタイムライン）
 
-- セッションごとに `getSegments()` で作業/一時停止セグメントを算出
-- `pause_intervals` がある場合: 作業セグメント（タグ色・高さ大）と一時停止セグメント（斜線パターン・高さ小）を交互に描画
+props: `sessions`, `goalSec`, `historyView`
+
+- `historyView === 'yesterday'` のとき「昨日のタイムライン」、それ以外は「今日のタイムライン」を表示
+- セッションごとに `getWorkSegments()` で作業セグメントを算出
+- `pause_intervals` がある場合: エンベロープ（斜線パターン `repeating-linear-gradient(-45deg, --c-border)`）で全期間を示し、作業セグメント（タグ色）を重ねる
 - `pause_intervals` がない（旧セッション）場合: 全期間を作業色で描画
 - 現在時刻マーカー（縦線）を axis 範囲内に表示
-- 一時停止データが1件以上あるとき凡例（作業 / 一時停止）を表示
+- 凡例（一時停止データがある場合のみ）: 作業＝タグ別カラードット、一時停止＝斜線パターンスウォッチ
+- `SessionRow` デュレーションバー: 一時停止ありの作業部分もタグ色（`tagCol`）を使用

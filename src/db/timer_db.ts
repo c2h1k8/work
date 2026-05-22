@@ -9,6 +9,13 @@
 
 import Dexie, { type Table } from 'dexie';
 
+// ISO8601 UTC 文字列からローカル日付文字列（YYYY-MM-DD）を返す
+// .slice(0,10) だと UTC 日付になり JST 0-9 時の記録が前日扱いになるため
+function localDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export interface PauseInterval {
   started_at: string;
   ended_at: string;
@@ -73,14 +80,15 @@ class TimerDatabase extends Dexie {
 
   async getSessionsByDate(dateStr: string): Promise<TimerSession[]> {
     const all = await this.getAllSessions();
-    return all.filter((s) => s.started_at.slice(0, 10) === dateStr);
+    return all.filter((s) => localDate(s.started_at) === dateStr);
   }
 
   async getSessionsInRange(fromStr: string, toStr: string): Promise<TimerSession[]> {
     const all = await this.getAllSessions();
-    return all.filter(
-      (s) => s.started_at.slice(0, 10) >= fromStr && s.started_at.slice(0, 10) <= toStr,
-    );
+    return all.filter((s) => {
+      const d = localDate(s.started_at);
+      return d >= fromStr && d <= toStr;
+    });
   }
 
   // ----- プリセット -----
