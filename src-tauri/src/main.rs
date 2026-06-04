@@ -5,24 +5,41 @@ use tauri::Manager;
 
 // ── タイマーバッジ Tauri コマンド ─────────────────────────────────
 //
-// macOS : Dock バッジに "MM:SS" テキストを表示（objc 経由で NSApplication を直接操作）
+// macOS : Dock バッジにテキストを表示（objc 経由で NSApplication を直接操作）
+//           Dock バッジは赤ピル固定で色分け不可のため、休憩は ☕ を前置して区別
 // Windows: タスクバーボタン右下にオーバーレイアイコン（32×32 RGBA）を表示
-//           ビットマップフォントで分数部分を大きく描画
+//           外周にプログレスリング（残り割合）＋中央に数字を描画
+//           作業=インディゴ実線リング / 休憩=グリーン破線リングで区別
 // その他 : 何もしない
 //
-// label: Some("25:00") → 表示  / None → クリア
+// label   : 中央に出す数字（"25" など。残り1分未満は秒。None → クリア）
+// mode    : "work" | "break"
+// fraction: 残り割合 0.0〜1.0（リングの残量）
 
 #[tauri::command]
-fn set_timer_badge(app: tauri::AppHandle, label: Option<String>) -> Result<(), String> {
+fn set_timer_badge(
+    app: tauri::AppHandle,
+    label: Option<String>,
+    mode: Option<String>,
+    fraction: Option<f32>,
+) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
+        let _ = fraction; // macOS Dock バッジはテキストのみ（リング非対応）
         let window = app
             .get_webview_window("main")
             .ok_or_else(|| "main window not found".to_string())?;
-        let label_clone = label.clone();
+        // 休憩は ☕ を前置（赤ピル固定で色分けできないため、グリフで区別）
+        let text = label.as_ref().map(|l| {
+            if mode.as_deref() == Some("break") {
+                format!("☕{}", l)
+            } else {
+                l.clone()
+            }
+        });
         window
             .run_on_main_thread(move || {
-                set_dock_badge_macos(label_clone.as_deref());
+                set_dock_badge_macos(text.as_deref());
             })
             .map_err(|e| e.to_string())?;
     }
@@ -34,7 +51,9 @@ fn set_timer_badge(app: tauri::AppHandle, label: Option<String>) -> Result<(), S
             .ok_or_else(|| "main window not found".to_string())?;
 
         if let Some(ref text) = label {
-            let icon = render_badge_icon(text)?;
+            let is_break = mode.as_deref() == Some("break");
+            let frac = fraction.unwrap_or(0.0).clamp(0.0, 1.0);
+            let icon = render_badge_icon(text, is_break, frac)?;
             win.set_overlay_icon(Some(icon)).map_err(|e| e.to_string())?;
         } else {
             win.set_overlay_icon(None).map_err(|e| e.to_string())?;
@@ -43,7 +62,7 @@ fn set_timer_badge(app: tauri::AppHandle, label: Option<String>) -> Result<(), S
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        let _ = (app, label);
+        let _ = (app, label, mode, fraction);
     }
 
     Ok(())
@@ -82,17 +101,22 @@ fn set_dock_badge_macos(text: Option<&str>) {
     }
 }
 
-// ── Windows: 32×32 RGBA バッジ画像をビットマップフォントで生成 ──────
+// ── Windows: 32×32 RGBA バッジ画像を生成 ───────────────────────────
 //
-// 外部フォントファイル不要。5×7 ドットフォントを 2x スケールで描画する。
-// "25:00" を受け取り、分部分 ("25") を大きく中央に表示する。
-// 表示例: 背景 #1e1e1e、白文字で "25"
+// 外部フォント/クレート不要。暗い円ディスク + 外周プログレスリング + 中央数字。
+// ・リング: 12時方向から時計回りに「残り割合 (fraction)」ぶんを描画（残量が減る）
+// ・作業 = インディゴ #6366f1 の実線リング
+// ・休憩 = グリーン #10b981 の破線リング（色覚に依存せず線種でも区別）
+// ・中央 = 5×7 ビットマップフォントの数字（白）。通常は分、残り1分未満は秒
 
 #[cfg(target_os = "windows")]
-fn render_badge_icon(label: &str) -> Result<tauri::image::Image<'static>, String> {
-    // "MM:SS" 形式から分部分を取り出す（それ以外はそのまま使用）
-    let minutes_str = label.split(':').next().unwrap_or(label);
-    let digits: Vec<usize> = minutes_str
+fn render_badge_icon(
+    label: &str,
+    is_break: bool,
+    fraction: f32,
+) -> Result<tauri::image::Image<'static>, String> {
+    // label は中央の数字。先頭2桁を使用
+    let digits: Vec<usize> = label
         .chars()
         .filter_map(|c| c.to_digit(10).map(|d| d as usize))
         .take(2)
@@ -121,61 +145,93 @@ fn render_badge_icon(label: &str) -> Result<tauri::image::Image<'static>, String
         [0x0E, 0x11, 0x11, 0x0F, 0x01, 0x01, 0x0E], // 9
     ];
 
-    // バッファ初期化（RGBA: 背景 #1e1e1e + 不透明度 220/255）
-    let mut buf = vec![0u8; (SIZE * SIZE * 4) as usize];
-    for px in buf.chunks_exact_mut(4) {
-        px[0] = 0x1e; // R
-        px[1] = 0x1e; // G
-        px[2] = 0x1e; // B
-        px[3] = 220;  // A
-    }
+    // モード配色: 作業=インディゴ(#6366f1) / 休憩=グリーン(#10b981)
+    let (cr, cg, cb): (u8, u8, u8) = if is_break { (16, 185, 129) } else { (99, 102, 241) };
+    // トラック（消化済み）色 = モード色を 1/3 に暗くしたもの
+    let (tr, tg, tb): (u8, u8, u8) = (cr / 3, cg / 3, cb / 3);
 
-    // 角丸処理（半径 6px）
-    let r: i32 = 6;
-    for y in 0..SIZE as i32 {
-        for x in 0..SIZE as i32 {
-            let in_corner = (x < r && y < r && dist2(x, y, r - 1, r - 1) > (r * r) as u32)
-                || (x >= SIZE as i32 - r && y < r && dist2(x, y, SIZE as i32 - r, r - 1) > (r * r) as u32)
-                || (x < r && y >= SIZE as i32 - r && dist2(x, y, r - 1, SIZE as i32 - r) > (r * r) as u32)
-                || (x >= SIZE as i32 - r && y >= SIZE as i32 - r
-                    && dist2(x, y, SIZE as i32 - r, SIZE as i32 - r) > (r * r) as u32);
-            if in_corner {
-                let idx = ((y as u32 * SIZE + x as u32) * 4) as usize;
-                buf[idx + 3] = 0; // 完全透明
+    let cx = (SIZE as f32 - 1.0) / 2.0; // 15.5
+    let cy = cx;
+    const BG_RADIUS: f32 = 15.0;
+    const RING_OUTER: f32 = 15.0;
+    const RING_INNER: f32 = 11.5;
+    let sweep = fraction.clamp(0.0, 1.0) * std::f32::consts::TAU;
+
+    let mut buf = vec![0u8; (SIZE * SIZE * 4) as usize];
+
+    for y in 0..SIZE {
+        for x in 0..SIZE {
+            let dx = x as f32 - cx;
+            let dy = y as f32 - cy;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist > BG_RADIUS {
+                continue; // 円の外＝透明
             }
+            let idx = ((y * SIZE + x) * 4) as usize;
+
+            // 既定は暗い背景ディスク
+            let (mut r, mut g, mut b, mut a) = (0x1e_u8, 0x1e_u8, 0x1e_u8, 230_u8);
+
+            // リング帯
+            if dist >= RING_INNER && dist <= RING_OUTER {
+                // 12時方向を 0 とした時計回りの角度 [0, TAU)
+                let mut theta = dx.atan2(-dy);
+                if theta < 0.0 {
+                    theta += std::f32::consts::TAU;
+                }
+                if theta <= sweep {
+                    // 残り部分: 休憩は破線(30°周期/18°点灯)、作業は実線
+                    let lit = if is_break {
+                        (theta.to_degrees() as i32 % 30) < 18
+                    } else {
+                        true
+                    };
+                    if lit {
+                        r = cr; g = cg; b = cb; a = 255;
+                    } else {
+                        r = tr; g = tg; b = tb; a = 255;
+                    }
+                } else {
+                    // 消化済み部分: 薄いトラック
+                    r = tr; g = tg; b = tb; a = 255;
+                }
+            }
+
+            buf[idx] = r;
+            buf[idx + 1] = g;
+            buf[idx + 2] = b;
+            buf[idx + 3] = a;
         }
     }
 
-    // 文字を描画
+    // 中央の数字（白）を上描き
     let n = digits.len() as u32;
-    if n == 0 {
-        return Ok(tauri::image::Image::new_owned(buf, SIZE, SIZE));
-    }
-    let total_w = n * CHAR_W + (n - 1) * GAP;
-    let x_origin = ((SIZE - total_w) / 2) as i32;
-    let y_origin = ((SIZE - CHAR_H) / 2) as i32;
-
-    for (ci, &d) in digits.iter().enumerate() {
-        let cx = x_origin + ci as i32 * (CHAR_W as i32 + GAP as i32);
-        for row in 0..7u32 {
-            let bits = DIGITS[d][row as usize];
-            for col in 0..5u32 {
-                // bit4 が左端（MSB）
-                if (bits >> (4 - col)) & 1 == 0 {
-                    continue;
-                }
-                for dy in 0..SCALE {
-                    for dx in 0..SCALE {
-                        let px = cx + (col * SCALE + dx) as i32;
-                        let py = y_origin + (row * SCALE + dy) as i32;
-                        if px < 0 || py < 0 || px >= SIZE as i32 || py >= SIZE as i32 {
-                            continue;
+    if n > 0 {
+        let total_w = n * CHAR_W + (n - 1) * GAP;
+        let x_origin = ((SIZE - total_w) / 2) as i32;
+        let y_origin = ((SIZE - CHAR_H) / 2) as i32;
+        for (ci, &d) in digits.iter().enumerate() {
+            let gx = x_origin + ci as i32 * (CHAR_W as i32 + GAP as i32);
+            for row in 0..7u32 {
+                let bits = DIGITS[d][row as usize];
+                for col in 0..5u32 {
+                    // bit4 が左端（MSB）
+                    if (bits >> (4 - col)) & 1 == 0 {
+                        continue;
+                    }
+                    for dy in 0..SCALE {
+                        for dx in 0..SCALE {
+                            let px = gx + (col * SCALE + dx) as i32;
+                            let py = y_origin + (row * SCALE + dy) as i32;
+                            if px < 0 || py < 0 || px >= SIZE as i32 || py >= SIZE as i32 {
+                                continue;
+                            }
+                            let idx = ((py as u32 * SIZE + px as u32) * 4) as usize;
+                            buf[idx] = 255;     // R
+                            buf[idx + 1] = 255; // G
+                            buf[idx + 2] = 255; // B
+                            buf[idx + 3] = 255; // A
                         }
-                        let idx = ((py as u32 * SIZE + px as u32) * 4) as usize;
-                        buf[idx] = 255;     // R
-                        buf[idx + 1] = 255; // G
-                        buf[idx + 2] = 255; // B
-                        buf[idx + 3] = 255; // A
                     }
                 }
             }
@@ -183,13 +239,6 @@ fn render_badge_icon(label: &str) -> Result<tauri::image::Image<'static>, String
     }
 
     Ok(tauri::image::Image::new_owned(buf, SIZE, SIZE))
-}
-
-#[cfg(target_os = "windows")]
-fn dist2(x: i32, y: i32, cx: i32, cy: i32) -> u32 {
-    let dx = x - cx;
-    let dy = y - cy;
-    (dx * dx + dy * dy) as u32
 }
 
 // ── エントリポイント ──────────────────────────────────────────────

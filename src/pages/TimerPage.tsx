@@ -68,12 +68,18 @@ function setWindowTitle(title: string) {
 }
 
 // macOS Dock バッジ / Windows タスクバーオーバーレイアイコンを更新する
-// label: "MM:SS" 形式 → 表示、null → クリア
+// opts=null でクリア。label=中央の数字（通常は「分」、残り1分未満は「秒」）
+//   mode: 作業/休憩の配色・線種を切替 / fraction: 残り割合(0〜1) でリング描画
 type TauriCore = { invoke: (cmd: string, args?: unknown) => Promise<void> };
-function setTimerBadge(label: string | null) {
+function setTimerBadge(
+  opts: { label: string; mode: TimerMode; fraction: number } | null,
+) {
   const invoke = (window as unknown as { __TAURI__?: { core?: TauriCore } }).__TAURI__?.core?.invoke;
   if (!invoke) return;
-  invoke('set_timer_badge', { label }).catch(() => {});
+  const args = opts
+    ? { label: opts.label, mode: opts.mode, fraction: opts.fraction }
+    : { label: null, mode: null, fraction: null };
+  invoke('set_timer_badge', args).catch(() => {});
 }
 
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
@@ -765,7 +771,11 @@ export function TimerPage() {
     if (running) {
       const timeStr = fmtMMSS(remaining);
       setWindowTitle(`${mode === 'work' ? '▶' : '☕'} ${timeStr} MyTools`);
-      setTimerBadge(timeStr);
+      // バッジ中央の数字: 残り1分以上は「分」(切り上げ)、残り1分未満は「秒」に切替
+      const badgeLabel =
+        remaining >= 60 ? String(Math.ceil(remaining / 60)) : String(remaining);
+      const fraction = total > 0 ? Math.max(0, Math.min(1, remaining / total)) : 0;
+      setTimerBadge({ label: badgeLabel, mode, fraction });
     } else {
       setWindowTitle('MyTools');
       setTimerBadge(null);
@@ -774,7 +784,7 @@ export function TimerPage() {
       setWindowTitle('MyTools');
       setTimerBadge(null);
     };
-  }, [running, remaining, mode]);
+  }, [running, remaining, mode, total]);
 
   // ── セッション読み込み ────────────────────────────
   const loadSessions = useCallback(async (view: HistoryView, from: string, to: string) => {
