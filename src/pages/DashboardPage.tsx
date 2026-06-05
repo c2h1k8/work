@@ -46,6 +46,7 @@ const CHECKLIST_STATE_PREFIX   = 'dashboard_checklist_';
 const CHECKLIST_DATE_PREFIX    = 'dashboard_checklist_date_';
 const TABLE_COL_HIDDEN_PREFIX  = 'dashboard_table_hidden_cols_';
 const TABLE_COL_ORDER_PREFIX   = 'dashboard_table_col_order_';
+const TABLE_SORT_PREFIX        = 'dashboard_table_sort_';
 const TABLE_ACTIVE_PRESET_PFX  = 'dashboard_table_active_preset_';
 const LIST_ACTIVE_PRESET_PFX   = 'dashboard_list_active_preset_';
 const GRID_ACTIVE_PRESET_PFX   = 'dashboard_grid_active_preset_';
@@ -821,7 +822,9 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
   const [colOrder, setColOrder] = useState<string[]>(
     () => lsJson<string[]>(TABLE_COL_ORDER_PREFIX + section.id) || columns.map((c) => c.id)
   );
-  const [sortState, setSortState] = useState<{ colId: string; dir: 'asc' | 'desc' } | null>(null);
+  const [sortState, setSortState] = useState<{ colId: string; dir: 'asc' | 'desc' } | null>(
+    () => lsJson<{ colId: string; dir: 'asc' | 'desc' }>(TABLE_SORT_PREFIX + section.id)
+  );
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState('');
 
@@ -863,9 +866,14 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
 
   function toggleSort(colId: string) {
     setSortState((prev) => {
-      if (!prev || prev.colId !== colId) return { colId, dir: 'asc' };
-      if (prev.dir === 'asc') return { colId, dir: 'desc' };
-      return null;
+      let next: { colId: string; dir: 'asc' | 'desc' } | null;
+      if (!prev || prev.colId !== colId) next = { colId, dir: 'asc' };
+      else if (prev.dir === 'asc') next = { colId, dir: 'desc' };
+      else next = null;
+      // ソート状態を localStorage に永続化（解除時はキー削除）
+      if (next) lsSet(TABLE_SORT_PREFIX + section.id, JSON.stringify(next));
+      else localStorage.removeItem(TABLE_SORT_PREFIX + section.id);
+      return next;
     });
   }
 
