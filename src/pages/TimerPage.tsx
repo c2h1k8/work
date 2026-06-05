@@ -68,18 +68,30 @@ function setWindowTitle(title: string) {
 }
 
 // macOS Dock バッジ / Windows タスクバーオーバーレイアイコンを更新する
-// opts=null でクリア。label=中央の数字（通常は「分」、残り1分未満は「秒」）
-//   mode: 作業/休憩の配色・線種を切替 / fraction: 残り割合(0〜1) でリング描画
+// opts=null でクリア。label=表示する数字（通常は「分」、残り1分未満は「秒」）
+//   mode で配色を切替。リングは廃止し数字のみ（更新は数字が変わった時だけ＝チカチカ防止）
 type TauriCore = { invoke: (cmd: string, args?: unknown) => Promise<void> };
-function setTimerBadge(
-  opts: { label: string; mode: TimerMode; fraction: number } | null,
-) {
+function setTimerBadge(opts: { label: string; mode: TimerMode } | null) {
   const invoke = (window as unknown as { __TAURI__?: { core?: TauriCore } }).__TAURI__?.core?.invoke;
   if (!invoke) return;
-  const args = opts
-    ? { label: opts.label, mode: opts.mode, fraction: opts.fraction }
-    : { label: null, mode: null, fraction: null };
+  const args = opts ? { label: opts.label, mode: opts.mode } : { label: null, mode: null };
   invoke('set_timer_badge', args).catch(() => {});
+}
+
+// Windows タスクバーボタン / macOS Dock アイコンのプログレスバーを更新する
+// 残り割合を「量」として大きく表示。毎秒更新してもネイティブ要素なのでチカチカしない
+//   mode=null でバーを消去。作業=normal(緑) / 休憩=paused(黄) で状態色を分ける
+type TauriWindowApi = {
+  getCurrentWindow: () => {
+    setProgressBar: (state: { status: string; progress: number }) => Promise<void>;
+  };
+};
+function setTimerProgress(mode: TimerMode | null, fraction: number) {
+  const w = (window as unknown as { __TAURI__?: { window?: TauriWindowApi } }).__TAURI__?.window;
+  if (!w) return;
+  const status = mode === null ? 'none' : mode === 'work' ? 'normal' : 'paused';
+  const progress = Math.round(Math.max(0, Math.min(1, fraction)) * 100);
+  w.getCurrentWindow().setProgressBar({ status, progress }).catch(() => {});
 }
 
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
@@ -723,6 +735,7 @@ export function TimerPage() {
   const tagRef            = useRef('');
   const activePresetRef   = useRef<number | null>(null);
   const handlePhaseEndRef = useRef<() => void>(() => {});
+  const lastBadgeKeyRef   = useRef('');   // バッジの表示内容（数字+mode）。変化時のみ再描画してチカチカを防ぐ
 
   // ref を state と同期
   useEffect(() => { runningRef.current = running; }, [running]);
@@ -766,25 +779,37 @@ export function TimerPage() {
     return pList.find(p => p.id === id) || pList[0] || null;
   }, []);
 
-  // ── ページタイトル・バッジ更新 ──────────────────────
+  // ── ページタイトル・プログレスバー・バッジ更新 ──────────────────────
+  // タイトルとバー（量）は毎秒更新／バッジ（数字）は内容が変わった時だけ更新
   useEffect(() => {
     if (running) {
       const timeStr = fmtMMSS(remaining);
       setWindowTitle(`${mode === 'work' ? '▶' : '☕'} ${timeStr} MyTools`);
-      // バッジ中央の数字: 残り1分以上は「分」(切り上げ)、残り1分未満は「秒」に切替
+      // プログレスバー: 残り割合を大きく表示（毎秒・滑らか）
+      const fraction = total > 0 ? remaining / total : 0;
+      setTimerProgress(mode, fraction);
+      // バッジ: 残り1分以上は「分」(切り上げ)、残り1分未満は「秒」。数字が変わった時だけ再描画
       const badgeLabel =
         remaining >= 60 ? String(Math.ceil(remaining / 60)) : String(remaining);
-      const fraction = total > 0 ? Math.max(0, Math.min(1, remaining / total)) : 0;
-      setTimerBadge({ label: badgeLabel, mode, fraction });
+      const key = `${badgeLabel}|${mode}`;
+      if (key !== lastBadgeKeyRef.current) {
+        lastBadgeKeyRef.current = key;
+        setTimerBadge({ label: badgeLabel, mode });
+      }
     } else {
       setWindowTitle('MyTools');
+      setTimerProgress(null, 0);
       setTimerBadge(null);
+      lastBadgeKeyRef.current = '';
     }
-    return () => {
-      setWindowTitle('MyTools');
-      setTimerBadge(null);
-    };
   }, [running, remaining, mode, total]);
+
+  // アンマウント時のみクリア（毎秒のクリア&再設定によるチカチカを避けるため別 effect に分離）
+  useEffect(() => () => {
+    setWindowTitle('MyTools');
+    setTimerProgress(null, 0);
+    setTimerBadge(null);
+  }, []);
 
   // ── セッション読み込み ────────────────────────────
   const loadSessions = useCallback(async (view: HistoryView, from: string, to: string) => {

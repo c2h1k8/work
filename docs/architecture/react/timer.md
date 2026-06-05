@@ -34,17 +34,19 @@ DB 名: `timer_db` version 2
 - `file://` 環境では setInterval フォールバック
 - タイマー状態: `localStorage('timer_running_state')` に毎秒保存。リロード後に復元
 - ウィンドウタイトル更新: `setWindowTitle()` ヘルパー（`TimerPage.tsx` 内）で `document.title` と Tauri の `getCurrentWindow().setTitle()` を同時更新。Tauri ではネイティブウィンドウタイトルに `document.title` が反映されないため
-- タイマーバッジ: `setTimerBadge({ label, mode, fraction })` ヘルパー（`TimerPage.tsx` 内）でタイトル更新と同じ `useEffect` から呼び出す。`null` でクリア
-  - `label`: バッジ中央の数字。**残り1分以上は「分」（切り上げ）、残り1分未満は「秒」に自動切替**（小さいアイコンに MM:SS は判読不能なため）
-  - `mode`: `'work' | 'break'` / `fraction`: 残り割合 0〜1（`remaining / total`）
-  - **macOS**: Dock バッジにテキスト表示。Dock バッジは赤ピル固定で色分け不可のため、**休憩時は `☕` を数字前置**して区別（タイトルバーの ▶/☕ と統一）
-  - **Windows**: タスクバーボタン右下に 32×32 RGBA オーバーレイアイコン（`window.set_overlay_icon()`）
-    - **外周プログレスリング**: 12時方向から時計回りに `fraction` ぶんを描画（毎秒減る＝分未満の経過が視覚的に分かる）
-    - **作業/休憩の区別**: 作業＝インディゴ（#6366f1）**実線**リング / 休憩＝グリーン（#10b981）**破線**リング（色覚に依存せず線種でも判別可能）
-    - 中央に 5×7 ビットマップフォントで数字（白）を描画。消化済み部分はモード色を 1/3 に暗くしたトラックで表示
-  - Tauri コマンド `set_timer_badge(label: Option<String>, mode: Option<String>, fraction: Option<f32>)` を `src-tauri/src/main.rs` に実装
-  - 外部フォント・クレート追加なし（5×7 ビットマップフォント・リング描画ともコード内に定義）
-  - JS 側は `window.__TAURI__.core.invoke('set_timer_badge', { label, mode, fraction })` で呼び出し
+- タスクバー/Dock 表示は **「量＝プログレスバー」「正確な数字＝バッジ」** の役割分担。いずれもタイトル更新と同じ `useEffect` から呼ぶ
+  - **プログレスバー** `setTimerProgress(mode, fraction)`（`TimerPage.tsx` 内）: 残り割合（`remaining / total`）を「量」として大きく表示。`mode=null` で消去
+    - `getCurrentWindow().setProgressBar({ status, progress })` を呼ぶだけ（Rust コマンド不要）。**Windows=タスクバーボタン背景 / macOS=Dock アイコン**にバーが出る
+    - 状態色でモード区別: 作業=`normal`（緑）/ 休憩=`paused`（黄）
+    - **毎秒更新してもチカチカしない**（ネイティブ要素が滑らかに伸縮するだけ）
+  - **バッジ（数字）** `setTimerBadge({ label, mode })`（`TimerPage.tsx` 内）: 正確な数字を担当。`null` でクリア
+    - `label`: **残り1分以上は「分」（切り上げ）、残り1分未満は「秒」に自動切替**（小さいアイコンに MM:SS は判読不能なため）
+    - **更新は数字が変わった時だけ**（`lastBadgeKeyRef` でスロットル）→ 通常は1分に1回しか再描画されず**チカチカしない**。最後の1分のみ毎秒更新
+    - **macOS**: Dock バッジにテキスト表示。Dock バッジは赤ピル固定で色分け不可のため、**休憩時は `☕` を数字前置**して区別（タイトルバーの ▶/☕ と統一）
+    - **Windows**: 32×32 RGBA オーバーレイアイコン（`window.set_overlay_icon()`）。モード色の角丸地（作業=#6366f1 / 休憩=#10b981）に白い数字を**大きく**描画（1桁=scale4 / 2桁=scale3）。リングは廃止（量はバーが担うため、数字を最大化）
+    - Tauri コマンド `set_timer_badge(label: Option<String>, mode: Option<String>)` を `src-tauri/src/main.rs` に実装。外部フォント・クレート追加なし（5×7 ビットマップフォントをコード内に定義）
+    - JS 側は `window.__TAURI__.core.invoke('set_timer_badge', { label, mode })` で呼び出し
+  - クリア処理は**アンマウント時のみの別 `useEffect`** に分離（毎秒の cleanup→再設定によるチカチカを避けるため）
 
 ## 一時停止インターバル追跡
 
