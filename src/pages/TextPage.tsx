@@ -5,7 +5,13 @@
 
 import styles from '../styles/pages/text.module.css';
 import clsx from 'clsx';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVerticalIcon } from 'lucide-react';
 import { Clipboard } from '../core/clipboard';
 import { Toast } from '../components/Toast';
 import { ShortcutHelp } from '../components/ShortcutHelp';
@@ -1145,6 +1151,25 @@ function RegexSection() {
   );
 }
 
+// 行を DnD 並び替え可能にする薄いラッパー（先頭にドラッグハンドル列を持つ）
+// 巨大なセル JSX は children のまま渡し、ハンドルの型付けはこの中に閉じる
+function SortableTr({ id, disabled, children }: { id: number; disabled: boolean; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  return (
+    <tr ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
+      <td className={styles['tsv-grip-col']}>
+        {!disabled && (
+          <button type="button" className={styles['tsv-grip-row-btn']} title="ドラッグで移動" {...attributes} {...listeners}>
+            <GripVerticalIcon size={13} />
+          </button>
+        )}
+      </td>
+      {children}
+    </tr>
+  );
+}
+
 // ==================================================
 // TsvSection — 検索・ソート・セル編集・エクスポート全種
 // ==================================================
@@ -1268,6 +1293,36 @@ function TsvSection() {
   const addRow    = () => setData((prev) => [...prev, Array(Math.max(maxCols, 1)).fill('')]);
   const deleteRow = (dataRowIdx: number) => setData((prev) => prev.filter((_, i) => i !== dataRowIdx));
 
+  // ソート/フィルター中は表示順と data 配列の順が一致しないため挿入は無効
+  const canInsert = sortCol < 0 && !q;
+  // 基準行（data インデックス）の下/上に空行を挿入し、新行の先頭セルを編集状態に
+  const insertRow = (dataRowIdx: number, where: 'above' | 'below') => {
+    if (!canInsert) return;
+    const at = where === 'below' ? dataRowIdx + 1 : dataRowIdx;
+    setData((prev) => {
+      const next = prev.map((r) => [...r]);
+      next.splice(at, 0, Array(Math.max(maxCols, 1)).fill(''));
+      return next;
+    });
+    const newDisplayIdx = Math.max(0, at - (hasHeader ? 1 : 0));
+    editBeforeRef.current = '';
+    setCellValue('');
+    setSelCell([newDisplayIdx, 0]);
+    setSelEnd(null);
+    setEditCell([newDisplayIdx, 0]);
+  };
+
+  // ── 行の並び替え（DnD / キーボード） ─────────────────────────────────
+  const rowSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  function handleRowDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id || !canInsert) return;
+    const from = Number(active.id); // dataRowIdx（= data 配列インデックス）
+    const to   = Number(over.id);
+    setData((prev) => arrayMove(prev, from, to));
+    setSelCell(null); setSelEnd(null); setEditCell(null);
+  }
+
   const handleSortClick = (col: number) => {
     if (sortCol === col) {
       if (sortDir === 'asc') setSortDir('desc');
@@ -1329,6 +1384,30 @@ function TsvSection() {
     if (editCell) return;
     if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); handleCopy(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); handlePaste(); return; }
+    // Ctrl/Cmd+Enter = 選択行の下に挿入 / +Shift = 上に挿入（選択がなければ末尾追加）
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (!canInsert) return;
+      if (selCell) {
+        const di = displayRows[selCell[0]]?.idx;
+        if (di !== undefined) insertRow(di, e.shiftKey ? 'above' : 'below');
+      } else { addRow(); }
+      return;
+    }
+    // Alt/Option+↑/↓ = 選択行を1つ上/下へ移動（ソート/フィルター中は無効）
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      if (!canInsert || !selCell) return;
+      const [r, c] = selCell;
+      const di = displayRows[r]?.idx;
+      if (di === undefined) return;
+      const to = di + (e.key === 'ArrowUp' ? -1 : 1);
+      const minIdx = hasHeader ? 1 : 0;
+      if (to < minIdx || to >= data.length) return;
+      setData((prev) => arrayMove(prev, di, to));
+      setSelCell([r + (e.key === 'ArrowUp' ? -1 : 1), c]); setSelEnd(null);
+      return;
+    }
     if (!selCell) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'Enter') {
         e.preventDefault();
@@ -1524,6 +1603,7 @@ function TsvSection() {
               {headers && (
                 <thead>
                   <tr>
+                    <th className={styles['tsv-grip-col']} />
                     {Array.from({ length: maxCols }, (_, c) => {
                       const isSorted = sortCol === c;
                       return (
@@ -1539,9 +1619,11 @@ function TsvSection() {
                   </tr>
                 </thead>
               )}
+              <DndContext sensors={rowSensors} collisionDetection={closestCenter} onDragEnd={handleRowDragEnd}>
+              <SortableContext items={displayRows.map((r) => r.idx)} strategy={verticalListSortingStrategy}>
               <tbody>
                 {displayRows.map(({ idx: dataRowIdx, cells }, displayIdx) => (
-                  <tr key={dataRowIdx}>
+                  <SortableTr key={dataRowIdx} id={dataRowIdx} disabled={!canInsert}>
                     {Array.from({ length: maxCols }, (_, colIdx) => {
                       const cell = cells[colIdx] ?? '';
                       const isEditing  = editCell?.[0] === displayIdx && editCell?.[1] === colIdx;
@@ -1620,11 +1702,16 @@ function TsvSection() {
                       );
                     })}
                     <td className={styles['tsv-table__del-col']}>
+                      {canInsert && (
+                        <button className={styles['tsv-ins-row-btn']} onClick={() => insertRow(dataRowIdx, 'below')} title="この行の下に挿入">＋</button>
+                      )}
                       <button className={styles['tsv-del-row-btn']} onClick={() => deleteRow(dataRowIdx)} title="行を削除">✕</button>
                     </td>
-                  </tr>
+                  </SortableTr>
                 ))}
               </tbody>
+              </SortableContext>
+              </DndContext>
             </table>
           </div>
 
@@ -1635,6 +1722,8 @@ function TsvSection() {
             <span>Ctrl+C コピー</span>
             <span>Ctrl+V ペースト</span>
             <span>Delete でセルクリア</span>
+            <span>Ctrl+Enter で間に行挿入</span>
+            <span>Alt+↑/↓ または ⠿ドラッグ で行移動</span>
           </div>
 
           {/* 行操作・エクスポートバー */}
