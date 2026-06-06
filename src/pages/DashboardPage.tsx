@@ -2368,13 +2368,13 @@ function SpreadsheetCell({ value, isSelected, isEditing, isInRange = false, isCe
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // インライン編集テーブル行（スプレッドシートモード）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function SortableEditableRow({ item, rowIdx, section, colDefs, isDragDisabled, isNew, isDirty, dirtyCellKeys,
+function SortableEditableRow({ item, rowIdx, section, colDefs, isDragDisabled, canInsert, isNew, isDirty, dirtyCellKeys,
   selRange, selectedColIdx, editingColIdx,
   onCellSelect, onShiftCellSelect, onCellEdit, onCellChange, onCellCommit,
-  onTypeChange, onUpdate, onDelete,
+  onTypeChange, onUpdate, onDelete, onInsert,
 }: {
   item: DashboardItem; rowIdx: number; section: DashboardSection; colDefs: SpColDef[];
-  isDragDisabled: boolean; isNew: boolean; isDirty: boolean; dirtyCellKeys: Set<string>;
+  isDragDisabled: boolean; canInsert: boolean; isNew: boolean; isDirty: boolean; dirtyCellKeys: Set<string>;
   selRange: { r1: number; c1: number; r2: number; c2: number } | null;
   selectedColIdx: number | null; editingColIdx: number | null;
   onCellSelect: (ci: number) => void; onShiftCellSelect: (ci: number) => void; onCellEdit: (ci: number) => void;
@@ -2383,6 +2383,7 @@ function SortableEditableRow({ item, rowIdx, section, colDefs, isDragDisabled, i
   onTypeChange: (id: number, t: 'copy' | 'link' | 'template') => void;
   onUpdate: (id: number, patch: Partial<DashboardItem>) => void;
   onDelete: (id: number) => void;
+  onInsert: (rowIdx: number, where: 'above' | 'below') => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id! });
   const showTypeToggle = section.type === 'list' || section.type === 'grid' || section.type === 'command_builder';
@@ -2475,10 +2476,17 @@ function SortableEditableRow({ item, rowIdx, section, colDefs, isDragDisabled, i
         </td>
       )}
 
-      {/* 削除ボタン */}
-      <td className="w-8 pr-2 align-middle text-center">
-        <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(item.id!); }}
-          className="p-0.5 rounded text-[var(--c-fg-3)] hover:text-[var(--c-danger)] hover:bg-[var(--c-danger-bg)] opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* 行アクション: 下に挿入・削除（ホバー時表示） */}
+      <td className="w-14 pr-2 align-middle text-center whitespace-nowrap">
+        {canInsert && (
+          <button type="button" title="この行の下に挿入"
+            onClick={(e) => { e.stopPropagation(); onInsert(rowIdx, 'below'); }}
+            className="p-0.5 rounded text-[var(--c-fg-3)] hover:text-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] opacity-0 group-hover:opacity-100 transition-opacity align-middle">
+            <PlusIcon size={13} />
+          </button>
+        )}
+        <button type="button" title="削除" onClick={(e) => { e.stopPropagation(); onDelete(item.id!); }}
+          className="p-0.5 rounded text-[var(--c-fg-3)] hover:text-[var(--c-danger)] hover:bg-[var(--c-danger-bg)] opacity-0 group-hover:opacity-100 transition-opacity align-middle">
           <Trash2Icon size={13} />
         </button>
       </td>
@@ -2581,6 +2589,36 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
     const newRowIdx = filteredItems.length;
     setSelCell([newRowIdx, 0]);
     setEditCell([newRowIdx, 0]);
+    setTimeout(() => tableContainerRef.current?.focus(), 0);
+  }
+
+  // ── 行を間に挿入（基準行の下/上） ─────────────────────────────────────
+  function handleInsertRow(refRowIdx: number, where: 'above' | 'below') {
+    if (isFiltering) return; // フィルター中は挿入位置が曖昧なため無効
+    // 基準行の id から localItems 内の実インデックスを引く（filteredItems と一致するが安全のため id 経由）
+    const refItem = filteredItems[refRowIdx];
+    const baseIdx = refItem
+      ? localItemsRef.current.findIndex((i) => i.id === refItem.id)
+      : localItemsRef.current.length - 1;
+    const insertIdx = where === 'below' ? baseIdx + 1 : Math.max(0, baseIdx);
+    const tempId = tempIdCounter.current--;
+    const arr = [...localItemsRef.current];
+    arr.splice(insertIdx, 0, buildEmptyItem(section, tempId, insertIdx));
+    // position を全行で振り直し（DnD と同じ方式）
+    const next = arr.map((i, p) => ({ ...i, position: p }));
+    localItemsRef.current = next;
+    setLocalItems(next);
+    // 新規行 + position が動いた既存行を保存対象にマーク
+    setNewIds((prev) => new Set(prev).add(tempId));
+    setDirtyIds((prev) => {
+      const s = new Set(prev);
+      next.forEach((i) => { if (i.id! > 0) s.add(i.id!); });
+      return s;
+    });
+    // 挿入行（フィルター無効中なので filteredItems===localItems）の先頭セルを編集状態に
+    setSelCell([insertIdx, 0]);
+    setSelEnd(null);
+    setEditCell([insertIdx, 0]);
     setTimeout(() => tableContainerRef.current?.focus(), 0);
   }
 
@@ -2733,17 +2771,18 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
         newNewIds.add(tempId);
       }
       let item = next[rowIdx];
-      let patch: Partial<DashboardItem> = {};
       const modifiedKeys: string[] = [];
       for (let ci = 0; ci < cells.length; ci++) {
         const colIdx = startCol + ci;
         if (colIdx >= colDefs.length) break;
         const col = colDefs[colIdx];
         if (col.isSpecial?.(item)) continue;
-        patch = { ...patch, ...col.setValue(item, cells[ci]) };
+        // setValue を「累積中の item」に順次適用する。
+        // row_data など入れ子を返す列で、複数列の浅いマージが互いの
+        // row_data を上書きして先頭列が消えるのを防ぐ。
+        item = { ...item, ...col.setValue(item, cells[ci]) };
         modifiedKeys.push(col.key);
       }
-      item = { ...item, ...patch };
       next[rowIdx] = item;
       if (item.id! > 0) {
         newDirtyIds.add(item.id!);
@@ -2785,6 +2824,32 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
     }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
       e.preventDefault(); handleTsvPaste(); return;
+    }
+    // Ctrl/Cmd+Enter = 選択行の下に挿入 / +Shift = 上に挿入
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      const refIdx = selCell ? selCell[0] : filteredItems.length - 1;
+      handleInsertRow(refIdx, e.shiftKey ? 'above' : 'below');
+      return;
+    }
+    // Alt+↑/↓ = 選択行を1つ上/下へ移動（DnD と同じく position 振り直し）
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      if (isFiltering || newIds.size > 0 || !selCell) return; // フィルター中・未保存新規行ありは無効
+      const [r, c] = selCell;
+      const to = r + (e.key === 'ArrowUp' ? -1 : 1);
+      if (to < 0 || to >= localItemsRef.current.length) return;
+      const reordered = arrayMove([...localItemsRef.current], r, to)
+        .map((it, p) => ({ ...it, position: p }));
+      localItemsRef.current = reordered;
+      setLocalItems(reordered);
+      setDirtyIds((prev) => {
+        const s = new Set(prev);
+        reordered.forEach((i) => { if (i.id! > 0) s.add(i.id!); });
+        return s;
+      });
+      setSelCell([to, c]); setSelEnd(null);
+      return;
     }
     if (!selCell) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'Enter') {
@@ -2900,7 +2965,7 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
         {colDefs.map((c) => <th key={c.key} className={thCls}>{c.label}</th>)}
         {section.type === 'countdown' && <th className={`w-44 ${thCls}`}>日付</th>}
         {section.type === 'grid' && <th className={`w-12 ${thCls} text-center`} title="行頭から配置">行頭</th>}
-        <th className={`w-8 ${thCls}`} />
+        <th className={`w-14 ${thCls}`} />
       </tr>
     );
   }
@@ -2950,6 +3015,7 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
                     <SortableEditableRow
                       key={item.id} item={item} rowIdx={rowIdx} section={section} colDefs={colDefs}
                       isDragDisabled={isFiltering || newIds.size > 0}
+                      canInsert={!isFiltering}
                       isNew={newIds.has(item.id!)} isDirty={dirtyIds.has(item.id!)}
                       dirtyCellKeys={dirtyCells.get(item.id!) ?? new Set()}
                       selRange={selRange}
@@ -2963,6 +3029,7 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
                       onTypeChange={(id, t) => updateLocalItem(id, { item_type: t })}
                       onUpdate={updateLocalItem}
                       onDelete={handleDelete}
+                      onInsert={handleInsertRow}
                     />
                   ))}
                 </tbody>
@@ -2982,10 +3049,15 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
               {isFiltering ? (
                 <span className="text-xs text-[var(--c-fg-3)]">フィルター中は追加・並び替えができません</span>
               ) : (
-                <button onClick={handleAddRow}
-                  className="text-sm px-3 py-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-2)] hover:bg-[var(--c-bg-2)] transition-colors">
-                  ＋ 行を追加
-                </button>
+                <>
+                  <button onClick={handleAddRow}
+                    className="text-sm px-3 py-1.5 rounded border border-[var(--c-border)] text-[var(--c-fg-2)] hover:bg-[var(--c-bg-2)] transition-colors">
+                    ＋ 行を追加
+                  </button>
+                  <span className="text-xs text-[var(--c-fg-3)]">
+                    行ホバーの＋、または {navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'}+Enter で間に挿入
+                  </span>
+                </>
               )}
               {isDirtyAny && (
                 <span className="text-xs text-amber-500 flex items-center gap-1">
