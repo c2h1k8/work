@@ -39,6 +39,7 @@ DB 名: `note_db` version 2
 ### リンクフィールド追加フォーム
 - 編集フォームと同一スタイル: 左アクセントボーダー（`border-l-2 border-[var(--c-accent)]`）+ アンダーラインインプット + `Tag`/`ExternalLink` アイコンプレフィックス + `Check`/`X` アイコンボタン
 - Enter で追加 / Escape でキャンセル（`setShowForm(false)` + フォームリセット）
+- **入力欄は `flex-1 min-w-0`**（`linkInputCls` と追加フォームのインライン class）。`min-w-0` が無いと、列幅 1（narrow）でカードが狭いとき input が縮まず `Check`/`X` ボタンが枠外へはみ出すため必須
 
 ### リンクエントリ表示（`LinkEntry`）
 - `showSubline?: boolean`（`NoteField.showSubline`）で制御。デフォルト `true`（後方互換）
