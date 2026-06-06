@@ -96,6 +96,15 @@ DB 名: `dashboard_db` version 2
 - **アイテム管理**: 設定パネルの各セクション行にある `ListIcon` ボタン（list/grid/table/command_builder のみ表示。countdown はセクション内インライン操作のみ）。`ItemManagerModal` は `w-[960px] h-[760px]` のインライン編集テーブル一本化レイアウト。ヘッダーにフィルター入力を内蔵。全アイテムがテーブル行として表示され、セル直接編集（`onBlur` で auto-save）・タイプ切替バッジ・削除ボタン・DnD 並び替えに対応。テンプレート行は値列クリックで `TemplateEditModal`（z-[450]）サブモーダルを起動（「確定」で ItemManagerModal のローカル state に反映し、「保存」で一括 DB 書き込み）。フィルター中は追加・DnD を無効化。フッターに「＋ 行を追加」ボタンを配置（フィルター中は非表示）。全タイプ統一レイアウト
 - **command_builder のボタン管理**: `items` テーブルに通常アイテムとして保存（`item_type: 'copy'` = コピー / `'link'` = 開く、`value` = テンプレート）。`ItemManagerModal` で他タイプと完全同列。既存 `cmd_buttons` は `load()` で自動1回マイグレーション（`items` へ変換後 `cmd_buttons: []` にリセット）
 - **テーブル列管理（`ColumnManagerPopover`）**: ツールバー右端の「列」ボタン → ポータルポップオーバー。iOS トグルで表示/非表示、ドラッグで並び替え。`USE_COUNT_COL`（`id: '__use_count'`）は仮想列（`section.columns` に含まない）として末尾固定・デフォルト非表示。列ヘッダークリックでソート（`__use_count` は `item.use_count` の数値比較）。フッターの「列順をリセット」で `section.columns` の定義順に戻す（localStorage 削除）。「すべて表示」は全 hidden を解除（`__use_count` 含む）
+- **テーブルのソート状態を記憶**: `sortState`（`{ colId, dir }`）は `localStorage("dashboard_table_sort_<sectionId>")`（`TABLE_SORT_PREFIX`）に保存し、再表示時に復元。`toggleSort` で asc → desc → 解除（null）と循環し、解除時はキーを削除。列非表示/列順/アクティブプリセットと同じ section.id 別 localStorage パターン
+- **TSV コピー/ペースト**（`ItemManagerModal`）: セル選択範囲を Ctrl/Cmd+C で TSV コピー（`handleCopy`）、Ctrl/Cmd+V で貼り付け（`handleTsvPaste`）。貼り付け先が末尾を超えると新規行を自動追加。**注意**: 列の `setValue` は `row_data` など入れ子オブジェクトを返すため、複数列を貼る際は「累積中の `item` に `setValue` を順次適用」する（毎回元 `item` から作って浅くマージすると後続列が `row_data` ごと上書きし先頭列が消えるバグになる）
+- **行を間に挿入**（`ItemManagerModal` / `handleInsertRow(refRowIdx, where)`）: マウスとキーボードの両経路を用意
+  - **マウス**: 各行ホバーで削除ボタンの隣に「＋（この行の下に挿入）」を表示（`SortableEditableRow` の `onInsert`/`canInsert` props）
+  - **キーボード**: `Ctrl/Cmd+Enter`＝選択行の下、`Ctrl/Cmd+Shift+Enter`＝上に挿入（`handleTableKeyDown`）。選択セルがなければ末尾に追加
+  - 挿入は対象 index に空行を splice → **全行 position 振り直し＋既存行を dirty マーク**（DnD `handleDragEnd` と同方式で並び順を保存）。挿入行の先頭セルを自動で編集状態に
+  - **フィルター中は無効**（`canInsert={!isFiltering}`・`handleInsertRow` 冒頭でガード）。追加/DnD と同方針
+  - 末尾列（アクション列）は `+`/削除2ボタン分の幅 `w-14`（th/td 一致）
+- **行の移動（キーボード）**: `Alt+↑/↓` で選択行を1つ上/下へ（`handleTableKeyDown`）。DnD `handleDragEnd` と同じく `arrayMove` → position 振り直し → 既存行 dirty マーク。**フィルター中・未保存の新規行があるときは無効**（DnD と同条件）。マウスは既存の DnD、キーボードはこの Alt+↑/↓ で両対応
 - **list セクションの頻度ソート**: `SectionCard` ヘッダー右端の `ArrowUpDownIcon` ボタン（list タイプのみ表示）。`sortByUsage` state は `SectionCard` で管理し `SectionProps` 経由で `ListSection` に渡す。ON 時はアクセントカラー + `--c-accent-dim` 背景
 - **アクティビティログ**: `ActivityLogger.log('dashboard', ...)` でセクション追加/更新/削除、アイテム追加/更新/削除を記録。チェックリスト・カウントダウンのインライン操作も対象
 - **メインビューにボタン類は表示しない**（ドット背景グリッドはシンプルにセクションカードのみ）。ただし `section.show_add_btn === true` のセクション（list/grid/table）はヘッダに `PlusIcon` ボタンを表示 → `ItemManagerModal` を開く

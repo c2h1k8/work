@@ -36,5 +36,11 @@ DB 名: `text_db` version 1（現在永続化なし、将来拡張用）
 - **キーボード（編集モード）**: Enter/Esc → 編集確定・元のセルに戻る。Tab/Shift+Tab → 次/前セルへ移動しながら編集モード継続。Esc は `editBeforeRef` で値を復元（リバート）
 - **Ctrl+C**: 選択範囲をTSV形式でクリップボードへ
 - **Ctrl+V**: クリップボードのTSV/CSVを `selCell` 起点でペースト（タブあり→TSV、なし→CSV として自動判定）。行・列が足りなければ自動拡張
+- **行を間に挿入**（`insertRow(dataRowIdx, where)`）: 各行に「＋（下に挿入）」ボタン＋ `Ctrl/Cmd+Enter`＝下・`+Shift`＝上（`handleTableKeyDown`）。選択なしの Ctrl/Cmd+Enter は末尾追加。`data` 配列に空行を splice するだけ（position/DB なし）。挿入行の先頭セルを編集状態に。**ソート/フィルター中は無効**（`canInsert = sortCol < 0 && !q`。表示順と `data` 順が不一致になるため）
+- **行の追加/削除**: 末尾追加（`addRow`）・行削除（`deleteRow`）
+- **行の移動（並び替え）**: マウス・キーボード両対応
+  - **DnD**: 各行先頭のドラッグハンドル（⠿）でドラッグ並び替え。`@dnd-kit` を使い、行は薄いラッパー `SortableTr`（先頭にハンドル列 `tsv-grip-col` を持ち、巨大なセル JSX は `children` として渡す）でラップ。`handleRowDragEnd` で `arrayMove(data, from, to)`（`active.id`/`over.id` は `dataRowIdx`＝`data` 配列インデックス）
+  - **キーボード**: `Alt/Option+↑/↓` で選択行を1つ上/下へ（`handleTableKeyDown`）。ヘッダー行（index 0）は動かさない
+  - **ソート/フィルター中は無効**（`canInsert` を流用。表示順と `data` 順が不一致になるため。`SortableTr` の `disabled` とハンドラ冒頭でガード）
 - **空セル**: `—` で表示（選択・編集は可能）
 - **テーブル ↔ textarea の関係**: textarea変更→`data`再パース（一方向）。テーブル編集は`setData`のみ（textarea は更新しない）。エクスポートは常に`data`から生成

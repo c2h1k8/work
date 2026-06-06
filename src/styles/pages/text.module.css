@@ -888,12 +888,42 @@
   background: var(--c-bg);
 }
 .tsv-table__del-col {
-  width: 32px;
-  min-width: 32px;
+  width: 52px;
+  min-width: 52px;
   border: none !important;
   background: transparent !important;
   padding: 0 4px !important;
   text-align: center;
+  white-space: nowrap;
+}
+.tsv-grip-col {
+  width: 24px;
+  min-width: 24px;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  text-align: center;
+}
+.tsv-grip-row-btn {
+  width: 20px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text-3);
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  transition: color var(--t);
+  touch-action: none;
+}
+.tsv-grip-row-btn:hover {
+  color: var(--c-text);
+}
+.tsv-grip-row-btn:active {
+  cursor: grabbing;
 }
 .tsv-th {
   cursor: pointer;
@@ -938,7 +968,8 @@
 .tsv-cell--match {
   background: var(--c-warning-bg, var(--c-accent-dim)) !important;
 }
-.tsv-del-row-btn {
+.tsv-del-row-btn,
+.tsv-ins-row-btn {
   width: 22px;
   height: 22px;
   border: none;
@@ -948,13 +979,18 @@
   cursor: pointer;
   font-size: 11px;
   transition: all var(--t);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  vertical-align: middle;
 }
 .tsv-del-row-btn:hover {
   background: var(--c-danger-bg);
   color: var(--c-danger);
+}
+.tsv-ins-row-btn:hover {
+  background: var(--c-accent-dim);
+  color: var(--c-accent);
 }
 .tsv-row-actions {
   padding: 10px 14px;

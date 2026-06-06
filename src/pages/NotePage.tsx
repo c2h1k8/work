@@ -139,7 +139,7 @@ function LinkEntry({ entry, onDelete, onCopy, onSaved, showSubline = true }: {
     setEditing(false);
   };
 
-  const linkInputCls = 'flex-1 px-0 py-0.5 text-xs bg-transparent border-0 border-b border-[var(--c-border)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] placeholder:text-[var(--c-text-3)] transition-colors';
+  const linkInputCls = 'flex-1 min-w-0 px-0 py-0.5 text-xs bg-transparent border-0 border-b border-[var(--c-border)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] placeholder:text-[var(--c-text-3)] transition-colors';
 
   if (editing) {
     return (
@@ -590,13 +590,13 @@ function FieldView({
               <Tag size={11} className="shrink-0 text-[var(--c-text-3)]" />
               <input autoFocus type="text" value={formLabel} onChange={e => setFormLabel(e.target.value)}
                 placeholder="表示名（省略可）"
-                className="flex-1 px-0 py-0.5 text-xs bg-transparent border-0 border-b border-[var(--c-border)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] placeholder:text-[var(--c-text-3)] transition-colors" />
+                className="flex-1 min-w-0 px-0 py-0.5 text-xs bg-transparent border-0 border-b border-[var(--c-border)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] placeholder:text-[var(--c-text-3)] transition-colors" />
             </div>
             <div className="flex items-center gap-2">
               <ExternalLink size={11} className="shrink-0 text-[var(--c-text-3)]" />
               <input type="url" value={formValue} onChange={e => setFormValue(e.target.value)}
                 placeholder="URL"
-                className="flex-1 px-0 py-0.5 text-xs bg-transparent border-0 border-b border-[var(--c-border)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] placeholder:text-[var(--c-text-3)] transition-colors"
+                className="flex-1 min-w-0 px-0 py-0.5 text-xs bg-transparent border-0 border-b border-[var(--c-border)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)] placeholder:text-[var(--c-text-3)] transition-colors"
                 onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) addLinkEntry(); if (e.key === 'Escape') { setShowForm(false); setFormLabel(''); setFormValue(''); } }} />
               <button onClick={addLinkEntry} title="追加（Enter）"
                 className="shrink-0 p-1 rounded text-[var(--c-accent)] hover:bg-[var(--c-accent-dim)] transition-colors">
