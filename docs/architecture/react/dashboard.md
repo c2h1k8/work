@@ -29,7 +29,9 @@ DB 名: `dashboard_db` version 2
 | `SectionCard` | セクションカード（折りたたみ・左ボーダーホバー・md編集ボタン） |
 | `ListSection` | リスト（全幅行・ホバーアイコン・インラインフィルター） |
 | `GridSection` | グリッド（横並び sheet-card スタイル） |
-| `TableSection` | テーブル（インラインフィルター・列非表示/並び替え・利用回数列） |
+| `TableSection` | テーブル（クエリフィルター・保存ビュー・列非表示/並び替え・利用回数列） |
+| `TableQueryInput` | クエリ検索ボックス（列名＋演算子オートコンプリート・構文ヘルプ・portal表示） |
+| `ViewSwitcher` | 保存ビュー切替（適用/新規保存/更新/削除・現在条件との差分で更新ボタン表示） |
 | `ColumnManagerPopover` | 列管理ポップオーバー（iOS トグル・DnD 並び替え・仮想列対応・列順リセット） |
 | `SortableColRow` | DnD 対応列行（列管理ポップオーバー内） |
 | `CommandBuilderSection` | コマンドビルダー（cmd_buttons 複数ボタン対応） |
@@ -73,6 +75,7 @@ DB 名: `dashboard_db` version 2
 |---|---|---|
 | `new_row` | `boolean?` | セクション行頭から開始（`gridColumn: 1 / span N`）。Vanilla JS版の `newRow` と互換読み取りあり |
 | `show_filter` | `boolean?` | list: フィルターバー表示（デフォルト false=非表示） |
+| `table_views` | `TableView[]?` | table: 保存ビュー（クエリ＋ソート＋列表示/順）。IndexedDB に保存し export/import で共有可 |
 | `history_limit` | `number?` | command_builder: 履歴保持上限（デフォルト10） |
 | `cmd_placeholder` | `string?` | command_builder: 入力欄のプレースホルダー（未設定時は `"入力値 {INPUT}"`） |
 | `checklist_reset` | `'never'\|'daily'\|'weekly'\|'monthly'\|'yearly'?` | checklist: 自動リセット方式 |
@@ -97,6 +100,17 @@ DB 名: `dashboard_db` version 2
 - **command_builder のボタン管理**: `items` テーブルに通常アイテムとして保存（`item_type: 'copy'` = コピー / `'link'` = 開く、`value` = テンプレート）。`ItemManagerModal` で他タイプと完全同列。既存 `cmd_buttons` は `load()` で自動1回マイグレーション（`items` へ変換後 `cmd_buttons: []` にリセット）
 - **テーブル列管理（`ColumnManagerPopover`）**: ツールバー右端の「列」ボタン → ポータルポップオーバー。iOS トグルで表示/非表示、ドラッグで並び替え。`USE_COUNT_COL`（`id: '__use_count'`）は仮想列（`section.columns` に含まない）として末尾固定・デフォルト非表示。列ヘッダークリックでソート（`__use_count` は `item.use_count` の数値比較）。フッターの「列順をリセット」で `section.columns` の定義順に戻す（localStorage 削除）。「すべて表示」は全 hidden を解除（`__use_count` 含む）
 - **テーブルのソート状態を記憶**: `sortState`（`{ colId, dir }`）は `localStorage("dashboard_table_sort_<sectionId>")`（`TABLE_SORT_PREFIX`）に保存し、再表示時に復元。`toggleSort` で asc → desc → 解除（null）と循環し、解除時はキーを削除。列非表示/列順/アクティブプリセットと同じ section.id 別 localStorage パターン
+- **テーブルのクエリフィルター**（`TableQueryInput` + `src/core/table_filter.ts`）: テキスト1本で複数列フィルタを実現。マッチ対象は `item.row_data` の**生値**（バインド変数解決前）。型推定は一切しない（列型は text/copy/link のみ）
+  - **構文**: `API`（全列あいまい）／`列名:値`（列指定・含む）／スペース＝AND／`OR`／`( )` グループ化／先頭 `-` で否定／`"列 名":値`（スペース入り列名はクォート）
+  - **テキスト演算子**: `:`含む / `=`完全一致 / `^=`前方一致 / `$=`後方一致 / `~/正規表現/` / `:empty` / `:!empty`
+  - **オートコンプリート**: 入力中フラグメントから列名候補を提示 → 列名確定後は演算子メニュー（含む/完全一致/前方/後方/正規表現/空/空でない）を提示。`OR` キーワードも候補化。↑↓選択・Enter/Tab確定・Escで閉じる。`SectionCard` が `overflow-hidden` のため候補・ヘルプは **portal** で表示
+  - **構文ヘルプ**: ボックス右の `?`（`HelpCircleIcon`）で早見表ポップオーバー
+  - パースエラー（括弧未閉じ・不正な正規表現等）は枠を danger 色にしヒント表示。既存の表示は壊さない（マッチ false で返すのみ）
+  - クエリ文字列は UI 選択状態として `localStorage("dashboard_table_query_<sectionId>")`（`TABLE_QUERY_PREFIX`）に保存
+- **保存ビュー**（`ViewSwitcher`・`TableView`）: クエリ＋ソート＋列表示/順をまとめて名前付き保存しワンクリック切替
+  - **ビュー定義（データ本体）→ IndexedDB**（`section.table_views`、`dashboardDB.patchSection` で保存・export/import で共有可）。**アクティブビューID（UI状態）→ localStorage**（`dashboard_table_active_view_<sectionId>`・`TABLE_ACTIVE_VIEW_PREFIX`）
+  - 「フィルターなし」で解除（クエリのみクリア・列/ソートは保持）。適用時はクエリ/ソート/列表示/列順を一括復元し各 localStorage も同期
+  - 現在の条件がアクティブビューと差分（`viewDirty`）のとき、その行に「更新」ボタン（`SaveIcon`）を表示。差分判定は `hiddenCols` をソートして正規化比較
 - **TSV コピー/ペースト**（`ItemManagerModal`）: セル選択範囲を Ctrl/Cmd+C で TSV コピー（`handleCopy`）、Ctrl/Cmd+V で貼り付け（`handleTsvPaste`）。貼り付け先が末尾を超えると新規行を自動追加。**注意**: 列の `setValue` は `row_data` など入れ子オブジェクトを返すため、複数列を貼る際は「累積中の `item` に `setValue` を順次適用」する（毎回元 `item` から作って浅くマージすると後続列が `row_data` ごと上書きし先頭列が消えるバグになる）
 - **行を間に挿入**（`ItemManagerModal` / `handleInsertRow(refRowIdx, where)`）: マウスとキーボードの両経路を用意
   - **マウス**: 各行ホバーで削除ボタンの隣に「＋（この行の下に挿入）」を表示（`SortableEditableRow` の `onInsert`/`canInsert` props）
