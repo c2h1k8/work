@@ -23,12 +23,14 @@ import {
   DownloadIcon, UploadIcon, XIcon, PencilIcon,
   RefreshCwIcon, ClockIcon, Columns3Icon, ArrowUpDownIcon,
   ChevronRightIcon, ListIcon, CalendarDaysIcon, BriefcaseIcon, SearchIcon,
+  HelpCircleIcon, BookmarkIcon, CheckIcon, SaveIcon,
 } from 'lucide-react';
 import {
   dashboardDB,
   type DashboardSection, type DashboardItem, type DashboardPreset,
-  type SectionType, type SectionWidth, type SectionPreset,
+  type SectionType, type SectionWidth, type SectionPreset, type TableView,
 } from '../db/dashboard_db';
+import { parseTableQuery, findOperator, needsQuote, type FilterColumn } from '../core/table_filter';
 import { useTabLabel } from '../contexts/TabContext';
 import { useTabStore } from '../stores/tab_store';
 import { useToast } from '../components/Toast';
@@ -47,6 +49,8 @@ const CHECKLIST_DATE_PREFIX    = 'dashboard_checklist_date_';
 const TABLE_COL_HIDDEN_PREFIX  = 'dashboard_table_hidden_cols_';
 const TABLE_COL_ORDER_PREFIX   = 'dashboard_table_col_order_';
 const TABLE_SORT_PREFIX        = 'dashboard_table_sort_';
+const TABLE_QUERY_PREFIX       = 'dashboard_table_query_';
+const TABLE_ACTIVE_VIEW_PREFIX = 'dashboard_table_active_view_';
 const TABLE_ACTIVE_PRESET_PFX  = 'dashboard_table_active_preset_';
 const LIST_ACTIVE_PRESET_PFX   = 'dashboard_list_active_preset_';
 const GRID_ACTIVE_PRESET_PFX   = 'dashboard_grid_active_preset_';
@@ -807,6 +811,331 @@ function ColumnManagerPopover({ columns, hiddenCols, colOrder, onToggle, onShowA
   );
 }
 
+// ── クエリ検索ボックス（オートコンプリート付き） ───────────
+interface QuerySugg { text: string; hint: string; insert: string }
+
+// 入力中フラグメントから列名／演算子のサジェストを生成
+function buildQuerySuggestions(frag: string, columns: FilterColumn[]): QuerySugg[] {
+  let prefix = '';
+  let body = frag;
+  if (body.startsWith('-')) { prefix = '-'; body = body.slice(1); }
+
+  const op = findOperator(body);
+  if (op) {
+    // 値位置: ':' のときだけ empty / !empty を補助
+    if (op.op === ':') {
+      const colPart = body.slice(0, op.idx);
+      const valPart = body.slice(op.idx + 1).toLowerCase();
+      const base = `${prefix}${colPart}:`;
+      const out: QuerySugg[] = [];
+      if ('empty'.startsWith(valPart)) out.push({ text: ':empty', hint: '空', insert: `${base}empty ` });
+      if ('!empty'.startsWith(valPart) || valPart === '') out.push({ text: ':!empty', hint: '空でない', insert: `${base}!empty ` });
+      return out;
+    }
+    return [];
+  }
+
+  const lc = body.toLowerCase();
+  // 列名を打ち切った直後 → 演算子メニューを提示
+  const exact = columns.find((c) => c.label.toLowerCase() === lc);
+  if (exact) {
+    const q = needsQuote(exact.label) ? `"${exact.label}"` : exact.label;
+    return [
+      { text: `${exact.label} : 含む`,       hint: '部分一致', insert: `${prefix}${q}:` },
+      { text: `${exact.label} = 完全一致`,   hint: '一致',     insert: `${prefix}${q}=` },
+      { text: `${exact.label} ^= 前方一致`,  hint: '前方',     insert: `${prefix}${q}^=` },
+      { text: `${exact.label} $= 後方一致`,  hint: '後方',     insert: `${prefix}${q}$=` },
+      { text: `${exact.label} ~ 正規表現`,   hint: '正規表現', insert: `${prefix}${q}~/` },
+      { text: `${exact.label} : 空`,         hint: '空',       insert: `${prefix}${q}:empty ` },
+      { text: `${exact.label} : 空でない`,   hint: '空でない', insert: `${prefix}${q}:!empty ` },
+    ];
+  }
+
+  // 列名候補
+  const out: QuerySugg[] = [];
+  for (const c of columns) {
+    if (!lc || c.label.toLowerCase().includes(lc)) {
+      const q = needsQuote(c.label) ? `"${c.label}"` : c.label;
+      out.push({ text: c.label, hint: '列で絞り込み', insert: `${prefix}${q}` });
+    }
+  }
+  if (body && 'or'.startsWith(lc)) out.push({ text: 'OR', hint: 'または', insert: 'OR ' });
+  return out;
+}
+
+function TableQueryInput({ value, onChange, columns, error, count }: {
+  value: string;
+  onChange: (q: string) => void;
+  columns: FilterColumn[];
+  error?: string;
+  count: number | null;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const helpBtnRef = useRef<HTMLButtonElement>(null);
+  const helpRef = useRef<HTMLDivElement>(null);
+  const [caret, setCaret] = useState(0);
+  const [focused, setFocused] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [selIdx, setSelIdx] = useState(0);
+  const [popStyle, setPopStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpStyle, setHelpStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+
+  const frag = useMemo(() => {
+    let start = 0;
+    for (let i = caret - 1; i >= 0; i--) {
+      const c = value[i];
+      if (c === ' ' || c === '(' || c === ')') { start = i + 1; break; }
+    }
+    return { start, text: value.slice(start, caret) };
+  }, [value, caret]);
+
+  const suggestions = useMemo(() => buildQuerySuggestions(frag.text, columns), [frag.text, columns]);
+  useEffect(() => { setSelIdx(0); }, [frag.text]);
+
+  const showSug = focused && !dismissed && suggestions.length > 0;
+
+  useLayoutEffect(() => {
+    if (!showSug || !boxRef.current) return;
+    const rect = boxRef.current.getBoundingClientRect();
+    setPopStyle({ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 2000, visibility: 'visible' });
+  }, [showSug, suggestions.length, value]);
+
+  useLayoutEffect(() => {
+    if (!helpOpen || !helpBtnRef.current) return;
+    const rect = helpBtnRef.current.getBoundingClientRect();
+    const W = 320;
+    let left = rect.right - W;
+    if (left < 8) left = 8;
+    setHelpStyle({ position: 'fixed', top: rect.bottom + 4, left, width: W, zIndex: 2001, visibility: 'visible' });
+  }, [helpOpen]);
+
+  useEffect(() => {
+    if (!helpOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!helpBtnRef.current?.contains(e.target as Node) && !helpRef.current?.contains(e.target as Node)) setHelpOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [helpOpen]);
+
+  function syncCaret() {
+    const el = inputRef.current;
+    if (el) setCaret(el.selectionStart ?? 0);
+  }
+
+  function accept(s: QuerySugg) {
+    const before = value.slice(0, frag.start);
+    const after = value.slice(caret);
+    const newVal = before + s.insert + after;
+    const newCaret = (before + s.insert).length;
+    onChange(newVal);
+    setDismissed(false);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) { el.focus(); el.setSelectionRange(newCaret, newCaret); }
+      setCaret(newCaret);
+    });
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!showSug) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelIdx((i) => (i + 1) % suggestions.length); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSelIdx((i) => (i - 1 + suggestions.length) % suggestions.length); }
+    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); accept(suggestions[Math.min(selIdx, suggestions.length - 1)]); }
+    else if (e.key === 'Escape') { e.preventDefault(); setDismissed(true); }
+  }
+
+  const dropdown = showSug ? createPortal(
+    <div ref={popRef} style={popStyle}
+      className="bg-[var(--c-bg)] border border-[var(--c-border)] rounded-xl shadow-[0_8px_32px_rgba(0,0,0,.16)] overflow-hidden py-1 max-h-72 overflow-y-auto">
+      {suggestions.map((s, i) => (
+        <button key={s.text + i} type="button"
+          onMouseDown={(e) => { e.preventDefault(); accept(s); }}
+          onMouseEnter={() => setSelIdx(i)}
+          className={`w-full flex items-center justify-between gap-3 px-3 py-1.5 text-left text-xs transition-colors ${
+            i === selIdx ? 'bg-[var(--c-accent-dim)] text-[var(--c-accent)]' : 'text-[var(--c-fg)] hover:bg-[var(--c-bg-2)]'
+          }`}>
+          <span className="truncate">{s.text}</span>
+          <span className="shrink-0 text-[10px] text-[var(--c-fg-3)]">{s.hint}</span>
+        </button>
+      ))}
+    </div>,
+    document.body,
+  ) : null;
+
+  const help = helpOpen ? createPortal(
+    <div ref={helpRef} style={helpStyle}
+      className="bg-[var(--c-bg)] border border-[var(--c-border)] rounded-xl shadow-[0_8px_32px_rgba(0,0,0,.16)] p-3 text-xs text-[var(--c-fg-2)] space-y-1.5">
+      <div className="font-semibold text-[var(--c-fg)] mb-1">クエリの書き方</div>
+      {[
+        ['API', '全列にAPIを含む'],
+        ['列名:値', 'その列が値を含む'],
+        ['A B', 'スペース＝AND（両方）'],
+        ['A OR B', 'OR（どちらか）'],
+        ['(A OR B) C', '括弧でグループ化'],
+        ['-列名:値', '先頭 - で否定'],
+        ['列名=値', '完全一致'],
+        ['列名^=値 / 列名$=値', '前方 / 後方一致'],
+        ['列名~/正規表現/', '正規表現'],
+        ['列名:empty / :!empty', '空 / 空でない'],
+      ].map(([syntax, desc]) => (
+        <div key={syntax} className="flex items-baseline gap-2">
+          <code className="shrink-0 px-1 py-0.5 rounded bg-[var(--c-bg-2)] text-[var(--c-accent)] font-mono text-[10px] whitespace-nowrap">{syntax}</code>
+          <span className="text-[var(--c-fg-3)]">{desc}</span>
+        </div>
+      ))}
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <div ref={boxRef} className="relative flex-1 flex items-center gap-1.5">
+      <div className={`flex-1 flex items-center gap-1.5 h-7 px-2 rounded border bg-[var(--c-bg)] transition-colors ${
+        error ? 'border-[var(--c-danger,#e5484d)]' : 'border-[var(--c-border)] focus-within:border-[var(--c-accent)]'
+      }`}>
+        <SearchIcon size={12} className="shrink-0 text-[var(--c-fg-3)]" />
+        <input
+          ref={inputRef} type="text" value={value}
+          onChange={(e) => { onChange(e.target.value); setCaret(e.target.selectionStart ?? e.target.value.length); setDismissed(false); }}
+          onKeyDown={handleKeyDown}
+          onKeyUp={syncCaret}
+          onClick={syncCaret}
+          onFocus={() => { setFocused(true); setDismissed(false); }}
+          onBlur={() => setFocused(false)}
+          placeholder="フィルター（列名:値 / AND / OR / -否定 …）"
+          className="flex-1 min-w-0 bg-transparent text-[var(--c-fg)] text-xs focus:outline-none"
+        />
+        {value && (
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { onChange(''); inputRef.current?.focus(); }}
+            className="shrink-0 text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="クリア">
+            <XIcon size={12} />
+          </button>
+        )}
+      </div>
+      {error ? (
+        <span className="text-[10px] text-[var(--c-danger,#e5484d)] shrink-0 whitespace-nowrap">{error}</span>
+      ) : count != null && (
+        <span className="text-xs text-[var(--c-fg-3)] shrink-0 tabular-nums">{count}件</span>
+      )}
+      <button ref={helpBtnRef} type="button" onClick={() => setHelpOpen((v) => !v)}
+        className={`shrink-0 transition-colors ${helpOpen ? 'text-[var(--c-accent)]' : 'text-[var(--c-fg-3)] hover:text-[var(--c-accent)]'}`}
+        title="クエリの書き方">
+        <HelpCircleIcon size={14} />
+      </button>
+      {dropdown}
+      {help}
+    </div>
+  );
+}
+
+// ── 保存ビュー切替（ViewSwitcher） ─────────────────────────
+function ViewSwitcher({ views, activeId, onApply, onSaveNew, onUpdate, onDelete, dirty }: {
+  views: TableView[];
+  activeId: string | null;
+  onApply: (v: TableView | null) => void;
+  onSaveNew: (name: string) => void;
+  onUpdate: (id: string) => void;
+  onDelete: (id: string) => void;
+  dirty: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState('');
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [popStyle, setPopStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  const active = views.find((v) => v.id === activeId) || null;
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    const W = 240;
+    let left = rect.left;
+    if (left + W > window.innerWidth - 8) left = window.innerWidth - W - 8;
+    setPopStyle({ position: 'fixed', top: rect.bottom + 4, left, width: W, zIndex: 2000, visibility: 'visible' });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!btnRef.current?.contains(e.target as Node) && !popRef.current?.contains(e.target as Node)) { setOpen(false); setNaming(false); }
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setNaming(false); } };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  function submitNew() {
+    const n = name.trim();
+    if (!n) return;
+    onSaveNew(n);
+    setName(''); setNaming(false); setOpen(false);
+  }
+
+  const popover = open ? createPortal(
+    <div ref={popRef} style={popStyle}
+      className="bg-[var(--c-bg)] border border-[var(--c-border)] rounded-xl shadow-[0_8px_32px_rgba(0,0,0,.16)] overflow-hidden py-1">
+      <button type="button" onClick={() => { onApply(null); setOpen(false); }}
+        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-[var(--c-bg-2)] ${activeId === null ? 'text-[var(--c-accent)]' : 'text-[var(--c-fg-2)]'}`}>
+        <span className="w-3 shrink-0">{activeId === null && <CheckIcon size={12} />}</span>
+        フィルターなし
+      </button>
+      {views.length > 0 && <div className="my-1 border-t border-[var(--c-border)]" />}
+      {views.map((v) => (
+        <div key={v.id} className="group/vw flex items-center gap-1 px-1">
+          <button type="button" onClick={() => { onApply(v); setOpen(false); }}
+            className={`flex-1 flex items-center gap-2 px-2 py-1.5 text-left text-xs rounded hover:bg-[var(--c-bg-2)] ${v.id === activeId ? 'text-[var(--c-accent)]' : 'text-[var(--c-fg)]'}`}>
+            <span className="w-3 shrink-0">{v.id === activeId && <CheckIcon size={12} />}</span>
+            <span className="truncate">{v.name}</span>
+          </button>
+          {v.id === activeId && dirty && (
+            <button type="button" onClick={() => onUpdate(v.id)} title="現在の条件で更新"
+              className="shrink-0 p-1 text-[var(--c-fg-3)] hover:text-[var(--c-accent)]"><SaveIcon size={12} /></button>
+          )}
+          <button type="button" onClick={() => onDelete(v.id)} title="削除"
+            className="shrink-0 p-1 text-[var(--c-fg-3)] hover:text-[var(--c-danger,#e5484d)] opacity-0 group-hover/vw:opacity-100 transition-opacity"><Trash2Icon size={12} /></button>
+        </div>
+      ))}
+      <div className="my-1 border-t border-[var(--c-border)]" />
+      {naming ? (
+        <div className="flex items-center gap-1 px-2 py-1">
+          <input autoFocus value={name} onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) submitNew(); }}
+            placeholder="ビュー名" className="flex-1 min-w-0 h-6 px-2 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-xs focus:outline-none focus:border-[var(--c-accent)]" />
+          <button type="button" onClick={submitNew}
+            className="shrink-0 px-2 h-6 rounded bg-[var(--c-accent)] text-white text-[11px]">保存</button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setNaming(true)}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--c-fg-2)] hover:bg-[var(--c-bg-2)]">
+          <PlusIcon size={12} /> 現在の条件をビューに保存
+        </button>
+      )}
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <>
+      <button ref={btnRef} type="button" onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded border shrink-0 transition-colors ${
+          active || open
+            ? 'border-[var(--c-accent)] text-[var(--c-accent)] bg-[var(--c-accent-dim)]'
+            : 'border-[var(--c-border)] text-[var(--c-fg-2)] hover:border-[var(--c-accent)] hover:text-[var(--c-accent)]'
+        }`}>
+        <BookmarkIcon size={11} />
+        <span className="max-w-[100px] truncate">{active ? active.name : 'ビュー'}</span>
+        <ChevronDownIcon size={11} />
+      </button>
+      {popover}
+    </>
+  );
+}
+
 // ── Table セクション ───────────────────────────────────────
 function TableSection({ section, items, presets, activePresetId, globalVarNames, onItemsChange }: SectionProps) {
   const toast = useToast();
@@ -826,7 +1155,11 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
     () => lsJson<{ colId: string; dir: 'asc' | 'desc' }>(TABLE_SORT_PREFIX + section.id)
   );
   const [page, setPage] = useState(0);
-  const [filter, setFilter] = useState('');
+  const [query, setQuery] = useState(() => lsGet(TABLE_QUERY_PREFIX + section.id) ?? '');
+  const [views, setViews] = useState<TableView[]>(() => section.table_views ?? []);
+  const [activeViewId, setActiveViewId] = useState<string | null>(
+    () => lsJson<string>(TABLE_ACTIVE_VIEW_PREFIX + section.id)
+  );
 
   const resolve = (s: string) => resolveAll(s, section, globalVarNames, presets, activePresetId);
 
@@ -898,13 +1231,64 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
 
   const visibleCols = allDisplayCols.filter((c) => !hiddenCols.has(c.id));
 
+  // クエリ言語で絞り込み（マッチ対象は row_data の生値）
+  const filterCols = useMemo<FilterColumn[]>(() => columns.map((c) => ({ id: c.id, label: c.label })), [columns]);
+  const parsed = useMemo(() => parseTableQuery(query, filterCols), [query, filterCols]);
+
+  function updateQuery(q: string) {
+    setQuery(q);
+    setPage(0);
+    lsSet(TABLE_QUERY_PREFIX + section.id, q);
+  }
+
   const filteredItems = useMemo(() => {
-    if (!filter.trim()) return sortedItems;
-    const q = filter.toLowerCase();
-    return sortedItems.filter((item) =>
-      visibleCols.some((c) => (item.row_data?.[c.id] ?? '').toLowerCase().includes(q))
-    );
-  }, [sortedItems, filter, visibleCols]);
+    if (!query.trim()) return sortedItems;
+    return sortedItems.filter((item) => parsed.test(item.row_data ?? {}));
+  }, [sortedItems, query, parsed]);
+
+  // ── 保存ビュー ──
+  const activeView = views.find((v) => v.id === activeViewId) || null;
+  const normView = (v: { query: string; sort: TableView['sort']; hiddenCols: string[]; colOrder: string[] }) =>
+    JSON.stringify({ query: v.query, sort: v.sort, hiddenCols: [...v.hiddenCols].sort(), colOrder: v.colOrder });
+  const snapshot = (): Pick<TableView, 'query' | 'sort' | 'hiddenCols' | 'colOrder'> =>
+    ({ query, sort: sortState, hiddenCols: [...hiddenCols], colOrder });
+  const viewDirty = activeView ? normView(snapshot()) !== normView(activeView) : false;
+
+  async function persistViews(next: TableView[]) {
+    setViews(next);
+    if (section.id) await dashboardDB.patchSection(section.id, { table_views: next });
+  }
+  function setActiveView(id: string | null) {
+    setActiveViewId(id);
+    if (id) lsSet(TABLE_ACTIVE_VIEW_PREFIX + section.id, JSON.stringify(id));
+    else localStorage.removeItem(TABLE_ACTIVE_VIEW_PREFIX + section.id);
+  }
+  function applyView(v: TableView | null) {
+    if (!v) { setActiveView(null); updateQuery(''); return; }
+    setActiveView(v.id);
+    updateQuery(v.query);
+    setSortState(v.sort);
+    if (v.sort) lsSet(TABLE_SORT_PREFIX + section.id, JSON.stringify(v.sort));
+    else localStorage.removeItem(TABLE_SORT_PREFIX + section.id);
+    setHiddenCols(new Set(v.hiddenCols));
+    lsSet(TABLE_COL_HIDDEN_PREFIX + section.id, JSON.stringify(v.hiddenCols));
+    setColOrder(v.colOrder);
+    lsSet(TABLE_COL_ORDER_PREFIX + section.id, JSON.stringify(v.colOrder));
+  }
+  async function saveNewView(name: string) {
+    const v: TableView = { id: `v${Date.now().toString(36)}`, name, ...snapshot() };
+    await persistViews([...views, v]);
+    setActiveView(v.id);
+    toast.success('ビューを保存しました');
+  }
+  async function updateView(id: string) {
+    await persistViews(views.map((v) => (v.id === id ? { ...v, ...snapshot() } : v)));
+    toast.success('ビューを更新しました');
+  }
+  async function deleteView(id: string) {
+    await persistViews(views.filter((v) => v.id !== id));
+    if (activeViewId === id) setActiveView(null);
+  }
 
   const totalPages = pageSize > 0 ? Math.ceil(filteredItems.length / pageSize) : 1;
   const pagedItems = pageSize > 0 ? filteredItems.slice(page * pageSize, (page + 1) * pageSize) : filteredItems;
@@ -939,12 +1323,22 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
         wrapClass="mb-2"
       />
       <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--c-border)]">
-        <input
-          type="text" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(0); }}
-          placeholder="フィルター…"
-          className="flex-1 h-7 px-2 rounded border border-[var(--c-border)] bg-[var(--c-bg)] text-[var(--c-fg)] text-xs focus:outline-none focus:border-[var(--c-accent)]"
+        <TableQueryInput
+          value={query}
+          onChange={updateQuery}
+          columns={filterCols}
+          error={query.trim() && !parsed.ok ? parsed.error : undefined}
+          count={query.trim() ? filteredItems.length : null}
         />
-        {filter && <span className="text-xs text-[var(--c-fg-3)] shrink-0">{filteredItems.length}件</span>}
+        <ViewSwitcher
+          views={views}
+          activeId={activeViewId}
+          onApply={applyView}
+          onSaveNew={saveNewView}
+          onUpdate={updateView}
+          onDelete={deleteView}
+          dirty={viewDirty}
+        />
         <ColumnManagerPopover
           columns={orderedColumns}
           hiddenCols={hiddenCols}

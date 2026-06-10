@@ -29,6 +29,16 @@ export type SectionType =
   | 'countdown';
 
 export type SectionWidth = 'narrow' | 'auto' | 'w3' | 'wide' | 'w5' | 'full';
+
+/** table セクションの保存ビュー（クエリ＋ソート＋列表示/順をまとめて保存） */
+export interface TableView {
+  id: string;
+  name: string;
+  query: string;
+  sort: { colId: string; dir: 'asc' | 'desc' } | null;
+  hiddenCols: string[];
+  colOrder: string[];
+}
 export type ItemType = 'copy' | 'link' | 'template' | 'row';
 
 export interface DashboardSection {
@@ -65,6 +75,7 @@ export interface DashboardSection {
   // table 専用
   columns?: Array<{ id: string; label: string; type: 'text' | 'copy' | 'link' }>;
   page_size?: number;
+  table_views?: TableView[];
   // checklist 専用
   checklist_reset?: 'never' | 'daily' | 'weekly' | 'monthly' | 'yearly';
   // memo 専用
