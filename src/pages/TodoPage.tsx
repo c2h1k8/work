@@ -27,6 +27,7 @@ import {
   CheckSquareIcon, MinusSquareIcon, FileEditIcon,
   CircleDotIcon, TimerIcon, Repeat2Icon,
   DownloadIcon, UploadIcon, FilterXIcon, ArrowUpDownIcon,
+  Maximize2Icon,
 } from 'lucide-react';
 import {
   kanbanDB,
@@ -39,6 +40,7 @@ import {
 import { ActivityLogger } from '../core/activity_logger';
 import { useToast } from '../components/Toast';
 import { MarkdownBody } from '../components/MarkdownBody';
+import { MarkdownEditorModal } from '../components/MarkdownEditorModal';
 import { noteDB } from '../db/note_db';
 import { DatePicker } from '../components/DatePicker';
 import { Select } from '../components/Select';
@@ -411,6 +413,13 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   const [activities,     setActivities]     = useState<KanbanActivity[]>([]);
   const [commentInput,   setCommentInput]   = useState('');
   const [editingComment, setEditingComment] = useState<{ id: number; text: string } | null>(null);
+  // 拡大 Markdown エディタ（左右分割ライブプレビュー）の対象
+  const [bigEditor, setBigEditor] = useState<
+    | { kind: 'desc' }
+    | { kind: 'comment-new' }
+    | { kind: 'comment-edit'; id: number; text: string }
+    | null
+  >(null);
   const [timelineTab,    setTimelineTab]    = useState<'all' | 'comments'>(
     () => (lsGet(LS_TIMELINE_TAB) === 'comments' ? 'comments' : 'all'),
   );
@@ -671,10 +680,21 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
     setActivities((prev) => [...prev, act].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
   }
 
+  /** 指定値で説明を保存（拡大エディタの保存用。state と DB を同期） */
+  async function persistDescription(next: string) {
+    setDescription(next);
+    if (next === committedDesc.current) return;
+    committedDesc.current = next;
+    const updated = await kanbanDB.updateTask(task.id!, { description: next });
+    onSaved(updated);
+    const act = await kanbanDB.addActivity(task.id!, 'description_change', {});
+    setActivities((prev) => [...prev, act].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+  }
+
   // ── コメント ────────────────────────────────────────────
-  async function addComment() {
-    if (!commentInput.trim()) return;
-    const comment = await kanbanDB.addComment(task.id!, commentInput.trim());
+  async function addComment(text: string = commentInput) {
+    if (!text.trim()) return;
+    const comment = await kanbanDB.addComment(task.id!, text.trim());
     setComments((prev) => [...prev, comment]);
     setCommentInput('');
     // コメント自体がタイムラインに表示されるためアクティビティ記録は不要
@@ -1099,6 +1119,12 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                       onMouseDown={(e) => { e.preventDefault(); setDescSubTab('preview'); }}
                     >プレビュー</button>
                     <button
+                      className={styles['desc-editor__expand']}
+                      onMouseDown={(e) => { e.preventDefault(); setBigEditor({ kind: 'desc' }); }}
+                      title="拡大エディタで編集（ライブプレビュー）"
+                      aria-label="拡大エディタで編集"
+                    ><Maximize2Icon size={13} aria-hidden="true" /></button>
+                    <button
                       className={styles['desc-editor__confirm']}
                       onMouseDown={(e) => { e.preventDefault(); commitDesc(); }}
                       title="確定 (Esc でキャンセル)"
@@ -1299,11 +1325,23 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                         </div>
                         {editingComment?.id === c.id && editingComment ? (
                           <>
-                            <textarea
-                              className={styles['comment-item__edit-textarea']}
-                              value={editingComment.text}
-                              onChange={(e) => setEditingComment({ id: editingComment.id, text: e.target.value })}
-                            />
+                            <div className={styles['comment-edit-wrap']}>
+                              <textarea
+                                className={styles['comment-item__edit-textarea']}
+                                value={editingComment.text}
+                                onChange={(e) => setEditingComment({ id: editingComment.id, text: e.target.value })}
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                className={styles['comment-preview-toggle']}
+                                onClick={() => setBigEditor({ kind: 'comment-edit', id: c.id!, text: editingComment.text })}
+                                title="拡大エディタで編集（ライブプレビュー）"
+                                aria-label="拡大エディタで編集"
+                              >
+                                <Maximize2Icon size={13} aria-hidden="true" />
+                              </button>
+                            </div>
                             <div className={styles['comment-item__edit-actions']}>
                               <button
                                 className={styles['comment-item__edit-cancel']}
@@ -1342,20 +1380,31 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
                 })}
               </div>
               <div className={styles['modal__comment-form']}>
-                <textarea
-                  className={styles['modal__comment-input']}
-                  value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                      e.preventDefault();
-                      addComment();
-                    }
-                  }}
-                  placeholder="コメントを追加… (Shift+Enter で改行)"
-                />
+                <div className={styles['comment-edit-wrap']}>
+                  <textarea
+                    className={styles['modal__comment-input']}
+                    value={commentInput}
+                    onChange={(e) => setCommentInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        addComment();
+                      }
+                    }}
+                    placeholder="コメントを追加… (Shift+Enter で改行)"
+                  />
+                  <button
+                    type="button"
+                    className={styles['comment-preview-toggle']}
+                    onClick={() => setBigEditor({ kind: 'comment-new' })}
+                    title="拡大エディタで編集（ライブプレビュー）"
+                    aria-label="拡大エディタで編集"
+                  >
+                    <Maximize2Icon size={13} aria-hidden="true" />
+                  </button>
+                </div>
                 <div className={styles['modal__comment-actions']}>
-                  <button className={styles['modal-comment-submit-btn']} onClick={addComment}>
+                  <button className={styles['modal-comment-submit-btn']} onClick={() => addComment()}>
                     <MessageSquareIcon size={13} aria-hidden="true" />
                     コメント
                   </button>
@@ -1664,6 +1713,26 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
           onClose={() => setPicker(null)}
         />
       )}
+
+      {/* 拡大 Markdown エディタ（説明・コメント共用。createPortal で TaskModal の上に重ねる） */}
+      <MarkdownEditorModal
+        open={bigEditor !== null}
+        title={bigEditor?.kind === 'desc' ? '説明を編集' : 'コメントを編集'}
+        initialValue={
+          bigEditor?.kind === 'desc' ? description
+          : bigEditor?.kind === 'comment-new' ? commentInput
+          : bigEditor?.kind === 'comment-edit' ? bigEditor.text
+          : ''
+        }
+        placeholder={bigEditor?.kind === 'desc' ? '説明を入力（Markdown対応）…' : 'コメントを入力…'}
+        onClose={() => setBigEditor(null)}
+        onSave={(v) => {
+          if (!bigEditor) return;
+          if (bigEditor.kind === 'desc') persistDescription(v);
+          else if (bigEditor.kind === 'comment-new') addComment(v);
+          else updateComment(bigEditor.id, v);
+        }}
+      />
     </div>
   );
 }
