@@ -26,7 +26,9 @@ DB 名: `kanban_db` version 2
 - 編集ボタンクリック → `descEditing=true` / `descSubTab='write'` / textarea に autoFocus
 - 編集/プレビュータブ切替時: `descTextareaRef` で textarea に明示フォーカス（`useEffect` 監視）
 - 編集ツールバー（`desc-editor__tabs`）は `position: sticky; top: 0` でスクロール追従
+- プレビュー（`.desc-editor__preview`）は `max-height: 200px; overflow-y: auto` で内部スクロール（タブは通常フロー先頭に残るので常に見える。`flex:1` だと desc-editor の高さ基準が崩れてタブが押し出されるため不可）
 - プレビュー内チェックボックスは `onCheckboxChange` で直接トグル（編集モード不要）
+- タブバー右端に `⤢ 拡大`（`.desc-editor__expand`）ボタン → 大画面の左右分割ライブプレビューエディタを開く（後述の `MarkdownEditorModal`）
 
 ### モーダルレイアウト
 
@@ -35,6 +37,7 @@ DB 名: `kanban_db` version 2
 - チェックリストセクション（`.modal__section.modal__section--checklist`）: `max-height: 25%; overflow-y: auto`。超えたら内部スクロール
 - アクティビティセクション（`.modal__section--grow`）: `flex: 1; min-height: 180px; overflow: hidden`。残り全高を占有（最低180px保証）
 - `modal__comments`: `flex: 1; overflow-y: auto` で内部スクロール
+- コメント入力/編集の textarea 右下に `⤢ 拡大`（`.comment-preview-toggle`、Maximize2Icon）ボタン → `MarkdownEditorModal` を開く（`.comment-edit-wrap` が `position: relative` の親）。インラインは素の textarea のまま（狭い領域での無理なプレビューはやめ、プレビューは拡大エディタに集約）
 - セクション区切り: `border-top` ＋ `padding: 20px 20px 24px` で区別
 - セクションラベル: `font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: muted`
 - `timeline-header`: `position: sticky; top: 0` でスクロール時に固定
@@ -52,6 +55,20 @@ DB 名: `kanban_db` version 2
 | チェックボックス | `onCheckboxChange(index, checked)` prop でトグル処理を注入 |
 | テーマ切替 | `data-theme` 属性の MutationObserver 監視で自動切替（ライト: oneLight / ダーク: oneDark） |
 | CSS | `src/styles/components/MarkdownBody.module.css`（B案スタイル: 14px / GitHub 近似） |
+
+### 拡大 Markdown エディタ（`MarkdownEditorModal`）
+
+`src/components/MarkdownEditorModal.tsx` — 説明・コメント新規・コメント編集で共用する大画面エディタ。狭いインライン枠ではプレビューが活かせないため導入。
+
+| 項目 | 詳細 |
+|---|---|
+| レイアウト | `createPortal(document.body)` で全画面オーバーレイ（`z-index: 1100`、TaskModal `.modal` の `200` より上）。本体は `width: min(1100px,92vw) / height: min(820px,88vh)` |
+| 2ペイン | 左 = ソース textarea（等幅）、右 = `MarkdownBody` ライブプレビュー。`grid-template-columns: 1fr 1fr`。トグル不要で常時両表示 |
+| ツールバー | 見出し/太字/斜体/箇条書き/番号付き/チェックリスト/引用/コード/リンクの挿入ボタン。`onMouseDown` で `preventDefault` し textarea の選択を維持。見出しは1ボタンで現在行のレベルを循環（なし→H1→H2→H3→なし） |
+| キーボード | `Esc`=閉じる / `⌘・Ctrl+Enter`=保存。`window` の **capture フェーズ**で `stopImmediatePropagation`（背後 TaskModal の Esc 等と競合させず最前面だけ処理） |
+| props | `open / title / initialValue / placeholder / onSave(v) / onClose`。開くたび `initialValue` で内部 state を同期しフォーカス |
+| 呼び出し側 | `TodoPage` の `bigEditor` state（`{kind:'desc'|'comment-new'|'comment-edit', ...}`）で対象を切替。保存は desc→`persistDescription` / comment-new→`addComment(v)` / comment-edit→`updateComment(id,v)` |
+| モバイル | 非対応（利用想定なし。左右分割のまま） |
 
 ### ページ間ナビゲーション
 

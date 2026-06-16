@@ -97,6 +97,12 @@
 .md-body :global(.syntax-highlighter-wrap):last-child {
   margin-bottom: 0;
 }
+/* SyntaxHighlighter 内の code はインラインコード用の padding/背景を打ち消す
+   （これを忘れると先頭に空白＆灰色背景が付く） */
+.md-body :global(.syntax-highlighter-wrap) code {
+  background: none;
+  padding: 0;
+}
 
 /* 引用 */
 .md-body blockquote {
@@ -116,11 +122,24 @@
   margin-bottom: 0;
 }
 
-/* リスト */
+/* リスト（Tailwind preflight が list-style を none にリセットするため明示指定） */
 .md-body ul,
 .md-body ol {
   padding-left: 1.75em;
   margin-bottom: 10px;
+}
+.md-body ul {
+  list-style-type: disc;
+}
+.md-body ol {
+  list-style-type: decimal;
+}
+/* ネスト時のマーカー切り替え */
+.md-body ul ul {
+  list-style-type: circle;
+}
+.md-body ul ul ul {
+  list-style-type: square;
 }
 .md-body ul:last-child,
 .md-body ol:last-child {
