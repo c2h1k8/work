@@ -4,6 +4,7 @@
 // セクションタイプ: list / grid / command_builder / table /
 //                  memo / checklist / markdown / iframe / countdown
 // バインド変数: 共通プリセット + セクション固有プリセット（2段階解決）
+// 列値バインド: {@列名}（table のみ・同じ行の他列の生値を埋め込む。行依存）
 // 日付変数: {TODAY} / {NOW} / {DATE:±N単位:Fmt}
 
 import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
@@ -123,6 +124,26 @@ function resolveDateVars(str: string): string {
       return _m;
     },
   );
+}
+
+// ── 列値バインド（同じ行の他列を参照） ─────────────────────────
+// {@列名} を同じ行の該当列の生値で1回だけ置換する（再帰しない）。
+// 列名（label）優先、なければ列 id でマッチ。スペース入りは {@"列 名"}。
+// 未定義の列参照は {@...} のまま残す（タイプミスを可視化）。1パスのみなので
+// 循環参照（A→B→A）でも無限ループしない。
+function resolveColumnRefs(
+  str: string,
+  item: DashboardItem,
+  columns: { id: string; label: string }[],
+): string {
+  if (!str || str.indexOf('{@') < 0) return str || '';
+  const data = item.row_data || {};
+  return str.replace(/\{@(?:"([^"]+)"|([^}]+))\}/g, (m, quoted, bare) => {
+    const name = (quoted ?? bare).trim();
+    const col = columns.find((c) => c.label === name) || columns.find((c) => c.id === name);
+    if (!col) return m;                     // 未定義はそのまま残す
+    return data[col.id] ?? '';
+  });
 }
 
 // ── バインド変数解決 ───────────────────────────────────────
@@ -1161,7 +1182,10 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
     () => lsJson<string>(TABLE_ACTIVE_VIEW_PREFIX + section.id)
   );
 
-  const resolve = (s: string) => resolveAll(s, section, globalVarNames, presets, activePresetId);
+  // テーブルは行依存の列値バインド {@列名} を先に解決してから
+  // セクション→共通→日付バインドを解決する（行ごとに値が変わるため item 必須）
+  const resolve = (s: string, item: DashboardItem) =>
+    resolveAll(resolveColumnRefs(s, item, columns), section, globalVarNames, presets, activePresetId);
 
   // colOrder に存在しない新列を末尾に補完した表示順列定義（仮想列 __use_count は含まない）
   const orderedColumns = useMemo<ColDef[]>(() => {
@@ -1294,7 +1318,7 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
   const pagedItems = pageSize > 0 ? filteredItems.slice(page * pageSize, (page + 1) * pageSize) : filteredItems;
 
   async function handleCellClick(item: DashboardItem, col: { id: string; label: string; type: 'text' | 'copy' | 'link' }) {
-    const val = resolve(item.row_data?.[col.id] ?? '');
+    const val = resolve(item.row_data?.[col.id] ?? '', item);
     if (col.type === 'link' || (col.type !== 'text' && col.type !== 'copy' && isUrl(val))) {
       await Opener.open(val);
     } else if (col.type === 'copy' || col.type === 'text') {
@@ -1378,7 +1402,7 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
                       </td>
                     );
                   }
-                  const val = resolve(item.row_data?.[c.id] ?? '');
+                  const val = resolve(item.row_data?.[c.id] ?? '', item);
                   return (
                     <td key={c.id} className={`px-3 py-2 border-b border-[var(--c-border)] ${c.type === 'text' ? 'cursor-text' : 'cursor-pointer'}`}>
                       {c.type === 'link' ? (
@@ -2366,6 +2390,9 @@ function SectionEditModal({ section, instanceId, items, onClose, onSaved, onDele
                     {columns.length === 0 && <p className="text-xs text-[var(--c-fg-3)] text-center py-3">列がありません</p>}
                   </div>
                 </DndContext>
+                <p className="mt-1.5 text-[11px] text-[var(--c-fg-3)] leading-relaxed">
+                  セルの値に <span className="font-mono text-[var(--c-accent)]">{'{@列名}'}</span> と書くと、同じ行の他列の値を埋め込めます（例: link 列に <span className="font-mono text-[var(--c-accent)]">https://example.com/u/{'{@id}'}</span>）。スペース入りの列名は <span className="font-mono text-[var(--c-accent)]">{'{@"列 名"}'}</span>。
+                </p>
               </div>
               <label className="toggle-wrap">
                 <input type="checkbox" className="toggle-input" checked={showAddBtn} onChange={(e) => setShowAddBtn(e.target.checked)} />
@@ -3148,8 +3175,24 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
     let text: string;
     try { text = await navigator.clipboard.readText(); } catch { return; }
     if (!text.trim()) return;
+    applyTsvText(text, selCell[0], selCell[1]);
+  }
 
-    const [startRow, startCol] = selCell;
+  // 編集中セルでのマルチセル貼り付けを拾う。input/textarea から bubble する
+  // paste を捕まえ、タブ/改行を含む（=複数セル相当）場合のみ TSV 展開に回す。
+  // 単一値は通常のセル内貼り付けに任せる。これで「1列目（編集モードのまま）の
+  // 貼り付けが効かない」現象を解消する。
+  function handleTablePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    if (!editCell) return;                              // 非編集時は keydown 経路に任せる
+    const text = e.clipboardData.getData('text');
+    if (!text || !/[\t\r\n]/.test(text)) return;        // 単一値はネイティブ貼り付け
+    e.preventDefault();
+    const [r, c] = editCell;
+    setEditCell(null);                                  // 編集を抜けて範囲展開
+    applyTsvText(text, r, c);
+  }
+
+  function applyTsvText(text: string, startRow: number, startCol: number) {
     const rows = text.split(/\r?\n/).filter((r) => r.length > 0);
     let next = [...localItemsRef.current];
     const newNewIds    = new Set(newIds);
@@ -3398,6 +3441,7 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
         {/* ボディ */}
         <div ref={tableContainerRef} tabIndex={0}
           onKeyDown={handleTableKeyDown}
+          onPaste={handleTablePaste}
           onClick={() => { if (!editCell) tableContainerRef.current?.focus(); }}
           className="flex-1 overflow-auto focus:outline-none">
           <table className="w-full text-sm border-collapse table-fixed">

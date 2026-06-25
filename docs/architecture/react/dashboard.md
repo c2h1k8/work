@@ -111,7 +111,9 @@ DB 名: `dashboard_db` version 2
   - **ビュー定義（データ本体）→ IndexedDB**（`section.table_views`、`dashboardDB.patchSection` で保存・export/import で共有可）。**アクティブビューID（UI状態）→ localStorage**（`dashboard_table_active_view_<sectionId>`・`TABLE_ACTIVE_VIEW_PREFIX`）
   - 「フィルターなし」で解除（クエリのみクリア・列/ソートは保持）。適用時はクエリ/ソート/列表示/列順を一括復元し各 localStorage も同期
   - 現在の条件がアクティブビューと差分（`viewDirty`）のとき、その行に「更新」ボタン（`SaveIcon`）を表示。差分判定は `hiddenCols` をソートして正規化比較
-- **TSV コピー/ペースト**（`ItemManagerModal`）: セル選択範囲を Ctrl/Cmd+C で TSV コピー（`handleCopy`）、Ctrl/Cmd+V で貼り付け（`handleTsvPaste`）。貼り付け先が末尾を超えると新規行を自動追加。**注意**: 列の `setValue` は `row_data` など入れ子オブジェクトを返すため、複数列を貼る際は「累積中の `item` に `setValue` を順次適用」する（毎回元 `item` から作って浅くマージすると後続列が `row_data` ごと上書きし先頭列が消えるバグになる）
+- **TSV コピー/ペースト**（`ItemManagerModal`）: セル選択範囲を Ctrl/Cmd+C で TSV コピー（`handleCopy`）、Ctrl/Cmd+V で貼り付け。貼り付けロジックは `applyTsvText(text, startRow, startCol)` に共通化。貼り付け先が末尾を超えると新規行を自動追加。**注意**: 列の `setValue` は `row_data` など入れ子オブジェクトを返すため、複数列を貼る際は「累積中の `item` に `setValue` を順次適用」する（毎回元 `item` から作って浅くマージすると後続列が `row_data` ごと上書きし先頭列が消えるバグになる）
+  - **非編集時**: コンテナ `onKeyDown`（`handleTableKeyDown`）が Ctrl/Cmd+V を捕まえ `navigator.clipboard.readText()` → `applyTsvText`（選択セル基点）
+  - **編集中**: コンテナ `onPaste`（`handleTablePaste`）が input/textarea から bubble する paste を捕まえる。タブ/改行を含む（=複数セル相当）場合のみ `preventDefault` → 編集を抜けて `applyTsvText`（編集セル基点）。単一値はネイティブのセル内貼り付けに任せる。**これで「1列目（行挿入・新規行・Tab 移動で自動的に編集モードに入る）の貼り付けが TSV 展開されず単一セルに入る」現象を解消**
 - **行を間に挿入**（`ItemManagerModal` / `handleInsertRow(refRowIdx, where)`）: マウスとキーボードの両経路を用意
   - **マウス**: 各行ホバーで削除ボタンの隣に「＋（この行の下に挿入）」を表示（`SortableEditableRow` の `onInsert`/`canInsert` props）
   - **キーボード**: `Ctrl/Cmd+Enter`＝選択行の下、`Ctrl/Cmd+Shift+Enter`＝上に挿入（`handleTableKeyDown`）。選択セルがなければ末尾に追加
@@ -178,3 +180,13 @@ Vanilla JS 版と同様の2段階解決。`resolveSectionVars()` → `resolveBin
 - `table_bind_vars` / `table_presets`（アクティブプリセット: `localStorage("dashboard_table_active_preset_<sectionId>")`）
 - `list_bind_vars` / `list_presets`（`dashboard_list_active_preset_<sectionId>`）
 - `grid_bind_vars` / `grid_presets`（`dashboard_grid_active_preset_<sectionId>`）
+
+## 列値バインド（table 専用・行依存）
+
+同じ行の**他列の生値**をセルテンプレートに埋め込む機能。`resolveColumnRefs(str, item, columns)`。
+
+- **構文**: `{@列名}`（label 優先 → なければ列 id でマッチ）。スペース入りの列名は `{@"列 名"}`
+- **解決順**: テーブルセルは `resolveColumnRefs`（行依存・**先頭**）→ `resolveSectionVars` → `resolveBindVars` → `resolveDateVars`。`TableSection` の `resolve(s, item)` は item 必須に変更（cell 表示・`handleCellClick` の両方で item を渡す）
+- **再帰しない（1パスのみ）**: 参照先に `{VAR}` が入っていれば後段のバインド変数解決が引き継ぐ。循環参照（A→B→A）でも無限ループしない。未定義の `{@…}` はそのまま残す（タイプミスの可視化）
+- **スコープ**: 列の概念がある table のみ（list/grid は対象外）
+- **UI ヒント**: `SectionEditModal` の table 列定義の下に `{@列名}` の使い方を表示
