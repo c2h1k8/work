@@ -5,13 +5,13 @@
 
 import styles from '../styles/pages/text.module.css';
 import clsx from 'clsx';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVerticalIcon } from 'lucide-react';
+import { GripVerticalIcon, Columns3Icon, XIcon } from 'lucide-react';
 import { Clipboard } from '../core/clipboard';
 import { Toast } from '../components/Toast';
 import { ShortcutHelp } from '../components/ShortcutHelp';
@@ -1188,6 +1188,11 @@ function TsvSection() {
   const [selCell, setSelCell]   = useState<[number, number] | null>(null);
   const [selEnd, setSelEnd]     = useState<[number, number] | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  // 列検索（列名でジャンプ）
+  const [colSearch,     setColSearch]     = useState('');
+  const [colSearchOpen, setColSearchOpen] = useState(false);
+  const [colSearchIdx,  setColSearchIdx]  = useState(0); // 候補内のハイライト位置
+  const colSearchRef = useRef<HTMLInputElement>(null);
   const cellInputRef  = useRef<HTMLInputElement>(null);
   const tableRef      = useRef<HTMLDivElement>(null);
   const dragCount     = useRef(0);
@@ -1237,6 +1242,66 @@ function TsvSection() {
       c1: Math.min(selCell[1], end[1]), c2: Math.max(selCell[1], end[1]),
     };
   })() : null;
+
+  // ── アクティブセルへのスクロール追従 ─────────────────────────────────
+  // 矢印/Tab 移動・範囲選択で選択セル（範囲選択時は端の selEnd）が画面外へ出たら
+  // コンテナ（tableRef）を縦横スクロールして常に可視域に入れる（Excel/Sheets 相当）。
+  // sticky ヘッダー（.tsv-table th）の高さと余白を考慮し、必要な分だけ動かす。
+  useLayoutEffect(() => {
+    const target = selEnd ?? selCell;
+    if (!target) return;
+    const container = tableRef.current;
+    if (!container) return;
+    const [r, c] = target;
+    const cell = container.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`);
+    if (!cell) return;
+    const MARGIN = 8; // セルを縁に張り付けない余白
+    const cRect = container.getBoundingClientRect();
+    const tRect = cell.getBoundingClientRect();
+    const thead = container.querySelector('thead');
+    const headH = thead ? thead.getBoundingClientRect().height : 0;
+    // 縦方向（sticky ヘッダー高さ分だけ上端の可視境界を下げる）
+    const topGap = tRect.top - (cRect.top + headH) - MARGIN;
+    const bottomGap = tRect.bottom - cRect.bottom + MARGIN;
+    if (topGap < 0) container.scrollTop += topGap;
+    else if (bottomGap > 0) container.scrollTop += bottomGap;
+    // 横方向（固定列はないので単純比較）
+    const leftGap = tRect.left - cRect.left - MARGIN;
+    const rightGap = tRect.right - cRect.right + MARGIN;
+    if (leftGap < 0) container.scrollLeft += leftGap;
+    else if (rightGap > 0) container.scrollLeft += rightGap;
+  }, [selCell, selEnd]);
+
+  // ── 列検索: 列名でジャンプ ──────────────────────────────────────────
+  // ヘッダーがあればその名前、無い/空なら「列 N」を候補ラベルにする
+  const colLabels = Array.from({ length: maxCols }, (_, c) => (headers?.[c]?.trim()) || `列 ${c + 1}`);
+  const cq = colSearch.trim().toLowerCase();
+  const colMatches = cq
+    ? colLabels.map((label, idx) => ({ label, idx })).filter((c) => c.label.toLowerCase().includes(cq))
+    : [];
+  // 候補が変わったらハイライトを先頭に戻す
+  useEffect(() => { setColSearchIdx(0); }, [colSearch]);
+
+  // 指定列へジャンプ（現在行 or 先頭行のセルを選択 → スクロール追従で可視域へ）
+  function jumpToColumn(colIdx: number) {
+    if (displayRows.length === 0) return;
+    const row = selCell ? Math.min(selCell[0], displayRows.length - 1) : 0;
+    setSelCell([row, colIdx]);
+    setSelEnd(null);
+    setEditCell(null);
+    setColSearchOpen(false);
+    setColSearch('');
+    // キーボード操作を継続できるようテーブルへフォーカス（スクロールは useLayoutEffect が担当）
+    setTimeout(() => tableRef.current?.focus(), 0);
+  }
+
+  // 列検索ボックスのキー操作（↑↓ で候補移動・Enter 確定・Esc 閉じる）
+  function handleColSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setColSearchOpen(true); setColSearchIdx((i) => Math.min(colMatches.length - 1, i + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setColSearchIdx((i) => Math.max(0, i - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); const m = colMatches[colSearchIdx]; if (m) jumpToColumn(m.idx); }
+    else if (e.key === 'Escape') { e.preventDefault(); if (colSearch) { setColSearch(''); } else { setColSearchOpen(false); colSearchRef.current?.blur(); } }
+  }
 
   // data の rowIdx（ヘッダー込み）で1セルを更新
   const updateCell = useCallback((dataRowIdx: number, colIdx: number, val: string) => {
@@ -1589,6 +1654,43 @@ function TsvSection() {
                 placeholder="テーブルを検索..."
                 value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
+
+            {/* 列検索（列名でジャンプ）。列が2つ以上のときのみ表示 */}
+            {maxCols > 1 && (
+              <div className="relative w-48 shrink-0">
+                <Columns3Icon size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--c-text-3)] pointer-events-none" />
+                <input ref={colSearchRef} value={colSearch}
+                  onChange={(e) => { setColSearch(e.target.value); setColSearchOpen(true); }}
+                  onFocus={() => setColSearchOpen(true)}
+                  onBlur={() => setTimeout(() => setColSearchOpen(false), 120)} // 候補クリックを拾えるよう遅延
+                  onKeyDown={handleColSearchKeyDown}
+                  placeholder="列へジャンプ..."
+                  className="w-full h-8 pl-8 pr-6 text-[13px] rounded-[var(--radius-md)] border-[1.5px] border-[var(--c-border)] bg-[var(--c-surface)] text-[var(--c-text)] outline-none focus:border-[var(--c-accent)]" />
+                {colSearch && (
+                  <button onMouseDown={(e) => e.preventDefault()} onClick={() => { setColSearch(''); colSearchRef.current?.focus(); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--c-text-3)] hover:text-[var(--c-text)]">
+                    <XIcon size={12} />
+                  </button>
+                )}
+                {colSearchOpen && cq && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-20 max-h-56 overflow-auto rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] shadow-[var(--shadow-lg)] py-1">
+                    {colMatches.length === 0 ? (
+                      <div className="px-3 py-1.5 text-xs text-[var(--c-text-3)]">一致する列なし</div>
+                    ) : colMatches.map((m, i) => (
+                      <button key={m.idx} type="button"
+                        onMouseDown={(e) => e.preventDefault()} // input の blur より先に発火させる
+                        onClick={() => jumpToColumn(m.idx)}
+                        onMouseEnter={() => setColSearchIdx(i)}
+                        className={clsx('w-full text-left px-3 py-1.5 text-xs truncate',
+                          i === colSearchIdx ? 'bg-[var(--c-accent-dim)] text-[var(--c-text)]' : 'text-[var(--c-text)] hover:bg-[var(--c-bg-2)]')}>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <span className={styles['tsv-search-hint']}>
               {q ? `${displayRows.length} / ${bodyRows.length} 行` : `${bodyRows.length} 行`} × {maxCols} 列
             </span>
@@ -1632,7 +1734,7 @@ function TsvSection() {
                         ? displayIdx >= selRange.r1 && displayIdx <= selRange.r2 && colIdx >= selRange.c1 && colIdx <= selRange.c2
                         : false;
                       return (
-                        <td key={colIdx}
+                        <td key={colIdx} data-cell={`${displayIdx}-${colIdx}`}
                           className={clsx(
                             q && cell.toLowerCase().includes(q) && styles['tsv-cell--match'],
                             styles['tsv-editable-cell'],
