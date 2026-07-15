@@ -33,6 +33,8 @@ DB 名: `text_db` version 1（現在永続化なし、将来拡張用）
 - **セル選択**: クリック → 選択（青アウトライン）。選択中に再クリック or Enter/F2 → 編集モード。ダブルクリック → 直接編集
 - **範囲選択**: Shift+クリック / Shift+矢印キー → `selEnd` を更新。`selRange` は `selCell` と `selEnd` から正規化して計算
 - **キーボード（フォーカスモード）**: 矢印キー移動・Tab（右/左）・Enter/F2（編集開始）・Delete/Backspace（セルクリア）・Escape（選択解除）
+- **アクティブセルへのスクロール追従**: 矢印/Tab 移動・範囲選択でアクティブセル（範囲選択時は端の `selEnd`）が画面外へ出たら、スクロールコンテナ（`tableRef` = `.tsv-table-wrap`）を**縦横スクロールして常に可視域に入れる**（Excel/Sheets 相当。多列CSV/TSVでマウス横スクロール不要に）。`useLayoutEffect([selCell, selEnd])` で対象セルを `[data-cell="{行}-{列}"]` から引き、`getBoundingClientRect` 差分で**必要な分だけ**動かす（見えている間は動かさない）。sticky ヘッダー（`.tsv-table th` は `position:sticky; top:0`）の高さと余白（`MARGIN=8px`）を考慮するため `scrollIntoView` は使わない（ヘッダー背後に隠れる／必要以上に飛ぶのを回避）
+- **列検索（列名でジャンプ）**: 検索バーに、行フィルター（値検索 `search`）とは別枠で**列名で目的の列へジャンプ**するコンボボックスを配置（`maxCols > 1` のときのみ）。候補ラベルは `headers` があればヘッダー名、無い/空セルは `列 N`。入力に部分一致する列を `colMatches`（元の列 index を保持）で表示。↑↓ で候補移動・Enter/クリックで `jumpToColumn(colIdx)` → **現在行（なければ先頭行）のそのセルを選択** → 上記スクロール追従で可視域へ。確定後は入力クリア＋テーブルへフォーカス（キーボード操作継続）。Esc は入力クリア→未入力時は閉じる。候補クリックを blur より先に拾うため `onMouseDown preventDefault` ＋ blur は120ms遅延で閉じる
 - **キーボード（編集モード）**: Enter/Esc → 編集確定・元のセルに戻る。Tab/Shift+Tab → 次/前セルへ移動しながら編集モード継続。Esc は `editBeforeRef` で値を復元（リバート）
 - **Ctrl+C**: 選択範囲をTSV形式でクリップボードへ
 - **Ctrl+V**: クリップボードのTSV/CSVを `selCell` 起点でペースト（タブあり→TSV、なし→CSV として自動判定）。行・列が足りなければ自動拡張

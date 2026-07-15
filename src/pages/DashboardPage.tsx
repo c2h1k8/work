@@ -2851,7 +2851,7 @@ function SortableEditableRow({ item, rowIdx, section, colDefs, isDragDisabled, c
       {colDefs.map((col, ci) => {
         const isSpecial = col.isSpecial?.(item) ?? false;
         return (
-          <td key={col.key} className="align-middle p-0">
+          <td key={col.key} data-cell={`${rowIdx}-${ci}`} className="align-middle p-0">
             <SpreadsheetCell
               value={col.getValue(item)}
               isSelected={selectedColIdx === ci}
@@ -2937,6 +2937,11 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
     const [r2, c2] = selEnd ?? selCell;
     return { r1: Math.min(r1,r2), c1: Math.min(c1,c2), r2: Math.max(r1,r2), c2: Math.max(c1,c2) };
   }, [selCell, selEnd]);
+  // ── 列検索（列名でジャンプ）─────────────────────────────────────────
+  const [colSearch,     setColSearch]     = useState('');
+  const [colSearchOpen, setColSearchOpen] = useState(false);
+  const [colSearchIdx,  setColSearchIdx]  = useState(0); // 候補内のハイライト位置
+  const colSearchRef = useRef<HTMLInputElement>(null);
   // ── フィルター ────────────────────────────────────────────────────────
   const [filterQuery, setFilterQuery] = useState('');
   const isFiltering = filterQuery.trim().length > 0;
@@ -2949,6 +2954,36 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
   // フィルター変更時はセル選択をクリア
   useEffect(() => { setSelCell(null); setSelEnd(null); setEditCell(null); }, [filterQuery]);
 
+  // ── アクティブセルへのスクロール追従 ─────────────────────────────────
+  // 矢印/Tab 移動・範囲選択で選択セル（範囲選択時は端の selEnd）が画面外へ出たら
+  // コンテナを縦横スクロールして常に可視域に入れる（Excel/Sheets 相当）。
+  // sticky ヘッダーの高さと余白を考慮し、必要な分だけ動かす（見えている間は動かさない）。
+  useLayoutEffect(() => {
+    const target = selEnd ?? selCell;
+    if (!target) return;
+    const container = tableContainerRef.current;
+    if (!container) return;
+    const [r, c] = target;
+    const cell = container.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`);
+    if (!cell) return;
+    const MARGIN = 8; // セルを縁に張り付けない余白
+    const cRect = container.getBoundingClientRect();
+    const tRect = cell.getBoundingClientRect();
+    // sticky ヘッダー（thead）の高さ分だけ上端の可視境界を下げる
+    const thead = container.querySelector('thead');
+    const headH = thead ? thead.getBoundingClientRect().height : 0;
+    // 縦方向
+    const topGap = tRect.top - (cRect.top + headH) - MARGIN;
+    const bottomGap = tRect.bottom - cRect.bottom + MARGIN;
+    if (topGap < 0) container.scrollTop += topGap;
+    else if (bottomGap > 0) container.scrollTop += bottomGap;
+    // 横方向（固定列はないので単純比較）
+    const leftGap = tRect.left - cRect.left - MARGIN;
+    const rightGap = tRect.right - cRect.right + MARGIN;
+    if (leftGap < 0) container.scrollLeft += leftGap;
+    else if (rightGap > 0) container.scrollLeft += rightGap;
+  }, [selCell, selEnd]);
+
   // ── フィルタリング ────────────────────────────────────────────────────
   const filteredItems = isFiltering
     ? localItems.filter((item) => {
@@ -2959,6 +2994,38 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
           || Object.values(item.row_data || {}).some((v) => (v || '').toLowerCase().includes(q));
       })
     : localItems;
+
+  // ── 列検索: 入力に一致する列名の候補（元の colDefs index を保持）────────
+  const colMatches = useMemo(() => {
+    const q = colSearch.trim().toLowerCase();
+    if (!q) return [];
+    return colDefs
+      .map((c, idx) => ({ label: c.label, idx }))
+      .filter((c) => c.label.toLowerCase().includes(q));
+  }, [colSearch, colDefs]);
+  // 候補が変わったらハイライトを先頭に戻す
+  useEffect(() => { setColSearchIdx(0); }, [colSearch]);
+
+  // 指定列へジャンプ（現在行 or 先頭行のセルを選択 → スクロール追従で可視域へ）
+  function jumpToColumn(colIdx: number) {
+    if (filteredItems.length === 0) return;
+    const row = selCell ? Math.min(selCell[0], filteredItems.length - 1) : 0;
+    setSelCell([row, colIdx]);
+    setSelEnd(null);
+    setEditCell(null);
+    setColSearchOpen(false);
+    setColSearch('');
+    // キーボード操作を継続できるようテーブルへフォーカス（スクロールは useLayoutEffect が担当）
+    setTimeout(() => tableContainerRef.current?.focus(), 0);
+  }
+
+  // 列検索ボックスのキー操作（↑↓ で候補移動・Enter 確定・Esc 閉じる）
+  function handleColSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setColSearchOpen(true); setColSearchIdx((i) => Math.min(colMatches.length - 1, i + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setColSearchIdx((i) => Math.max(0, i - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); const m = colMatches[colSearchIdx]; if (m) jumpToColumn(m.idx); }
+    else if (e.key === 'Escape') { e.preventDefault(); if (colSearch) { setColSearch(''); } else { setColSearchOpen(false); colSearchRef.current?.blur(); } }
+  }
 
   // ── ローカル items 操作 ──────────────────────────────────────────────
   function updateLocalItem(id: number, patch: Partial<DashboardItem>) {
@@ -3432,6 +3499,42 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
               </button>
             )}
           </div>
+
+          {/* 列検索（列名でジャンプ）。列が2つ以上あるときのみ表示 */}
+          {colDefs.length > 1 && (
+            <div className="relative w-44 shrink-0">
+              <Columns3Icon size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--c-fg-3)] pointer-events-none" />
+              <input ref={colSearchRef} value={colSearch}
+                onChange={(e) => { setColSearch(e.target.value); setColSearchOpen(true); }}
+                onFocus={() => setColSearchOpen(true)}
+                onBlur={() => setTimeout(() => setColSearchOpen(false), 120)} // 候補クリックを拾えるよう遅延
+                onKeyDown={handleColSearchKeyDown}
+                placeholder="列へジャンプ…"
+                className="w-full h-7 pl-7 pr-6 rounded border border-[var(--c-border)] bg-[var(--c-bg-2)] text-[var(--c-fg)] text-xs focus:outline-none focus:border-[var(--c-accent)]" />
+              {colSearch && (
+                <button onMouseDown={(e) => e.preventDefault()} onClick={() => { setColSearch(''); colSearchRef.current?.focus(); }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[var(--c-fg-3)] hover:text-[var(--c-fg)]">
+                  <XIcon size={11} />
+                </button>
+              )}
+              {colSearchOpen && colSearch.trim() && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-20 max-h-56 overflow-auto rounded-lg border border-[var(--c-border)] bg-[var(--c-bg)] shadow-[var(--shadow-lg)] py-1">
+                  {colMatches.length === 0 ? (
+                    <div className="px-3 py-1.5 text-xs text-[var(--c-fg-3)]">一致する列なし</div>
+                  ) : colMatches.map((m, i) => (
+                    <button key={m.idx} type="button"
+                      onMouseDown={(e) => e.preventDefault()} // input の blur より先に発火させる
+                      onClick={() => jumpToColumn(m.idx)}
+                      onMouseEnter={() => setColSearchIdx(i)}
+                      className={`w-full text-left px-3 py-1.5 text-xs truncate ${i === colSearchIdx ? 'bg-[var(--c-accent-dim)] text-[var(--c-fg)]' : 'text-[var(--c-fg)] hover:bg-[var(--c-bg-2)]'}`}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <button onClick={handleClose} aria-label="閉じる"
             className="ml-auto p-1 rounded hover:bg-[var(--c-bg-2)] text-[var(--c-fg-3)] shrink-0">
             <XIcon size={16} aria-hidden />

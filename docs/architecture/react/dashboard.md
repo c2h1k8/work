@@ -120,6 +120,8 @@ DB 名: `dashboard_db` version 2
   - 挿入は対象 index に空行を splice → **全行 position 振り直し＋既存行を dirty マーク**（DnD `handleDragEnd` と同方式で並び順を保存）。挿入行の先頭セルを自動で編集状態に
   - **フィルター中は無効**（`canInsert={!isFiltering}`・`handleInsertRow` 冒頭でガード）。追加/DnD と同方針
   - 末尾列（アクション列）は `+`/削除2ボタン分の幅 `w-14`（th/td 一致）
+- **列検索（列名でジャンプ）**（`ItemManagerModal`）: ヘッダーの行フィルター（値検索）とは別に、**列名で目的の列へジャンプ**するコンボボックスを用意（列が多いTSV/CSVで見たい列へ素早く到達する用途）。列が2列以上のときのみ表示（`colDefs.length > 1`）。入力に部分一致する列名候補を `colMatches`（元の `colDefs` index を保持）でドロップダウン表示。↑↓ で候補移動・Enter/クリックで確定 → `jumpToColumn(colIdx)` が**現在行（なければ先頭行）のそのセルを選択** → 上記スクロール追従で可視域へ。確定後は入力をクリアしテーブルへフォーカスを戻す（キーボード操作継続）。Esc は入力クリア→未入力時は閉じる。候補クリックを blur より先に拾うため `onMouseDown preventDefault` ＋ blur は120ms遅延で閉じる
+- **アクティブセルへのスクロール追従**（`ItemManagerModal`）: 矢印/Tab 移動・範囲選択でアクティブセル（範囲選択時は端の `selEnd`）が画面外へ出たら、コンテナ（`tableContainerRef`）を**縦横スクロールして常に可視域に入れる**（Excel/Sheets 相当。列数が多く横オーバーフローするCSV/TSVでマウス横スクロール不要に）。実装は `useLayoutEffect([selCell, selEnd])` で対象セルを `[data-cell="{行}-{列}"]` から引き、`getBoundingClientRect` 差分で**必要な分だけ**動かす（見えている間は動かさない）。sticky ヘッダー（`thead`）の高さと余白（`MARGIN=8px`）を考慮するため `scrollIntoView` は使わない（ヘッダー背後に隠れる／必要以上に飛ぶのを回避）。固定列はないため横は単純比較
 - **行の移動（キーボード）**: `Alt+↑/↓` で選択行を1つ上/下へ（`handleTableKeyDown`）。DnD `handleDragEnd` と同じく `arrayMove` → position 振り直し → 既存行 dirty マーク。**フィルター中・未保存の新規行があるときは無効**（DnD と同条件）。マウスは既存の DnD、キーボードはこの Alt+↑/↓ で両対応
 - **list セクションの頻度ソート**: `SectionCard` ヘッダー右端の `ArrowUpDownIcon` ボタン（list タイプのみ表示）。`sortByUsage` state は `SectionCard` で管理し `SectionProps` 経由で `ListSection` に渡す。ON 時はアクセントカラー + `--c-accent-dim` 背景
 - **アクティビティログ**: `ActivityLogger.log('dashboard', ...)` でセクション追加/更新/削除、アイテム追加/更新/削除を記録。チェックリスト・カウントダウンのインライン操作も対象
