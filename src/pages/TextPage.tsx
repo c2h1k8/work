@@ -5,7 +5,7 @@
 
 import styles from '../styles/pages/text.module.css';
 import clsx from 'clsx';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core';
@@ -1170,6 +1170,78 @@ function SortableTr({ id, disabled, children }: { id: number; disabled: boolean;
   );
 }
 
+// TSV テーブルの1行。React.memo で行単位の再レンダリングを抑制
+// （選択移動・セル編集中のキー入力で全行が再描画されるのを防ぐ）。
+// コールバック props は親が identity 不変のラッパーを渡す前提
+const TsvRow = memo(function TsvRow({
+  displayIdx, dataRowIdx, cells, maxCols, q, canInsert,
+  selectedCol, editingCol, rowRange, editValue,
+  cellInputRef, isComposingRef, imeEscRef,
+  onCellClick, onCellDblClick, onEditValueChange, onEditCompositionEnd, onEditBlur, onEditKeyDown,
+  onInsertRow, onDeleteRow,
+}: {
+  displayIdx: number; dataRowIdx: number; cells: string[]; maxCols: number; q: string; canInsert: boolean;
+  selectedCol: number | null; editingCol: number | null;
+  rowRange: { c1: number; c2: number } | null;
+  editValue: string;
+  cellInputRef: RefObject<HTMLInputElement | null>;
+  isComposingRef: RefObject<boolean>;
+  imeEscRef: RefObject<boolean>;
+  onCellClick: (displayIdx: number, colIdx: number, cell: string, shiftKey: boolean) => void;
+  onCellDblClick: (displayIdx: number, colIdx: number, cell: string) => void;
+  onEditValueChange: (v: string) => void;
+  onEditCompositionEnd: (displayIdx: number, colIdx: number) => void;
+  onEditBlur: () => void;
+  onEditKeyDown: (e: ReactKeyboardEvent<HTMLInputElement>, displayIdx: number, colIdx: number) => void;
+  onInsertRow: (dataRowIdx: number, where: 'above' | 'below') => void;
+  onDeleteRow: (dataRowIdx: number) => void;
+}) {
+  return (
+    <SortableTr id={dataRowIdx} disabled={!canInsert}>
+      {Array.from({ length: maxCols }, (_, colIdx) => {
+        const cell = cells[colIdx] ?? '';
+        const isEditing  = editingCol === colIdx;
+        const isSelected = selectedCol === colIdx;
+        const isInRange  = rowRange ? colIdx >= rowRange.c1 && colIdx <= rowRange.c2 : false;
+        return (
+          <td key={colIdx} data-cell={`${displayIdx}-${colIdx}`}
+            className={clsx(
+              q && cell.toLowerCase().includes(q) && styles['tsv-cell--match'],
+              styles['tsv-editable-cell'],
+              !isEditing && isInRange && isSelected  && styles['tsv-cell--selected'],
+              !isEditing && isInRange && !isSelected && styles['tsv-cell--in-range'],
+            )}
+            onClick={(e) => onCellClick(displayIdx, colIdx, cell, e.shiftKey)}
+            onDoubleClick={() => onCellDblClick(displayIdx, colIdx, cell)}>
+            {isEditing
+              ? <input ref={cellInputRef} type="text" className={styles['tsv-cell-input']}
+                  value={editValue}
+                  onChange={(e) => onEditValueChange(e.target.value)}
+                  onCompositionStart={() => { isComposingRef.current = true; }}
+                  onCompositionEnd={() => onEditCompositionEnd(displayIdx, colIdx)}
+                  onBlur={onEditBlur}
+                  onKeyDown={(e) => {
+                    if (isComposingRef.current) {
+                      // IME変換中: Esc だけ記録して IME に処理させる
+                      if (e.key === 'Escape') imeEscRef.current = true;
+                      return;
+                    }
+                    onEditKeyDown(e, displayIdx, colIdx);
+                  }} />
+              : cell || <span className="text-[var(--c-fg-3)] text-xs select-none pointer-events-none">—</span>}
+          </td>
+        );
+      })}
+      <td className={styles['tsv-table__del-col']}>
+        {canInsert && (
+          <button className={styles['tsv-ins-row-btn']} onClick={() => onInsertRow(dataRowIdx, 'below')} title="この行の下に挿入">＋</button>
+        )}
+        <button className={styles['tsv-del-row-btn']} onClick={() => onDeleteRow(dataRowIdx)} title="行を削除">✕</button>
+      </td>
+    </SortableTr>
+  );
+});
+
 // ==================================================
 // TsvSection — 検索・ソート・セル編集・エクスポート全種
 // ==================================================
@@ -1304,13 +1376,15 @@ function TsvSection() {
   }
 
   // data の rowIdx（ヘッダー込み）で1セルを更新
+  // 変更行以外は配列 identity を保持する（TsvRow の React.memo を効かせるため）
   const updateCell = useCallback((dataRowIdx: number, colIdx: number, val: string) => {
-    setData((prev) => {
-      const next = prev.map((r) => [...r]);
-      while (next[dataRowIdx].length <= colIdx) next[dataRowIdx].push('');
-      next[dataRowIdx][colIdx] = val;
-      return next;
-    });
+    setData((prev) => prev.map((r, i) => {
+      if (i !== dataRowIdx) return r;
+      const row = [...r];
+      while (row.length <= colIdx) row.push('');
+      row[colIdx] = val;
+      return row;
+    }));
   }, []);
 
   // 編集確定 + フォーカス移動
@@ -1358,14 +1432,70 @@ function TsvSection() {
   const addRow    = () => setData((prev) => [...prev, Array(Math.max(maxCols, 1)).fill('')]);
   const deleteRow = (dataRowIdx: number) => setData((prev) => prev.filter((_, i) => i !== dataRowIdx));
 
+  // ── TsvRow への安定コールバック（React.memo を効かせるため identity 不変） ──
+  // 実体は毎レンダー最新のハンドラに差し替え、ラッパーの identity は保つ
+  function handleTsvCellClick(displayIdx: number, colIdx: number, cell: string, shiftKey: boolean) {
+    if (shiftKey && selCell) { setSelEnd([displayIdx, colIdx]); return; }
+    const isSelected = selCell?.[0] === displayIdx && selCell?.[1] === colIdx;
+    const isEditing  = editCell?.[0] === displayIdx && editCell?.[1] === colIdx;
+    if (isSelected && !isEditing) {
+      editBeforeRef.current = cell;
+      setEditCell([displayIdx, colIdx]); setCellValue(cell); setSelEnd(null); return;
+    }
+    setSelCell([displayIdx, colIdx]); setSelEnd(null); setEditCell(null);
+    tableRef.current?.focus();
+  }
+  function handleTsvCellDblClick(displayIdx: number, colIdx: number, cell: string) {
+    editBeforeRef.current = cell;
+    setSelCell([displayIdx, colIdx]);
+    setEditCell([displayIdx, colIdx]);
+    setCellValue(cell);
+    setSelEnd(null);
+  }
+  function handleTsvEditCompositionEnd(displayIdx: number, colIdx: number) {
+    isComposingRef.current = false;
+    if (imeEscRef.current) {
+      imeEscRef.current = false;
+      isEscapingRef.current = true;
+      // compositionend の同期処理内で focus を動かすと IME が上書きするため遅延
+      setTimeout(() => {
+        const dr = displayRows[displayIdx]?.idx;
+        if (dr !== undefined) updateCell(dr, colIdx, editBeforeRef.current);
+        setCellValue(editBeforeRef.current);
+        setEditCell(null); setSelCell([displayIdx, colIdx]);
+        cellInputRef.current?.blur(); // isEscapingRef を onBlur で消費
+        tableRef.current?.focus();
+      }, 0);
+    }
+  }
+  function handleTsvEditBlur() {
+    if (isEscapingRef.current) { isEscapingRef.current = false; return; }
+    commitEdit('none');
+  }
+  function handleTsvEditKeyDown(e: ReactKeyboardEvent<HTMLInputElement>, displayIdx: number, colIdx: number) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      isEscapingRef.current = true;
+      const dataRowIdx = displayRows[displayIdx]?.idx;
+      if (dataRowIdx !== undefined) updateCell(dataRowIdx, colIdx, editBeforeRef.current);
+      setCellValue(editBeforeRef.current);
+      setEditCell(null); setSelCell([displayIdx, colIdx]);
+      setTimeout(() => tableRef.current?.focus(), 0);
+    }
+    else if (e.key === 'Enter') { e.preventDefault(); commitEdit('none'); }
+    else if (e.key === 'Tab')   { e.preventDefault(); commitEdit(e.shiftKey ? 'left' : 'right'); }
+  }
+
   // ソート/フィルター中は表示順と data 配列の順が一致しないため挿入は無効
   const canInsert = sortCol < 0 && !q;
+
   // 基準行（data インデックス）の下/上に空行を挿入し、新行の先頭セルを編集状態に
   const insertRow = (dataRowIdx: number, where: 'above' | 'below') => {
     if (!canInsert) return;
     const at = where === 'below' ? dataRowIdx + 1 : dataRowIdx;
     setData((prev) => {
-      const next = prev.map((r) => [...r]);
+      // 既存行の identity は保持したまま空行を挿入
+      const next = [...prev];
       next.splice(at, 0, Array(Math.max(maxCols, 1)).fill(''));
       return next;
     });
@@ -1376,6 +1506,26 @@ function TsvSection() {
     setSelEnd(null);
     setEditCell([newDisplayIdx, 0]);
   };
+
+  // ── TsvRow への安定コールバックラッパー（identity 不変・実体は毎レンダー最新） ──
+  const tsvHandlersRef = useRef({
+    handleTsvCellClick, handleTsvCellDblClick, setCellValue,
+    handleTsvEditCompositionEnd, handleTsvEditBlur, handleTsvEditKeyDown,
+    insertRow, deleteRow,
+  });
+  tsvHandlersRef.current = {
+    handleTsvCellClick, handleTsvCellDblClick, setCellValue,
+    handleTsvEditCompositionEnd, handleTsvEditBlur, handleTsvEditKeyDown,
+    insertRow, deleteRow,
+  };
+  const onRowCellClick   = useCallback((di: number, ci: number, cell: string, shift: boolean) => tsvHandlersRef.current.handleTsvCellClick(di, ci, cell, shift), []);
+  const onRowCellDbl     = useCallback((di: number, ci: number, cell: string) => tsvHandlersRef.current.handleTsvCellDblClick(di, ci, cell), []);
+  const onRowEditChange  = useCallback((v: string) => tsvHandlersRef.current.setCellValue(v), []);
+  const onRowCompEnd     = useCallback((di: number, ci: number) => tsvHandlersRef.current.handleTsvEditCompositionEnd(di, ci), []);
+  const onRowEditBlur    = useCallback(() => tsvHandlersRef.current.handleTsvEditBlur(), []);
+  const onRowEditKeyDown = useCallback((e: ReactKeyboardEvent<HTMLInputElement>, di: number, ci: number) => tsvHandlersRef.current.handleTsvEditKeyDown(e, di, ci), []);
+  const onRowInsert      = useCallback((d: number, w: 'above' | 'below') => tsvHandlersRef.current.insertRow(d, w), []);
+  const onRowDelete      = useCallback((d: number) => tsvHandlersRef.current.deleteRow(d), []);
 
   // ── 行の並び替え（DnD / キーボード） ─────────────────────────────────
   const rowSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -1725,91 +1875,26 @@ function TsvSection() {
               <SortableContext items={displayRows.map((r) => r.idx)} strategy={verticalListSortingStrategy}>
               <tbody>
                 {displayRows.map(({ idx: dataRowIdx, cells }, displayIdx) => (
-                  <SortableTr key={dataRowIdx} id={dataRowIdx} disabled={!canInsert}>
-                    {Array.from({ length: maxCols }, (_, colIdx) => {
-                      const cell = cells[colIdx] ?? '';
-                      const isEditing  = editCell?.[0] === displayIdx && editCell?.[1] === colIdx;
-                      const isSelected = selCell?.[0] === displayIdx && selCell?.[1] === colIdx;
-                      const isInRange  = selRange
-                        ? displayIdx >= selRange.r1 && displayIdx <= selRange.r2 && colIdx >= selRange.c1 && colIdx <= selRange.c2
-                        : false;
-                      return (
-                        <td key={colIdx} data-cell={`${displayIdx}-${colIdx}`}
-                          className={clsx(
-                            q && cell.toLowerCase().includes(q) && styles['tsv-cell--match'],
-                            styles['tsv-editable-cell'],
-                            !isEditing && isInRange && isSelected  && styles['tsv-cell--selected'],
-                            !isEditing && isInRange && !isSelected && styles['tsv-cell--in-range'],
-                          )}
-                          onClick={(e) => {
-                            if (e.shiftKey && selCell) { setSelEnd([displayIdx, colIdx]); return; }
-                            if (isSelected && !isEditing) {
-                              editBeforeRef.current = cell;
-                              setEditCell([displayIdx, colIdx]); setCellValue(cell); setSelEnd(null); return;
-                            }
-                            setSelCell([displayIdx, colIdx]); setSelEnd(null); setEditCell(null);
-                            tableRef.current?.focus();
-                          }}
-                          onDoubleClick={() => {
-                            editBeforeRef.current = cell;
-                            setSelCell([displayIdx, colIdx]);
-                            setEditCell([displayIdx, colIdx]);
-                            setCellValue(cell);
-                            setSelEnd(null);
-                          }}>
-                          {isEditing
-                            ? <input ref={cellInputRef} type="text" className={styles['tsv-cell-input']}
-                                value={cellValue}
-                                onChange={(e) => setCellValue(e.target.value)}
-                                onCompositionStart={() => { isComposingRef.current = true; }}
-                                onCompositionEnd={() => {
-                                  isComposingRef.current = false;
-                                  if (imeEscRef.current) {
-                                    imeEscRef.current = false;
-                                    isEscapingRef.current = true;
-                                    // compositionend の同期処理内で focus を動かすと IME が上書きするため遅延
-                                    setTimeout(() => {
-                                      const dr = displayRows[displayIdx]?.idx;
-                                      if (dr !== undefined) updateCell(dr, colIdx, editBeforeRef.current);
-                                      setCellValue(editBeforeRef.current);
-                                      setEditCell(null); setSelCell([displayIdx, colIdx]);
-                                      cellInputRef.current?.blur(); // isEscapingRef を onBlur で消費
-                                      tableRef.current?.focus();
-                                    }, 0);
-                                  }
-                                }}
-                                onBlur={() => {
-                                  if (isEscapingRef.current) { isEscapingRef.current = false; return; }
-                                  commitEdit('none');
-                                }}
-                                onKeyDown={(e) => {
-                                  if (isComposingRef.current) {
-                                    if (e.key === 'Escape') imeEscRef.current = true;
-                                    return;
-                                  }
-                                  if (e.key === 'Escape') {
-                                    e.preventDefault();
-                                    isEscapingRef.current = true;
-                                    const dataRowIdx = displayRows[displayIdx]?.idx;
-                                    if (dataRowIdx !== undefined) updateCell(dataRowIdx, colIdx, editBeforeRef.current);
-                                    setCellValue(editBeforeRef.current);
-                                    setEditCell(null); setSelCell([displayIdx, colIdx]);
-                                    setTimeout(() => tableRef.current?.focus(), 0);
-                                  }
-                                  else if (e.key === 'Enter') { e.preventDefault(); commitEdit('none'); }
-                                  else if (e.key === 'Tab')   { e.preventDefault(); commitEdit(e.shiftKey ? 'left' : 'right'); }
-                                }} />
-                            : cell || <span className="text-[var(--c-fg-3)] text-xs select-none pointer-events-none">—</span>}
-                        </td>
-                      );
-                    })}
-                    <td className={styles['tsv-table__del-col']}>
-                      {canInsert && (
-                        <button className={styles['tsv-ins-row-btn']} onClick={() => insertRow(dataRowIdx, 'below')} title="この行の下に挿入">＋</button>
-                      )}
-                      <button className={styles['tsv-del-row-btn']} onClick={() => deleteRow(dataRowIdx)} title="行を削除">✕</button>
-                    </td>
-                  </SortableTr>
+                  <TsvRow
+                    key={dataRowIdx}
+                    displayIdx={displayIdx} dataRowIdx={dataRowIdx} cells={cells}
+                    maxCols={maxCols} q={q} canInsert={canInsert}
+                    selectedCol={selCell?.[0] === displayIdx ? selCell[1] : null}
+                    editingCol={editCell?.[0] === displayIdx ? editCell[1] : null}
+                    rowRange={selRange && displayIdx >= selRange.r1 && displayIdx <= selRange.r2 ? selRange : null}
+                    editValue={editCell?.[0] === displayIdx ? cellValue : ''}
+                    cellInputRef={cellInputRef}
+                    isComposingRef={isComposingRef}
+                    imeEscRef={imeEscRef}
+                    onCellClick={onRowCellClick}
+                    onCellDblClick={onRowCellDbl}
+                    onEditValueChange={onRowEditChange}
+                    onEditCompositionEnd={onRowCompEnd}
+                    onEditBlur={onRowEditBlur}
+                    onEditKeyDown={onRowEditKeyDown}
+                    onInsertRow={onRowInsert}
+                    onDeleteRow={onRowDelete}
+                  />
                 ))}
               </tbody>
               </SortableContext>

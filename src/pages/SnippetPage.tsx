@@ -18,6 +18,8 @@ import { useIsActiveTab } from '../contexts/TabContext';
 import { useThemeStore } from '../stores/theme_store';
 import { useTabStore } from '../stores/tab_store';
 import { searchRegistry } from '../stores/search_store';
+import { formatDateTime } from '../core/date';
+import { confirmDialog } from '../components/ConfirmDialog';
 import styles from '../styles/pages/snippet.module.css';
 
 // ── ストレージキー ─────────────────────────────────
@@ -82,15 +84,6 @@ async function highlight(code: string, lang: string, theme: string): Promise<str
 }
 
 // ── 日時フォーマット ──────────────────────────────
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  const y  = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const da = String(d.getDate()).padStart(2, '0');
-  const h  = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
-  return `${y}/${mo}/${da} ${h}:${mi}`;
-}
 
 // ── 検索抜粋生成 ──────────────────────────────────
 // ================================================================
@@ -442,7 +435,7 @@ export function SnippetPage() {
   };
 
   const handleDelete = async (s: Snippet) => {
-    if (!confirm(`「${s.title}」を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `「${s.title}」を削除しますか？`, danger: true }))) return;
     ActivityLogger.log('snippet', 'delete', 'snippet', s.id!, `スニペット「${s.title}」を削除`);
     await snippetDB.deleteSnippet(s.id!);
     setSnippets(prev => prev.filter(x => x.id !== s.id));
@@ -474,7 +467,7 @@ export function SnippetPage() {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      const replace = confirm('既存のスニペットをすべて削除してインポートしますか？\n「キャンセル」を押すと追記インポートします。');
+      const replace = await confirmDialog({ message: '既存のスニペットをすべて削除してインポートしますか？', okLabel: '削除してインポート', cancelLabel: '追記インポート', danger: true });
       const count = await snippetDB.importAll(data, replace);
       setSnippets(await snippetDB.getAllSnippets());
       success(`${count} 件をインポートしました`);

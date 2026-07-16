@@ -24,6 +24,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS as DndCSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
+import { confirmDialog } from './ConfirmDialog';
 
 export interface LabelItem {
   id: number;
@@ -281,7 +282,7 @@ export function LabelManager({
   }, [newName, newColor, labels, onAdd]);
 
   const handleDelete = useCallback(async (label: LabelItem) => {
-    if (!confirm(`ラベル「${label.name}」を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `ラベル「${label.name}」を削除しますか？`, danger: true }))) return;
     await onDelete(label.id);
   }, [onDelete]);
 

@@ -44,8 +44,8 @@ work/
 │   ├── main.tsx            # エントリポイント
 │   ├── contexts/
 │   │   └── TabContext.ts   # タブラベルを instanceId として提供するコンテキスト
-│   ├── components/         # 共通コンポーネント
-│   ├── core/               # ユーティリティ（utils.ts 等）
+│   ├── components/         # 共通コンポーネント（ConfirmDialog / Toast / DatePicker 等）
+│   ├── core/               # ユーティリティ（utils.ts / date.ts / dashboard_resolve.ts 等）
 │   ├── db/                 # Dexie.js DB クラス（各ページ対応）
 │   │   ├── activity_db.ts  # アクティビティログ
 │   │   ├── app_db.ts       # タブ設定（app_db）
@@ -60,6 +60,7 @@ work/
 │   │   └── text_db.ts      # text
 │   ├── pages/
 │   │   ├── registry.ts     # pageSrc → React コンポーネントのマッピング
+│   │   ├── dashboard/      # DashboardPage の分割モジュール（sections / ItemManagerModal / settings 等）
 │   │   └── （全10ページ）
 │   └── stores/             # Zustand ストア
 ├── docs/

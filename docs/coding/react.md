@@ -17,6 +17,22 @@
 | **Markdown** | `<MarkdownBody>` (`src/components/MarkdownBody.tsx`) を使う。`react-markdown` 直接使用禁止。プラグイン: `remark-gfm` + `remark-breaks` + `rehype-sanitize`。シンタックスハイライト: `react-syntax-highlighter`（PrismLight）|
 | **アイコン** | `lucide-react` |
 | **Toast** | `useToast()` フック（`src/components/Toast.tsx`） |
+| **確認ダイアログ** | `confirmDialog()`（`src/components/ConfirmDialog.tsx`）。**native `confirm()` 直接使用禁止** |
+
+## 確認ダイアログ（confirmDialog）
+
+```ts
+import { confirmDialog } from '../components/ConfirmDialog';
+
+// Promise<boolean> を返す（OK=true）。呼び出し元は async にする
+if (!(await confirmDialog({ message: '削除しますか？', danger: true }))) return;
+// カスタムラベル
+const replace = await confirmDialog({ message: '…', okLabel: '削除してインポート', cancelLabel: '追記インポート', danger: true });
+```
+
+- `ConfirmHost` は `App.tsx` に1つマウント済み（各ページでの設置不要）
+- 破壊的操作（削除・上書き・リセット）は `danger: true`（OK ボタンが `btn--danger` になる）
+- Enter=OK / Esc・背景クリック=キャンセル。ダイアログ表示中の Esc は capture+stopPropagation で下層のモーダルに漏れない
 
 ## CSS 変数
 
@@ -46,8 +62,22 @@ activityDB.add({
 | `isValidUrl(url)` | URL バリデーション |
 | `getTagColor(tag)` | タグ名ハッシュ → 決定論的カラー（16色）|
 | `extractExcerpt(text, query)` | 検索クエリ周辺の抜粋テキストを返す（グローバル検索の excerpt 用）|
+| `lsGet(k)` / `lsSet(k, v)` / `lsJson<T>(k)` | localStorage ヘルパー（UI 選択状態の保存用。ページ内での再定義禁止）|
 
 `getTagColor` は同じ文字列に対して常に同じ色を返す。スニペット・タイマーで共用。
+
+## 日付フォーマット（src/core/date.ts）
+
+`padStart(2, '0')` の手書きフォーマットは禁止。以下を使う:
+
+| 関数 | 用途 |
+|---|---|
+| `pad2(n)` | 2桁ゼロ埋め |
+| `toLocalYmd(d)` | ローカル日付 → `YYYY-MM-DD`（`toISOString()` の UTC ずれ回避）|
+| `ymdCompact(d?)` | エクスポートファイル名等の `YYYYMMDD` |
+| `formatDateTime(iso)` | ISO 文字列 → `YYYY/MM/DD HH:mm` 表示 |
+
+ダッシュボードのトークン形式（`{TODAY:YYYY/MM/DD}` 等の任意フォーマット）は `src/core/dashboard_resolve.ts` の `formatDate` を参照。
 
 ## ハマりポイント
 

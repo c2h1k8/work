@@ -33,6 +33,7 @@ import { sqlDB } from '../../db/sql_db';
 import { wbsDB } from '../../db/wbs_db';
 import { snippetDB } from '../../db/snippet_db';
 import { dashboardDB } from '../../db/dashboard_db';
+import { confirmDialog } from '../ConfirmDialog';
 
 // --------------------------------------------------
 // アイコンピッカー（ポップオーバー）
@@ -106,7 +107,7 @@ function TabSettingItem({ tab }: { tab: TabConfig }) {
   };
 
   const handleDelete = async () => {
-    if (!confirm(`タブ「${tab.label}」を削除しますか？\nこの操作は元に戻せません。`)) return;
+    if (!(await confirmDialog({ message: `タブ「${tab.label}」を削除しますか？\nこの操作は元に戻せません。`, danger: true }))) return;
     await deleteTab(tab.label);
     Toast.success(`「${tab.label}」を削除しました`);
   };
@@ -288,7 +289,7 @@ async function restoreAllData() {
       Toast.error('全データバックアップファイルではありません');
       return;
     }
-    if (!confirm('現在の全データが上書きされます。この操作は元に戻せません。\nよろしいですか？')) return;
+    if (!(await confirmDialog({ message: '現在の全データが上書きされます。この操作は元に戻せません。\nよろしいですか？', danger: true }))) return;
     const dbs = data.databases ?? {};
     try {
       if (dbs.app)       await _loadDB(appDB,       dbs.app);

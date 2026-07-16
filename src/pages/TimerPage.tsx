@@ -13,6 +13,8 @@ import { useTabStore } from '../stores/tab_store';
 import { searchRegistry } from '../stores/search_store';
 import { ShortcutHelp } from '../components/ShortcutHelp';
 import { FileSaver } from '../core/file_saver';
+import { toLocalYmd } from '../core/date';
+import { confirmDialog } from '../components/ConfirmDialog';
 
 const TIMER_SHORTCUTS = [{
   name: 'ショートカット',
@@ -47,9 +49,6 @@ function fmtDuration(sec: number) {
   const m = Math.floor((sec % 3600) / 60);
   if (h > 0) return `${h}時間${m > 0 ? m + '分' : ''}`;
   return `${m}分`;
-}
-function toDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 function toHHMM(iso: string) {
   const d = new Date(iso);
@@ -162,10 +161,10 @@ function computeStreak(sessions: TimerSession[], goalSec: number): number {
   sessions.forEach(s => { const d = s.started_at.slice(0, 10); byDate[d] = (byDate[d] || 0) + s.duration_sec; });
   const threshold = goalSec > 0 ? goalSec : 1;
   const cur = new Date();
-  if ((byDate[toDateStr(cur)] || 0) < threshold) cur.setDate(cur.getDate() - 1);
+  if ((byDate[toLocalYmd(cur)] || 0) < threshold) cur.setDate(cur.getDate() - 1);
   let streak = 0;
   while (streak < 1000) {
-    const d = toDateStr(cur);
+    const d = toLocalYmd(cur);
     if ((byDate[d] || 0) >= threshold) { streak++; cur.setDate(cur.getDate() - 1); }
     else break;
   }
@@ -174,65 +173,65 @@ function computeStreak(sessions: TimerSession[], goalSec: number): number {
 
 // ── 日付リスト生成（チャート用） ──────────────────
 function getDateList(historyView: HistoryView, customFrom: string, customTo: string): string[] {
-  const today = toDateStr(new Date());
+  const today = toLocalYmd(new Date());
   const now   = new Date();
   if (historyView === 'today' || historyView === 'yesterday') return [];
   if (historyView === 'week') {
     const dow = now.getDay() || 7;
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(now); d.setDate(now.getDate() - (dow - 1) + i); return toDateStr(d);
+      const d = new Date(now); d.setDate(now.getDate() - (dow - 1) + i); return toLocalYmd(d);
     });
   }
   if (historyView === 'last-week') {
     const dow = now.getDay() || 7;
     const lastMon = new Date(now); lastMon.setDate(now.getDate() - (dow - 1) - 7);
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(lastMon); d.setDate(lastMon.getDate() + i); return toDateStr(d);
+      const d = new Date(lastMon); d.setDate(lastMon.getDate() + i); return toLocalYmd(d);
     });
   }
   if (historyView === 'last-7') {
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(now); d.setDate(now.getDate() - 6 + i); return toDateStr(d);
+      const d = new Date(now); d.setDate(now.getDate() - 6 + i); return toLocalYmd(d);
     });
   }
   if (historyView === 'last-30') {
     return Array.from({ length: 30 }, (_, i) => {
-      const d = new Date(now); d.setDate(now.getDate() - 29 + i); return toDateStr(d);
+      const d = new Date(now); d.setDate(now.getDate() - 29 + i); return toLocalYmd(d);
     });
   }
   if (historyView === 'quarter') {
     const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
     const list: string[] = [];
     const d = new Date(qStart);
-    while (toDateStr(d) <= today) { list.push(toDateStr(d)); d.setDate(d.getDate() + 1); }
+    while (toLocalYmd(d) <= today) { list.push(toLocalYmd(d)); d.setDate(d.getDate() + 1); }
     return list;
   }
   if (historyView === 'year') {
     const list: string[] = [];
     const d = new Date(now.getFullYear(), 0, 1);
-    while (toDateStr(d) <= today) { list.push(toDateStr(d)); d.setDate(d.getDate() + 1); }
+    while (toLocalYmd(d) <= today) { list.push(toLocalYmd(d)); d.setDate(d.getDate() + 1); }
     return list;
   }
   if (historyView === 'month') {
     const list: string[] = [];
     const d = new Date(now.getFullYear(), now.getMonth(), 1);
-    while (toDateStr(d) <= today) { list.push(toDateStr(d)); d.setDate(d.getDate() + 1); }
+    while (toLocalYmd(d) <= today) { list.push(toLocalYmd(d)); d.setDate(d.getDate() + 1); }
     return list;
   }
   if (historyView === 'last-month') {
     const list: string[] = [];
     const d   = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const end = new Date(now.getFullYear(), now.getMonth(), 0);
-    while (d <= end) { list.push(toDateStr(d)); d.setDate(d.getDate() + 1); }
+    while (d <= end) { list.push(toLocalYmd(d)); d.setDate(d.getDate() + 1); }
     return list;
   }
   if (historyView === 'custom' && (customFrom || customTo)) {
     const f   = customFrom || customTo;
-    const t   = customTo   || toDateStr(new Date());
+    const t   = customTo   || toLocalYmd(new Date());
     const list: string[] = [];
     const d   = new Date(f);
     const end = new Date(t);
-    while (d <= end) { list.push(toDateStr(d)); d.setDate(d.getDate() + 1); }
+    while (d <= end) { list.push(toLocalYmd(d)); d.setDate(d.getDate() + 1); }
     return list;
   }
   return [];
@@ -257,7 +256,7 @@ async function exportCSV() {
     ].join(','));
   const bom = '\uFEFF';
   const csv = bom + [header.join(','), ...rows].join('\n');
-  return FileSaver.save(csv, `timer_sessions_${toDateStr(new Date())}.csv`, {
+  return FileSaver.save(csv, `timer_sessions_${toLocalYmd(new Date())}.csv`, {
     mimeType: 'text/csv',
     filters: [{ name: 'CSV', extensions: ['csv'] }],
   });
@@ -371,7 +370,7 @@ function DailyChart({ sessions, historyView, customFrom, customTo, goalSec }: {
   sessions.forEach(s => { const d = s.started_at.slice(0, 10); byDate[d] = (byDate[d] || 0) + s.duration_sec; });
 
   const maxSec     = Math.max(...dateList.map(d => byDate[d] || 0), 1);
-  const today      = toDateStr(new Date());
+  const today      = toLocalYmd(new Date());
   const activeDays = dateList.filter(d => byDate[d] > 0).length;
   const totalSec   = sessions.reduce((s, x) => s + x.duration_sec, 0);
   const avgSec     = activeDays > 0 ? Math.round(totalSec / activeDays) : 0;
@@ -813,45 +812,45 @@ export function TimerPage() {
 
   // ── セッション読み込み ────────────────────────────
   const loadSessions = useCallback(async (view: HistoryView, from: string, to: string) => {
-    const today = toDateStr(new Date());
+    const today = toLocalYmd(new Date());
     const now   = new Date();
     let loaded: TimerSession[];
     if (view === 'today') {
       loaded = await timerDB.getSessionsByDate(today);
     } else if (view === 'yesterday') {
       const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-      loaded = await timerDB.getSessionsByDate(toDateStr(yesterday));
+      loaded = await timerDB.getSessionsByDate(toLocalYmd(yesterday));
     } else if (view === 'week') {
       const dow = now.getDay() || 7;
       const mon = new Date(now); mon.setDate(now.getDate() - (dow - 1));
-      loaded = await timerDB.getSessionsInRange(toDateStr(mon), today);
+      loaded = await timerDB.getSessionsInRange(toLocalYmd(mon), today);
     } else if (view === 'last-week') {
       const dow = now.getDay() || 7;
       const lastMon = new Date(now); lastMon.setDate(now.getDate() - (dow - 1) - 7);
       const lastSun = new Date(lastMon); lastSun.setDate(lastMon.getDate() + 6);
-      loaded = await timerDB.getSessionsInRange(toDateStr(lastMon), toDateStr(lastSun));
+      loaded = await timerDB.getSessionsInRange(toLocalYmd(lastMon), toLocalYmd(lastSun));
     } else if (view === 'last-7') {
       const from7 = new Date(now); from7.setDate(now.getDate() - 6);
-      loaded = await timerDB.getSessionsInRange(toDateStr(from7), today);
+      loaded = await timerDB.getSessionsInRange(toLocalYmd(from7), today);
     } else if (view === 'last-30') {
       const from30 = new Date(now); from30.setDate(now.getDate() - 29);
-      loaded = await timerDB.getSessionsInRange(toDateStr(from30), today);
+      loaded = await timerDB.getSessionsInRange(toLocalYmd(from30), today);
     } else if (view === 'quarter') {
       const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-      loaded = await timerDB.getSessionsInRange(toDateStr(qStart), today);
+      loaded = await timerDB.getSessionsInRange(toLocalYmd(qStart), today);
     } else if (view === 'year') {
       loaded = await timerDB.getSessionsInRange(`${now.getFullYear()}-01-01`, today);
     } else if (view === 'month') {
-      loaded = await timerDB.getSessionsInRange(toDateStr(new Date(now.getFullYear(), now.getMonth(), 1)), today);
+      loaded = await timerDB.getSessionsInRange(toLocalYmd(new Date(now.getFullYear(), now.getMonth(), 1)), today);
     } else if (view === 'last-month') {
       loaded = await timerDB.getSessionsInRange(
-        toDateStr(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
-        toDateStr(new Date(now.getFullYear(), now.getMonth(), 0))
+        toLocalYmd(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+        toLocalYmd(new Date(now.getFullYear(), now.getMonth(), 0))
       );
     } else {
       if (from || to) {
         const f = from || to;
-        const t = to   || toDateStr(new Date());
+        const t = to   || toLocalYmd(new Date());
         loaded = await timerDB.getSessionsInRange(f, t);
       } else {
         loaded = [];
@@ -1267,7 +1266,7 @@ export function TimerPage() {
 
   // ── プリセット削除 ────────────────────────────────
   const deletePreset = useCallback(async (p: TimerPreset) => {
-    if (!confirm(`「${p.name}」を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `「${p.name}」を削除しますか？`, danger: true }))) return;
     await timerDB.deletePreset(p.id!);
     const newList = presets.filter(x => x.id !== p.id);
     setPresets(newList);
@@ -1292,47 +1291,47 @@ export function TimerPage() {
     // カスタムへの切替時、元ビューの範囲を初期値として設定
     if (v === 'custom' && historyView !== 'custom') {
       const now   = new Date();
-      const today = toDateStr(now);
+      const today = toLocalYmd(now);
       if (historyView === 'today') {
         newFrom = today;
         newTo   = today;
       } else if (historyView === 'yesterday') {
         const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-        newFrom = toDateStr(yesterday);
-        newTo   = toDateStr(yesterday);
+        newFrom = toLocalYmd(yesterday);
+        newTo   = toLocalYmd(yesterday);
       } else if (historyView === 'week') {
         const dow = now.getDay() || 7;
         const mon = new Date(now); mon.setDate(now.getDate() - (dow - 1));
         const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-        newFrom = toDateStr(mon);
-        newTo   = toDateStr(sun);
+        newFrom = toLocalYmd(mon);
+        newTo   = toLocalYmd(sun);
       } else if (historyView === 'last-week') {
         const dow = now.getDay() || 7;
         const lastMon = new Date(now); lastMon.setDate(now.getDate() - (dow - 1) - 7);
         const lastSun = new Date(lastMon); lastSun.setDate(lastMon.getDate() + 6);
-        newFrom = toDateStr(lastMon);
-        newTo   = toDateStr(lastSun);
+        newFrom = toLocalYmd(lastMon);
+        newTo   = toLocalYmd(lastSun);
       } else if (historyView === 'last-7') {
         const from7 = new Date(now); from7.setDate(now.getDate() - 6);
-        newFrom = toDateStr(from7);
+        newFrom = toLocalYmd(from7);
         newTo   = today;
       } else if (historyView === 'last-30') {
         const from30 = new Date(now); from30.setDate(now.getDate() - 29);
-        newFrom = toDateStr(from30);
+        newFrom = toLocalYmd(from30);
         newTo   = today;
       } else if (historyView === 'quarter') {
         const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-        newFrom = toDateStr(qStart);
+        newFrom = toLocalYmd(qStart);
         newTo   = today;
       } else if (historyView === 'year') {
         newFrom = `${now.getFullYear()}-01-01`;
         newTo   = today;
       } else if (historyView === 'month') {
-        newFrom = toDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+        newFrom = toLocalYmd(new Date(now.getFullYear(), now.getMonth(), 1));
         newTo   = today;
       } else if (historyView === 'last-month') {
-        newFrom = toDateStr(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-        newTo   = toDateStr(new Date(now.getFullYear(), now.getMonth(), 0));
+        newFrom = toLocalYmd(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+        newTo   = toLocalYmd(new Date(now.getFullYear(), now.getMonth(), 0));
       }
       setCustomFrom(newFrom);
       setCustomTo(newTo);
@@ -1359,7 +1358,7 @@ export function TimerPage() {
     try {
       const data = await timerDB.exportAll();
       const json = JSON.stringify(data, null, 2);
-      const ok = await FileSaver.save(json, `timer_${toDateStr(new Date())}.json`);
+      const ok = await FileSaver.save(json, `timer_${toLocalYmd(new Date())}.json`);
       if (ok) success('エクスポートしました');
     } catch { showError('エクスポートに失敗しました'); }
   }, [success, showError]);
@@ -1374,7 +1373,7 @@ export function TimerPage() {
       try {
         const text    = await file.text();
         const data    = JSON.parse(text);
-        const replace = confirm('既存のデータをすべて削除してインポートしますか？\n「キャンセル」を押すと追記インポートします。');
+        const replace = await confirmDialog({ message: '既存のデータをすべて削除してインポートしますか？', okLabel: '削除してインポート', cancelLabel: '追記インポート', danger: true });
         await timerDB.importAll(data, replace);
         const pList = await timerDB.getPresets();
         setPresets(pList);
@@ -1442,7 +1441,7 @@ export function TimerPage() {
 
   // ── 分析値 ────────────────────────────────────────
   const todayTotalSec = useMemo(() => {
-    const today = toDateStr(new Date());
+    const today = toLocalYmd(new Date());
     return allSessions.filter(s => s.started_at.slice(0, 10) === today).reduce((sum, s) => sum + s.duration_sec, 0);
   }, [allSessions]);
   const streakDays = useMemo(() => computeStreak(allSessions, dailyGoalSec), [allSessions, dailyGoalSec]);
