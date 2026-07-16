@@ -3140,8 +3140,20 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
     const oldIdx = localItemsRef.current.findIndex((i) => i.id === active.id);
     const newIdx = localItemsRef.current.findIndex((i) => i.id === over.id);
     // position を更新した上でローカルに反映（DB保存は handleSaveAll で一括）
-    const reordered = arrayMove([...localItemsRef.current], oldIdx, newIdx)
-      .map((item, p) => ({ ...item, position: p }));
+    // 複数行の範囲選択内の行をドラッグした場合は選択行ブロックをまとめて移動
+    // （DnD 有効時はフィルターなし＝filteredItems の行番号がそのまま localItems の index）
+    let reordered: DashboardItem[];
+    if (selRange && selRange.r1 !== selRange.r2 && oldIdx >= selRange.r1 && oldIdx <= selRange.r2) {
+      if (newIdx >= selRange.r1 && newIdx <= selRange.r2) return; // ブロック内へのドロップは無視
+      const arr = [...localItemsRef.current];
+      const block = arr.splice(selRange.r1, selRange.r2 - selRange.r1 + 1);
+      const insertIdx = newIdx < selRange.r1 ? newIdx : newIdx - block.length + 1;
+      arr.splice(insertIdx, 0, ...block);
+      reordered = arr.map((item, p) => ({ ...item, position: p }));
+    } else {
+      reordered = arrayMove([...localItemsRef.current], oldIdx, newIdx)
+        .map((item, p) => ({ ...item, position: p }));
+    }
     localItemsRef.current = reordered;
     setLocalItems(reordered);
     setSelCell(null); setEditCell(null);
@@ -3336,15 +3348,17 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
       handleInsertRow(refIdx, e.shiftKey ? 'above' : 'below');
       return;
     }
-    // Alt+↑/↓ = 選択行を1つ上/下へ移動（DnD と同じく position 振り直し）
+    // Alt+↑/↓ = 選択行を1つ上/下へ移動（範囲選択中は複数行ブロックをまとめて移動）
     if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
-      if (isFiltering || newIds.size > 0 || !selCell) return; // フィルター中・未保存新規行ありは無効
-      const [r, c] = selCell;
-      const to = r + (e.key === 'ArrowUp' ? -1 : 1);
-      if (to < 0 || to >= localItemsRef.current.length) return;
-      const reordered = arrayMove([...localItemsRef.current], r, to)
-        .map((it, p) => ({ ...it, position: p }));
+      if (isFiltering || newIds.size > 0 || !selCell || !selRange) return; // フィルター中・未保存新規行ありは無効
+      const delta = e.key === 'ArrowUp' ? -1 : 1;
+      const { r1, r2 } = selRange;
+      if (r1 + delta < 0 || r2 + delta >= localItemsRef.current.length) return;
+      const arr = [...localItemsRef.current];
+      const block = arr.splice(r1, r2 - r1 + 1);
+      arr.splice(r1 + delta, 0, ...block);
+      const reordered = arr.map((it, p) => ({ ...it, position: p }));
       localItemsRef.current = reordered;
       setLocalItems(reordered);
       setDirtyIds((prev) => {
@@ -3352,7 +3366,9 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
         reordered.forEach((i) => { if (i.id! > 0) s.add(i.id!); });
         return s;
       });
-      setSelCell([to, c]); setSelEnd(null);
+      // 選択範囲ごと移動先に追従させ、連続移動できるように範囲を維持する
+      setSelCell([selCell[0] + delta, selCell[1]]);
+      if (selEnd) setSelEnd([selEnd[0] + delta, selEnd[1]]);
       return;
     }
     if (!selCell) {
@@ -3596,7 +3612,7 @@ function ItemManagerModal({ section, items, onClose, onChanged }: ItemManagerMod
                     ＋ 行を追加
                   </button>
                   <span className="text-xs text-[var(--c-fg-3)]">
-                    行ホバーの＋、または {navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'}+Enter で間に挿入
+                    行ホバーの＋、または {navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'}+Enter で間に挿入 ／ {navigator.platform.toLowerCase().includes('mac') ? '⌥' : 'Alt'}+↑↓ で行移動（範囲選択で複数行）
                   </span>
                 </>
               )}
