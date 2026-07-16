@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import styles from '../styles/components/date-picker.module.css';
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { toLocalYmd } from '../core/date';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react';
 
 export interface DatePickerProps {
@@ -83,15 +84,8 @@ function computeHolidays(year: number): Set<string> {
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 const MONTHS   = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function toIsoDate(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+function todayStr() { return toLocalYmd(new Date()); }
+const toIsoDate = toLocalYmd;
 
 function parseDate(iso: string) {
   if (!iso) return null;

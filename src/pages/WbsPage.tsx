@@ -33,6 +33,8 @@ import { useTabStore } from '../stores/tab_store';
 import { searchRegistry } from '../stores/search_store';
 import { ShortcutHelp } from '../components/ShortcutHelp';
 import { FileSaver } from '../core/file_saver';
+import { toLocalYmd, ymdCompact } from '../core/date';
+import { confirmDialog } from '../components/ConfirmDialog';
 
 const WBS_SHORTCUTS = [{
   name: 'ショートカット',
@@ -74,12 +76,6 @@ function parseDate(str: string): Date | null {
   return new Date(y, m - 1, d);
 }
 
-function formatDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 function shortDate(str: string): string {
   if (!str) return '';
@@ -117,8 +113,8 @@ function getJapaneseHolidays(year: number): Set<string> {
     if (d.getDay() === 0) {
       const sub = new Date(d);
       sub.setDate(sub.getDate() + 1);
-      while (result.has(formatDate(sub))) sub.setDate(sub.getDate() + 1);
-      result.add(formatDate(sub));
+      while (result.has(toLocalYmd(sub))) sub.setDate(sub.getDate() + 1);
+      result.add(toLocalYmd(sub));
     }
   });
   const keiro = add(9, nthMonday(9, 3));
@@ -127,7 +123,7 @@ function getJapaneseHolidays(year: number): Set<string> {
   if (sd && kd && sd.getTime() - kd.getTime() === 2 * 86400000) {
     const mid = new Date(kd);
     mid.setDate(mid.getDate() + 1);
-    if (mid.getDay() !== 0 && mid.getDay() !== 6) result.add(formatDate(mid));
+    if (mid.getDay() !== 0 && mid.getDay() !== 6) result.add(toLocalYmd(mid));
   }
   _holidayCache[year] = result;
   return result;
@@ -136,7 +132,7 @@ function getJapaneseHolidays(year: number): Set<string> {
 function isNonWorkingDay(date: Date, customSet: Set<string>): boolean {
   const dow = date.getDay();
   if (dow === 0 || dow === 6) return true;
-  const str = formatDate(date);
+  const str = toLocalYmd(date);
   if (getJapaneseHolidays(date.getFullYear()).has(str)) return true;
   if (customSet.has(str)) return true;
   return false;
@@ -153,7 +149,7 @@ function addBusinessDays(startStr: string, days: number, customSet: Set<string>)
     cur.setDate(cur.getDate() + 1);
     if (!isNonWorkingDay(cur, customSet)) count++;
   }
-  return formatDate(cur);
+  return toLocalYmd(cur);
 }
 
 function countBusinessDays(startStr: string, endStr: string, customSet: Set<string>): number {
@@ -551,7 +547,7 @@ export function WbsPage() {
 
   const deleteTask = useCallback(async (id: number) => {
     const task = tasks.find(t => t.id === id);
-    if (!confirm('このタスクを削除しますか？')) return;
+    if (!(await confirmDialog({ message: 'このタスクを削除しますか？', danger: true }))) return;
     pendingNewIds.current.delete(id);
     if (task) ActivityLogger.log('wbs', 'delete', 'task', id, `WBSタスク「${task.title}」を削除`);
     await wbsDB.deleteTask(id);
@@ -676,7 +672,7 @@ export function WbsPage() {
   const exportData = useCallback(async () => {
     const json = await wbsDB.exportAll();
     const now = new Date();
-    const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    const ts = ymdCompact(now);
     const ok = await FileSaver.save(json, `wbs_export_${ts}.json`);
     if (ok) showSuccess('エクスポートしました');
   }, [showSuccess]);
@@ -746,7 +742,7 @@ export function WbsPage() {
   }, [selectedId, addTask, deleteTask, indentTask, duplicateTask, moveTask]);
 
   // ── セルレンダリングヘルパー ──────────────────────
-  const todayStr = formatDate(new Date());
+  const todayStr = toLocalYmd(new Date());
 
   const renderCell = (task: WbsTask, field: string, agg: AggValues | null, displayValue: string) => {
     if (agg) {
@@ -838,7 +834,7 @@ export function WbsPage() {
         const dayRight = ganttLayout.dateToRightX(cur);
         if (dayRight - dayLeft === DAY_PX && isNonWorkingDay(cur, customSet)) {
           overlays.push(
-            <div key={formatDate(cur)} className="absolute top-0 bottom-0 bg-black/20" style={{ left: dayLeft - barLeft, width: DAY_PX }} />
+            <div key={toLocalYmd(cur)} className="absolute top-0 bottom-0 bg-black/20" style={{ left: dayLeft - barLeft, width: DAY_PX }} />
           );
         }
       }
@@ -1168,7 +1164,7 @@ export function WbsPage() {
                   const days: React.ReactNode[] = [];
                   const cur = new Date(ml.firstDay);
                   while (cur <= ml.lastDay) {
-                    const str = formatDate(cur);
+                    const str = toLocalYmd(cur);
                     const dow = cur.getDay();
                     const isHoliday = getJapaneseHolidays(cur.getFullYear()).has(str) || customSet.has(str);
                     const isToday = str === todayStr;
@@ -1236,7 +1232,7 @@ export function WbsPage() {
                       const bCells: React.ReactNode[] = [];
                       const cur = new Date(ml.firstDay);
                       while (cur <= ml.lastDay) {
-                        const str = formatDate(cur);
+                        const str = toLocalYmd(cur);
                         const dow = cur.getDay();
                         const isHoliday = getJapaneseHolidays(cur.getFullYear()).has(str) || customSet.has(str);
                         const isToday = str === todayStr;

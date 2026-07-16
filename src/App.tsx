@@ -13,6 +13,7 @@ import { useThemeStore } from './stores/theme_store';
 import { activityDB } from './db/activity_db';
 import { PAGE_REGISTRY } from './pages/registry';
 import { TabContext } from './contexts/TabContext';
+import { ConfirmHost } from './components/ConfirmDialog';
 
 // ナビゲーション共通ショートカット定義
 const NAV_SHORTCUT_CATEGORIES = [
@@ -106,6 +107,7 @@ export default function App() {
       <ActivityLogModal open={activityLogOpen} onClose={closeActivityLog} />
       <ShortcutHelp categories={NAV_SHORTCUT_CATEGORIES} />
       <ToastContainer />
+      <ConfirmHost />
     </div>
   );
 }

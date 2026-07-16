@@ -46,3 +46,4 @@ DB 名: `text_db` version 1（現在永続化なし、将来拡張用）
   - **ソート/フィルター中は無効**（`canInsert` を流用。表示順と `data` 順が不一致になるため。`SortableTr` の `disabled` とハンドラ冒頭でガード）
 - **空セル**: `—` で表示（選択・編集は可能）
 - **テーブル ↔ textarea の関係**: textarea変更→`data`再パース（一方向）。テーブル編集は`setData`のみ（textarea は更新しない）。エクスポートは常に`data`から生成
+- **行の再レンダリング最適化**: 行は `TsvRow`（`React.memo`）に分離。コールバック props は `tsvHandlersRef` 経由の identity 不変ラッパー（実体は毎レンダー最新に差し替え）、選択状態は行ごとの派生値（`selectedCol` / `editingCol` / `rowRange`）で渡し、`editValue` は編集中の行にのみ `cellValue` を渡す。`updateCell` / `insertRow` は**変更行以外の配列 identity を保持**する（全行 deep copy しない）。これにより選択移動・編集中のキー入力で全行が再描画されない（大きな CSV/TSV 対策）。IME 関連の refs（`isComposingRef` / `imeEscRef` / `cellInputRef`）は props で渡す

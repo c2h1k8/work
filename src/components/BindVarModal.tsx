@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Toast } from './Toast';
+import { confirmDialog } from './ConfirmDialog';
 
 export interface BindVarPreset {
   id: number;
@@ -78,7 +79,7 @@ function VarSection({
   }, [inputVal, varNames, onAdd]);
 
   const handleRemove = useCallback(async (name: string) => {
-    if (!confirm(`変数 {${name}} を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `変数 {${name}} を削除しますか？`, danger: true }))) return;
     await onRemove(name);
   }, [onRemove]);
 
@@ -213,7 +214,7 @@ function PresetList({
   }, [addingName, onAdd]);
 
   const handleDelete = useCallback(async (id: number) => {
-    if (!confirm('このプリセットを削除しますか？')) return;
+    if (!(await confirmDialog({ message: 'このプリセットを削除しますか？', danger: true }))) return;
     await onDelete(id);
   }, [onDelete]);
 

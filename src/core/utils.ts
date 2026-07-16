@@ -77,3 +77,10 @@ export const isValidUrl = (url: string): boolean => {
     return false;
   }
 };
+
+// ── localStorage ヘルパー（UI 選択状態の保存用） ──────────────
+export function lsGet(key: string): string | null { return localStorage.getItem(key); }
+export function lsSet(key: string, val: string): void { localStorage.setItem(key, val); }
+export function lsJson<T>(key: string): T | null {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) as T : null; } catch { return null; }
+}

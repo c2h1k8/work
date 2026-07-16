@@ -20,6 +20,13 @@ src/components/layout/         AppShell レイアウト部品
 
 - `useTabLabel()` — `TabContext.ts` からタブラベルを取得
 
+## グローバルオーバーレイ（App.tsx）
+
+`SettingsPanel` / `ActivityLogModal` / `ShortcutHelp` / `ToastContainer` に加えて
+`ConfirmHost`（`src/components/ConfirmDialog.tsx`）をマウント。
+各所の確認ダイアログは native `confirm()` ではなく `confirmDialog()`（Promise ベース）を使う
+— 詳細は `@docs/coding/react.md` 参照。
+
 ## ページルックアップ（App.tsx）
 
 `PAGE_REGISTRY[tab.pageSrc.split('?')[0]]` でクエリ文字列を除去してルックアップ。

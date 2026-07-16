@@ -50,6 +50,9 @@ import { ShortcutHelp } from '../components/ShortcutHelp';
 import { searchRegistry } from '../stores/search_store';
 import { useTabStore } from '../stores/tab_store';
 import { FileSaver } from '../core/file_saver';
+import { ymdCompact } from '../core/date';
+import { lsGet, lsSet, lsJson } from '../core/utils';
+import { confirmDialog } from '../components/ConfirmDialog';
 
 const TODO_SHORTCUTS = [{
   name: 'ショートカット',
@@ -68,11 +71,6 @@ const LS_FILTER_DUE   = 'kanban_filter_due';
 const LS_TIMELINE_TAB = 'kanban_timeline_tab';
 const LS_ABS_TIME     = 'kanban_abs_time';
 
-function lsGet(k: string) { return localStorage.getItem(k); }
-function lsSet(k: string, v: string) { localStorage.setItem(k, v); }
-function lsJson<T>(k: string): T | null {
-  try { const v = lsGet(k); return v ? JSON.parse(v) as T : null; } catch { return null; }
-}
 
 // ── グローバル検索用抜粋生成 ──────────────────────────────────
 function extractSearchExcerpt(text: string, query: string, maxLen = 80): string {
@@ -529,7 +527,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   }
 
   async function handleDelete() {
-    if (!confirm(`「${task.title}」を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `「${task.title}」を削除しますか？`, danger: true }))) return;
     await kanbanDB.deleteTask(task.id!);
     ActivityLogger.log('todo', 'delete', 'task', task.id!, task.title);
     onDeleted(task.id!);
@@ -711,7 +709,7 @@ function TaskModal({ task, columns, labels, taskLabels, onClose, onSaved, onDele
   }
 
   async function deleteComment(id: number) {
-    if (!confirm('コメントを削除しますか？')) return;
+    if (!(await confirmDialog({ message: 'コメントを削除しますか？', danger: true }))) return;
     const deleted = await kanbanDB.deleteComment(id);
     // コメントを削除済みに更新（タイムラインに墓石表示するため state に残す）
     setComments((prev) => prev.map((c) => c.id === id ? deleted : c));
@@ -1773,7 +1771,7 @@ function ColumnEditModal({ column, onClose, onSaved, onDeleted, taskCount }: Col
       alert(`このカラムには ${taskCount} 件のタスクがあります。タスクを別のカラムに移動してから削除してください。`);
       return;
     }
-    if (!confirm(`「${column.name}」を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `「${column.name}」を削除しますか？`, danger: true }))) return;
     await kanbanDB.deleteColumn(column.id!);
     onDeleted?.(column.key);
     onSaved();
@@ -1991,7 +1989,7 @@ function TemplateManagerModal({ labels, onClose, onChanged }: TemplateManagerMod
   }
 
   async function deleteTemplate(id: number) {
-    if (!confirm('削除しますか？')) return;
+    if (!(await confirmDialog({ message: '削除しますか？', danger: true }))) return;
     await kanbanDB.deleteTemplate(id);
     const updated = await kanbanDB.getAllTemplates();
     setTemplates(updated);
@@ -2352,7 +2350,7 @@ export function TodoPage() {
 
   // ── カード単体削除 ────────────────────────────────────────
   const deleteCard = useCallback(async (task: KanbanTask) => {
-    if (!confirm(`「${task.title}」を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `「${task.title}」を削除しますか？`, danger: true }))) return;
     await kanbanDB.deleteTask(task.id!);
     ActivityLogger.log('todo', 'delete', 'task', task.id!, task.title);
     await load();
@@ -2363,7 +2361,7 @@ export function TodoPage() {
   const archiveColumn = useCallback(async (columnKey: string) => {
     const tasks = tasksMap[columnKey] || [];
     if (!tasks.length) return;
-    if (!confirm(`${tasks.length} 件のタスクをアーカイブしますか？`)) return;
+    if (!(await confirmDialog({ message: `${tasks.length} 件のタスクをアーカイブしますか？`, danger: true }))) return;
     const colName = columns.find(c => c.key === columnKey)?.name ?? columnKey;
     for (const t of tasks) {
       await kanbanDB.addActivity(t.id!, 'archive', {});
@@ -2380,7 +2378,7 @@ export function TodoPage() {
     const doneCols = columns.filter((c) => c.done);
     const totalTasks = doneCols.reduce((n, c) => n + (tasksMap[c.key]?.length ?? 0), 0);
     if (!totalTasks) { toast.info('アーカイブ対象のタスクがありません'); return; }
-    if (!confirm(`完了カラムの ${totalTasks} 件をすべてアーカイブしますか？`)) return;
+    if (!(await confirmDialog({ message: `完了カラムの ${totalTasks} 件をすべてアーカイブしますか？`, danger: true }))) return;
     for (const col of doneCols) {
       for (const t of (tasksMap[col.key] || [])) {
         await kanbanDB.addActivity(t.id!, 'archive', {});
@@ -2443,7 +2441,7 @@ export function TodoPage() {
     const data = await kanbanDB.exportAll();
     const json = JSON.stringify(data, null, 2);
     const now = new Date();
-    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const stamp = ymdCompact(now);
     const ok = await FileSaver.save(json, `kanban_export_${stamp}.json`);
     if (ok) toast.success('エクスポートしました');
   }, [toast]);
@@ -2456,7 +2454,7 @@ export function TodoPage() {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      if (!confirm('現在のデータをすべて上書きしてインポートしますか？')) return;
+      if (!(await confirmDialog({ message: '現在のデータをすべて上書きしてインポートしますか？', danger: true }))) return;
       await kanbanDB.importAll(data);
       await load();
       toast.success('インポートしました');

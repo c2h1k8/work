@@ -24,6 +24,8 @@ import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } 
 import { CSS as DndCSS } from '@dnd-kit/utilities';
 import { GripVertical, Pencil, Trash2, Tag, Settings2, X, Plus, Download, Upload, Search, FilterX, ExternalLink, Check } from 'lucide-react';
 import { ShortcutHelp } from '../components/ShortcutHelp';
+import { ymdCompact } from '../core/date';
+import { confirmDialog } from '../components/ConfirmDialog';
 
 const NOTE_SHORTCUTS = [{
   name: 'ショートカット',
@@ -905,7 +907,7 @@ function FieldModal({
   };
 
   const deleteField = async (id: number) => {
-    if (!confirm('このフィールドを削除しますか？関連するエントリもすべて削除されます。')) return;
+    if (!(await confirmDialog({ message: 'このフィールドを削除しますか？関連するエントリもすべて削除されます。', danger: true }))) return;
     await noteDB.deleteField(id);
     await reload();
   };
@@ -1398,7 +1400,7 @@ export function NotePage() {
 
   const deleteTask = async () => {
     if (!selectedTaskId || !selectedTask) return;
-    if (!confirm(`「${selectedTask.title}」を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `「${selectedTask.title}」を削除しますか？`, danger: true }))) return;
     ActivityLogger.log('note', 'delete', 'note', selectedTaskId, `ノート「${selectedTask.title}」を削除`);
     await noteDB.deleteTask(selectedTaskId);
     // kanban_db の note_links もカスケード削除
@@ -1508,7 +1510,7 @@ export function NotePage() {
     const data = await noteDB.exportData();
     const json = JSON.stringify(data, null, 2);
     const now = new Date();
-    const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+    const ts = ymdCompact(now);
     const ok = await FileSaver.save(json, `note_export_${ts}.json`, { mimeType: 'application/json' });
     if (ok) showSuccess('エクスポートしました');
   };

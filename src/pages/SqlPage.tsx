@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useToast } from '../components/Toast';
+import { confirmDialog } from '../components/ConfirmDialog';
 import { DatePicker } from '../components/DatePicker';
 import { Select, type SelectOption } from '../components/Select';
 import { sqlDB, type SqlEnv, type TableMemo, type TableColumn, type TableIndex } from '../db/sql_db';
@@ -420,7 +421,7 @@ function EnvSection() {
 
   const deleteEnv = async (env: SqlEnv) => {
     if (envs.length <= 1) { showError('最後の接続環境は削除できません'); return; }
-    if (!confirm(`接続環境「${env.key}」を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `接続環境「${env.key}」を削除しますか？`, danger: true }))) return;
     activityDB.add({ page: 'sql', action: 'delete', target_type: 'env', target_id: String(env.id), summary: `接続環境「${env.key}」を削除`, created_at: new Date().toISOString() });
     await sqlDB.deleteEnv(env.id!);
     if (selKey === env.key) { const next = envs.filter(e => e.id !== env.id)[0]?.key || ''; setSelKey(next); localStorage.setItem(SK_ENV, next); }
@@ -1100,7 +1101,7 @@ function MemoTab({ pendingSelId, onClearPending }: { pendingSelId?: number | nul
   };
 
   const deleteMemo = async (m: TableMemo) => {
-    if (!confirm(`「${m.table_name}」を削除しますか？`)) return;
+    if (!(await confirmDialog({ message: `「${m.table_name}」を削除しますか？`, danger: true }))) return;
     ActivityLogger.log('sql', 'delete', 'table_memo', m.id!, `テーブル定義「${m.table_name}」を削除`);
     await sqlDB.deleteTableMemo(m.id!);
     setMemos(prev => prev.filter(x => x.id !== m.id));
