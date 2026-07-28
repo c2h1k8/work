@@ -41,7 +41,8 @@ DB 名: `dashboard_db` version 2
 | `ListSection` | リスト（全幅行・ホバーアイコン・インラインフィルター） |
 | `GridSection` | グリッド（横並び sheet-card スタイル） |
 | `TableSection` | テーブル（クエリフィルター・保存ビュー・列非表示/並び替え・利用回数列） |
-| `TableQueryInput` | クエリ検索ボックス（列名＋演算子オートコンプリート・構文ヘルプ・portal表示） |
+| `TableQueryInput` | クエリ検索ボックス（確定条件のチップ表示・列名＋演算子オートコンプリート・構文ヘルプ・portal表示） |
+| `FilterChipView` | 確定した1条件を表すチップ（クリック＝編集 / `×`＝削除） |
 | `ViewSwitcher` | 保存ビュー切替（適用/新規保存/更新/削除・現在条件との差分で更新ボタン表示） |
 | `ColumnManagerPopover` | 列管理ポップオーバー（iOS トグル・DnD 並び替え・仮想列対応・列順リセット） |
 | `SortableColRow` | DnD 対応列行（列管理ポップオーバー内） |
@@ -115,6 +116,15 @@ DB 名: `dashboard_db` version 2
   - **構文**: `API`（全列あいまい）／`列名:値`（列指定・含む）／スペース＝AND／`OR`／`( )` グループ化／先頭 `-` で否定／`"列 名":値`（スペース入り列名はクォート）
   - **テキスト演算子**: `:`含む / `=`完全一致 / `^=`前方一致 / `$=`後方一致 / `~/正規表現/` / `:empty` / `:!empty`
   - **オートコンプリート**: 入力中フラグメントから列名候補を提示 → 列名確定後は演算子メニュー（含む/完全一致/前方/後方/正規表現/空/空でない）を提示。`OR` キーワードも候補化。↑↓選択・Enter/Tab確定・Escで閉じる。`SectionCard` が `overflow-hidden` のため候補・ヘルプは **portal** で表示
+  - **確定条件のチップ表示**（`FilterChipView`）: 確定済みの条件は**ラベル（チップ）**として描画し、input 要素には**未確定の 1 term だけ**を保持する。長いクエリ文字列が入力欄を埋めて末尾しか見えなくなる問題を解消
+    - **クエリ文字列が single source of truth**。チップは `splitTopLevelTerms(query)`（トップレベルの AND 単位に分割。クォート内・括弧内のスペースでは切らず `A OR B` は 1 要素に結合）＋ `describeTerm(raw, columns)` による**派生ビュー**。`TableView` / localStorage / `parseTableQuery` の仕様は不変
+    - **チップ表示**: `列ラベル + 演算子 + 値`（例 `環境 : 本番`）。`:empty` / `:!empty` は `は 空` / `は 空でない` に日本語化。全列あいまいは `SearchIcon` ＋値のみ、`OR`/括弧を含む式はモノスペースでそのまま表示。**否定（先頭 `-`）は `BanIcon` ＋ danger 配色**
+    - **確定は Enter（と blur）のみ。スペースでは確定しない**。理由: ①値にスペースを含めたいときに書けなくなる（`担当:田中 太郎` が打った瞬間に分断される） ②**日本語入力の変換スペースと衝突する**（`compositionend` と `change` の発火順はブラウザ/IME 依存でガードしきれない。Enter なら `e.nativeEvent.isComposing` 1つで確実） ③打鍵数は変わらない
+      - **`isBalanced()` で括弧・クォートが閉じている場合のみ**確定する（`(A OR ` や `"担当 ` の途中では確定しない）。確定時は `splitTopLevelTerms` を通すので、入力中テキストに複数 term が含まれていれば複数チップに分かれる
+      - 補完候補は **`QuerySugg.complete === true` のものだけ**自動確定（`:empty` / `:!empty`）。`OR ` のように**末尾が空白でも term として未完成**な候補で確定してしまわないようにフラグで明示する
+    - **操作**: チップ本体クリック＝入力欄に戻して編集（入力中テキストがあれば先にチップ化して退避）／`×`＝削除／空入力で `Backspace`＝直前チップを入力欄に戻す（キーボードのみで編集可）。チップは `<button>` 2つ構成なので Tab でも到達できる
+    - **折りたたみ**: チップが `CHIP_COLLAPSE_LIMIT`(=3) を超えたら先頭3件＋`+N` バッジに集約。クリックで全展開／「折りたたむ」で復帰
+    - 右端の `×` は**全条件クリア**（チップ＋入力中テキスト）
   - **構文ヘルプ**: ボックス右の `?`（`HelpCircleIcon`）で早見表ポップオーバー
   - パースエラー（括弧未閉じ・不正な正規表現等）は枠を danger 色にしヒント表示。既存の表示は壊さない（マッチ false で返すのみ）
   - クエリ文字列は UI 選択状態として `localStorage("dashboard_table_query_<sectionId>")`（`TABLE_QUERY_PREFIX`）に保存
@@ -122,6 +132,8 @@ DB 名: `dashboard_db` version 2
   - **ビュー定義（データ本体）→ IndexedDB**（`section.table_views`、`dashboardDB.patchSection` で保存・export/import で共有可）。**アクティブビューID（UI状態）→ localStorage**（`dashboard_table_active_view_<sectionId>`・`TABLE_ACTIVE_VIEW_PREFIX`）
   - 「フィルターなし」で解除（クエリのみクリア・列/ソートは保持）。適用時はクエリ/ソート/列表示/列順を一括復元し各 localStorage も同期
   - 現在の条件がアクティブビューと差分（`viewDirty`）のとき、その行に「更新」ボタン（`SaveIcon`）を表示。差分判定は `hiddenCols` をソートして正規化比較
+  - **並び替え**（`SortableViewRow` + `reorderViews`）: **配列 `section.table_views` の順がそのまま表示順**。マウス＝行ホバーで出るグリップを DnD（`@dnd-kit`・`PointerSensor` distance 5・列管理ポップオーバーと同じ構成）、キーボード＝行にフォーカスして **`Alt+↑/↓`**（`ItemManagerModal` の行移動と同じキーバインド）の両経路。並び替え後は `dashboardDB.patchSection` で即保存し、`Alt+↑/↓` では `data-view-id` を辿って移動後の行へフォーカスを追従させる（連打で連続移動できる）
+  - 削除ボタンは `opacity-0 group-hover/vw:opacity-100` に加え `focus-visible:opacity-100`（キーボード操作時にも見える）
 - **TSV コピー/ペースト**（`ItemManagerModal`）: セル選択範囲を Ctrl/Cmd+C で TSV コピー（`handleCopy`）、Ctrl/Cmd+V で貼り付け。貼り付けロジックは `applyTsvText(text, startRow, startCol)` に共通化。貼り付け先が末尾を超えると新規行を自動追加。**注意**: 列の `setValue` は `row_data` など入れ子オブジェクトを返すため、複数列を貼る際は「累積中の `item` に `setValue` を順次適用」する（毎回元 `item` から作って浅くマージすると後続列が `row_data` ごと上書きし先頭列が消えるバグになる）
   - **非編集時**: コンテナ `onKeyDown`（`handleTableKeyDown`）が Ctrl/Cmd+V を捕まえ `navigator.clipboard.readText()` → `applyTsvText`（選択セル基点）
   - **編集中**: コンテナ `onPaste`（`handleTablePaste`）が input/textarea から bubble する paste を捕まえる。タブ/改行を含む（=複数セル相当）場合のみ `preventDefault` → 編集を抜けて `applyTsvText`（編集セル基点）。単一値はネイティブのセル内貼り付けに任せる。**これで「1列目（行挿入・新規行・Tab 移動で自動的に編集モードに入る）の貼り付けが TSV 展開されず単一セルに入る」現象を解消**
