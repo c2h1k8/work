@@ -26,6 +26,7 @@ DB 名: `sql_db` version 2
 
 ### 接続・設定タブ
 
+- **`Ctrl+Enter` で接続コマンドをコピー**（`EnvSection`）。`useIsActiveTab()` でアクティブタブに限定する（全タブ同時マウントのため。詳細は `@docs/architecture/react/index.md`）
 - **SQL\*Plus オプション**: `.toggle-wrap` / `.toggle-input` / `.toggle-track` / `.toggle-thumb` によるトグルスイッチ
 - **接続環境一覧**: `@dnd-kit/core` + `@dnd-kit/sortable` による DnD 並び替え（`GripVertical` ハンドル）
   - `SortableEnvItem` コンポーネント（EnvSection 直前に定義）。編集中は accent 色枠でハイライト

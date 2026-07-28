@@ -30,6 +30,7 @@ DB 名: `timer_db` version 2
 
 ## React 版固有
 
+- **キーボードショートカット（`Space` 開始/停止 / `r` リセット / `Ctrl+←→` プリセット切替）は `useIsActiveTab()` でアクティブタブに限定**。全タブが同時マウントされているため、ガードがないと他ページ表示中もキーを奪う（`Space` は `preventDefault` によりページのスクロールも潰す）。詳細は `@docs/architecture/react/index.md`
 - Web Worker ベースのカウントダウン（バックグラウンドタブ対応）
 - `file://` 環境では setInterval フォールバック
 - タイマー状態: `localStorage('timer_running_state')` に毎秒保存。リロード後に復元

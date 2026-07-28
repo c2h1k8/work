@@ -15,6 +15,7 @@ import { ShortcutHelp } from '../components/ShortcutHelp';
 import { FileSaver } from '../core/file_saver';
 import { toLocalYmd } from '../core/date';
 import { confirmDialog } from '../components/ConfirmDialog';
+import { useIsActiveTab } from '../contexts/TabContext';
 
 const TIMER_SHORTCUTS = [{
   name: 'ショートカット',
@@ -672,6 +673,8 @@ function SessionRow({ session: s, onDelete, maxSec }: {
 // ================================================================
 export function TimerPage() {
   const { success, show: showToast, error: showError } = useToast();
+  // 全タブが同時マウントされるため、document レベルのショートカットはアクティブタブに限定する
+  const isActive = useIsActiveTab();
 
   // ── プリセット & セッション ───────────────────────
   const [presets, setPresets]     = useState<TimerPreset[]>([]);
@@ -1404,6 +1407,7 @@ export function TimerPage() {
   // ── キーボードショートカット ──────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!isActive) return;
       const inInput = ['INPUT','TEXTAREA','SELECT'].includes((e.target as HTMLElement).tagName)
         || (e.target as HTMLElement).isContentEditable;
       if (e.key === 'Escape' && inInput) { (e.target as HTMLElement).blur(); return; }
@@ -1437,7 +1441,7 @@ export function TimerPage() {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [handleStart, handlePause, handleReset, showPresetModal]);
+  }, [handleStart, handlePause, handleReset, showPresetModal, isActive]);
 
   // ── 分析値 ────────────────────────────────────────
   const todayTotalSec = useMemo(() => {

@@ -32,6 +32,30 @@ src/components/layout/         AppShell レイアウト部品
 `PAGE_REGISTRY[tab.pageSrc.split('?')[0]]` でクエリ文字列を除去してルックアップ。
 `pages/dashboard.html?instance=...` として保存されたタブも正しく表示できる。
 
+## 全タブ同時マウントとグローバルキーハンドラ（App.tsx）
+
+`App.tsx` は **全タブを同時にマウントし、非アクティブなタブは `hidden` 属性で隠しているだけ**（タイマーをバックグラウンドで動かし続けるため）。
+そのため `document.addEventListener('keydown', ...)` を張るページは、**そのままだと他ページ表示中でもキーを奪う**。
+
+**必ず `useIsActiveTab()`（`src/contexts/TabContext.ts`）でガードすること**:
+
+```ts
+const isActive = useIsActiveTab();
+useEffect(() => {
+  const handler = (e: KeyboardEvent) => {
+    if (!isActive) return;   // ← ハンドラ冒頭でガード
+    ...
+  };
+  document.addEventListener('keydown', handler);
+  return () => document.removeEventListener('keydown', handler);
+}, [..., isActive]);          // ← deps に isActive を入れる（入れないと古い値を掴む）
+```
+
+`isActive` を deps に入れ忘れると、タブ切替でコンポーネントは再レンダリングされても effect は再登録されず、**クロージャが古い `isActive` を掴んだまま**になる。
+対象: TimerPage / TodoPage / SqlPage(EnvSection) / WbsPage / SnippetPage / DiffToolPage。
+
+> 過去の不具合: TimerPage がガードなしだったため、**どのページを見ていてもスペースキーでタイマーが開始/停止し、スペースでのスクロールも `preventDefault` で潰れていた**。
+
 ## ダッシュボードタブ追加（SettingsPanel.tsx）
 
 ダッシュボードタブ追加時の `pageSrc` は `pages/dashboard.html?instance=${crypto.randomUUID()}`。

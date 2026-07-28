@@ -26,6 +26,22 @@ export interface FilterColumn {
   label: string;
 }
 
+/** チップ表示用に分解した 1 条件 */
+export interface TermChip {
+  /** 元のクエリ断片（編集時はこれを入力欄に戻す） */
+  raw: string;
+  /** col: 列指定 / free: 全列あいまい / expr: OR・括弧を含む式 */
+  kind: 'col' | 'free' | 'expr';
+  /** 先頭 - による否定 */
+  negate: boolean;
+  /** kind==='col' のときの列ラベル */
+  colLabel?: string;
+  /** 表示用の演算子記号（':' は否定時 '≠'） */
+  opLabel?: string;
+  /** 表示用の値（:empty / :!empty は日本語化） */
+  value: string;
+}
+
 export interface ParseResult {
   ok: boolean;
   error?: string;
@@ -59,6 +75,89 @@ function stripQuotes(s: string): string {
 /** 列ラベルにクォートが必要か（スペースや演算子記号を含む） */
 export function needsQuote(label: string): boolean {
   return /[\s:=^$~()]/.test(label);
+}
+
+/** クォートが閉じていて括弧の対応も取れているか（チップ確定の可否判定に使う） */
+export function isBalanced(s: string): boolean {
+  let inQ = false;
+  let depth = 0;
+  for (const c of s) {
+    if (c === '"') { inQ = !inQ; continue; }
+    if (inQ) continue;
+    if (c === '(') depth++;
+    else if (c === ')') depth--;
+  }
+  return !inQ && depth === 0;
+}
+
+/** クォート外・括弧外のスペースや括弧を含むか（式チップ判定） */
+function hasTopLevelBreak(s: string): boolean {
+  let inQ = false;
+  for (const c of s) {
+    if (c === '"') { inQ = !inQ; continue; }
+    if (inQ) continue;
+    if (c === ' ' || c === '\t' || c === '(' || c === ')') return true;
+  }
+  return false;
+}
+
+/**
+ * クエリをトップレベルの AND 単位に分割する（チップ 1 個 = 1 要素）。
+ * クォート内・括弧内のスペースでは切らず、`A OR B` は 1 要素にまとめる。
+ */
+export function splitTopLevelTerms(query: string): string[] {
+  const raw: string[] = [];
+  let buf = '';
+  let inQ = false;
+  let depth = 0;
+  const push = () => { if (buf) raw.push(buf); buf = ''; };
+  for (const c of query) {
+    if (c === '"') { inQ = !inQ; buf += c; continue; }
+    if (!inQ) {
+      if (c === '(') { depth++; buf += c; continue; }
+      if (c === ')') { if (depth > 0) depth--; buf += c; continue; }
+      if ((c === ' ' || c === '\t') && depth === 0) { push(); continue; }
+    }
+    buf += c;
+  }
+  push();
+
+  // `A OR B` は 1 チップに結合（OR は AND より弱い結合なので分割すると意味が変わる）
+  const merged: string[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i].toUpperCase() === 'OR' && merged.length > 0 && i + 1 < raw.length) {
+      merged[merged.length - 1] += ` OR ${raw[i + 1]}`;
+      i++;
+      continue;
+    }
+    merged.push(raw[i]);
+  }
+  return merged;
+}
+
+/** クエリ断片をチップ表示用に分解する */
+export function describeTerm(term: string, columns: FilterColumn[]): TermChip {
+  let negate = false;
+  let r = term;
+  if (r.startsWith('-') && r.length > 1) { negate = true; r = r.slice(1); }
+
+  // OR や括弧を含むものは分解せず式としてそのまま見せる
+  if (hasTopLevelBreak(r)) return { raw: term, kind: 'expr', negate, value: r };
+
+  const opInfo = findOperator(r);
+  if (opInfo) {
+    const colRaw = stripQuotes(r.slice(0, opInfo.idx)).trim().toLowerCase();
+    const col = columns.find((c) => c.label.toLowerCase() === colRaw || c.id.toLowerCase() === colRaw);
+    if (col) {
+      const val = stripQuotes(r.slice(opInfo.idx + opInfo.op.length));
+      if (opInfo.op === ':' && (val === 'empty' || val === '!empty')) {
+        return { raw: term, kind: 'col', negate, colLabel: col.label, opLabel: 'は', value: val === 'empty' ? '空' : '空でない' };
+      }
+      return { raw: term, kind: 'col', negate, colLabel: col.label, opLabel: opInfo.op, value: val };
+    }
+  }
+  // 未知の列名 or 演算子なし → 全列あいまい検索（パーサ側のフォールバックと同じ扱い）
+  return { raw: term, kind: 'free', negate, value: stripQuotes(r) };
 }
 
 // ── トークナイザ ────────────────────────────────────────────

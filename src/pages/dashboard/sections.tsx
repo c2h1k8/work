@@ -17,7 +17,7 @@ import {
   GripVerticalIcon, Trash2Icon, CopyIcon, ExternalLinkIcon,
   XIcon, PencilIcon,
   RefreshCwIcon, ClockIcon, Columns3Icon, ArrowUpDownIcon,
-  CalendarDaysIcon, BriefcaseIcon, SearchIcon,
+  CalendarDaysIcon, BriefcaseIcon, SearchIcon, BanIcon,
   HelpCircleIcon, BookmarkIcon, CheckIcon, SaveIcon,
 } from 'lucide-react';
 import {
@@ -25,7 +25,10 @@ import {
   type DashboardSection, type DashboardItem, type DashboardPreset,
   type SectionPreset, type TableView,
 } from '../../db/dashboard_db';
-import { parseTableQuery, findOperator, needsQuote, type FilterColumn } from '../../core/table_filter';
+import {
+  parseTableQuery, findOperator, needsQuote, splitTopLevelTerms, describeTerm, isBalanced,
+  type FilterColumn, type TermChip,
+} from '../../core/table_filter';
 import {
   resolveDateVars, resolveColumnRefs, resolveBindVars, resolveAll,
   isUrl, countCalendarDays, countBusinessDaysSimple, getResetPeriodKey,
@@ -544,7 +547,8 @@ function ColumnManagerPopover({ columns, hiddenCols, colOrder, onToggle, onShowA
 }
 
 // ── クエリ検索ボックス（オートコンプリート付き） ───────────
-interface QuerySugg { text: string; hint: string; insert: string }
+// complete: 挿入するだけで term として完結する候補（確定してチップ化してよい）
+interface QuerySugg { text: string; hint: string; insert: string; complete?: boolean }
 
 // 入力中フラグメントから列名／演算子のサジェストを生成
 function buildQuerySuggestions(frag: string, columns: FilterColumn[]): QuerySugg[] {
@@ -560,8 +564,8 @@ function buildQuerySuggestions(frag: string, columns: FilterColumn[]): QuerySugg
       const valPart = body.slice(op.idx + 1).toLowerCase();
       const base = `${prefix}${colPart}:`;
       const out: QuerySugg[] = [];
-      if ('empty'.startsWith(valPart)) out.push({ text: ':empty', hint: '空', insert: `${base}empty ` });
-      if ('!empty'.startsWith(valPart) || valPart === '') out.push({ text: ':!empty', hint: '空でない', insert: `${base}!empty ` });
+      if ('empty'.startsWith(valPart)) out.push({ text: ':empty', hint: '空', insert: `${base}empty`, complete: true });
+      if ('!empty'.startsWith(valPart) || valPart === '') out.push({ text: ':!empty', hint: '空でない', insert: `${base}!empty`, complete: true });
       return out;
     }
     return [];
@@ -578,8 +582,8 @@ function buildQuerySuggestions(frag: string, columns: FilterColumn[]): QuerySugg
       { text: `${exact.label} ^= 前方一致`,  hint: '前方',     insert: `${prefix}${q}^=` },
       { text: `${exact.label} $= 後方一致`,  hint: '後方',     insert: `${prefix}${q}$=` },
       { text: `${exact.label} ~ 正規表現`,   hint: '正規表現', insert: `${prefix}${q}~/` },
-      { text: `${exact.label} : 空`,         hint: '空',       insert: `${prefix}${q}:empty ` },
-      { text: `${exact.label} : 空でない`,   hint: '空でない', insert: `${prefix}${q}:!empty ` },
+      { text: `${exact.label} : 空`,         hint: '空',       insert: `${prefix}${q}:empty`, complete: true },
+      { text: `${exact.label} : 空でない`,   hint: '空でない', insert: `${prefix}${q}:!empty`, complete: true },
     ];
   }
 
@@ -594,6 +598,38 @@ function buildQuerySuggestions(frag: string, columns: FilterColumn[]): QuerySugg
   if (body && 'or'.startsWith(lc)) out.push({ text: 'OR', hint: 'または', insert: 'OR ' });
   return out;
 }
+
+// 確定済み条件 1 件を表すチップ
+function FilterChipView({ chip, onEdit, onRemove }: {
+  chip: TermChip;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  const tone = chip.negate
+    ? 'border-[var(--c-danger)] bg-[var(--c-danger-bg)] text-[var(--c-danger)]'
+    : 'border-[var(--c-border)] bg-[var(--c-bg-2)] text-[var(--c-fg)] hover:border-[var(--c-accent)]';
+  return (
+    <span className={`inline-flex items-center h-[20px] rounded-full border text-[11px] max-w-[240px] shrink-0 transition-colors ${tone}`}>
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={onEdit}
+        title={`${chip.raw}（クリックで編集）`}
+        className="inline-flex items-center gap-1 min-w-0 pl-1.5 pr-1 h-full rounded-l-full focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--c-accent)]">
+        {chip.negate
+          ? <BanIcon size={10} className="shrink-0 opacity-80" />
+          : chip.kind === 'free' && <SearchIcon size={10} className="shrink-0 opacity-60" />}
+        {chip.colLabel && <span className="shrink-0 opacity-70 truncate max-w-[80px]">{chip.colLabel}</span>}
+        {chip.opLabel && <span className="shrink-0 font-mono opacity-60">{chip.opLabel}</span>}
+        <span className={`truncate font-medium ${chip.kind === 'expr' ? 'font-mono' : ''}`}>{chip.value}</span>
+      </button>
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={onRemove} title="この条件を削除"
+        className="shrink-0 inline-flex items-center justify-center w-[18px] h-full rounded-r-full opacity-50 hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--c-accent)]">
+        <XIcon size={10} />
+      </button>
+    </span>
+  );
+}
+
+/** 折りたたみ時に表示するチップの最大数 */
+const CHIP_COLLAPSE_LIMIT = 3;
 
 function TableQueryInput({ value, onChange, columns, error, count }: {
   value: string;
@@ -615,14 +651,64 @@ function TableQueryInput({ value, onChange, columns, error, count }: {
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpStyle, setHelpStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
 
+  // ── チップ（確定済み）と入力中テキストの分離 ──
+  // クエリ文字列が single source of truth。確定済み term はチップとして描画し、
+  // input 要素には未確定の 1 term だけを保持する。
+  const [terms, setTerms] = useState<string[]>(() => splitTopLevelTerms(value));
+  const [tail, setTail] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const emitted = useRef(value);
+
+  // 外部からクエリが差し替わったとき（ビュー適用・全クリア等）はチップを作り直す
+  useEffect(() => {
+    if (value === emitted.current) return;
+    emitted.current = value;
+    setTerms(splitTopLevelTerms(value));
+    setTail('');
+  }, [value]);
+
+  function emit(nextTerms: string[], nextTail: string) {
+    setTerms(nextTerms);
+    setTail(nextTail);
+    const q = [...nextTerms, nextTail].join(' ').trim();
+    emitted.current = q;
+    onChange(q);
+  }
+
+  /** 入力中テキストを確定してチップにする（確定できなければ false） */
+  function commitTail(): boolean {
+    const t = tail.trim();
+    if (!t || !isBalanced(t)) return false;
+    emit([...terms, ...splitTopLevelTerms(t)], '');
+    setCaret(0);
+    return true;
+  }
+
+  function editChip(idx: number) {
+    // 編集対象を入力欄に戻す。入力中テキストがあれば先にチップ化して退避
+    const rest = terms.filter((_, i) => i !== idx);
+    const raw = terms[idx];
+    const base = tail.trim() && isBalanced(tail.trim()) ? [...rest, ...splitTopLevelTerms(tail.trim())] : rest;
+    emit(base, raw);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) { el.focus(); el.setSelectionRange(raw.length, raw.length); }
+      setCaret(raw.length);
+    });
+  }
+
+  const chips = useMemo(() => terms.map((t) => describeTerm(t, columns)), [terms, columns]);
+  const overflowing = !expanded && chips.length > CHIP_COLLAPSE_LIMIT;
+  const shownChips = overflowing ? chips.slice(0, CHIP_COLLAPSE_LIMIT) : chips;
+
   const frag = useMemo(() => {
     let start = 0;
     for (let i = caret - 1; i >= 0; i--) {
-      const c = value[i];
+      const c = tail[i];
       if (c === ' ' || c === '(' || c === ')') { start = i + 1; break; }
     }
-    return { start, text: value.slice(start, caret) };
-  }, [value, caret]);
+    return { start, text: tail.slice(start, caret) };
+  }, [tail, caret]);
 
   const suggestions = useMemo(() => buildQuerySuggestions(frag.text, columns), [frag.text, columns]);
   useEffect(() => { setSelIdx(0); }, [frag.text]);
@@ -633,7 +719,7 @@ function TableQueryInput({ value, onChange, columns, error, count }: {
     if (!showSug || !boxRef.current) return;
     const rect = boxRef.current.getBoundingClientRect();
     setPopStyle({ position: 'fixed', top: rect.bottom + 4, left: rect.left, width: rect.width, zIndex: 2000, visibility: 'visible' });
-  }, [showSug, suggestions.length, value]);
+  }, [showSug, suggestions.length, tail, chips.length, expanded]);
 
   useLayoutEffect(() => {
     if (!helpOpen || !helpBtnRef.current) return;
@@ -659,12 +745,20 @@ function TableQueryInput({ value, onChange, columns, error, count }: {
   }
 
   function accept(s: QuerySugg) {
-    const before = value.slice(0, frag.start);
-    const after = value.slice(caret);
-    const newVal = before + s.insert + after;
-    const newCaret = (before + s.insert).length;
-    onChange(newVal);
+    const before = tail.slice(0, frag.start);
+    const after = tail.slice(caret);
+    const newTail = before + s.insert + after;
     setDismissed(false);
+    // term として完結する候補（:empty 等）はそのままチップ化
+    const t = newTail.trim();
+    if (s.complete && t && isBalanced(t)) {
+      emit([...terms, ...splitTopLevelTerms(t)], '');
+      setCaret(0);
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
+    const newCaret = (before + s.insert).length;
+    emit(terms, newTail);
     requestAnimationFrame(() => {
       const el = inputRef.current;
       if (el) { el.focus(); el.setSelectionRange(newCaret, newCaret); }
@@ -672,12 +766,27 @@ function TableQueryInput({ value, onChange, columns, error, count }: {
     });
   }
 
+  // 確定は Enter（と blur）のみ。スペースでは確定しない
+  // ── 値にスペースを含められること、IME の変換スペースと衝突しないことを優先
+  function handleChange(next: string) {
+    setDismissed(false);
+    emit(terms, next);
+    setCaret(inputRef.current?.selectionStart ?? next.length);
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!showSug) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setSelIdx((i) => (i + 1) % suggestions.length); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setSelIdx((i) => (i - 1 + suggestions.length) % suggestions.length); }
-    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); accept(suggestions[Math.min(selIdx, suggestions.length - 1)]); }
-    else if (e.key === 'Escape') { e.preventDefault(); setDismissed(true); }
+    if (showSug) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSelIdx((i) => (i + 1) % suggestions.length); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setSelIdx((i) => (i - 1 + suggestions.length) % suggestions.length); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        if (e.nativeEvent.isComposing) return;
+        e.preventDefault(); accept(suggestions[Math.min(selIdx, suggestions.length - 1)]); return;
+      }
+      if (e.key === 'Escape') { e.preventDefault(); setDismissed(true); return; }
+    }
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); commitTail(); return; }
+    // 入力が空の Backspace → 直前のチップを入力欄に戻して編集
+    if (e.key === 'Backspace' && tail === '' && terms.length > 0) { e.preventDefault(); editChip(terms.length - 1); }
   }
 
   const dropdown = showSug ? createPortal(
@@ -725,24 +834,46 @@ function TableQueryInput({ value, onChange, columns, error, count }: {
 
   return (
     <div ref={boxRef} className="relative flex-1 flex items-center gap-1.5">
-      <div className={`flex-1 flex items-center gap-1.5 h-7 px-2 rounded border bg-[var(--c-bg)] transition-colors ${
-        error ? 'border-[var(--c-danger,#e5484d)]' : 'border-[var(--c-border)] focus-within:border-[var(--c-accent)]'
-      }`}>
+      <div
+        onMouseDown={(e) => { if (e.target === e.currentTarget) inputRef.current?.focus(); }}
+        className={`flex-1 flex items-center flex-wrap gap-1 min-h-7 py-[3px] px-2 rounded border bg-[var(--c-bg)] transition-colors cursor-text ${
+          error ? 'border-[var(--c-danger,#e5484d)]' : 'border-[var(--c-border)] focus-within:border-[var(--c-accent)]'
+        }`}>
         <SearchIcon size={12} className="shrink-0 text-[var(--c-fg-3)]" />
+        {shownChips.map((chip, i) => (
+          <FilterChipView key={`${chip.raw}-${i}`} chip={chip}
+            onEdit={() => editChip(i)}
+            onRemove={() => emit(terms.filter((_, j) => j !== i), tail)} />
+        ))}
+        {overflowing && (
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => setExpanded(true)}
+            title="残りの条件を表示"
+            className="shrink-0 h-[20px] px-1.5 rounded-full border border-dashed border-[var(--c-border)] text-[11px] text-[var(--c-fg-3)] hover:border-[var(--c-accent)] hover:text-[var(--c-accent)] transition-colors">
+            +{chips.length - CHIP_COLLAPSE_LIMIT}
+          </button>
+        )}
+        {expanded && chips.length > CHIP_COLLAPSE_LIMIT && (
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => setExpanded(false)}
+            title="条件を折りたたむ"
+            className="shrink-0 h-[20px] px-1.5 rounded-full border border-dashed border-[var(--c-border)] text-[11px] text-[var(--c-fg-3)] hover:border-[var(--c-accent)] hover:text-[var(--c-accent)] transition-colors">
+            折りたたむ
+          </button>
+        )}
         <input
-          ref={inputRef} type="text" value={value}
-          onChange={(e) => { onChange(e.target.value); setCaret(e.target.selectionStart ?? e.target.value.length); setDismissed(false); }}
+          ref={inputRef} type="text" value={tail}
+          onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onKeyUp={syncCaret}
           onClick={syncCaret}
           onFocus={() => { setFocused(true); setDismissed(false); }}
-          onBlur={() => setFocused(false)}
-          placeholder="フィルター（列名:値 / AND / OR / -否定 …）"
-          className="flex-1 min-w-0 bg-transparent text-[var(--c-fg)] text-xs focus:outline-none"
+          onBlur={() => { setFocused(false); commitTail(); }}
+          placeholder={chips.length > 0 ? '条件を追加（Enter で確定）' : 'フィルター（列名:値 / AND / OR / -否定 …）'}
+          className="flex-1 min-w-[90px] h-[20px] bg-transparent text-[var(--c-fg)] text-xs focus:outline-none"
         />
-        {value && (
-          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { onChange(''); inputRef.current?.focus(); }}
-            className="shrink-0 text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="クリア">
+        {(chips.length > 0 || tail) && (
+          <button type="button" onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { emit([], ''); setExpanded(false); inputRef.current?.focus(); }}
+            className="shrink-0 text-[var(--c-fg-3)] hover:text-[var(--c-fg)]" title="すべてクリア">
             <XIcon size={12} />
           </button>
         )}
@@ -764,13 +895,56 @@ function TableQueryInput({ value, onChange, columns, error, count }: {
 }
 
 // ── 保存ビュー切替（ViewSwitcher） ─────────────────────────
-function ViewSwitcher({ views, activeId, onApply, onSaveNew, onUpdate, onDelete, dirty }: {
+// 1 ビュー行。マウス＝グリップで DnD、キーボード＝行フォーカス中の Alt+↑/↓ で並び替え
+function SortableViewRow({ view, active, dirty, onApply, onUpdate, onDelete, onMove }: {
+  view: TableView;
+  active: boolean;
+  dirty: boolean;
+  onApply: () => void;
+  onUpdate: () => void;
+  onDelete: () => void;
+  onMove: (dir: -1 | 1) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: view.id });
+  return (
+    <div ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      className="group/vw flex items-center gap-1 px-1">
+      <button {...attributes} {...listeners} tabIndex={-1} title="ドラッグで並び替え"
+        className="shrink-0 p-0.5 text-[var(--c-fg-3)] cursor-grab active:cursor-grabbing opacity-0 group-hover/vw:opacity-100 transition-opacity touch-none">
+        <GripVerticalIcon size={12} />
+      </button>
+      <button type="button" onClick={onApply} data-view-id={view.id}
+        onKeyDown={(e) => {
+          // Alt+↑/↓ で並び替え（テーブル行移動と同じキーバインド）
+          if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            e.preventDefault();
+            onMove(e.key === 'ArrowUp' ? -1 : 1);
+          }
+        }}
+        title={`${view.name}（Alt+↑/↓ で並び替え）`}
+        className={`flex-1 min-w-0 flex items-center gap-2 px-1 py-1.5 text-left text-xs rounded hover:bg-[var(--c-bg-2)] focus:outline-none focus-visible:ring-1 focus-visible:ring-[var(--c-accent)] ${active ? 'text-[var(--c-accent)]' : 'text-[var(--c-fg)]'}`}>
+        <span className="w-3 shrink-0">{active && <CheckIcon size={12} />}</span>
+        <span className="truncate">{view.name}</span>
+      </button>
+      {active && dirty && (
+        <button type="button" onClick={onUpdate} title="現在の条件で更新"
+          className="shrink-0 p-1 text-[var(--c-fg-3)] hover:text-[var(--c-accent)]"><SaveIcon size={12} /></button>
+      )}
+      <button type="button" onClick={onDelete} title="削除"
+        className="shrink-0 p-1 text-[var(--c-fg-3)] hover:text-[var(--c-danger,#e5484d)] opacity-0 group-hover/vw:opacity-100 focus-visible:opacity-100 transition-opacity"><Trash2Icon size={12} /></button>
+    </div>
+  );
+}
+
+function ViewSwitcher({ views, activeId, onApply, onSaveNew, onUpdate, onDelete, onReorder, dirty }: {
   views: TableView[];
   activeId: string | null;
   onApply: (v: TableView | null) => void;
   onSaveNew: (name: string) => void;
   onUpdate: (id: string) => void;
   onDelete: (id: string) => void;
+  onReorder: (next: TableView[]) => void;
   dirty: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -779,6 +953,7 @@ function ViewSwitcher({ views, activeId, onApply, onSaveNew, onUpdate, onDelete,
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [popStyle, setPopStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const active = views.find((v) => v.id === activeId) || null;
 
   useLayoutEffect(() => {
@@ -808,6 +983,26 @@ function ViewSwitcher({ views, activeId, onApply, onSaveNew, onUpdate, onDelete,
     setName(''); setNaming(false); setOpen(false);
   }
 
+  function handleDragEnd(event: DragEndEvent) {
+    const { active: a, over } = event;
+    if (!over || a.id === over.id) return;
+    const oldIdx = views.findIndex((v) => v.id === a.id);
+    const newIdx = views.findIndex((v) => v.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    onReorder(arrayMove(views, oldIdx, newIdx));
+  }
+
+  /** Alt+↑/↓ での 1 件移動。移動後もフォーカスを追従させる */
+  function moveView(id: string, dir: -1 | 1) {
+    const idx = views.findIndex((v) => v.id === id);
+    const next = idx + dir;
+    if (idx < 0 || next < 0 || next >= views.length) return;
+    onReorder(arrayMove(views, idx, next));
+    requestAnimationFrame(() => {
+      popRef.current?.querySelector<HTMLElement>(`[data-view-id="${id}"]`)?.focus();
+    });
+  }
+
   const popover = open ? createPortal(
     <div ref={popRef} style={popStyle}
       className="bg-[var(--c-bg)] border border-[var(--c-border)] rounded-xl shadow-[0_8px_32px_rgba(0,0,0,.16)] overflow-hidden py-1">
@@ -817,21 +1012,19 @@ function ViewSwitcher({ views, activeId, onApply, onSaveNew, onUpdate, onDelete,
         フィルターなし
       </button>
       {views.length > 0 && <div className="my-1 border-t border-[var(--c-border)]" />}
-      {views.map((v) => (
-        <div key={v.id} className="group/vw flex items-center gap-1 px-1">
-          <button type="button" onClick={() => { onApply(v); setOpen(false); }}
-            className={`flex-1 flex items-center gap-2 px-2 py-1.5 text-left text-xs rounded hover:bg-[var(--c-bg-2)] ${v.id === activeId ? 'text-[var(--c-accent)]' : 'text-[var(--c-fg)]'}`}>
-            <span className="w-3 shrink-0">{v.id === activeId && <CheckIcon size={12} />}</span>
-            <span className="truncate">{v.name}</span>
-          </button>
-          {v.id === activeId && dirty && (
-            <button type="button" onClick={() => onUpdate(v.id)} title="現在の条件で更新"
-              className="shrink-0 p-1 text-[var(--c-fg-3)] hover:text-[var(--c-accent)]"><SaveIcon size={12} /></button>
-          )}
-          <button type="button" onClick={() => onDelete(v.id)} title="削除"
-            className="shrink-0 p-1 text-[var(--c-fg-3)] hover:text-[var(--c-danger,#e5484d)] opacity-0 group-hover/vw:opacity-100 transition-opacity"><Trash2Icon size={12} /></button>
-        </div>
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={views.map((v) => v.id)} strategy={verticalListSortingStrategy}>
+          {views.map((v) => (
+            <SortableViewRow key={v.id} view={v}
+              active={v.id === activeId}
+              dirty={dirty}
+              onApply={() => { onApply(v); setOpen(false); }}
+              onUpdate={() => onUpdate(v.id)}
+              onDelete={() => onDelete(v.id)}
+              onMove={(dir) => moveView(v.id, dir)} />
+          ))}
+        </SortableContext>
+      </DndContext>
       <div className="my-1 border-t border-[var(--c-border)]" />
       {naming ? (
         <div className="flex items-center gap-1 px-2 py-1">
@@ -1024,6 +1217,10 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
     await persistViews(views.filter((v) => v.id !== id));
     if (activeViewId === id) setActiveView(null);
   }
+  /** ビューの並び順を変更（配列順がそのまま表示順・IndexedDB に保存） */
+  async function reorderViews(next: TableView[]) {
+    await persistViews(next);
+  }
 
   const totalPages = pageSize > 0 ? Math.ceil(filteredItems.length / pageSize) : 1;
   const pagedItems = pageSize > 0 ? filteredItems.slice(page * pageSize, (page + 1) * pageSize) : filteredItems;
@@ -1072,6 +1269,7 @@ function TableSection({ section, items, presets, activePresetId, globalVarNames,
           onSaveNew={saveNewView}
           onUpdate={updateView}
           onDelete={deleteView}
+          onReorder={reorderViews}
           dirty={viewDirty}
         />
         <ColumnManagerPopover

@@ -739,7 +739,7 @@ export function WbsPage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedId, addTask, deleteTask, indentTask, duplicateTask, moveTask]);
+  }, [selectedId, addTask, deleteTask, indentTask, duplicateTask, moveTask, isActive]);
 
   // ── セルレンダリングヘルパー ──────────────────────
   const todayStr = toLocalYmd(new Date());

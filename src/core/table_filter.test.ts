@@ -2,7 +2,10 @@
 // table_filter ユニットテスト
 // ==================================================
 import { describe, it, expect } from 'vitest';
-import { parseTableQuery, findOperator, needsQuote, type FilterColumn } from './table_filter';
+import {
+  parseTableQuery, findOperator, needsQuote, splitTopLevelTerms, describeTerm, isBalanced,
+  type FilterColumn,
+} from './table_filter';
 
 const COLS: FilterColumn[] = [
   { id: 'c1', label: 'タイトル' },
@@ -124,5 +127,66 @@ describe('parseTableQuery', () => {
   it('括弧未閉じはエラー', () => {
     const r = parseTableQuery('(タイトル:A', COLS);
     expect(r.ok).toBe(false);
+  });
+});
+
+describe('isBalanced', () => {
+  it('クォート・括弧の対応を判定する', () => {
+    expect(isBalanced('タイトル:A')).toBe(true);
+    expect(isBalanced('(A OR B)')).toBe(true);
+    expect(isBalanced('(A OR B')).toBe(false);
+    expect(isBalanced('"担当 者:田')).toBe(false); // クォート未閉じ
+    expect(isBalanced('"担当 者":田中')).toBe(true);
+  });
+});
+
+describe('splitTopLevelTerms', () => {
+  it('トップレベルのスペースで分割する', () => {
+    expect(splitTopLevelTerms('タイトル:A ステータス:完了')).toEqual(['タイトル:A', 'ステータス:完了']);
+  });
+  it('クォート内・括弧内のスペースでは分割しない', () => {
+    expect(splitTopLevelTerms('"担当 者":田中 A')).toEqual(['"担当 者":田中', 'A']);
+    expect(splitTopLevelTerms('(A OR B) C')).toEqual(['(A OR B)', 'C']);
+  });
+  it('OR は 1 要素にまとめる', () => {
+    expect(splitTopLevelTerms('A OR B C')).toEqual(['A OR B', 'C']);
+    expect(splitTopLevelTerms('A OR B OR C')).toEqual(['A OR B OR C']);
+  });
+  it('連続スペース・前後の空白を無視する', () => {
+    expect(splitTopLevelTerms('  A   B ')).toEqual(['A', 'B']);
+    expect(splitTopLevelTerms('')).toEqual([]);
+  });
+  it('分割して結合すると元のクエリと等価', () => {
+    const q = 'タイトル:A (B OR C) -"担当 者":田中';
+    expect(splitTopLevelTerms(q).join(' ')).toBe(q);
+  });
+});
+
+describe('describeTerm', () => {
+  it('列指定を分解する', () => {
+    expect(describeTerm('タイトル:API', COLS)).toMatchObject({
+      kind: 'col', negate: false, colLabel: 'タイトル', opLabel: ':', value: 'API',
+    });
+  });
+  it('否定を検出する', () => {
+    expect(describeTerm('-タイトル:API', COLS)).toMatchObject({ kind: 'col', negate: true, value: 'API' });
+  });
+  it('empty / !empty を日本語化する', () => {
+    expect(describeTerm('タイトル:empty', COLS)).toMatchObject({ opLabel: 'は', value: '空' });
+    expect(describeTerm('タイトル:!empty', COLS)).toMatchObject({ opLabel: 'は', value: '空でない' });
+  });
+  it('クォート付き列名のクォートを外す', () => {
+    expect(describeTerm('"担当 者":田中', COLS)).toMatchObject({ kind: 'col', colLabel: '担当 者', value: '田中' });
+  });
+  it('演算子なし・未知の列名は全列あいまい', () => {
+    expect(describeTerm('API', COLS)).toMatchObject({ kind: 'free', value: 'API' });
+    expect(describeTerm('unknown:値', COLS)).toMatchObject({ kind: 'free', value: 'unknown:値' });
+  });
+  it('OR・括弧を含むものは式として扱う', () => {
+    expect(describeTerm('A OR B', COLS)).toMatchObject({ kind: 'expr', value: 'A OR B' });
+    expect(describeTerm('(A OR B)', COLS)).toMatchObject({ kind: 'expr' });
+  });
+  it('raw は元の断片を保持する（編集時に入力欄へ戻すため）', () => {
+    expect(describeTerm('-"担当 者":田中', COLS).raw).toBe('-"担当 者":田中');
   });
 });
