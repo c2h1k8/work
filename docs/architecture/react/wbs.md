@@ -28,3 +28,4 @@ DB 名: `wbs_db` version 1
 ## キーボードショートカット
 
 - DatePicker が開いている間は `[role="dialog"][aria-label="日付を選択"]` の DOM 存在チェックで WBS ショートカットを無効化（Ctrl+↑↓ でタスク移動が誤作動しないよう保護）
+- `useIsActiveTab()` の `if (!isActive) return;` でアクティブタブに限定。**`isActive` は effect の deps にも入れること**（入れないとクロージャが古い値を掴み、タブ切替後もガードが効かない）。詳細は `@docs/architecture/react/index.md`

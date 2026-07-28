@@ -53,6 +53,7 @@ import { FileSaver } from '../core/file_saver';
 import { ymdCompact } from '../core/date';
 import { lsGet, lsSet, lsJson } from '../core/utils';
 import { confirmDialog } from '../components/ConfirmDialog';
+import { useIsActiveTab } from '../contexts/TabContext';
 
 const TODO_SHORTCUTS = [{
   name: 'ショートカット',
@@ -2112,6 +2113,8 @@ const DEFAULT_COLUMNS: Omit<KanbanColumn, 'id'>[] = [
 
 export function TodoPage() {
   const toast = useToast();
+  // 全タブが同時マウントされるため、document レベルのショートカットはアクティブタブに限定する
+  const isActive = useIsActiveTab();
 
   const [columns,     setColumns]     = useState<KanbanColumn[]>([]);
   const [tasksMap,    setTasksMap]    = useState<Record<string, KanbanTask[]>>({});
@@ -2394,7 +2397,7 @@ export function TodoPage() {
   // ── グローバルキーボードショートカット ──────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.isComposing) return;
+      if (!isActive || e.isComposing) return;
       const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
       const inInput = ['input', 'textarea', 'select'].includes(tag ?? '')
         || (document.activeElement as HTMLElement)?.isContentEditable;
@@ -2413,7 +2416,7 @@ export function TodoPage() {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [archiveDoneColumns]);
+  }, [archiveDoneColumns, isActive]);
 
   // ── テンプレートからタスク追加 ───────────────────────────────
   const addTaskFromTemplate = useCallback(async (columnKey: string, template: KanbanTemplate) => {

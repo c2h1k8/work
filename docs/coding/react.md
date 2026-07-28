@@ -85,6 +85,7 @@ activityDB.add({
 - **IME 入力確定検知**: `e.nativeEvent.isComposing`（`e.isComposing` は型エラー）
 - **React.Fragment に key を付ける場合**: `import React from 'react'` を明示的に追加
 - **型キャスト**: `obj as unknown as Record<string, unknown>` のパターン（直接キャストが型エラーになる場合）
+- **document レベルのキーボードショートカット**: **全タブが同時マウントされている**ため、`useIsActiveTab()` で `if (!isActive) return;` のガードが必須（deps にも `isActive` を入れる）。詳細は `@docs/architecture/react/index.md`
 
 ## ストレージ方針
 

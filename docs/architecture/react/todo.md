@@ -16,6 +16,7 @@ DB 名: `kanban_db` version 2
 
 ## React 版固有
 
+- **キーボードショートカット（`n` 追加 / `f` フィルター / `Ctrl+Shift+A` アーカイブ）は `useIsActiveTab()` でアクティブタブに限定**。全タブが同時マウントされているため、ガードがないと他ページ表示中もキーを奪う。詳細は `@docs/architecture/react/index.md`
 - DnD: `@dnd-kit/core` + `@dnd-kit/sortable`（Vanilla の SortableJS とは異なる）
 - アクティビティログ: `ActivityLogger.log('todo', action, 'task', id, summary)` — `disabledPages` チェック込み（直接 `activityDB.add()` は使わない）
 

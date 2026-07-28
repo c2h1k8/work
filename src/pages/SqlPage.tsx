@@ -31,6 +31,7 @@ import {
   ArrowLeftRight, GripVertical, Database,
 } from 'lucide-react';
 import { ShortcutHelp } from '../components/ShortcutHelp';
+import { useIsActiveTab } from '../contexts/TabContext';
 
 const SQL_SHORTCUTS = [{
   name: 'ショートカット',
@@ -346,6 +347,8 @@ function SortableEnvItem({ env, isEditing, onEdit, onDelete }: {
 // ── 接続環境セクション ──────────────────────────────────────────
 function EnvSection() {
   const { success, error: showError, show: showToast } = useToast();
+  // 全タブが同時マウントされるため、document レベルのショートカットはアクティブタブに限定する
+  const isActive = useIsActiveTab();
   const [envs, setEnvs]         = useState<SqlEnv[]>([]);
   const [selKey, setSelKey]     = useState(() => localStorage.getItem(SK_ENV) || '');
   const [opts, setOpts]         = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem(SK_OPTS) || '{}'); } catch { return {}; } });
@@ -388,6 +391,7 @@ function EnvSection() {
   // Ctrl+Enter でコマンドコピー（Setupタブがマウントされている間だけ有効）
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!isActive) return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         Clipboard.copy(connCmd).then(() => success('コピーしました'));
@@ -395,7 +399,7 @@ function EnvSection() {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [connCmd, success]);
+  }, [connCmd, success, isActive]);
 
   const selectEnv = (key: string) => { setSelKey(key); localStorage.setItem(SK_ENV, key); };
   const toggleOpt = (flag: string, checked: boolean) => {
